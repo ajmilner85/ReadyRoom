@@ -2,7 +2,7 @@
 
 export const debriefingStyles = {
   container: {
-    backgroundColor: '#F0F4F8',
+    backgroundColor: 'var(--rr-panel2)',
     height: '100vh',
     display: 'flex',
     flexDirection: 'column' as const,
@@ -33,8 +33,8 @@ export const debriefingStyles = {
 export const missionListStyles = {
   container: {
     width: '663px',
-    backgroundColor: '#FFFFFF',
-    boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'var(--rr-panel)',
+    boxShadow: 'var(--rr-shadow)',
     borderRadius: '8px',
     display: 'flex',
     flexDirection: 'column' as const,
@@ -55,7 +55,7 @@ export const missionListStyles = {
     padding: '12px 16px',
     marginBottom: '10px',
     cursor: 'pointer',
-    backgroundColor: isSelected ? '#EFF6FF' : isHovered ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+    backgroundColor: isSelected ? 'var(--rr-accent-weak)' : isHovered ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
     transition: 'background-color 0.2s ease',
     borderRadius: '8px',
     gap: '4px'
@@ -63,7 +63,7 @@ export const missionListStyles = {
   missionName: {
     fontSize: '16px',
     fontWeight: 700,
-    color: '#1E293B',
+    color: 'var(--rr-text)',
     flex: 1,
     overflow: 'hidden',
     textOverflow: 'ellipsis',
@@ -73,7 +73,7 @@ export const missionListStyles = {
   missionTime: {
     fontSize: '13px',
     fontWeight: 300,
-    color: '#64748B'
+    color: 'var(--rr-text2)'
   },
   outcomeBadge: (outcome: string) => ({
     display: 'inline-block',
@@ -85,19 +85,19 @@ export const missionListStyles = {
     whiteSpace: 'nowrap' as const,
     flexShrink: 0,
     backgroundColor:
-      outcome === 'success' ? '#DCFCE7' :
+      outcome === 'success' ? 'rgba(64,168,91,.14)' :
       outcome === 'partial_success' ? '#FEF3C7' :
       outcome === 'failure' ? '#FEE2E2' :
       '#E5E7EB', // pending - grey
     color:
-      outcome === 'success' ? '#166534' :
+      outcome === 'success' ? 'var(--rr-good)' :
       outcome === 'partial_success' ? '#854D0E' :
       outcome === 'failure' ? '#991B1B' :
       '#6B7280' // pending - darker grey
   }),
   emptyList: {
     textAlign: 'center' as const,
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     marginTop: '20px',
     padding: '40px 20px'
   }
@@ -106,8 +106,8 @@ export const missionListStyles = {
 export const missionDetailsStyles = {
   container: {
     width: '1326px', // baseWidth * 2
-    backgroundColor: '#FFFFFF',
-    boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+    backgroundColor: 'var(--rr-panel)',
+    boxShadow: 'var(--rr-shadow)',
     borderRadius: '8px',
     padding: '24px',
     display: 'flex',
@@ -122,13 +122,13 @@ export const missionDetailsStyles = {
     height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     fontSize: '14px'
   },
   header: {
     marginBottom: '24px',
     paddingBottom: '16px',
-    borderBottom: '1px solid #E2E8F0',
+    borderBottom: '1px solid var(--rr-border)',
     display: 'flex',
     alignItems: 'flex-start',
     gap: '24px'
@@ -136,13 +136,13 @@ export const missionDetailsStyles = {
   missionName: {
     fontSize: '24px',
     fontWeight: 700,
-    color: '#1E293B',
+    color: 'var(--rr-text)',
     marginBottom: '8px'
   },
   missionTime: {
     fontSize: '14px',
     fontWeight: 400,
-    color: '#64748B'
+    color: 'var(--rr-text2)'
   },
   squadronsContainer: {
     display: 'grid',
@@ -153,15 +153,15 @@ export const missionDetailsStyles = {
 
 export const squadronTileStyles = {
   container: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--rr-panel2)',
     borderRadius: '8px',
-    border: '1px solid #E2E8F0',
+    border: '1px solid var(--rr-border)',
     overflow: 'hidden',
     display: 'flex',
     flexDirection: 'column' as const
   },
   header: {
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--rr-panel2)',
     padding: '12px 16px',
     display: 'flex',
     alignItems: 'center',
@@ -175,13 +175,13 @@ export const squadronTileStyles = {
   squadronDesignation: {
     fontSize: '14px',
     fontWeight: 600,
-    color: '#1E293B',
+    color: 'var(--rr-text)',
     marginBottom: '2px'
   },
   squadronName: {
     fontSize: '12px',
     fontWeight: 400,
-    color: '#64748B'
+    color: 'var(--rr-text2)'
   },
   flightsContainer: {
     display: 'flex',

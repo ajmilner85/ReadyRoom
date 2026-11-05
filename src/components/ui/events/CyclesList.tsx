@@ -78,17 +78,17 @@ const CyclesList: React.FC<CyclesListProps> = ({
               right: 0,
               top: '50%',
               height: '1px',
-              backgroundColor: '#E2E8F0'
+              backgroundColor: 'var(--rr-panel3)'
             }}
           />
           <span 
             style={{
               position: 'relative',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               padding: '0 16px',
-              color: '#646F7E',
+              color: 'var(--rr-text2)',
               fontSize: '12px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontWeight: 300,
               textTransform: 'uppercase'
             }}
@@ -106,7 +106,7 @@ const CyclesList: React.FC<CyclesListProps> = ({
               alignItems: 'center',
               marginBottom: '10px',
               cursor: 'pointer',
-              backgroundColor: selectedCycle?.id === cycle.id ? '#EFF6FF' : hoveredCycle === cycle.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+              backgroundColor: selectedCycle?.id === cycle.id ? 'var(--rr-accent-weak)' : hoveredCycle === cycle.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
               borderRadius: '8px',
               padding: '12px',
               position: 'relative'
@@ -123,10 +123,10 @@ const CyclesList: React.FC<CyclesListProps> = ({
             onMouseLeave={() => setHoveredCycle(null)}
           >
             <div style={{ flex: 1 }}>
-              <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rr-text)', marginBottom: '4px' }}>
                 {cycle.name}
               </span>
-              <div style={{ fontSize: '12px', color: '#64748B', marginTop: '4px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px' }}>
                 {new Date(cycle.startDate).toLocaleDateString()} - {new Date(cycle.endDate).toLocaleDateString()}
               </div>
             </div>
@@ -141,7 +141,7 @@ const CyclesList: React.FC<CyclesListProps> = ({
                   right: '12px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  backgroundColor: selectedCycle?.id === cycle.id ? '#EFF6FF' : hoveredCycle === cycle.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+                  backgroundColor: selectedCycle?.id === cycle.id ? 'var(--rr-accent-weak)' : hoveredCycle === cycle.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
                   padding: '4px',
                   borderRadius: '4px'
                 }}
@@ -156,8 +156,8 @@ const CyclesList: React.FC<CyclesListProps> = ({
                       padding: '4px',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      background: 'white',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      background: 'var(--rr-panel)',
+                      boxShadow: 'var(--rr-shadow)',
                       border: 'none',
                       display: 'flex',
                       alignItems: 'center',
@@ -184,8 +184,8 @@ const CyclesList: React.FC<CyclesListProps> = ({
                       padding: '4px',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      background: 'white',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      background: 'var(--rr-panel)',
+                      boxShadow: 'var(--rr-shadow)',
                       border: 'none',
                       display: 'flex',
                       alignItems: 'center',
@@ -230,7 +230,7 @@ const CyclesList: React.FC<CyclesListProps> = ({
             alignItems: 'center',
             marginBottom: '10px',
             cursor: 'pointer',
-            backgroundColor: selectedCycle?.id === 'standalone' ? '#EFF6FF' : hoveredCycle === 'standalone' ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+            backgroundColor: selectedCycle?.id === 'standalone' ? 'var(--rr-accent-weak)' : hoveredCycle === 'standalone' ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
             borderRadius: '8px',
             padding: '12px',
             position: 'relative'
@@ -247,7 +247,7 @@ const CyclesList: React.FC<CyclesListProps> = ({
           onMouseLeave={() => setHoveredCycle(null)}
         >
           <div style={{ flex: 1 }}>
-            <span style={{ fontSize: '16px', fontWeight: 700, color: '#0F172A', marginBottom: '4px' }}>
+            <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rr-text)', marginBottom: '4px' }}>
               {standalonePseudoCycle.name}
             </span>
           </div>
@@ -266,24 +266,24 @@ const CyclesList: React.FC<CyclesListProps> = ({
         padding: '18px',
         position: 'relative',
         zIndex: 5,
-        borderTop: '1px solid #E2E8F0'
+        borderTop: '1px solid var(--rr-border)'
       }}>
         <button
           onClick={onNewCycle}
           style={{
             width: '119px',
             height: '30px',
-            background: '#FFFFFF',
+            background: 'var(--rr-panel)',
             borderRadius: '8px',
             border: 'none',
             cursor: 'pointer',
             transition: 'box-shadow 0.2s ease-in-out',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 400,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'

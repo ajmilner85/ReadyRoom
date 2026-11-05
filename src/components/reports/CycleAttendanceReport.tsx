@@ -1142,7 +1142,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           <div style={{ marginBottom: '16px' }}>
             <LoadingSpinner size="large" color="#82728C" />
           </div>
-          <p style={{ fontFamily: 'Inter', color: '#64748B', fontSize: '14px' }}>Loading report data...</p>
+          <p style={{ fontFamily: 'inherit', color: 'var(--rr-text2)', fontSize: '14px' }}>Loading report data...</p>
         </div>
       </div>
     );
@@ -1151,7 +1151,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
   const activeFilterCount = filters.squadronIds.length + filters.qualificationIds.length;
 
   return (
-    <div style={{ fontFamily: 'Inter' }}>
+    <div style={{ fontFamily: 'inherit' }}>
       {/* Header with controls */}
       <div style={{
         display: 'flex',
@@ -1165,13 +1165,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
             onChange={handleCycleChange}
             disabled={filterLoading}
             style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: 'white',
-              color: '#1E293B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text)',
               cursor: filterLoading ? 'not-allowed' : 'pointer',
               opacity: filterLoading ? 0.6 : 1,
               minWidth: '400px'
@@ -1193,11 +1193,11 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: 'white',
-              color: '#64748B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               cursor: (refreshing || filterLoading) ? 'not-allowed' : 'pointer',
               opacity: (refreshing || filterLoading) ? 0.6 : 1
             }}
@@ -1221,11 +1221,11 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: showFilters ? '#82728C' : 'white',
-              color: showFilters ? 'white' : '#64748B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: showFilters ? '#82728C' : 'var(--rr-panel)',
+              color: showFilters ? 'white' : 'var(--rr-text2)',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               cursor: filterLoading ? 'not-allowed' : 'pointer',
               opacity: filterLoading ? 0.6 : 1
             }}
@@ -1234,7 +1234,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
             Filters
             {activeFilterCount > 0 && (
               <span style={{
-                backgroundColor: showFilters ? 'white' : '#82728C',
+                backgroundColor: showFilters ? 'var(--rr-panel)' : '#82728C',
                 color: showFilters ? '#82728C' : 'white',
                 borderRadius: '10px',
                 padding: '2px 6px',
@@ -1255,11 +1255,11 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: 'white',
-              color: '#64748B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               cursor: (reportData && !filterLoading) ? 'pointer' : 'not-allowed',
               opacity: (reportData && !filterLoading) ? 1 : 0.5
             }}
@@ -1273,13 +1273,13 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       {/* Error message */}
       {error && (
         <div style={{
-          backgroundColor: '#FEE2E2',
-          border: '1px solid #FCA5A5',
-          color: '#991B1B',
+          backgroundColor: 'rgba(224,82,78,.12)',
+          border: '1px solid var(--rr-bad)',
+          color: 'var(--rr-bad)',
           padding: '12px 16px',
           borderRadius: '6px',
           marginBottom: '16px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '14px'
         }}>
           {error}
@@ -1289,8 +1289,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       {/* Filter drawer */}
       {showFilters && reportData && (
         <div style={{
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel2)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           padding: '16px',
           marginBottom: '24px',
@@ -1304,10 +1304,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
             marginBottom: '16px'
           }}>
             <h3 style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 600,
-              color: '#1E293B',
+              color: 'var(--rr-text)',
               margin: 0
             }}>
               Filter Options
@@ -1319,11 +1319,11 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                 alignItems: 'center',
                 gap: '4px',
                 fontSize: '12px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 backgroundColor: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}
             >
               <X size={14} />
@@ -1359,7 +1359,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                     <div style={{
                       width: '20px',
                       height: '20px',
-                      backgroundColor: '#E5E7EB',
+                      backgroundColor: 'var(--rr-panel3)',
                       borderRadius: '3px',
                       flexShrink: 0
                     }} />
@@ -1393,7 +1393,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                     flexShrink: 0,
                     padding: '0 2px'
                   }}>
-                    <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'Inter', fontWeight: 500 }}>
+                    <span style={{ fontSize: '8px', color: '#FFFFFF', fontFamily: 'inherit', fontWeight: 500 }}>
                       {qual.code}
                     </span>
                   </div>
@@ -1413,15 +1413,15 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                 <h4 style={{
                   fontSize: '12px',
                   fontWeight: 500,
-                  fontFamily: 'Inter',
-                  color: '#374151',
+                  fontFamily: 'inherit',
+                  color: 'var(--rr-text)',
                   margin: 0
                 }}>
                   Metrics
                 </h4>
               </div>
               <div style={{
-                border: '1px solid #E5E7EB',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '4px',
                 padding: '8px'
               }}>
@@ -1547,8 +1547,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       {/* Chart */}
       {chartData && chartData.datasets.length > 0 ? (
         <div style={{
-          backgroundColor: 'white',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           padding: '24px',
           position: 'relative'
@@ -1576,9 +1576,9 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
             id={`legend-${selectedCycleId}`}
             style={{
               marginBottom: '16px',
-              border: '1px solid #E2E8F0',
+              border: '1px solid var(--rr-border)',
               borderRadius: '6px',
-              backgroundColor: '#F8FAFC'
+              backgroundColor: 'var(--rr-panel2)'
             }}
           />
 
@@ -1596,14 +1596,14 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
           <div style={{
             marginTop: '16px',
             padding: '12px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '6px',
             fontSize: '12px',
-            fontFamily: 'Inter',
-            color: '#64748B',
+            fontFamily: 'inherit',
+            color: 'var(--rr-text2)',
             lineHeight: '1.8'
           }}>
-            <strong style={{ color: '#475569' }}>Note:</strong>
+            <strong style={{ color: 'var(--rr-text2)' }}>Note:</strong>
             <br />
             <strong>No Shows:</strong> Pilots who responded "attending" to the Discord event but were not marked present during roll call.
             <br />
@@ -1616,10 +1616,10 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         <div style={{
           textAlign: 'center',
           padding: '60px 40px',
-          color: '#64748B',
-          fontFamily: 'Inter',
-          backgroundColor: 'white',
-          border: '1px solid #E2E8F0',
+          color: 'var(--rr-text2)',
+          fontFamily: 'inherit',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px'
         }}>
           {reportData && reportData.events.length === 0 ? (
@@ -1644,9 +1644,9 @@ const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
   <div style={{
     width: '14px',
     height: '14px',
-    border: '1px solid #CBD5E1',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '3px',
-    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+    backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1674,8 +1674,8 @@ const FilterSection: React.FC<{
       <h4 style={{
         fontSize: '12px',
         fontWeight: 500,
-        fontFamily: 'Inter',
-        color: '#374151',
+        fontFamily: 'inherit',
+        color: 'var(--rr-text)',
         margin: 0
       }}>
         {title}
@@ -1683,25 +1683,25 @@ const FilterSection: React.FC<{
       <div style={{ display: 'flex', gap: '6px' }}>
         <button onClick={onSelectAll} style={{
           padding: '2px 6px',
-          backgroundColor: '#EFF6FF',
-          border: '1px solid #DBEAFE',
+          backgroundColor: 'var(--rr-accent-weak)',
+          border: '1px solid var(--rr-accent)',
           borderRadius: '3px',
           fontSize: '10px',
           cursor: 'pointer',
-          fontFamily: 'Inter',
-          color: '#1E40AF'
+          fontFamily: 'inherit',
+          color: 'var(--rr-accent-text)'
         }}>
           All
         </button>
         <button onClick={onClearAll} style={{
           padding: '2px 6px',
-          backgroundColor: '#FEF2F2',
-          border: '1px solid #FECACA',
+          backgroundColor: 'rgba(224,82,78,.12)',
+          border: '1px solid var(--rr-bad)',
           borderRadius: '3px',
           fontSize: '10px',
           cursor: 'pointer',
-          fontFamily: 'Inter',
-          color: '#DC2626'
+          fontFamily: 'inherit',
+          color: 'var(--rr-bad)'
         }}>
           None
         </button>
@@ -1710,7 +1710,7 @@ const FilterSection: React.FC<{
     <div style={{
       maxHeight: '200px',
       overflowY: 'auto',
-      border: '1px solid #E5E7EB',
+      border: '1px solid var(--rr-border)',
       borderRadius: '4px',
       padding: '4px'
     }}>
@@ -1737,7 +1737,7 @@ const FilterItem: React.FC<{
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        backgroundColor: isSelected ? '#EFF6FF' : (isHovered ? '#F8FAFC' : 'transparent'),
+        backgroundColor: isSelected ? 'var(--rr-accent-weak)' : (isHovered ? 'var(--rr-panel2)' : 'transparent'),
         borderRadius: '3px',
         transition: 'background-color 0.2s',
         marginBottom: '2px'
@@ -1761,8 +1761,8 @@ const MetricRow: React.FC<{
   }}>
     <span style={{
       fontSize: '12px',
-      fontFamily: 'Inter',
-      color: '#374151',
+      fontFamily: 'inherit',
+      color: 'var(--rr-text)',
       flex: 1
     }}>
       {label}
@@ -1784,11 +1784,11 @@ const MetricToggleButton: React.FC<{
       padding: '4px 12px',
       borderRadius: '4px',
       cursor: 'pointer',
-      backgroundColor: active ? '#EFF6FF' : '#F3F4F6',
-      border: `1px solid ${active ? '#DBEAFE' : '#D1D5DB'}`,
-      color: active ? '#1E40AF' : '#6B7280',
+      backgroundColor: active ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
+      border: `1px solid ${active ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
+      color: active ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
       fontSize: '11px',
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontWeight: 500,
       transition: 'all 0.2s',
       minWidth: '50px'
@@ -1814,11 +1814,11 @@ const TrendLineToggleButton: React.FC<{
         padding: '4px 12px',
         borderRadius: '4px',
         cursor: 'pointer',
-        backgroundColor: active !== 'disabled' ? '#EFF6FF' : '#F3F4F6',
-        border: `1px solid ${active !== 'disabled' ? '#DBEAFE' : '#D1D5DB'}`,
-        color: active !== 'disabled' ? '#1E40AF' : '#6B7280',
+        backgroundColor: active !== 'disabled' ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
+        border: `1px solid ${active !== 'disabled' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
+        color: active !== 'disabled' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
         fontSize: '11px',
-        fontFamily: 'Inter',
+        fontFamily: 'inherit',
         fontWeight: 500,
         transition: 'all 0.2s',
         minWidth: '90px'

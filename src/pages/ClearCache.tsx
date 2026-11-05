@@ -36,15 +36,15 @@ const ClearCache: React.FC = () => {
       display: 'flex',
       alignItems: 'center',
       justifyContent: 'center',
-      backgroundColor: '#F8FAFC',
+      backgroundColor: 'var(--rr-panel2)',
       padding: '20px'
     }}>
       <div style={{
         maxWidth: '500px',
         width: '100%',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '12px',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         padding: '40px'
       }}>
         {/* Header */}
@@ -58,23 +58,23 @@ const ClearCache: React.FC = () => {
             justifyContent: 'center',
             width: '64px',
             height: '64px',
-            backgroundColor: '#FEF2F2',
+            backgroundColor: 'rgba(224,82,78,.12)',
             borderRadius: '50%',
             marginBottom: '16px'
           }}>
-            <Trash2 size={32} style={{ color: '#EF4444' }} />
+            <Trash2 size={32} style={{ color: 'var(--rr-bad)' }} />
           </div>
           <h1 style={{
             fontSize: '24px',
             fontWeight: 600,
-            color: '#0F172A',
+            color: 'var(--rr-text)',
             margin: '0 0 8px 0'
           }}>
             Clear Permission Cache
           </h1>
           <p style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             margin: 0,
             lineHeight: 1.6
           }}>
@@ -89,17 +89,17 @@ const ClearCache: React.FC = () => {
             alignItems: 'center',
             gap: '12px',
             padding: '16px',
-            backgroundColor: '#F0FDF4',
-            border: '1px solid #BBF7D0',
+            backgroundColor: 'rgba(64,168,91,.14)',
+            border: '1px solid var(--rr-good)',
             borderRadius: '8px',
             marginBottom: '24px'
           }}>
-            <CheckCircle size={20} style={{ color: '#10B981', flexShrink: 0 }} />
+            <CheckCircle size={20} style={{ color: 'var(--rr-good)', flexShrink: 0 }} />
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 500, color: '#065F46' }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-good)' }}>
                 Cache cleared successfully!
               </div>
-              <div style={{ fontSize: '12px', color: '#047857', marginTop: '2px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--rr-good)', marginTop: '2px' }}>
                 Redirecting to home page...
               </div>
             </div>
@@ -112,18 +112,18 @@ const ClearCache: React.FC = () => {
             alignItems: 'flex-start',
             gap: '12px',
             padding: '16px',
-            backgroundColor: '#FEF2F2',
-            border: '1px solid #FECACA',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            border: '1px solid var(--rr-bad)',
             borderRadius: '8px',
             marginBottom: '24px'
           }}>
-            <AlertCircle size={20} style={{ color: '#EF4444', flexShrink: 0, marginTop: '2px' }} />
+            <AlertCircle size={20} style={{ color: 'var(--rr-bad)', flexShrink: 0, marginTop: '2px' }} />
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 500, color: '#991B1B' }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-bad)' }}>
                 Failed to clear cache
               </div>
               {error && (
-                <div style={{ fontSize: '12px', color: '#B91C1C', marginTop: '4px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--rr-bad)', marginTop: '4px' }}>
                   {error}
                 </div>
               )}
@@ -146,7 +146,7 @@ const ClearCache: React.FC = () => {
               justifyContent: 'center',
               gap: '8px',
               padding: '12px 20px',
-              backgroundColor: (clearing || status === 'success') ? '#E5E7EB' : '#EF4444',
+              backgroundColor: (clearing || status === 'success') ? 'var(--rr-panel3)' : 'var(--rr-bad)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '8px',
@@ -169,8 +169,8 @@ const ClearCache: React.FC = () => {
               justifyContent: 'center',
               gap: '8px',
               padding: '12px 20px',
-              backgroundColor: '#F1F5F9',
-              color: '#475569',
+              backgroundColor: 'var(--rr-panel2)',
+              color: 'var(--rr-text2)',
               border: 'none',
               borderRadius: '8px',
               fontSize: '14px',
@@ -189,21 +189,21 @@ const ClearCache: React.FC = () => {
         <div style={{
           marginTop: '32px',
           padding: '16px',
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel2)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px'
         }}>
           <div style={{
             fontSize: '12px',
             fontWeight: 500,
-            color: '#475569',
+            color: 'var(--rr-text2)',
             marginBottom: '8px'
           }}>
             What does this do?
           </div>
           <div style={{
             fontSize: '12px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             lineHeight: 1.6
           }}>
             This clears all cached permissions for all users. After clearing, permissions will be recalculated from the database when you next access the app.

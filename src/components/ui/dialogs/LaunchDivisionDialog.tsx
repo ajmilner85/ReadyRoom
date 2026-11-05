@@ -52,10 +52,10 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      backgroundColor: 'white',
+      backgroundColor: 'var(--rr-panel)',
       padding: '20px',
       borderRadius: '8px',
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      boxShadow: 'var(--rr-shadow)',
       width: '300px',
       zIndex: 1001,
       pointerEvents: 'auto'
@@ -66,9 +66,9 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
         <label style={{
           display: 'block',
           marginBottom: '8px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '14px',
-          color: '#64748B'
+          color: 'var(--rr-text2)'
         }}>
           Step Time (minutes)
         </label>
@@ -81,7 +81,7 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
           style={{
             width: '100%',
             padding: '8px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '4px',
             fontSize: '14px',
             boxSizing: 'border-box'
@@ -92,7 +92,7 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
 
       {error && (
         <div style={{
-          color: '#EF4444',
+          color: 'var(--rr-bad)',
           fontSize: '12px',
           marginBottom: '16px'
         }}>
@@ -109,10 +109,10 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
           onClick={onCancel}
           style={{
             padding: '8px 16px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '4px',
-            backgroundColor: 'white',
-            color: '#64748B',
+            backgroundColor: 'var(--rr-panel)',
+            color: 'var(--rr-text2)',
             cursor: 'pointer'
           }}
         >
@@ -125,7 +125,7 @@ export const LaunchDivisionDialog: React.FC<LaunchDivisionDialogProps> = ({
             padding: '8px 16px',
             border: 'none',
             borderRadius: '4px',
-            backgroundColor: !stepTime || !!error ? '#CBD5E1' : '#2563EB',
+            backgroundColor: !stepTime || !!error ? 'var(--rr-panel3)' : 'var(--rr-accent)',
             color: 'white',
             cursor: !stepTime || !!error ? 'not-allowed' : 'pointer'
           }}

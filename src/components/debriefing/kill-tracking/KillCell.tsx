@@ -48,7 +48,7 @@ const KillCell: React.FC<KillCellProps> = ({
             justifyContent: 'center',
             backgroundColor: 'transparent',
             border: 'none',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             cursor: 'pointer',
             padding: 0
           }}
@@ -61,7 +61,7 @@ const KillCell: React.FC<KillCellProps> = ({
           Friendly-fire kills render inside a blue bubble; regular kills have no bubble */}
       <div style={{
         width: '92px',
-        backgroundColor: isFriendly ? '#EFF6FF' : '#FFFFFF',
+        backgroundColor: isFriendly ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
         // Painted as an inset shadow rather than a real border so it doesn't
         // grow the box beyond the plain (borderless) cell's footprint
         boxShadow: isFriendly ? 'inset 0 0 0 1px #93C5FD' : 'none',
@@ -79,7 +79,7 @@ const KillCell: React.FC<KillCellProps> = ({
           style={{
             fontSize: '11px',
             fontWeight: 500,
-            color: isFriendly ? '#2563EB' : '#64748B',
+            color: isFriendly ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
             textAlign: 'center',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -94,7 +94,7 @@ const KillCell: React.FC<KillCellProps> = ({
           {unitDisplayName}
         </div>
         {killCount > 1 && (
-          <span style={{ fontSize: '12px', fontWeight: 700, color: isFriendly ? '#2563EB' : '#000000' }}>
+          <span style={{ fontSize: '12px', fontWeight: 700, color: isFriendly ? 'var(--rr-accent-text)' : 'var(--rr-text)' }}>
             x{killCount}
           </span>
         )}
@@ -117,7 +117,7 @@ const KillCell: React.FC<KillCellProps> = ({
             justifyContent: 'center',
             backgroundColor: 'transparent',
             border: 'none',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             cursor: 'pointer',
             padding: 0
           }}

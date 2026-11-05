@@ -62,9 +62,9 @@ const DiscordLogo: React.FC<{ size?: number; overlayIcon?: React.ReactNode }> = 
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: 'white',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '50%',
-        border: '1px solid #E2E8F0'
+        border: '1px solid var(--rr-border)'
       }}>
         {overlayIcon}
       </div>
@@ -356,31 +356,31 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const getRoleMappingIcon = (mapping: RoleMapping) => {
     let overlayIcon;
     if (mapping.isIgnoreUsers) {
-      overlayIcon = <X style={{ color: '#EF4444', width: 7, height: 7 }} strokeWidth={2.5} />;
+      overlayIcon = <X style={{ color: 'var(--rr-bad)', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else if (mapping.appPermission) {
       // Create appropriately sized icon based on permission
       switch (mapping.appPermission) {
         case 'admin':
-          overlayIcon = <Crown size={7} className="text-red-600" strokeWidth={2.5} />;
+          overlayIcon = <Crown size={7} className="text-bad" strokeWidth={2.5} />;
           break;
         case 'flight_lead':
           overlayIcon = <Shield size={7} className="text-orange-600" strokeWidth={2.5} />;
           break;
         case 'member':
-          overlayIcon = <Users size={7} className="text-blue-600" strokeWidth={2.5} />;
+          overlayIcon = <Users size={7} className="text-accent" strokeWidth={2.5} />;
           break;
         case 'guest':
-          overlayIcon = <User size={7} className="text-gray-600" strokeWidth={2.5} />;
+          overlayIcon = <User size={7} className="text-text2" strokeWidth={2.5} />;
           break;
         default:
-          overlayIcon = <Shield size={7} className="text-gray-600" strokeWidth={2.5} />;
+          overlayIcon = <Shield size={7} className="text-text2" strokeWidth={2.5} />;
       }
     } else if (mapping.squadronId) {
       // Icon for squadron affiliation
       overlayIcon = <Server style={{ color: '#7C3AED', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else {
       // Default icon for qualifications
-      overlayIcon = <Shield style={{ color: '#10B981', width: 7, height: 7 }} strokeWidth={2.5} />;
+      overlayIcon = <Shield style={{ color: 'var(--rr-good)', width: 7, height: 7 }} strokeWidth={2.5} />;
     }
     return <DiscordLogo size={18} overlayIcon={overlayIcon} />;
   };
@@ -538,7 +538,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           <h4 style={{ 
             fontSize: '16px', 
             fontWeight: 600, 
-            color: '#0F172A', 
+            color: 'var(--rr-text)', 
             margin: 0 
           }}>
             Discord Integration
@@ -551,10 +551,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         <div style={{
           marginBottom: '16px',
           padding: '12px',
-          backgroundColor: '#FEF2F2',
-          border: '1px solid #FECACA',
+          backgroundColor: 'rgba(224,82,78,.12)',
+          border: '1px solid var(--rr-bad)',
           borderRadius: '6px',
-          color: '#DC2626',
+          color: 'var(--rr-bad)',
           fontSize: '14px'
         }}>
           {error}
@@ -568,7 +568,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           marginBottom: '8px',
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B'
+          color: 'var(--rr-text2)'
         }}>
           Discord Server
         </label>
@@ -585,10 +585,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             style={{
               flex: 1,
               padding: '8px 12px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '4px',
               fontSize: '14px',
-              backgroundColor: loadingServers ? '#F9FAFB' : 'white',
+              backgroundColor: loadingServers ? 'var(--rr-panel2)' : 'var(--rr-panel)',
               cursor: loadingServers ? 'not-allowed' : 'pointer'
             }}
           >
@@ -605,7 +605,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         {!selectedGuildId && availableServers.length > 0 && (
           <p style={{
             fontSize: '12px',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             marginTop: '4px',
             fontStyle: 'italic'
           }}>
@@ -621,7 +621,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           marginBottom: '8px',
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B'
+          color: 'var(--rr-text2)'
         }}>
           Squadron Emoji
         </label>
@@ -634,14 +634,14 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           style={{
             maxWidth: '300px',
             padding: '8px 12px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '4px',
             fontSize: '14px'
           }}
         />
         <p style={{
           fontSize: '12px',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           marginTop: '4px',
           fontStyle: 'italic'
         }}>
@@ -660,7 +660,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           <label style={{
             fontSize: '14px',
             fontWeight: 500,
-            color: '#64748B'
+            color: 'var(--rr-text2)'
           }}>
             Discord Channels
           </label>
@@ -672,13 +672,13 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               alignItems: 'center',
               gap: '4px',
               padding: '4px 8px',
-              backgroundColor: '#3B82F6',
+              backgroundColor: 'var(--rr-accent)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              fontFamily: 'Inter'
+              fontFamily: 'inherit'
             }}
           >
             <Plus size={12} />
@@ -687,8 +687,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         </div>
 
         <div style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           minHeight: '80px',
           padding: '8px'
@@ -697,7 +697,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             <div style={{
               padding: '20px',
               textAlign: 'center',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               fontSize: '14px'
             }}>
               No Discord channels configured.
@@ -714,23 +714,23 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '8px 12px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
+                  backgroundColor: 'var(--rr-panel2)',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '4px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     <span style={{
                       fontSize: '14px',
                       padding: '2px 6px',
-                      backgroundColor: channel.type === 'events' ? '#DBEAFE' : channel.type === 'briefing' ? '#FEF3C7' : '#F0FDF4',
-                      color: channel.type === 'events' ? '#1D4ED8' : channel.type === 'briefing' ? '#D97706' : '#16A34A',
+                      backgroundColor: channel.type === 'events' ? 'var(--rr-accent-weak)' : channel.type === 'briefing' ? 'rgba(222,154,31,.14)' : 'rgba(64,168,91,.14)',
+                      color: channel.type === 'events' ? 'var(--rr-accent-text)' : channel.type === 'briefing' ? 'var(--rr-warn)' : 'var(--rr-good)',
                       borderRadius: '3px',
                       textTransform: 'uppercase',
                       fontWeight: 500
                     }}>
                       {channel.type}
                     </span>
-                    <span style={{ fontSize: '14px', color: '#0F172A' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--rr-text)' }}>
                       #{channel.name}
                     </span>
                   </div>
@@ -742,7 +742,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       backgroundColor: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
-                      color: '#EF4444'
+                      color: 'var(--rr-bad)'
                     }}
                   >
                     <Trash size={12} />
@@ -757,8 +757,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             <div style={{
               marginTop: '8px',
               padding: '12px',
-              backgroundColor: '#F1F5F9',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '4px'
             }}>
               <div style={{ 
@@ -775,7 +775,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   })}
                   style={{
                     padding: '4px 8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     width: '110px'
@@ -785,7 +785,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   <option value="briefing">Briefing</option>
                   <option value="debriefing">Debriefing</option>
                 </select>
-                <span style={{ fontSize: '14px', color: '#64748B' }}>#</span>
+                <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>#</span>
                 <select
                   value={newChannel.id}
                   onChange={(e) => handleChannelSelect(e.target.value)}
@@ -793,10 +793,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   style={{
                     flex: 1,
                     padding: '4px 8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
-                    backgroundColor: loadingChannels ? '#F9FAFB' : 'white',
+                    backgroundColor: loadingChannels ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                     cursor: loadingChannels ? 'not-allowed' : 'pointer'
                   }}
                 >
@@ -819,12 +819,12 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   }}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: '#F1F5F9',
-                    border: '1px solid #CBD5E1',
+                    backgroundColor: 'var(--rr-panel2)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    color: '#475569'
+                    color: 'var(--rr-text2)'
                   }}
                 >
                   Cancel
@@ -835,7 +835,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   disabled={!newChannel.id || !newChannel.name}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: (!newChannel.id || !newChannel.name) ? '#9CA3AF' : '#3B82F6',
+                    backgroundColor: (!newChannel.id || !newChannel.name) ? '#9CA3AF' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '4px',
@@ -854,11 +854,11 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             <div style={{
               marginTop: '8px',
               padding: '12px',
-              backgroundColor: '#FEF3C7',
-              border: '1px solid #FCD34D',
+              backgroundColor: 'rgba(222,154,31,.14)',
+              border: '1px solid var(--rr-warn)',
               borderRadius: '4px',
               textAlign: 'center',
-              color: '#92400E',
+              color: 'var(--rr-warn)',
               fontSize: '14px'
             }}>
               Please select a Discord server first to add channels.
@@ -872,7 +872,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         <label style={{
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           marginBottom: '12px',
           display: 'block'
         }}>
@@ -886,11 +886,11 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             style={{
               flex: 1,
               padding: '8px 12px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               fontSize: '14px',
-              backgroundColor: '#FFFFFF',
-              color: '#0F172A',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text)',
               cursor: loadingRoles ? 'not-allowed' : 'pointer'
             }}
           >
@@ -908,7 +908,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             disabled={!selectedNotificationRoleId || loadingRoles}
             style={{
               padding: '8px 16px',
-              backgroundColor: selectedNotificationRoleId && !loadingRoles ? '#3B82F6' : '#CBD5E1',
+              backgroundColor: selectedNotificationRoleId && !loadingRoles ? 'var(--rr-accent)' : 'var(--rr-panel3)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '6px',
@@ -937,9 +937,9 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   height: '26px',
                   boxSizing: 'border-box',
                   whiteSpace: 'nowrap',
-                  backgroundColor: '#DBEAFE',
-                  color: '#1D4ED8',
-                  border: '1px solid #3B82F6'
+                  backgroundColor: 'var(--rr-accent-weak)',
+                  color: 'var(--rr-accent-text)',
+                  border: '1px solid var(--rr-accent)'
                 }}
               >
                 <span>@{role.name}</span>
@@ -953,7 +953,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                     backgroundColor: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
-                    color: '#1D4ED8',
+                    color: 'var(--rr-accent-text)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -981,7 +981,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         <label style={{
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           marginBottom: '12px',
           display: 'block'
         }}>
@@ -989,8 +989,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         </label>
         
         <div style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           padding: '16px'
         }}>
@@ -1005,14 +1005,14 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               <div style={{
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#0F172A',
+                color: 'var(--rr-text)',
                 marginBottom: '4px'
               }}>
                 Use Threads for Events and Reminders
               </div>
               <div style={{
                 fontSize: '12px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 lineHeight: '1.4'
               }}>
                 When enabled, events and reminders will be posted within threads instead of independent messages
@@ -1046,7 +1046,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   left: 0,
                   right: 0,
                   bottom: 0,
-                  backgroundColor: threadingSettings.useThreads ? '#3B82F6' : '#CBD5E1',
+                  backgroundColor: threadingSettings.useThreads ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                   borderRadius: '24px',
                   transition: 'background-color 0.2s ease',
                   '::before': {
@@ -1056,7 +1056,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                     width: '18px',
                     left: threadingSettings.useThreads ? '23px' : '3px',
                     bottom: '3px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--rr-panel)',
                     borderRadius: '50%',
                     transition: 'left 0.2s ease'
                   }
@@ -1067,7 +1067,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                     width: '18px',
                     left: threadingSettings.useThreads ? '23px' : '3px',
                     top: '3px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--rr-panel)',
                     borderRadius: '50%',
                     transition: 'left 0.2s ease'
                   }} />
@@ -1080,7 +1080,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           {threadingSettings.useThreads && (
             <div style={{
               paddingTop: '12px',
-              borderTop: '1px solid #E2E8F0'
+              borderTop: '1px solid var(--rr-border)'
             }}>
               <div style={{
                 display: 'flex',
@@ -1090,7 +1090,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                 <label style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#0F172A',
+                  color: 'var(--rr-text)',
                   minWidth: '140px'
                 }}>
                   Auto-Archive Duration:
@@ -1103,10 +1103,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   })}
                   style={{
                     padding: '6px 8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
-                    backgroundColor: 'white',
+                    backgroundColor: 'var(--rr-panel)',
                     cursor: 'pointer',
                     minWidth: '120px'
                   }}
@@ -1119,7 +1119,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               </div>
               <div style={{
                 fontSize: '12px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 marginTop: '6px'
               }}>
                 Threads will automatically archive after this period of inactivity
@@ -1140,7 +1140,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           <label style={{
             fontSize: '14px',
             fontWeight: 500,
-            color: '#64748B'
+            color: 'var(--rr-text2)'
           }}>
             Role Mappings
           </label>
@@ -1158,7 +1158,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               borderRadius: '4px',
               cursor: 'pointer',
               fontSize: '12px',
-              fontFamily: 'Inter'
+              fontFamily: 'inherit'
             }}
           >
             <Plus size={12} />
@@ -1167,8 +1167,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         </div>
 
         <div style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           minHeight: '80px',
           padding: '8px'
@@ -1177,7 +1177,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
             <div style={{
               padding: '20px',
               textAlign: 'center',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               fontSize: '14px'
             }}>
               No role mappings configured.
@@ -1194,19 +1194,19 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   justifyContent: 'space-between',
                   alignItems: 'center',
                   padding: '8px 12px',
-                  backgroundColor: '#F8FAFC',
-                  border: '1px solid #E2E8F0',
+                  backgroundColor: 'var(--rr-panel2)',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '4px'
                 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                     {getRoleMappingIcon(mapping)}
-                    <span style={{ fontSize: '14px', color: '#0F172A' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--rr-text)' }}>
                       {mapping.discordRoleName}
                     </span>
-                    <span style={{ fontSize: '12px', color: '#64748B' }}>→</span>
+                    <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>→</span>
                     <span style={{ 
                       fontSize: '14px', 
-                      color: mapping.isIgnoreUsers ? '#EF4444' : '#3B82F6',
+                      color: mapping.isIgnoreUsers ? 'var(--rr-bad)' : 'var(--rr-accent-text)',
                       fontWeight: 500
                     }}>
                       {getRoleMappingLabel(mapping)}
@@ -1223,7 +1223,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       backgroundColor: 'transparent',
                       border: 'none',
                       cursor: 'pointer',
-                      color: '#EF4444'
+                      color: 'var(--rr-bad)'
                     }}
                   >
                     <Trash size={12} />
@@ -1241,8 +1241,8 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               style={{
                 marginTop: '8px',
                 padding: '12px',
-                backgroundColor: '#F8FAFC',
-                border: '1px solid #E2E8F0',
+                backgroundColor: 'var(--rr-panel2)',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '4px'
               }}>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '8px', marginBottom: '12px' }}>
@@ -1253,10 +1253,10 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   style={{
                     flex: 1,
                     padding: '4px 8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
-                    backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
+                    backgroundColor: loadingRoles ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                     cursor: loadingRoles ? 'not-allowed' : 'pointer'
                   }}
                 >
@@ -1337,13 +1337,13 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   }}
                   style={{
                     padding: '4px 8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px'
                   }}
                 >
                   <option value="">Select mapping target</option>
-                  <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                  <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                     Qualifications
                   </option>
                   {availableQualifications.map((qualification) => (
@@ -1351,14 +1351,14 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       &nbsp;&nbsp;{qualification.name}
                     </option>
                   ))}
-                  <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                  <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                     App Permissions
                   </option>
                   <option value="permission:admin" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Administrator</option>
                   <option value="permission:flight_lead" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Flight Lead</option>
                   <option value="permission:member" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Member</option>
                   <option value="permission:guest" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Guest</option>
-                  <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                  <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                     Squadron Affiliations
                   </option>
                   {availableSquadrons.map((squadron) => (
@@ -1366,7 +1366,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       &nbsp;&nbsp;{squadron.designation} - {squadron.name}
                     </option>
                   ))}
-                  <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                  <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                     Teams
                   </option>
                   {availableTeams.map((team) => (
@@ -1374,7 +1374,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       &nbsp;&nbsp;{team.name} ({team.scope})
                     </option>
                   ))}
-                  <option value="" disabled style={{ fontWeight: 'normal', color: '#64748B', backgroundColor: '#f8fafc' }}>
+                  <option value="" disabled style={{ fontWeight: 'normal', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel2)' }}>
                     Special
                   </option>
                   <option value="ignore:ignore" style={{ paddingLeft: '20px' }}>&nbsp;&nbsp;Ignore Users</option>
@@ -1400,12 +1400,12 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   }}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: '#F1F5F9',
-                    border: '1px solid #CBD5E1',
+                    backgroundColor: 'var(--rr-panel2)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     cursor: 'pointer',
                     fontSize: '14px',
-                    color: '#475569'
+                    color: 'var(--rr-text2)'
                   }}
                 >
                   Cancel
@@ -1435,11 +1435,11 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           <div style={{
             marginTop: '8px',
             padding: '12px',
-            backgroundColor: '#FEF3C7',
-            border: '1px solid #FCD34D',
+            backgroundColor: 'rgba(222,154,31,.14)',
+            border: '1px solid var(--rr-warn)',
             borderRadius: '4px',
             textAlign: 'center',
-            color: '#92400E',
+            color: 'var(--rr-warn)',
             fontSize: '14px'
           }}>
             Please select a Discord server first to add role mappings.

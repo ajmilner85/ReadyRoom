@@ -3005,21 +3005,21 @@ const RosterManagement: React.FC = () => {
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               padding: '24px',
               borderRadius: '8px',
               width: '500px',
               textAlign: 'center',
             }}
           >
-            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#374151' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
               Role Conflict Detected
             </h2>
-            <p style={{ marginBottom: '16px', color: '#374151', lineHeight: '1.5' }}>
+            <p style={{ marginBottom: '16px', color: 'var(--rr-text)', lineHeight: '1.5' }}>
               The pilot <strong>{squadronConflictWarning.conflictingPilot}</strong> already has the{' '}
               <strong>{squadronConflictWarning.conflictingRole}</strong> role in the target squadron.
             </p>
-            <p style={{ marginBottom: '24px', color: '#64748B', fontSize: '14px' }}>
+            <p style={{ marginBottom: '24px', color: 'var(--rr-text2)', fontSize: '14px' }}>
               How would you like to proceed?
             </p>
             <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
@@ -3032,9 +3032,9 @@ const RosterManagement: React.FC = () => {
                   flex: 1,
                   padding: '10px 12px',
                   borderRadius: '6px',
-                  border: '1px solid #D1D5DB',
-                  backgroundColor: '#F9FAFB',
-                  color: '#374151',
+                  border: '1px solid var(--rr-border2)',
+                  backgroundColor: 'var(--rr-panel2)',
+                  color: 'var(--rr-text)',
                   cursor: 'pointer',
                   fontSize: '13px',
                   fontWeight: 500
@@ -3051,8 +3051,8 @@ const RosterManagement: React.FC = () => {
                   flex: 1,
                   padding: '10px 12px',
                   borderRadius: '6px',
-                  border: '1px solid #2563EB',
-                  backgroundColor: '#2563EB',
+                  border: '1px solid var(--rr-accent)',
+                  backgroundColor: 'var(--rr-accent)',
                   color: '#FFFFFF',
                   cursor: 'pointer',
                   fontSize: '13px',
@@ -3070,8 +3070,8 @@ const RosterManagement: React.FC = () => {
                   flex: 1,
                   padding: '10px 12px',
                   borderRadius: '6px',
-                  border: '1px solid #DC2626',
-                  backgroundColor: '#DC2626',
+                  border: '1px solid var(--rr-bad)',
+                  backgroundColor: 'var(--rr-bad)',
                   color: '#FFFFFF',
                   cursor: 'pointer',
                   fontSize: '13px',
@@ -3103,17 +3103,17 @@ const RosterManagement: React.FC = () => {
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               padding: '24px',
               borderRadius: '8px',
               width: '500px',
               textAlign: 'center',
             }}
           >
-            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: '#374151' }}>
+            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
               Board Number Conflict
             </h2>
-            <p style={{ marginBottom: '24px', color: '#374151', lineHeight: '1.5', whiteSpace: 'pre-line', textAlign: 'left' }}>
+            <p style={{ marginBottom: '24px', color: 'var(--rr-text)', lineHeight: '1.5', whiteSpace: 'pre-line', textAlign: 'left' }}>
               {boardNumberConflict.message}
             </p>
             <div style={{ display: 'flex', justifyContent: 'center' }}>
@@ -3123,8 +3123,8 @@ const RosterManagement: React.FC = () => {
                   minWidth: '120px',
                   padding: '10px 12px',
                   borderRadius: '6px',
-                  border: '1px solid #2563EB',
-                  backgroundColor: '#2563EB',
+                  border: '1px solid var(--rr-accent)',
+                  backgroundColor: 'var(--rr-accent)',
                   color: '#FFFFFF',
                   cursor: 'pointer',
                   fontSize: '13px',
@@ -3149,8 +3149,8 @@ const RosterManagement: React.FC = () => {
                 padding: '10px 16px',
                 marginBottom: '16px',
                 borderRadius: '4px',
-                backgroundColor: syncMessage.type === 'success' ? '#d1fae5' : '#fee2e2',
-                color: syncMessage.type === 'success' ? '#065f46' : '#991b1b',
+                backgroundColor: syncMessage.type === 'success' ? 'rgba(64,168,91,.14)' : 'rgba(224,82,78,.12)',
+                color: syncMessage.type === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between'

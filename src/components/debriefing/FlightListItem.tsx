@@ -72,8 +72,8 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
       <div
         style={{
           padding: '12px',
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           display: 'flex',
           flexDirection: 'column',
@@ -85,7 +85,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
           style={{
             fontSize: '14px',
             fontWeight: 600,
-            color: '#1E293B'
+            color: 'var(--rr-text)'
           }}
         >
           {flight.callsign} {flight.flightNumber}
@@ -95,7 +95,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
         <div
           style={{
             fontSize: '12px',
-            color: '#64748B'
+            color: 'var(--rr-text2)'
           }}
         >
           {flight.flightLeadBoardNumber} {flight.flightLeadCallsign}
@@ -109,8 +109,8 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
               style={{
                 fontSize: '11px',
                 fontWeight: 500,
-                color: missionFinalized ? '#047857' : '#0369A1',
-                backgroundColor: missionFinalized ? '#DCFCE7' : '#E0F2FE',
+                color: missionFinalized ? 'var(--rr-good)' : '#0369A1',
+                backgroundColor: missionFinalized ? 'rgba(64,168,91,.14)' : 'var(--rr-accent-weak)',
                 padding: '4px 8px',
                 borderRadius: '4px',
                 border: 'none',
@@ -124,8 +124,8 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
               style={{
                 fontSize: '11px',
                 fontWeight: 500,
-                color: '#64748B',
-                backgroundColor: '#F1F5F9',
+                color: 'var(--rr-text2)',
+                backgroundColor: 'var(--rr-panel2)',
                 padding: '4px 8px',
                 borderRadius: '4px'
               }}
@@ -139,7 +139,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                 fontSize: '11px',
                 fontWeight: 500,
                 color: '#FFFFFF',
-                backgroundColor: '#F59E0B',
+                backgroundColor: 'var(--rr-warn)',
                 padding: '4px 8px',
                 borderRadius: '4px',
                 border: 'none',
@@ -153,8 +153,8 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
               style={{
                 fontSize: '11px',
                 fontWeight: 500,
-                color: '#64748B',
-                backgroundColor: '#F1F5F9',
+                color: 'var(--rr-text2)',
+                backgroundColor: 'var(--rr-panel2)',
                 padding: '4px 8px',
                 borderRadius: '4px'
               }}
@@ -185,13 +185,13 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
               style={{
                 fontSize: '18px',
                 fontWeight: 600,
-                color: '#1E293B',
+                color: 'var(--rr-text)',
                 marginBottom: '6px'
               }}
             >
               {flight.callsign} {flight.flightNumber}
             </h3>
-            <p style={{ fontSize: '14px', color: '#64748B', marginBottom: '0' }}>
+            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', marginBottom: '0' }}>
               {flight.flightLeadBoardNumber} {flight.flightLeadCallsign}
             </p>
           </div>
@@ -207,9 +207,9 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                     alignItems: 'center',
                     gap: '16px',
                     padding: '12px 20px',
-                    backgroundColor: '#F8FAFC',
+                    backgroundColor: 'var(--rr-panel2)',
                     borderRadius: '8px',
-                    border: '1px solid #E2E8F0'
+                    border: '1px solid var(--rr-border)'
                   }}
                 >
                 {/* Performance */}
@@ -219,7 +219,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                       style={{
                         fontSize: '11px',
                         fontWeight: 500,
-                        color: '#64748B',
+                        color: 'var(--rr-text2)',
                         textTransform: 'uppercase',
                         letterSpacing: '0.5px',
                         marginBottom: '4px'
@@ -250,7 +250,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                   style={{
                     width: '1px',
                     height: '40px',
-                    backgroundColor: '#E2E8F0'
+                    backgroundColor: 'var(--rr-panel3)'
                   }}
                 />
 
@@ -260,7 +260,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                     style={{
                       fontSize: '11px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
                       marginBottom: '4px'
@@ -272,7 +272,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                     style={{
                       fontSize: '16px',
                       fontWeight: 600,
-                      color: '#1E293B'
+                      color: 'var(--rr-text)'
                     }}
                   >
                     {totalKills.a2a}
@@ -284,7 +284,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                   style={{
                     width: '1px',
                     height: '40px',
-                    backgroundColor: '#E2E8F0'
+                    backgroundColor: 'var(--rr-panel3)'
                   }}
                 />
 
@@ -294,7 +294,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                     style={{
                       fontSize: '11px',
                       fontWeight: 500,
-                      color: '#64748B',
+                      color: 'var(--rr-text2)',
                       textTransform: 'uppercase',
                       letterSpacing: '0.5px',
                       marginBottom: '4px'
@@ -306,7 +306,7 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                     style={{
                       fontSize: '16px',
                       fontWeight: 600,
-                      color: '#1E293B'
+                      color: 'var(--rr-text)'
                     }}
                   >
                     {totalKills.a2g}
@@ -347,9 +347,9 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                   padding: '8px 16px',
                   fontSize: '13px',
                   fontWeight: 500,
-                  color: '#047857',
-                  backgroundColor: '#DCFCE7',
-                  border: '1px solid #BBF7D0',
+                  color: 'var(--rr-good)',
+                  backgroundColor: 'rgba(64,168,91,.14)',
+                  border: '1px solid var(--rr-good)',
                   borderRadius: '6px'
                 }}
               >
@@ -364,17 +364,17 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                   fontSize: '14px',
                   fontWeight: 500,
                   color: '#FFFFFF',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: 'var(--rr-accent)',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   transition: 'background-color 0.2s'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#2563EB';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#3B82F6';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                 }}
               >
                 Submit AAR
@@ -386,9 +386,9 @@ const FlightListItem: React.FC<FlightListItemProps> = ({
                   padding: '8px 16px',
                   fontSize: '13px',
                   fontWeight: 500,
-                  color: '#D97706',
-                  backgroundColor: '#FEF3C7',
-                  border: '1px solid #FDE68A',
+                  color: 'var(--rr-warn)',
+                  backgroundColor: 'rgba(222,154,31,.14)',
+                  border: '1px solid var(--rr-warn)',
                   borderRadius: '6px'
                 }}
               >

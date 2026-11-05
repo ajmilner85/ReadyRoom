@@ -736,13 +736,13 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     alignItems: 'center',
     gap: '8px',
     padding: '8px 16px',
-    backgroundColor: '#FFFFFF',
-    color: '#64748B',
+    backgroundColor: 'var(--rr-panel)',
+    color: 'var(--rr-text2)',
     borderRadius: '8px',
-    border: '1px solid #CBD5E1',
+    border: '1px solid var(--rr-border2)',
     cursor: 'pointer',
     transition: 'background-color 0.2s ease',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontSize: '14px',
     fontWeight: 400,
     minWidth: '120px',
@@ -805,7 +805,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               }}
               style={{
                 ...inputFieldStyle,
-                ...(boardNumberError && { borderColor: '#EF4444' }),
+                ...(boardNumberError && { borderColor: 'var(--rr-bad)' }),
               }}
               placeholder="Enter board number"
               maxLength={3}
@@ -815,32 +815,32 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               onClick={() => setShowBoardNumberModal(true)}
               style={{
                 padding: '8px 12px',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #CBD5E1',
+                backgroundColor: 'var(--rr-panel)',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
                 fontSize: '14px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 flexShrink: 0,
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
               }}
             >
               <List size={16} />
             </button>
           </div>
-          <div style={{ marginTop: '4px', fontSize: '12px', color: '#94A3B8' }}>
+          <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--rr-text3)' }}>
             Must start with 5, 6, or 7. Cannot contain 8, 9, or 0.
           </div>
           {boardNumberError && (
-            <div style={{ marginTop: '4px', fontSize: '12px', color: '#EF4444' }}>
+            <div style={{ marginTop: '4px', fontSize: '12px', color: 'var(--rr-bad)' }}>
               {boardNumberError}
             </div>
           )}
@@ -907,11 +907,11 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           </div>
         </div>
 
-        <div style={{ marginTop: '16px', color: '#64748B', fontSize: '14px' }}>* Board Number, Callsign, Status, and Standing are required</div>
+        <div style={{ marginTop: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>* Board Number, Callsign, Status, and Standing are required</div>
 
         {/* Discord User Information for New Pilot */}
         <div style={{ marginTop: '24px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: '#1E293B' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: '600', marginBottom: '12px', color: 'var(--rr-text)' }}>
             Discord User Information
           </h3>
           <div style={{ ...pilotDetailsStyles.fieldContainer, ...sectionSpacingStyle }}>
@@ -933,7 +933,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   style={{
                     ...inputFieldStyle,
                     width: '221px',
-                    backgroundColor: isLoadingDiscordMembers ? '#f1f5f9' : '#ffffff'
+                    backgroundColor: isLoadingDiscordMembers ? 'var(--rr-panel2)' : 'var(--rr-panel)'
                   }}
                 >
                   <option value="">No Discord account linked</option>
@@ -962,7 +962,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   style={{
                     ...inputFieldStyle,
                     width: '221px',
-                    backgroundColor: isLoadingDiscordMembers ? '#f1f5f9' : '#ffffff'
+                    backgroundColor: isLoadingDiscordMembers ? 'var(--rr-panel2)' : 'var(--rr-panel)'
                   }}
                 >
                   <option value="">No Discord account linked</option>
@@ -991,9 +991,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   cursor: !(selectedPilot as any)?.discord_id || isLoadingDiscordMembers ? 'not-allowed' : 'pointer',
                   opacity: !(selectedPilot as any)?.discord_id || isLoadingDiscordMembers ? 0.7 : 1,
                   minWidth: '80px',
-                  backgroundColor: '#FEE2E2',
-                  color: '#B91C1C',
-                  border: '1px solid #FCA5A5',
+                  backgroundColor: 'rgba(224,82,78,.12)',
+                  color: 'var(--rr-bad)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   fontWeight: '500',
@@ -1005,7 +1005,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 }}
                 onMouseLeave={(e) => {
                   if ((selectedPilot as any)?.discord_id && !isLoadingDiscordMembers) {
-                    e.currentTarget.style.backgroundColor = '#FEE2E2';
+                    e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                   }
                 }}
               >
@@ -1034,7 +1034,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
     const dropdownStyle = {
       ...inputFieldStyle,
       width: '221px', // Half the width minus gap
-      backgroundColor: isLoadingDiscordMembers ? '#f1f5f9' : '#ffffff'
+      backgroundColor: isLoadingDiscordMembers ? 'var(--rr-panel2)' : 'var(--rr-panel)'
     };
 
     return (
@@ -1086,9 +1086,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 cursor: !selectedDiscordId || isLoadingDiscordMembers ? 'not-allowed' : 'pointer',
                 opacity: !selectedDiscordId || isLoadingDiscordMembers ? 0.7 : 1,
                 minWidth: '80px',
-                backgroundColor: '#FEE2E2',
-                color: '#B91C1C',
-                border: '1px solid #FCA5A5',
+                backgroundColor: 'rgba(224,82,78,.12)',
+                color: 'var(--rr-bad)',
+                border: '1px solid var(--rr-bad)',
               }}
               onMouseEnter={(e) => {
                 if (selectedDiscordId && !isLoadingDiscordMembers) {
@@ -1097,7 +1097,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               }}
               onMouseLeave={(e) => {
                 if (selectedDiscordId && !isLoadingDiscordMembers) {
-                  e.currentTarget.style.backgroundColor = '#FEE2E2';
+                  e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                 }
               }}
             >
@@ -1114,9 +1114,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
             <div style={{
               minHeight: '40px',
               padding: '8px',
-              backgroundColor: '#f8f9fa',
+              backgroundColor: 'var(--rr-panel2)',
               borderRadius: '4px',
-              border: '1px solid #e2e8f0',
+              border: '1px solid var(--rr-border)',
               display: 'inline-flex',
               alignItems: 'flex-start'
             }}>
@@ -1131,7 +1131,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
   const renderDiscordRoles = () => {
     if (isLoadingDiscordRoles) {
       return (
-        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+        <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
           Loading Discord roles...
         </div>
       );
@@ -1139,7 +1139,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     if (discordRoleError) {
       return (
-        <div style={{ color: '#DC2626', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+        <div style={{ color: 'var(--rr-bad)', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
           {discordRoleError}
         </div>
       );
@@ -1147,7 +1147,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     if (!discordMember || !discordRoles.length) {
       return (
-        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+        <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
           No Discord roles found
         </div>
       );
@@ -1158,7 +1158,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
     if (!userRoles.length) {
       return (
-        <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
+        <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '8px' }}>
           No roles assigned
         </div>
       );
@@ -1177,9 +1177,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
       if (!mapping || mapping.isIgnoreUsers) {
         // No mapping or ignore mapping - light gray
         return {
-          backgroundColor: '#F3F4F6',
-          color: '#4B5563',
-          border: '1px solid #D1D5DB'
+          backgroundColor: 'var(--rr-panel2)',
+          color: 'var(--rr-text2)',
+          border: '1px solid var(--rr-border2)'
         };
       }
 
@@ -1205,16 +1205,16 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         if (hasQualification) {
           // Has qualification - blue
           return {
-            backgroundColor: '#DBEAFE',
-            color: '#1D4ED8',
-            border: '1px solid #3B82F6'
+            backgroundColor: 'var(--rr-accent-weak)',
+            color: 'var(--rr-accent-text)',
+            border: '1px solid var(--rr-accent)'
           };
         } else {
           // Missing qualification - red
           return {
-            backgroundColor: '#FEE2E2',
-            color: '#DC2626',
-            border: '1px solid #EF4444'
+            backgroundColor: 'rgba(224,82,78,.12)',
+            color: 'var(--rr-bad)',
+            border: '1px solid var(--rr-bad)'
           };
         }
       }
@@ -1230,16 +1230,16 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         if (hasTeam) {
           // Has team membership - green
           return {
-            backgroundColor: '#D1FAE5',
-            color: '#065F46',
-            border: '1px solid #10B981'
+            backgroundColor: 'rgba(64,168,91,.14)',
+            color: 'var(--rr-good)',
+            border: '1px solid var(--rr-good)'
           };
         } else {
           // Missing team membership - red
           return {
-            backgroundColor: '#FEE2E2',
-            color: '#DC2626',
-            border: '1px solid #EF4444'
+            backgroundColor: 'rgba(224,82,78,.12)',
+            color: 'var(--rr-bad)',
+            border: '1px solid var(--rr-bad)'
           };
         }
       }
@@ -1249,17 +1249,17 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         // Check if pilot has the corresponding site permission (this would need actual implementation)
         // For now, assuming they have permission - yellow
         return {
-          backgroundColor: '#FEF3C7',
-          color: '#D97706',
-          border: '1px solid #F59E0B'
+          backgroundColor: 'rgba(222,154,31,.14)',
+          color: 'var(--rr-warn)',
+          border: '1px solid var(--rr-warn)'
         };
       }
 
       // Default - light gray
       return {
-        backgroundColor: '#F3F4F6',
-        color: '#4B5563',
-        border: '1px solid #D1D5DB'
+        backgroundColor: 'var(--rr-panel2)',
+        color: 'var(--rr-text2)',
+        border: '1px solid var(--rr-border2)'
       };
     };
 
@@ -1301,7 +1301,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               justifyContent: 'center',
               width: '18px',
               height: '18px',
-              color: '#DC2626'
+              color: 'var(--rr-bad)'
             }}
             title={`Quick Add Qualification: ${mapping.qualificationName}`}
           >
@@ -1334,7 +1334,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               justifyContent: 'center',
               width: '18px',
               height: '18px',
-              color: '#DC2626'
+              color: 'var(--rr-bad)'
             }}
             title={`Quick Add to Team: ${mapping.teamName}`}
           >
@@ -1532,8 +1532,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           <div
             style={{
               padding: '12px',
-              backgroundColor: '#FEE2E2',
-              color: '#B91C1C',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              color: 'var(--rr-bad)',
               borderRadius: '6px',
               marginBottom: '16px',
             }}
@@ -1570,8 +1570,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           <div
             style={{
               padding: '12px',
-              backgroundColor: '#FEE2E2',
-              color: '#B91C1C',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              color: 'var(--rr-bad)',
               borderRadius: '6px',
               marginBottom: '16px',
               marginTop: '16px'
@@ -1674,7 +1674,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         justifyContent: 'space-between',
         alignItems: 'center',
         padding: '18px',
-        borderTop: '1px solid #E2E8F0'
+        borderTop: '1px solid var(--rr-border)'
       }}>
         {/* Delete button on the left (only for existing pilots) */}
         <div>
@@ -1683,15 +1683,15 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               onClick={() => setShowDeleteConfirmation(true)}
               style={{
                 ...exportButtonStyle,
-                backgroundColor: '#FEE2E2',
-                color: '#B91C1C',
-                border: '1px solid #FCA5A5',
+                backgroundColor: 'rgba(224,82,78,.12)',
+                color: 'var(--rr-bad)',
+                border: '1px solid var(--rr-bad)',
               }}
               onMouseEnter={(e) => {
                 e.currentTarget.style.backgroundColor = '#FECACA';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = '#FEE2E2';
+                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
               }}
             >
               <Trash2 size={16} style={{ marginRight: '4px' }} />
@@ -1714,12 +1714,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (!isSavingNewPilot) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSavingNewPilot) {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                   }
                 }}
               >
@@ -1766,7 +1766,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     selectedPilot.standing_id &&
                     !boardNumberError
                   ) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -1778,7 +1778,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     selectedPilot.standing_id &&
                     !boardNumberError
                   ) {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                   }
                 }}
               >
@@ -1798,12 +1798,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (!isSaving) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSaving) {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                   }
                 }}
               >
@@ -1820,12 +1820,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if (!isSaving) {
-                    e.currentTarget.style.backgroundColor = '#F8FAFC';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }
                 }}
                 onMouseLeave={(e) => {
                   if (!isSaving) {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                   }
                 }}
               >
@@ -1854,7 +1854,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         >
             <div
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
                 padding: '24px',
                 borderRadius: '8px',
                 width: '400px',
@@ -1864,7 +1864,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px' }}>
                 Confirm Deletion
               </h2>
-              <p style={{ marginBottom: '24px', color: '#64748B' }}>
+              <p style={{ marginBottom: '24px', color: 'var(--rr-text2)' }}>
                 Are you sure you want to delete this pilot? This action cannot be undone.
               </p>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -1872,16 +1872,16 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   onClick={() => setShowDeleteConfirmation(false)}
                   style={{
                     ...exportButtonStyle,
-                    backgroundColor: '#E5E7EB',
-                    color: '#374151',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel3)',
+                    color: 'var(--rr-text)',
+                    border: '1px solid var(--rr-border2)',
                     width: '45%',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#D1D5DB';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel3)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#E5E7EB';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel3)';
                   }}
                 >
                   Cancel
@@ -1895,16 +1895,16 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   }}
                   style={{
                     ...exportButtonStyle,
-                    backgroundColor: '#FEE2E2',
-                    color: '#B91C1C',
-                    border: '1px solid #FCA5A5',
+                    backgroundColor: 'rgba(224,82,78,.12)',
+                    color: 'var(--rr-bad)',
+                    border: '1px solid var(--rr-bad)',
                     width: '45%',
                   }}
                   onMouseEnter={(e) => {
                     e.currentTarget.style.backgroundColor = '#FECACA';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#FEE2E2';
+                    e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                   }}
                 >
                   Delete
@@ -1933,12 +1933,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
           >
             <div
               style={{
-                backgroundColor: '#FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
                 borderRadius: '8px',
                 padding: '24px',
                 minWidth: '600px',
                 maxWidth: '700px',
-                boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+                boxShadow: 'var(--rr-shadow-lg)'
               }}
               onClick={(e) => e.stopPropagation()}
             >
@@ -1963,7 +1963,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   margin: '0', 
                   fontSize: '18px', 
                   fontWeight: '600',
-                  color: '#1F2937'
+                  color: 'var(--rr-text)'
                 }}>
                   Add Missing Qualification
                 </h3>
@@ -1975,9 +1975,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 gap: '12px',
                 marginBottom: '24px',
                 padding: '16px',
-                backgroundColor: '#F8FAFC',
+                backgroundColor: 'var(--rr-panel2)',
                 borderRadius: '8px',
-                border: '1px solid #E2E8F0'
+                border: '1px solid var(--rr-border)'
               }}>
                 {/* Discord Logo */}
                 <div style={{
@@ -1996,7 +1996,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 {/* Discord Role Name */}
                 <span style={{ 
                   fontSize: '14px', 
-                  color: '#1F2937',
+                  color: 'var(--rr-text)',
                   fontWeight: '500',
                   flexShrink: 0
                 }}>
@@ -2015,10 +2015,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px 12px',
-                      border: '1px solid #D1D5DB',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       fontSize: '14px',
-                      backgroundColor: '#FFFFFF',
+                      backgroundColor: 'var(--rr-panel)',
                       cursor: 'pointer',
                       display: 'flex',
                       alignItems: 'center',
@@ -2050,10 +2050,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                       top: '100%',
                       left: 0,
                       right: 0,
-                      backgroundColor: '#FFFFFF',
-                      border: '1px solid #D1D5DB',
+                      backgroundColor: 'var(--rr-panel)',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
-                      boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                      boxShadow: 'var(--rr-shadow)',
                       zIndex: 1000,
                       maxHeight: '200px',
                       overflowY: 'auto'
@@ -2072,7 +2072,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                             width: '100%',
                             padding: '6px 12px',
                             border: 'none',
-                            backgroundColor: repairDialogData.selectedQualificationId === qual.id ? '#F3F4F6' : 'transparent',
+                            backgroundColor: repairDialogData.selectedQualificationId === qual.id ? 'var(--rr-panel2)' : 'transparent',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -2083,7 +2083,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                           }}
                           onMouseEnter={(e) => {
                             if (repairDialogData.selectedQualificationId !== qual.id) {
-                              e.currentTarget.style.backgroundColor = '#F9FAFB';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                             }
                           }}
                           onMouseLeave={(e) => {
@@ -2111,10 +2111,10 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   } : null)}
                   style={{
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     width: '140px',
                     height: '40px', // Same height as qualification selector
                     boxSizing: 'border-box',
@@ -2128,9 +2128,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   onClick={handleRepairDialogCancel}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#FFFFFF',
-                    color: '#6B7280',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text2)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
                     cursor: 'pointer'
@@ -2142,7 +2142,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                   onClick={handleRepairDialogConfirm}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#3B82F6',
+                    backgroundColor: 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',
@@ -2176,12 +2176,12 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
               minWidth: '500px',
               maxWidth: '600px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: 'var(--rr-shadow-lg)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -2206,7 +2206,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 margin: '0',
                 fontSize: '18px',
                 fontWeight: '600',
-                color: '#1F2937'
+                color: 'var(--rr-text)'
               }}>
                 Add to Team
               </h3>
@@ -2218,9 +2218,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               gap: '12px',
               marginBottom: '24px',
               padding: '16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--rr-panel2)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0'
+              border: '1px solid var(--rr-border)'
             }}>
               {/* Discord Logo */}
               <div style={{
@@ -2239,7 +2239,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               {/* Discord Role Name */}
               <span style={{
                 fontSize: '14px',
-                color: '#1F2937',
+                color: 'var(--rr-text)',
                 fontWeight: '500',
                 flexShrink: 0
               }}>
@@ -2255,9 +2255,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               <span style={{
                 fontSize: '14px',
                 fontWeight: '600',
-                backgroundColor: '#D1FAE5',
-                color: '#065F46',
-                border: '1px solid #10B981',
+                backgroundColor: 'rgba(64,168,91,.14)',
+                color: 'var(--rr-good)',
+                border: '1px solid var(--rr-good)',
                 padding: '4px 12px',
                 borderRadius: '4px'
               }}>
@@ -2271,7 +2271,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: '#374151'
+                color: 'var(--rr-text)'
               }}>
                 Start Date
               </label>
@@ -2288,7 +2288,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   boxSizing: 'border-box'
@@ -2301,9 +2301,9 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 onClick={handleTeamRepairDialogCancel}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: 'pointer'
@@ -2315,7 +2315,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 onClick={handleTeamRepairDialogConfirm}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#10B981',
+                  backgroundColor: 'var(--rr-good)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',

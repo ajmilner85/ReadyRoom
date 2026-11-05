@@ -61,10 +61,10 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
   return (
     <>
       <div style={sectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
           Standings
         </h3>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
           Define the organizational hierarchy standings available for pilots.
         </p>
 
@@ -74,22 +74,22 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
         }}>
           {/* Standings Table */}
           <div style={{
-            border: '1px solid #E5E7EB',
+            border: '1px solid var(--rr-border)',
             borderRadius: '6px',
-            backgroundColor: '#FFFFFF'
+            backgroundColor: 'var(--rr-panel)'
           }}>
           {/* Table Header */}
           <div style={{
             display: 'flex',
-            backgroundColor: '#F9FAFB',
-            borderBottom: '1px solid #E5E7EB',
+            backgroundColor: 'var(--rr-panel2)',
+            borderBottom: '1px solid var(--rr-border)',
             borderRadius: '6px 6px 0 0'
           }}>
             <div style={{
               padding: '4px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               width: '24px',
               textAlign: 'center'
@@ -100,10 +100,10 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
               padding: '8px 12px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               width: '400px',
-              borderRight: '1px solid #E5E7EB'
+              borderRight: '1px solid var(--rr-border)'
             }}>
               Standing Name
             </div>
@@ -112,7 +112,7 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
               padding: '8px 12px',
               fontSize: '12px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               textTransform: 'uppercase',
               textAlign: 'center'
             }}>
@@ -147,7 +147,7 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
             <div style={{
               padding: '40px',
               textAlign: 'center',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               fontSize: '14px'
             }}>
               No standings found
@@ -168,17 +168,17 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
             style={{
               width: '119px',
               height: '30px',
-              background: '#FFFFFF',
+              background: 'var(--rr-panel)',
               borderRadius: '8px',
               border: 'none',
               cursor: loading ? 'not-allowed' : 'pointer',
               transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontStyle: 'normal',
               fontWeight: 400,
               fontSize: '20px',
               lineHeight: '24px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -223,10 +223,10 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+              boxShadow: 'var(--rr-shadow-lg)',
               width: '400px',
               maxWidth: '90vw',
               zIndex: 1001
@@ -236,10 +236,10 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
             <h2 style={{
               fontSize: '18px',
               fontWeight: 600,
-              color: '#1F2937',
+              color: 'var(--rr-text)',
               marginBottom: '24px',
               textAlign: 'center',
-              fontFamily: 'Inter'
+              fontFamily: 'inherit'
             }}>
               Add New Standing
             </h2>
@@ -250,9 +250,9 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   marginBottom: '6px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}>
                   Standing Name *
                 </label>
@@ -263,12 +263,12 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     outline: 'none',
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     boxSizing: 'border-box'
                   }}
                   placeholder="Enter standing name"
@@ -283,7 +283,7 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
               gap: '12px',
               marginTop: '24px',
               paddingTop: '16px',
-              borderTop: '1px solid #E5E7EB'
+              borderTop: '1px solid var(--rr-border)'
             }}>
               <button
                 onClick={() => {
@@ -292,21 +292,21 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                 }}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
               >
                 Cancel
@@ -315,21 +315,21 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                 onClick={handleAddStanding}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#16A34A',
+                  backgroundColor: 'var(--rr-good)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.backgroundColor = '#15803D';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#16A34A';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-good)';
                 }}
               >
                 Add Standing
@@ -361,10 +361,10 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)',
+              boxShadow: 'var(--rr-shadow-lg)',
               width: '400px',
               maxWidth: '90vw',
               zIndex: 1001
@@ -374,10 +374,10 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
             <h2 style={{
               fontSize: '18px',
               fontWeight: 600,
-              color: '#1F2937',
+              color: 'var(--rr-text)',
               marginBottom: '24px',
               textAlign: 'center',
-              fontFamily: 'Inter'
+              fontFamily: 'inherit'
             }}>
               Edit Standing
             </h2>
@@ -388,9 +388,9 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                   display: 'block',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   marginBottom: '6px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}>
                   Standing Name *
                 </label>
@@ -401,12 +401,12 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     outline: 'none',
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     boxSizing: 'border-box'
                   }}
                   placeholder="Enter standing name"
@@ -421,7 +421,7 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
               gap: '12px',
               marginTop: '24px',
               paddingTop: '16px',
-              borderTop: '1px solid #E5E7EB'
+              borderTop: '1px solid var(--rr-border)'
             }}>
               <button
                 onClick={() => {
@@ -430,21 +430,21 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                 }}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#F9FAFB';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
               >
                 Cancel
@@ -453,21 +453,21 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
                 onClick={handleSaveStanding}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   transition: 'all 0.2s ease'
                 }}
                 onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = '#2563EB';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                 }}
                 onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = '#3B82F6';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
                 }}
               >
                 Update Standing

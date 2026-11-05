@@ -932,7 +932,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '8px', // Reduced from 32px to 8px
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
     marginTop: '8px' // Reduced from 32px to 8px
   };
 
@@ -944,14 +944,14 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
             Roster Settings
           </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Configure statuses, roles, and qualifications for squadron personnel.
           </p>
         </div>
@@ -964,13 +964,13 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
             <div style={{
               padding: '16px',
               marginBottom: '24px',
-              backgroundColor: '#FEF2F2',
-              border: '1px solid #FECACA',
-              color: '#DC2626',
+              backgroundColor: 'rgba(224,82,78,.12)',
+              border: '1px solid var(--rr-bad)',
+              color: 'var(--rr-bad)',
               borderRadius: '6px',
               display: 'flex',
               alignItems: 'center',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px'
             }} role="alert">
               <AlertCircle size={18} style={{ marginRight: '8px' }} />

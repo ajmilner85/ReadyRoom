@@ -32,28 +32,28 @@ const FlightPostOptionsDialog: React.FC<FlightPostOptionsDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
         padding: '24px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         zIndex: 1001,
         minWidth: '400px',
         maxWidth: '500px'
       }}>
         <div style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '18px',
           fontWeight: 500,
-          color: '#1F2937',
+          color: 'var(--rr-text)',
           marginBottom: '16px',
           textAlign: 'center'
         }}>
           Flight Assignments Already Posted
         </div>
         <div style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '14px',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           marginBottom: '24px',
           textAlign: 'center',
           lineHeight: '1.5'
@@ -71,21 +71,21 @@ const FlightPostOptionsDialog: React.FC<FlightPostOptionsDialogProps> = ({
             style={{
               width: '100%',
               height: '40px',
-              background: '#3B82F6',
+              background: 'var(--rr-accent)',
               borderRadius: '6px',
               border: 'none',
               cursor: 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 500,
               color: '#FFFFFF',
               transition: 'background-color 0.2s ease'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#2563EB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#3B82F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
           >
             Update Existing {existingPostsCount === 1 ? 'Post' : 'Posts'}
@@ -95,21 +95,21 @@ const FlightPostOptionsDialog: React.FC<FlightPostOptionsDialogProps> = ({
             style={{
               width: '100%',
               height: '40px',
-              background: '#10B981',
+              background: 'var(--rr-good)',
               borderRadius: '6px',
               border: 'none',
               cursor: 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 500,
               color: '#FFFFFF',
               transition: 'background-color 0.2s ease'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#059669';
+              e.currentTarget.style.backgroundColor = 'var(--rr-good)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#10B981';
+              e.currentTarget.style.backgroundColor = 'var(--rr-good)';
             }}
           >
             Create New Post
@@ -119,21 +119,21 @@ const FlightPostOptionsDialog: React.FC<FlightPostOptionsDialogProps> = ({
             style={{
               width: '100%',
               height: '40px',
-              background: '#F3F4F6',
+              background: 'var(--rr-panel2)',
               borderRadius: '6px',
               border: 'none',
               cursor: 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#374151',
+              color: 'var(--rr-text)',
               transition: 'background-color 0.2s ease'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#E5E7EB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel3)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
           >
             Cancel

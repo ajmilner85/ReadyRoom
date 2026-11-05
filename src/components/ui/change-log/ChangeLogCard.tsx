@@ -27,14 +27,14 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
   const primaryColor = useSquadronColors ? '#3B82F6' : '#3B82F6'; // TODO: Get actual squadron color
 
   const cardStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '8px',
-    border: '1px solid #E2E8F0',
+    border: '1px solid var(--rr-border)',
     height: 'calc(100vh - 48px)',
     maxHeight: 'calc(100vh - 48px)',
     display: 'flex',
     flexDirection: 'column',
-    boxShadow: '0 1px 3px rgba(0, 0, 0, 0.1)',
+    boxShadow: 'var(--rr-shadow)',
     overflow: 'hidden',
   };
 
@@ -49,7 +49,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 300,
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     textTransform: 'uppercase',
     letterSpacing: '0.5px',
     textAlign: 'center',
@@ -68,9 +68,9 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
     width: '32px',
     height: '32px',
     borderRadius: '6px',
-    border: '1px solid #D1D5DB',
-    backgroundColor: '#FFFFFF',
-    color: '#6B7280',
+    border: '1px solid var(--rr-border2)',
+    backgroundColor: 'var(--rr-panel)',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -98,7 +98,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
     justifyContent: 'center',
     flex: 1,
     textAlign: 'center',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     padding: '32px 16px',
   };
 
@@ -109,7 +109,7 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
     justifyContent: 'center',
     flex: 1,
     textAlign: 'center',
-    color: '#EF4444',
+    color: 'var(--rr-bad)',
     padding: '32px 16px',
   };
 
@@ -138,12 +138,12 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
               onClick={() => setShowManageDialog(true)}
               style={buttonStyle}
               onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F3F4F6';
-                e.currentTarget.style.borderColor = '#9CA3AF';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }}
               onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-                e.currentTarget.style.borderColor = '#D1D5DB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }}
               title="Manage Posts"
             >

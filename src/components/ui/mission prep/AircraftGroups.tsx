@@ -193,8 +193,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
       <Card 
         style={{
           width: width,
-          backgroundColor: '#FFFFFF',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          backgroundColor: 'var(--rr-panel)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           marginBottom: '20px',
@@ -210,7 +210,7 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
         }}>
           <span style={styles.headerLabel}>Aircraft Groups</span>
         </div>
-        <div style={{ padding: '16px', textAlign: 'center', color: '#64748B' }}>
+        <div style={{ padding: '16px', textAlign: 'center', color: 'var(--rr-text2)' }}>
           No aircraft groups found in mission data.
         </div>
       </Card>
@@ -229,8 +229,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
     <Card 
       style={{
         width: width,
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         padding: '24px',
         marginBottom: '20px',
@@ -262,15 +262,15 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
                 marginBottom: '16px',
                 padding: '16px',
                 borderRadius: '4px',
-                backgroundColor: '#F8FAFC',
-                border: '1px solid #E2E8F0'
+                backgroundColor: 'var(--rr-panel2)',
+                border: '1px solid var(--rr-border)'
               }}
             >
               <h3 style={{
                 margin: '0 0 12px 0',
                 fontSize: '16px',
                 fontWeight: 600,
-                color: '#334155'
+                color: 'var(--rr-text)'
               }}>{group.name}</h3>
               
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
@@ -284,8 +284,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
                       style={{
                         padding: '8px',
                         borderRadius: '4px',
-                        backgroundColor: '#FFFFFF',
-                        border: '1px solid #E2E8F0',
+                        backgroundColor: 'var(--rr-panel)',
+                        border: '1px solid var(--rr-border)',
                         display: 'flex',
                         gap: '16px',
                         alignItems: 'center',
@@ -293,8 +293,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
                       }}
                     >
                       <span style={{ fontWeight: 600 }}>{formattedName}</span>
-                      <span style={{ color: '#64748B' }}>{unit.onboard_num || 'N/A'}</span>
-                      <span style={{ color: '#64748B' }}>{totalFuel.toLocaleString()} lbs</span>
+                      <span style={{ color: 'var(--rr-text2)' }}>{unit.onboard_num || 'N/A'}</span>
+                      <span style={{ color: 'var(--rr-text2)' }}>{totalFuel.toLocaleString()} lbs</span>
                     </div>
                   );
                 })}

@@ -97,17 +97,17 @@ const EventsList: React.FC<EventsListProps> = ({
               right: 0,
               top: '50%',
               height: '1px',
-              backgroundColor: '#E2E8F0'
+              backgroundColor: 'var(--rr-panel3)'
             }}
           />
           <span 
             style={{
               position: 'relative',
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               padding: '0 16px',
-              color: '#646F7E',
+              color: 'var(--rr-text2)',
               fontSize: '12px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontWeight: 300,
               textTransform: 'uppercase'
             }}
@@ -125,7 +125,7 @@ const EventsList: React.FC<EventsListProps> = ({
               alignItems: 'center',
               marginBottom: '10px',
               cursor: 'pointer',
-              backgroundColor: selectedEvent?.id === event.id ? '#EFF6FF' : hoveredEvent === event.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+              backgroundColor: selectedEvent?.id === event.id ? 'var(--rr-accent-weak)' : hoveredEvent === event.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
               borderRadius: '8px',
               padding: '12px',
               position: 'relative'
@@ -141,9 +141,9 @@ const EventsList: React.FC<EventsListProps> = ({
                 return cycle ? (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
                     {showCycleIndicator && (
-                      <CornerDownRight size={14} style={{ color: '#9CA3AF', flexShrink: 0 }} />
+                      <CornerDownRight size={14} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
                     )}
-                    <span style={{ fontSize: '12px', color: '#9CA3AF', fontWeight: 400 }}>
+                    <span style={{ fontSize: '12px', color: 'var(--rr-text3)', fontWeight: 400 }}>
                       {cycle.name}
                     </span>
                   </div>
@@ -152,7 +152,7 @@ const EventsList: React.FC<EventsListProps> = ({
               <span style={{
                 fontSize: '16px',
                 fontWeight: 700,
-                color: showCycleIndicator && !event.cycleId ? '#3B82F6' : '#0F172A'
+                color: showCycleIndicator && !event.cycleId ? 'var(--rr-accent-text)' : 'var(--rr-text)'
               }}>
                 {event.title}
               </span>
@@ -168,7 +168,7 @@ const EventsList: React.FC<EventsListProps> = ({
                   right: '12px',
                   top: '50%',
                   transform: 'translateY(-50%)',
-                  backgroundColor: selectedEvent?.id === event.id ? '#EFF6FF' : hoveredEvent === event.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
+                  backgroundColor: selectedEvent?.id === event.id ? 'var(--rr-accent-weak)' : hoveredEvent === event.id ? 'rgba(100, 116, 139, 0.1)' : 'transparent',
                   padding: '4px',
                   borderRadius: '4px'
                 }}
@@ -183,8 +183,8 @@ const EventsList: React.FC<EventsListProps> = ({
                       padding: '4px',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      background: 'white',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      background: 'var(--rr-panel)',
+                      boxShadow: 'var(--rr-shadow)',
                       border: 'none',
                       display: 'flex',
                       alignItems: 'center',
@@ -211,8 +211,8 @@ const EventsList: React.FC<EventsListProps> = ({
                       padding: '4px',
                       borderRadius: '4px',
                       cursor: 'pointer',
-                      background: 'white',
-                      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                      background: 'var(--rr-panel)',
+                      boxShadow: 'var(--rr-shadow)',
                       border: 'none',
                       display: 'flex',
                       alignItems: 'center',
@@ -264,7 +264,7 @@ const EventsList: React.FC<EventsListProps> = ({
         padding: '18px',
         position: 'relative',
         zIndex: 5,
-        borderTop: '1px solid #E2E8F0'
+        borderTop: '1px solid var(--rr-border)'
       }}>
         {/* Remove All Button - positioned on the left */}
         {showRemoveAll && onRemoveAll && (
@@ -277,22 +277,22 @@ const EventsList: React.FC<EventsListProps> = ({
               alignItems: 'center',
               gap: '8px',
               padding: '6px 12px',
-              backgroundColor: 'white',
-              border: '1px solid #E5E7EB',
+              backgroundColor: 'var(--rr-panel)',
+              border: '1px solid var(--rr-border)',
               borderRadius: '6px',
               cursor: 'pointer',
               fontSize: '14px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               transition: 'all 0.2s',
               fontWeight: 500
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F9FAFB';
-              e.currentTarget.style.borderColor = '#CBD5E1';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+              e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'white';
-              e.currentTarget.style.borderColor = '#E5E7EB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+              e.currentTarget.style.borderColor = 'var(--rr-border)';
             }}
           >
             <Trash2 size={16} />
@@ -306,17 +306,17 @@ const EventsList: React.FC<EventsListProps> = ({
           style={{
             width: '119px',
             height: '30px',
-            background: '#FFFFFF',
+            background: 'var(--rr-panel)',
             borderRadius: '8px',
             border: 'none',
             cursor: 'pointer',
             transition: 'box-shadow 0.2s ease-in-out',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 400,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center'

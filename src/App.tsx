@@ -612,7 +612,7 @@ const App: React.FC = () => {
                       setHoveredFlightId(null);
                     }}
                     style={{
-                      backgroundColor: '#F0F4F8',
+                      backgroundColor: 'var(--rr-panel2)',
                       height: '100%',
                       width: '100%'
                     }}

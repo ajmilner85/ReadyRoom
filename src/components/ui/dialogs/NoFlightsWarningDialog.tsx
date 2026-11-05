@@ -26,28 +26,28 @@ const NoFlightsWarningDialog: React.FC<NoFlightsWarningDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
         padding: '24px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         zIndex: 1001,
         minWidth: '400px',
         maxWidth: '500px'
       }}>
         <div style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '18px',
           fontWeight: 500,
-          color: '#1F2937',
+          color: 'var(--rr-text)',
           marginBottom: '16px',
           textAlign: 'center'
         }}>
           No Flights Available
         </div>
         <div style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontSize: '14px',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           marginBottom: '24px',
           textAlign: 'center',
           lineHeight: '1.5'
@@ -63,21 +63,21 @@ const NoFlightsWarningDialog: React.FC<NoFlightsWarningDialogProps> = ({
             style={{
               width: '120px',
               height: '40px',
-              background: '#3B82F6',
+              background: 'var(--rr-accent)',
               borderRadius: '6px',
               border: 'none',
               cursor: 'pointer',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 500,
               color: '#FFFFFF',
               transition: 'background-color 0.2s ease'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#2563EB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#3B82F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
           >
             OK

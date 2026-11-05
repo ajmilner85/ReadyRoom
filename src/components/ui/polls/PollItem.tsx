@@ -37,22 +37,22 @@ const PollItem: React.FC<PollItemProps> = ({
   };
 
   const containerStyle: React.CSSProperties = {
-    border: '1px solid #E5E7EB',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
     padding: '20px',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'var(--rr-panel2)',
   };
 
   const titleStyle: React.CSSProperties = {
     fontSize: '16px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 8px 0',
   };
 
   const descriptionStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     margin: '0 0 16px 0',
     lineHeight: '1.5',
   };
@@ -69,7 +69,7 @@ const PollItem: React.FC<PollItemProps> = ({
     alignItems: 'center',
     gap: '6px',
     fontSize: '12px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
   };
 
   // Sort options by their order
@@ -96,7 +96,7 @@ const PollItem: React.FC<PollItemProps> = ({
             alignItems: 'center',
             justifyContent: 'space-between',
             padding: '12px 16px',
-            border: `1px solid ${isSelected ? primaryColor : '#D1D5DB'}`,
+            border: `1px solid ${isSelected ? primaryColor : 'var(--rr-border2)'}`,
             borderRadius: '6px',
             backgroundColor: isSelected ? `${primaryColor}10` : '#FFFFFF',
             cursor: canVote ? 'pointer' : 'default',
@@ -128,7 +128,7 @@ const PollItem: React.FC<PollItemProps> = ({
           const textStyle: React.CSSProperties = {
             fontSize: '14px',
             fontWeight: 500,
-            color: isSelected ? primaryColor : '#374151',
+            color: isSelected ? primaryColor : 'var(--rr-text)',
             display: 'flex',
             alignItems: 'center',
             gap: '8px',
@@ -136,7 +136,7 @@ const PollItem: React.FC<PollItemProps> = ({
 
           const statsTextStyle: React.CSSProperties = {
             fontSize: '12px',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             display: 'flex',
             alignItems: 'center',
             gap: '4px',
@@ -195,14 +195,14 @@ const PollItem: React.FC<PollItemProps> = ({
                       <div style={{ 
                         fontWeight: 500,
                         fontSize: '14px',
-                        color: isSelected ? primaryColor : '#374151'
+                        color: isSelected ? primaryColor : 'var(--rr-text)'
                       }}>
                         {(option as any).title || (option as any).text || ''}
                       </div>
                       {(option as any).description && (
                         <div style={{ 
                           fontSize: '12px',
-                          color: '#6B7280',
+                          color: 'var(--rr-text2)',
                           marginTop: '4px',
                           lineHeight: '1.4',
                           wordWrap: 'break-word',

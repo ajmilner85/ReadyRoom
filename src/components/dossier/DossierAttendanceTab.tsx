@@ -15,8 +15,8 @@ const RESPONSE_CHIP: Record<string, { label: string; bg: string; fg: string }> =
 
 const summaryStyle: React.CSSProperties = {
   padding: '12px 16px',
-  backgroundColor: '#F8FAFC',
-  border: '1px solid #E2E8F0',
+  backgroundColor: 'var(--rr-panel2)',
+  border: '1px solid var(--rr-border)',
   borderRadius: '8px',
   textAlign: 'center',
   flex: 1
@@ -27,7 +27,7 @@ const DossierAttendanceTab: React.FC<DossierAttendanceTabProps> = ({ attendance,
 
   if (loading) {
     return (
-      <div style={{ color: '#64748B', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
+      <div style={{ color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center', padding: '24px 0' }}>
         Loading attendance...
       </div>
     );
@@ -40,7 +40,7 @@ const DossierAttendanceTab: React.FC<DossierAttendanceTabProps> = ({ attendance,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#64748B',
+        color: 'var(--rr-text2)',
         fontSize: '14px',
         textAlign: 'center'
       }}>
@@ -59,10 +59,10 @@ const DossierAttendanceTab: React.FC<DossierAttendanceTabProps> = ({ attendance,
           { label: 'Attendance Rate', value: rate != null ? `${Math.round(rate * 100)}%` : '—' }
         ].map(tile => (
           <div key={tile.label} style={summaryStyle}>
-            <div style={{ fontSize: '24px', fontWeight: 700, color: '#0F172A', lineHeight: '28px' }}>
+            <div style={{ fontSize: '24px', fontWeight: 700, color: 'var(--rr-text)', lineHeight: '28px' }}>
               {tile.value}
             </div>
-            <div style={{ fontSize: '11px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
+            <div style={{ fontSize: '11px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', letterSpacing: '0.5px', marginTop: '4px' }}>
               {tile.label}
             </div>
           </div>
@@ -81,15 +81,15 @@ const DossierAttendanceTab: React.FC<DossierAttendanceTabProps> = ({ attendance,
                 alignItems: 'center',
                 gap: '12px',
                 padding: '6px 0',
-                borderBottom: '1px solid #F1F5F9'
+                borderBottom: '1px solid var(--rr-border)'
               }}
             >
-              <span style={{ fontSize: '12px', color: '#94A3B8', width: '90px', flexShrink: 0 }}>
+              <span style={{ fontSize: '12px', color: 'var(--rr-text3)', width: '90px', flexShrink: 0 }}>
                 {formatDossierDate(item.date)}
               </span>
               <span style={{
                 fontSize: '13px',
-                color: '#0F172A',
+                color: 'var(--rr-text)',
                 flex: 1,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',

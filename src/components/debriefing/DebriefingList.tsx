@@ -34,7 +34,7 @@ const getStatusInfo = (
     return {
       status: 'no_debrief',
       label: 'Not Started',
-      color: '#64748B',
+      color: 'var(--rr-text2)',
       bgColor: '#F1F5F9',
       icon: <FileText size={14} />
     };
@@ -46,7 +46,7 @@ const getStatusInfo = (
     return {
       status: 'no_debrief',
       label: 'Not Started',
-      color: '#64748B',
+      color: 'var(--rr-text2)',
       bgColor: '#F1F5F9',
       icon: <Clock size={14} />
     };
@@ -57,7 +57,7 @@ const getStatusInfo = (
       return {
         status: 'finalized',
         label: 'Finalized',
-        color: '#059669',
+        color: 'var(--rr-good)',
         bgColor: '#ECFDF5',
         icon: <CheckCircle size={14} />
       };
@@ -66,7 +66,7 @@ const getStatusInfo = (
       return {
         status: 'in_progress',
         label: 'In Progress',
-        color: '#D97706',
+        color: 'var(--rr-warn)',
         bgColor: '#FEF3C7',
         icon: <Clock size={14} />
       };
@@ -74,7 +74,7 @@ const getStatusInfo = (
       return {
         status: 'pending',
         label: 'Pending',
-        color: '#64748B',
+        color: 'var(--rr-text2)',
         bgColor: '#F1F5F9',
         icon: <FileText size={14} />
       };
@@ -104,7 +104,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
           style={{
             padding: '40px',
             textAlign: 'center',
-            color: '#94A3B8',
+            color: 'var(--rr-text3)',
             fontSize: '14px'
           }}
         >
@@ -127,18 +127,18 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
             gap: '12px'
           }}
         >
-          <FileText size={40} style={{ color: '#CBD5E1' }} />
+          <FileText size={40} style={{ color: 'var(--rr-text3)' }} />
           <h3
             style={{
               fontSize: '18px',
               fontWeight: 600,
-              color: '#475569',
+              color: 'var(--rr-text2)',
               marginTop: '8px'
             }}
           >
             No Missions Found
           </h3>
-          <p style={{ fontSize: '14px', color: '#94A3B8', maxWidth: '400px' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text3)', maxWidth: '400px' }}>
             No completed missions are available for debriefing. Missions will appear here after
             they have taken place.
           </p>
@@ -165,7 +165,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
                 transition: 'background-color 0.15s ease'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#F8FAFC';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'transparent';
@@ -177,7 +177,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
                   style={{
                     fontSize: '16px',
                     fontWeight: 600,
-                    color: '#1E293B',
+                    color: 'var(--rr-text)',
                     marginBottom: '6px'
                   }}
                 >
@@ -189,7 +189,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
                     alignItems: 'center',
                     gap: '6px',
                     fontSize: '13px',
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}
                 >
                   <Calendar size={14} />
@@ -216,7 +216,7 @@ const DebriefingList: React.FC<DebriefingListProps> = ({
               </div>
 
               {/* Arrow */}
-              <ChevronRight size={20} style={{ color: '#CBD5E1' }} />
+              <ChevronRight size={20} style={{ color: 'var(--rr-text3)' }} />
             </div>
           </Card>
         );

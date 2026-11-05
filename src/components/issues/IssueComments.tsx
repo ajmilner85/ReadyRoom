@@ -106,7 +106,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
 
   if (loading) {
     return (
-      <div style={{ padding: '16px', textAlign: 'center', color: '#6B7280', fontSize: '13px' }}>
+      <div style={{ padding: '16px', textAlign: 'center', color: 'var(--rr-text2)', fontSize: '13px' }}>
         Loading comments...
       </div>
     );
@@ -116,23 +116,23 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
     <div>
       {/* Comments list */}
       {comments.length > 0 ? (
-        <div style={{ borderTop: '1px solid #E5E7EB' }}>
+        <div style={{ borderTop: '1px solid var(--rr-border)' }}>
           {comments.map((comment) => (
             <div
               key={comment.id}
               style={{
                 padding: '12px 16px',
-                borderBottom: '1px solid #E5E7EB',
-                backgroundColor: deletingId === comment.id ? '#F9FAFB' : 'white',
+                borderBottom: '1px solid var(--rr-border)',
+                backgroundColor: deletingId === comment.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                 opacity: deletingId === comment.id ? 0.5 : 1,
               }}
             >
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
-                  <span style={{ fontSize: '13px', fontWeight: 500, color: '#374151' }}>
+                  <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)' }}>
                     {getDisplayName(comment)}
                   </span>
-                  <span style={{ fontSize: '12px', color: '#9CA3AF' }}>{formatDate(comment.created_at)}</span>
+                  <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>{formatDate(comment.created_at)}</span>
                 </div>
                 {canDeleteComments && (
                   <button
@@ -143,13 +143,13 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
                       padding: '4px',
                       border: 'none',
                       backgroundColor: 'transparent',
-                      color: '#9CA3AF',
+                      color: 'var(--rr-text3)',
                       cursor: deletingId === comment.id ? 'wait' : 'pointer',
                       borderRadius: '4px',
                       transition: 'color 0.15s ease',
                     }}
-                    onMouseEnter={(e) => (e.currentTarget.style.color = '#DC2626')}
-                    onMouseLeave={(e) => (e.currentTarget.style.color = '#9CA3AF')}
+                    onMouseEnter={(e) => (e.currentTarget.style.color = 'var(--rr-bad)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.color = 'var(--rr-text3)')}
                   >
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                       <polyline points="3 6 5 6 21 6" />
@@ -158,7 +158,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
                   </button>
                 )}
               </div>
-              <p style={{ margin: 0, fontSize: '13px', color: '#4B5563', whiteSpace: 'pre-wrap' }}>
+              <p style={{ margin: 0, fontSize: '13px', color: 'var(--rr-text2)', whiteSpace: 'pre-wrap' }}>
                 {comment.content}
               </p>
             </div>
@@ -169,9 +169,9 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
           style={{
             padding: '24px 16px',
             textAlign: 'center',
-            color: '#9CA3AF',
+            color: 'var(--rr-text3)',
             fontSize: '13px',
-            borderTop: '1px solid #E5E7EB',
+            borderTop: '1px solid var(--rr-border)',
           }}
         >
           No comments yet
@@ -183,8 +183,8 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
         <div
           style={{
             padding: '8px 16px',
-            backgroundColor: '#FEE2E2',
-            color: '#DC2626',
+            backgroundColor: 'rgba(224,82,78,.12)',
+            color: 'var(--rr-bad)',
             fontSize: '13px',
           }}
         >
@@ -194,7 +194,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
 
       {/* Add comment form */}
       {canComment && (
-        <div style={{ padding: '12px 16px', borderTop: '1px solid #E5E7EB', backgroundColor: '#F9FAFB' }}>
+        <div style={{ padding: '12px 16px', borderTop: '1px solid var(--rr-border)', backgroundColor: 'var(--rr-panel2)' }}>
           <textarea
             value={newComment}
             onChange={(e) => setNewComment(e.target.value)}
@@ -203,7 +203,7 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
             style={{
               width: '100%',
               padding: '8px 12px',
-              border: '1px solid #D1D5DB',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               fontSize: '13px',
               resize: 'vertical',
@@ -221,8 +221,8 @@ export const IssueComments: React.FC<IssueCommentsProps> = ({
                 fontWeight: 500,
                 border: 'none',
                 borderRadius: '6px',
-                backgroundColor: !newComment.trim() || submitting ? '#E5E7EB' : '#2563EB',
-                color: !newComment.trim() || submitting ? '#9CA3AF' : 'white',
+                backgroundColor: !newComment.trim() || submitting ? 'var(--rr-panel3)' : 'var(--rr-accent)',
+                color: !newComment.trim() || submitting ? 'var(--rr-text3)' : 'white',
                 cursor: !newComment.trim() || submitting ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.15s ease',
               }}

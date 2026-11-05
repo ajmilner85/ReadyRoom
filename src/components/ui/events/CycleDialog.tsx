@@ -336,7 +336,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       marginBottom: '16px',
       justifyContent: 'flex-end'
     }}>
-      <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', marginRight: '4px', alignSelf: 'center' }}>
         Sort by:
       </span>
       <button
@@ -344,9 +344,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         onClick={() => setSortBySquadron(!sortBySquadron)}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBySquadron ? '#2563EB' : 'white',
-          color: sortBySquadron ? 'white' : '#6B7280',
-          border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBySquadron ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -365,9 +365,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         onClick={() => setSortBy('boardNumber')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'boardNumber' ? '#2563EB' : 'white',
-          color: sortBy === 'boardNumber' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'boardNumber' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -386,9 +386,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         onClick={() => setSortBy('callsign')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'callsign' ? '#2563EB' : 'white',
-          color: sortBy === 'callsign' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'callsign' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -1032,7 +1032,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           <span style={{
             fontSize: '14px',
             fontWeight: 700,
-            color: pilot.squadron?.primary_color || '#374151',
+            color: pilot.squadron?.primary_color || 'var(--rr-text)',
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -1048,7 +1048,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               style={{
                 padding: '2px',
                 backgroundColor: 'transparent',
-                color: '#DC2626',
+                color: 'var(--rr-bad)',
                 border: 'none',
                 borderRadius: '4px',
                 cursor: 'pointer',
@@ -1075,7 +1075,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       flex: 1,
       minWidth: 0,
       minHeight: 0,
-      border: '1px solid #E5E7EB',
+      border: '1px solid var(--rr-border)',
       borderRadius: '6px',
       padding: '10px 12px',
       overflowY: 'auto',
@@ -1085,7 +1085,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     return (
       <div style={{ marginTop: '16px', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
         {/* Students / Instructors tabs */}
-        <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', marginBottom: '12px', flexShrink: 0 }}>
+        <div style={{ display: 'flex', borderBottom: '1px solid var(--rr-border)', marginBottom: '12px', flexShrink: 0 }}>
           {(['students', 'instructors'] as const).map(tab => (
             <button
               key={tab}
@@ -1095,12 +1095,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 padding: '8px 16px',
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: enrollmentTab === tab ? '#2563EB' : '#64748B',
+                color: enrollmentTab === tab ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                 fontWeight: enrollmentTab === tab ? 600 : 500,
                 fontSize: '13px',
                 cursor: 'pointer',
-                borderBottom: enrollmentTab === tab ? '2px solid #2563EB' : '2px solid transparent',
-                fontFamily: 'Inter'
+                borderBottom: enrollmentTab === tab ? '2px solid var(--rr-accent)' : '2px solid transparent',
+                fontFamily: 'inherit'
               }}
             >
               {tab === 'students' ? `Students (${studentsEnrolled.length})` : `Instructors (${instructorsEnrolled.length})`}
@@ -1113,11 +1113,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         <div style={{ display: 'flex', gap: '16px', alignItems: 'stretch', flex: 1, minHeight: 0 }}>
           <div style={containerStyle}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-              <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#374151', margin: 0, textTransform: 'uppercase', fontFamily: 'Inter' }}>
+              <h3 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text)', margin: 0, textTransform: 'uppercase', fontFamily: 'inherit' }}>
                 Available
               </h3>
               {/* Suggested / All toggle */}
-              <div style={{ display: 'flex', border: '1px solid #E2E8F0', borderRadius: '6px', overflow: 'hidden' }}>
+              <div style={{ display: 'flex', border: '1px solid var(--rr-border)', borderRadius: '6px', overflow: 'hidden' }}>
                 {(['suggested', 'all'] as const).map(view => (
                   <button
                     key={view}
@@ -1126,12 +1126,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     style={{
                       padding: '3px 10px',
                       border: 'none',
-                      backgroundColor: availableView === view ? '#EFF6FF' : '#FFFFFF',
-                      color: availableView === view ? '#2563EB' : '#64748B',
+                      backgroundColor: availableView === view ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
+                      color: availableView === view ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                       fontWeight: availableView === view ? 600 : 500,
                       fontSize: '11px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter'
+                      fontFamily: 'inherit'
                     }}
                   >
                     {view === 'suggested'
@@ -1144,7 +1144,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             {available.length > 0 ? (
               pilotGrid(available, 'enroll')
             ) : (
-              <div style={{ padding: '12px', color: '#94A3B8', fontSize: '12px', fontStyle: 'italic', fontFamily: 'Inter' }}>
+              <div style={{ padding: '12px', color: 'var(--rr-text3)', fontSize: '12px', fontStyle: 'italic', fontFamily: 'inherit' }}>
                 {availableView === 'suggested'
                   ? 'No available pilots match the auto-enrollment rules. Try All Pilots.'
                   : 'Everyone is already enrolled.'}
@@ -1165,9 +1165,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                color: available.length === 0 ? '#D1D5DB' : '#2563EB',
+                border: '1px solid var(--rr-border2)',
+                backgroundColor: 'var(--rr-panel)',
+                color: available.length === 0 ? 'var(--rr-text3)' : 'var(--rr-accent-text)',
                 borderRadius: '6px',
                 cursor: available.length === 0 ? 'default' : 'pointer'
               }}
@@ -1185,9 +1185,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#FFFFFF',
-                color: enrolled.length === 0 ? '#D1D5DB' : '#64748B',
+                border: '1px solid var(--rr-border2)',
+                backgroundColor: 'var(--rr-panel)',
+                color: enrolled.length === 0 ? 'var(--rr-text3)' : 'var(--rr-text2)',
                 borderRadius: '6px',
                 cursor: enrolled.length === 0 ? 'default' : 'pointer'
               }}
@@ -1197,11 +1197,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           </div>
 
           <div style={containerStyle}>
-            <h3 style={{ fontSize: '12px', fontWeight: 600, color: '#374151', margin: '0 0 8px 0', textTransform: 'uppercase', fontFamily: 'Inter' }}>
+            <h3 style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 8px 0', textTransform: 'uppercase', fontFamily: 'inherit' }}>
               Enrolled ({enrolled.length})
             </h3>
             {enrolled.length === 0 ? (
-              <div style={{ padding: '12px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '12px', textAlign: 'center', fontFamily: 'Inter' }}>
+              <div style={{ padding: '12px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', color: 'var(--rr-text2)', fontSize: '12px', textAlign: 'center', fontFamily: 'inherit' }}>
                 No {enrollmentTab} enrolled yet — click a pilot on the left
               </div>
             ) : (
@@ -1254,7 +1254,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     if (!activitiesEnabled || !cycleId || scopableActivities.length === 0) return null;
     return (
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-        <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', flexShrink: 0 }}>
+        <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', flexShrink: 0 }}>
           Activity
         </label>
         <select
@@ -1263,10 +1263,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           style={{
             flex: 1,
             padding: '6px 8px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '4px',
             fontSize: '13px',
-            backgroundColor: 'white'
+            backgroundColor: 'var(--rr-panel)'
           }}
         >
           <option value="">Entire cycle</option>
@@ -1945,22 +1945,22 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         // The gantt builder is a horizontal element - go near-fullscreen when
         // the Activities flag is on (left settings pane + wide calendar)
         width: activitiesEnabled ? 'min(96vw, 1800px)' : '663px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         zIndex: 1001
       }}>
         {/* Show loading state until enrollment data is loaded */}
         {!initialEnrollmentLoadComplete ? (
           <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: '14px', color: '#6B7280', marginBottom: '16px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--rr-text2)', marginBottom: '16px' }}>
               Loading cycle data...
             </div>
             <div style={{
               width: '32px',
               height: '32px',
-              border: '3px solid #E5E7EB',
-              borderTop: '3px solid #2563EB',
+              border: '3px solid var(--rr-border)',
+              borderTop: '3px solid var(--rr-accent)',
               borderRadius: '50%',
               animation: 'spin 0.8s linear infinite',
               margin: '0 auto'
@@ -1973,12 +1973,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '16px 24px',
-          borderBottom: '1px solid #E2E8F0'
+          borderBottom: '1px solid var(--rr-border)'
         }}>
           <h2 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#0F172A'
+            color: 'var(--rr-text)'
           }}>
             {initialData ? `Edit ${type} Cycle` : `Create New ${type} Cycle`}
           </h2>
@@ -2003,8 +2003,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
         {showTabs && !activitiesEnabled && (
           <div style={{
             display: 'flex',
-            borderBottom: '1px solid #E2E8F0',
-            backgroundColor: '#F8FAFC'
+            borderBottom: '1px solid var(--rr-border)',
+            backgroundColor: 'var(--rr-panel2)'
           }}>
             <button
               type="button"
@@ -2014,11 +2014,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 padding: '12px 16px',
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: activeTab === 'details' ? '#2563EB' : '#64748B',
+                color: activeTab === 'details' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                 fontWeight: activeTab === 'details' ? 600 : 500,
                 fontSize: '14px',
                 cursor: 'pointer',
-                borderBottom: activeTab === 'details' ? '2px solid #2563EB' : 'none',
+                borderBottom: activeTab === 'details' ? '2px solid var(--rr-accent)' : 'none',
                 transition: 'all 0.2s'
               }}
             >
@@ -2032,11 +2032,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 padding: '12px 16px',
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: activeTab === 'enrollments' ? '#2563EB' : '#64748B',
+                color: activeTab === 'enrollments' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                 fontWeight: activeTab === 'enrollments' ? 600 : 500,
                 fontSize: '14px',
                 cursor: 'pointer',
-                borderBottom: activeTab === 'enrollments' ? '2px solid #2563EB' : 'none',
+                borderBottom: activeTab === 'enrollments' ? '2px solid var(--rr-accent)' : 'none',
                 transition: 'all 0.2s',
                 display: 'flex',
                 alignItems: 'center',
@@ -2055,11 +2055,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 padding: '12px 16px',
                 border: 'none',
                 backgroundColor: 'transparent',
-                color: activeTab === 'instructors' ? '#2563EB' : '#64748B',
+                color: activeTab === 'instructors' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                 fontWeight: activeTab === 'instructors' ? 600 : 500,
                 fontSize: '14px',
                 cursor: 'pointer',
-                borderBottom: activeTab === 'instructors' ? '2px solid #2563EB' : 'none',
+                borderBottom: activeTab === 'instructors' ? '2px solid var(--rr-accent)' : 'none',
                 transition: 'all 0.2s',
                 display: 'flex',
                 alignItems: 'center',
@@ -2077,11 +2077,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           {/* Flag-on: two panes - settings column (Details/Options/Reminders/
               Publication stacked) on the left, activities calendar on the right */}
           <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(940px, calc(94vh - 130px))' } : undefined}>
-          <div style={activitiesEnabled ? { width: '500px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid #E2E8F0' } : { display: 'contents' }}>
+          <div style={activitiesEnabled ? { width: '500px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--rr-border)' } : { display: 'contents' }}>
           {/* Left-pane step tabs (flag-on): one settings section at a time,
               the activities calendar stays on the right */}
           {activitiesEnabled && (
-            <div style={{ display: 'flex', borderBottom: '1px solid #E2E8F0', backgroundColor: '#F8FAFC', flexShrink: 0 }}>
+            <div style={{ display: 'flex', borderBottom: '1px solid var(--rr-border)', backgroundColor: 'var(--rr-panel2)', flexShrink: 0 }}>
               {([
                 { key: 'details', title: 'Details' },
                 { key: 'options', title: 'Options' },
@@ -2097,11 +2097,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     padding: '10px 4px',
                     border: 'none',
                     backgroundColor: 'transparent',
-                    color: activeTab === tab.key ? '#2563EB' : '#64748B',
+                    color: activeTab === tab.key ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                     fontWeight: activeTab === tab.key ? 600 : 500,
                     fontSize: '13px',
                     cursor: 'pointer',
-                    borderBottom: activeTab === tab.key ? '2px solid #2563EB' : '2px solid transparent',
+                    borderBottom: activeTab === tab.key ? '2px solid var(--rr-accent)' : '2px solid transparent',
                     transition: 'all 0.2s'
                   }}
                 >
@@ -2119,7 +2119,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Cycle Name
               </label>
@@ -2130,7 +2130,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px', // Changed from 4px 12px to 8px
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
@@ -2148,7 +2148,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Cycle Type
                 </label>
@@ -2167,7 +2167,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box',
@@ -2201,7 +2201,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     marginBottom: '8px',
                     fontSize: '14px',
                     fontWeight: 500,
-                    color: '#64748B'
+                    color: 'var(--rr-text2)'
                   }}>
                     Training Syllabus (Optional)
                   </label>
@@ -2214,7 +2214,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     style={{
                       width: '100%',
                       padding: '8px',
-                      border: '1px solid #CBD5E1',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '4px',
                       fontSize: '14px',
                       boxSizing: 'border-box',
@@ -2241,8 +2241,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               <div style={{
                 marginBottom: '16px',
                 padding: '12px',
-                backgroundColor: '#F8FAFC',
-                border: '1px solid #E2E8F0',
+                backgroundColor: 'var(--rr-panel2)',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '6px'
               }}>
                 <div style={{
@@ -2254,14 +2254,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     <div style={{
                       fontSize: '14px',
                       fontWeight: 500,
-                      color: '#0F172A',
+                      color: 'var(--rr-text)',
                       marginBottom: '4px'
                     }}>
                       Automatically Create Events
                     </div>
                     <div style={{
                       fontSize: '13px',
-                      color: '#64748B'
+                      color: 'var(--rr-text2)'
                     }}>
                       Create weekly training events for each mission in the selected syllabus
                     </div>
@@ -2271,7 +2271,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     style={{
                       width: '44px',
                       height: '24px',
-                      backgroundColor: autoCreateEvents ? '#3B82F6' : '#E5E7EB',
+                      backgroundColor: autoCreateEvents ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                       borderRadius: '12px',
                       position: 'relative',
                       cursor: 'pointer',
@@ -2283,13 +2283,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       style={{
                         width: '20px',
                         height: '20px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: autoCreateEvents ? '22px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }}
                     />
                   </div>
@@ -2304,7 +2304,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Start Date
                 </label>
@@ -2315,7 +2315,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px', // Changed to 8px uniform padding
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box',
@@ -2331,7 +2331,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   End Date
                 </label>
@@ -2342,7 +2342,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px', // Changed to 8px uniform padding
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box',
@@ -2360,13 +2360,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Number of Weeks
               </label>
               <div style={{ 
                 display: 'flex',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 overflow: 'hidden',
                 height: '35px' // Match the 35px height of other inputs
@@ -2392,7 +2392,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 <div style={{ 
                   display: 'flex', 
                   flexDirection: 'column', 
-                  borderLeft: '1px solid #CBD5E1',
+                  borderLeft: '1px solid var(--rr-border2)',
                   height: '100%', // Take full height of parent
                   width: '20px' // Set fixed width to 20px
                 }}>
@@ -2402,9 +2402,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     style={{
                       padding: '0',
                       border: 'none',
-                      backgroundColor: '#F1F5F9',
+                      backgroundColor: 'var(--rr-panel2)',
                       cursor: 'pointer',
-                      borderBottom: '1px solid #CBD5E1',
+                      borderBottom: '1px solid var(--rr-border2)',
                       height: '50%', // Take half the height
                       display: 'flex',
                       alignItems: 'center',
@@ -2414,7 +2414,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   >
                     <span style={{ 
                       fontSize: '10px', 
-                      color: '#4B5563',
+                      color: 'var(--rr-text2)',
                       lineHeight: 1
                     }}>▲</span>
                   </button>
@@ -2424,7 +2424,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     style={{
                       padding: '0',
                       border: 'none',
-                      backgroundColor: '#F1F5F9',
+                      backgroundColor: 'var(--rr-panel2)',
                       cursor: 'pointer',
                       height: '50%', // Take half the height
                       display: 'flex',
@@ -2435,7 +2435,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   >
                     <span style={{ 
                       fontSize: '10px', 
-                      color: '#4B5563',
+                      color: 'var(--rr-text2)',
                       lineHeight: 1
                     }}>▼</span>
                   </button>
@@ -2457,7 +2457,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 <label style={{
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#64748B'
+                  color: 'var(--rr-text2)'
                 }}>
                   Participating Squadrons
                 </label>
@@ -2467,13 +2467,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: '#EFF6FF',
-                      border: '1px solid #DBEAFE',
+                      backgroundColor: 'var(--rr-accent-weak)',
+                      border: '1px solid var(--rr-accent)',
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#1E40AF'
+                      fontFamily: 'inherit',
+                      color: 'var(--rr-accent-text)'
                     }}
                   >
                     All
@@ -2483,13 +2483,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     onClick={() => setParticipatingSquadrons([])}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: '#FEF2F2',
-                      border: '1px solid #FECACA',
+                      backgroundColor: 'rgba(224,82,78,.12)',
+                      border: '1px solid var(--rr-bad)',
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#DC2626'
+                      fontFamily: 'inherit',
+                      color: 'var(--rr-bad)'
                     }}
                   >
                     None
@@ -2499,10 +2499,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               <div style={{
                 maxHeight: '200px',
                 overflowY: 'auto',
-                border: '1px solid #E5E7EB',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '4px',
                 padding: '4px',
-                backgroundColor: '#FAFAFA'
+                backgroundColor: 'var(--rr-panel2)'
               }}>
                 {squadrons.map(squadron => {
                   const isSelected = participants.includes(squadron.id);
@@ -2522,14 +2522,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                         display: 'flex',
                         alignItems: 'center',
                         gap: '8px',
-                        backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                        backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
                         borderRadius: '3px',
                         transition: 'background-color 0.2s',
                         marginBottom: '2px'
                       }}
                       onMouseEnter={e => {
                         if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = '#F8FAFC';
+                          e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                         }
                       }}
                       onMouseLeave={e => {
@@ -2542,9 +2542,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       <div style={{
                         width: '14px',
                         height: '14px',
-                        border: '1px solid #CBD5E1',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '3px',
-                        backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                        backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
@@ -2572,23 +2572,23 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                         <div style={{
                           width: '20px',
                           height: '20px',
-                          backgroundColor: '#E5E7EB',
+                          backgroundColor: 'var(--rr-panel3)',
                           borderRadius: '3px',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
                           flexShrink: 0
                         }}>
-                          <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                          <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
                         </div>
                       )}
                       
                       {/* Squadron Info */}
                       <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                        <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
                           {squadron.designation}
                         </span>
-                        <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                           {squadron.name}
                         </span>
                       </div>
@@ -2598,7 +2598,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               </div>
               <div style={{
                 fontSize: '12px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 marginTop: '4px'
               }}>
                 {participants.length === 0 ? 
@@ -2615,7 +2615,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B'
+                color: 'var(--rr-text2)'
               }}>
                 Description
               </label>
@@ -2625,7 +2625,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px', // Changed from 8px 12px to just 8px
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   minHeight: '120px',
@@ -2638,7 +2638,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
             {error && (
               <div style={{
-                color: '#EF4444',
+                color: 'var(--rr-bad)',
                 fontSize: '14px',
                 marginBottom: '16px'
               }}>
@@ -2654,7 +2654,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             <>
               {activeTab === 'options' && (
               <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
                   Defaults for events created in this cycle. Each event can still override them.
                 </p>
                 {([
@@ -2664,13 +2664,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   { key: 'allowTentativeResponse', label: 'Allow tentative responses' }
                 ] as Array<{ key: keyof CycleSettings; label: string }>).map(option => (
                   <div key={option.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', fontFamily: 'Inter' }}>{option.label}</label>
+                    <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', fontFamily: 'inherit' }}>{option.label}</label>
                     <div
                       onClick={() => setCycleSettings(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
                       style={{
                         width: '38px',
                         height: '21px',
-                        backgroundColor: cycleSettings[option.key] ? '#3B82F6' : '#E5E7EB',
+                        backgroundColor: cycleSettings[option.key] ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                         borderRadius: '11px',
                         position: 'relative',
                         cursor: 'pointer',
@@ -2681,13 +2681,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       <div style={{
                         width: '17px',
                         height: '17px',
-                        backgroundColor: 'white',
+                        backgroundColor: 'var(--rr-panel)',
                         borderRadius: '50%',
                         position: 'absolute',
                         top: '2px',
                         left: cycleSettings[option.key] ? '19px' : '2px',
                         transition: 'left 0.2s ease',
-                        boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+                        boxShadow: 'var(--rr-shadow)'
                       }} />
                     </div>
                   </div>
@@ -2697,7 +2697,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
               {activeTab === 'reminders' && (
               <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
                   Default reminders for events created in this cycle. Each event can still override them.
                 </p>
                 {([
@@ -2710,7 +2710,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       checked={cycleSettings[reminder.enabledKey] ?? false}
                       onChange={(e) => setCycleSettings(prev => ({ ...prev, [reminder.enabledKey]: e.target.checked }))}
                     />
-                    <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', width: '52px', fontFamily: 'Inter' }}>{reminder.label}</label>
+                    <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', width: '52px', fontFamily: 'inherit' }}>{reminder.label}</label>
                     <input
                       type="number"
                       min={1}
@@ -2722,7 +2722,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                           unit: prev[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')
                         }
                       }))}
-                      style={{ width: '56px', padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px' }}
+                      style={{ width: '56px', padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px' }}
                     />
                     <select
                       value={cycleSettings[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')}
@@ -2733,7 +2733,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                           unit: e.target.value as 'minutes' | 'hours' | 'days'
                         }
                       }))}
-                      style={{ padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white', flex: 1 }}
+                      style={{ padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px', backgroundColor: 'var(--rr-panel)', flex: 1 }}
                     >
                       <option value="minutes">minutes</option>
                       <option value="hours">hours</option>
@@ -2741,20 +2741,20 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     </select>
                   </div>
                 ))}
-                <p style={{ fontSize: '11px', color: '#94A3B8', margin: 0, fontFamily: 'Inter' }}>before each event</p>
+                <p style={{ fontSize: '11px', color: 'var(--rr-text3)', margin: 0, fontFamily: 'inherit' }}>before each event</p>
               </div>
               )}
 
               {activeTab === 'publication' && (
               <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-                <p style={{ fontSize: '12px', color: '#94A3B8', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+                <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
                   Default publication behavior for events created in this cycle. Each event can still override it.
                 </p>
                 {/* Initial Notification roles (same UI as EventDialog's Publish step) */}
                 <div style={{ marginBottom: '16px' }}>
                   <div style={{ marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', fontFamily: 'Inter' }}>Initial Notification</span>
-                    <p style={{ fontSize: '12px', color: '#94A3B8', marginTop: '4px', fontStyle: 'italic' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', fontFamily: 'inherit' }}>Initial Notification</span>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text3)', marginTop: '4px', fontStyle: 'italic' }}>
                       Mention Discord roles when each event is first published
                     </p>
                   </div>
@@ -2768,10 +2768,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                         flex: 1,
                         minWidth: 0,
                         padding: '8px',
-                        border: '1px solid #CBD5E1',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
                         fontSize: '14px',
-                        backgroundColor: loadingRoles ? '#F9FAFB' : 'white',
+                        backgroundColor: loadingRoles ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                         cursor: loadingRoles ? 'not-allowed' : 'pointer'
                       }}
                     >
@@ -2790,7 +2790,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       disabled={!selectedRoleId || loadingRoles}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : '#3B82F6',
+                        backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : 'var(--rr-accent)',
                         color: '#FFFFFF',
                         border: 'none',
                         borderRadius: '4px',
@@ -2822,9 +2822,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             height: '26px',
                             boxSizing: 'border-box',
                             whiteSpace: 'nowrap',
-                            backgroundColor: '#DBEAFE',
-                            color: '#1D4ED8',
-                            border: '1px solid #3B82F6'
+                            backgroundColor: 'var(--rr-accent-weak)',
+                            color: 'var(--rr-accent-text)',
+                            border: '1px solid var(--rr-accent)'
                           }}
                         >
                           <span>@{role.name}</span>
@@ -2838,7 +2838,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               backgroundColor: 'transparent',
                               border: 'none',
                               cursor: 'pointer',
-                              color: '#1D4ED8',
+                              color: 'var(--rr-accent-text)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -2867,13 +2867,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     checked={cycleSettings.scheduledPublicationEnabled ?? false}
                     onChange={(e) => setCycleSettings(prev => ({ ...prev, scheduledPublicationEnabled: e.target.checked }))}
                   />
-                  <label style={{ fontSize: '13px', fontWeight: 500, color: '#64748B', fontFamily: 'Inter' }}>
+                  <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                     Schedule event publication
                   </label>
                 </div>
                 {cycleSettings.scheduledPublicationEnabled && (
                   <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', color: '#64748B' }}>Publish</span>
+                    <span style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Publish</span>
                     <input
                       type="number"
                       min={1}
@@ -2885,7 +2885,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                           unit: prev.scheduledPublicationOffset?.unit ?? 'days'
                         }
                       }))}
-                      style={{ width: '56px', padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px' }}
+                      style={{ width: '56px', padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px' }}
                     />
                     <select
                       value={cycleSettings.scheduledPublicationOffset?.unit ?? 'days'}
@@ -2896,13 +2896,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                           unit: e.target.value as 'minutes' | 'hours' | 'days'
                         }
                       }))}
-                      style={{ padding: '5px 6px', border: '1px solid #CBD5E1', borderRadius: '4px', fontSize: '13px', backgroundColor: 'white', flex: 1 }}
+                      style={{ padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px', backgroundColor: 'var(--rr-panel)', flex: 1 }}
                     >
                       <option value="minutes">minutes</option>
                       <option value="hours">hours</option>
                       <option value="days">days</option>
                     </select>
-                    <span style={{ fontSize: '11px', color: '#94A3B8', whiteSpace: 'nowrap' }}>before start</span>
+                    <span style={{ fontSize: '11px', color: 'var(--rr-text3)', whiteSpace: 'nowrap' }}>before start</span>
                   </div>
                 )}
               </div>
@@ -2957,18 +2957,18 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     width: '260px',
                     maxHeight: '280px',
                     overflowY: 'auto',
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #E5E7EB',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border)',
                     borderRadius: '8px',
-                    boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                    boxShadow: 'var(--rr-shadow)',
                     padding: '8px',
                     zIndex: 3000
                   }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', fontFamily: 'Inter', padding: '2px 6px 6px 6px' }}>
+                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', fontFamily: 'inherit', padding: '2px 6px 6px 6px' }}>
                       Add event — Week {addEventPicker.week}
                     </div>
                     {addEventPicker.missing.length === 0 ? (
-                      <div style={{ fontSize: '12px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic', padding: '4px 6px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic', padding: '4px 6px' }}>
                         Every lesson in this syllabus is already scheduled.
                       </div>
                     ) : (
@@ -2990,11 +2990,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             backgroundColor: 'transparent',
                             borderRadius: '4px',
                             fontSize: '13px',
-                            color: '#374151',
-                            fontFamily: 'Inter',
+                            color: 'var(--rr-text)',
+                            fontFamily: 'inherit',
                             cursor: 'pointer'
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
+                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
                           onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
                         >
                           {mission.mission_name}
@@ -3007,8 +3007,8 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               )}
 
               {builderSelection?.type === 'row' && (
-                <div style={{ marginTop: '16px', padding: '12px', border: '1px solid #CBD5E1', borderRadius: '8px', backgroundColor: '#FFFFFF' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+                <div style={{ marginTop: '16px', padding: '12px', border: '1px solid var(--rr-border2)', borderRadius: '8px', backgroundColor: 'var(--rr-panel)' }}>
+                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'inherit' }}>
                     Participants
                   </h3>
                   <ParticipantBlocksEditor
@@ -3024,7 +3024,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               {selectedActivityIndex !== null && cycleActivities[selectedActivityIndex] && (
                 <>
                   <div style={{ marginTop: '16px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#64748B', fontFamily: 'Inter', textTransform: 'uppercase' }}>
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text2)', fontFamily: 'inherit', textTransform: 'uppercase' }}>
                       Activity — Weeks {cycleActivities[selectedActivityIndex].startWeek}–{cycleActivities[selectedActivityIndex].endWeek}
                     </span>
                   </div>
@@ -3044,7 +3044,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       fill the remaining pane height */}
                   {cycleActivities[selectedActivityIndex].kind === 'syllabus'
                     && (!cycleId || !cycleActivities[selectedActivityIndex].id) && (
-                    <p style={{ fontSize: '12px', color: '#94A3B8', margin: '12px 0 0 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+                    <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '12px 0 0 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
                       Save the cycle, then reopen it to enroll students and instructors for this activity.
                     </p>
                   )}
@@ -3068,12 +3068,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', height: '900px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {enrollmentError && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '14px',
                   marginBottom: '16px',
                   padding: '12px',
-                  backgroundColor: '#FEE2E2',
-                  border: '1px solid #FECACA',
+                  backgroundColor: 'rgba(224,82,78,.12)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '6px'
                 }}>
                   {enrollmentError}
@@ -3081,7 +3081,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               )}
 
               {loadingEnrollments ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-text2)' }}>
                   Loading enrollment data...
                 </div>
               ) : (
@@ -3118,11 +3118,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
                     {/* Currently Enrolled Students */}
                     <div style={{ marginBottom: '32px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '12px', textTransform: 'uppercase' }}>
+                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '12px', textTransform: 'uppercase' }}>
                       Enrolled Students ({cycleId ? enrolledPilots.length : stagedEnrollmentIds.length})
                     </h3>
                     {(cycleId ? enrolledPilots.length : stagedEnrollmentIds.length) === 0 ? (
-                      <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '14px', textAlign: 'center' }}>
+                      <div style={{ padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center' }}>
                         No students enrolled yet
                       </div>
                     ) : (
@@ -3155,7 +3155,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             <span style={{
                               fontSize: '16px',
                               fontWeight: 700,
-                              color: pilot.squadron?.primary_color || '#374151',
+                              color: pilot.squadron?.primary_color || 'var(--rr-text)',
                               flex: '0 0 120px'
                             }}>
                               {pilot.callsign}
@@ -3164,9 +3164,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               <span style={{
                                 fontSize: '10px',
                                 fontWeight: 500,
-                                color: '#1E40AF',
-                                backgroundColor: '#EFF6FF',
-                                border: '1px solid #BFDBFE',
+                                color: 'var(--rr-accent-text)',
+                                backgroundColor: 'var(--rr-accent-weak)',
+                                border: '1px solid var(--rr-accent)',
                                 borderRadius: '9999px',
                                 padding: '1px 6px',
                                 whiteSpace: 'nowrap'
@@ -3182,7 +3182,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                                   style={{
                                     padding: '4px',
                                     backgroundColor: 'transparent',
-                                    color: '#DC2626',
+                                    color: 'var(--rr-bad)',
                                     border: 'none',
                                     borderRadius: '4px',
                                     cursor: 'pointer',
@@ -3204,10 +3204,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   {/* Suggested Students */}
                   {suggestedPilots.length > 0 && (
                     <div style={{ marginBottom: '32px' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px', textTransform: 'uppercase' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px', textTransform: 'uppercase' }}>
                         Suggested Students ({suggestedPilots.length})
                       </h3>
-                      <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '12px' }}>
                         Based on syllabus auto-enrollment rules
                       </div>
                       <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -3240,13 +3240,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             <span style={{
                               fontSize: '16px',
                               fontWeight: 700,
-                              color: pilot.squadron?.primary_color || '#374151',
+                              color: pilot.squadron?.primary_color || 'var(--rr-text)',
                               flex: '0 0 120px'
                             }}>
                               {pilot.callsign}
                             </span>
                             {hoveredPilotId === `suggested-${pilot.pilot_id}` && (
-                              <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                              <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--rr-text2)' }}>
                                 Click to enroll
                               </div>
                             )}
@@ -3264,10 +3264,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
                     return (
                       <div style={{ display: 'flex', flexDirection: 'column', flex: 1, minHeight: 0 }}>
-                        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px', textTransform: 'uppercase' }}>
                           Add Pilot ({allPilots.length})
                         </h3>
-                        <div style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '12px' }}>
                           Other pilots not suggested by enrollment rules
                         </div>
                         <div style={{
@@ -3309,13 +3309,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               <span style={{
                                 fontSize: '16px',
                                 fontWeight: 700,
-                                color: pilot.squadron?.primary_color || '#374151',
+                                color: pilot.squadron?.primary_color || 'var(--rr-text)',
                                 flex: '0 0 120px'
                               }}>
                                 {pilot.callsign}
                               </span>
                               {hoveredPilotId === `all-${pilot.pilot_id}` && (
-                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--rr-text2)' }}>
                                   Click to enroll
                                 </div>
                               )}
@@ -3335,15 +3335,15 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                                 right: 0,
                                 top: '50%',
                                 height: '1px',
-                                backgroundColor: '#E2E8F0'
+                                backgroundColor: 'var(--rr-panel3)'
                               }} />
                               <span style={{
                                 position: 'relative',
-                                backgroundColor: '#FFFFFF',
+                                backgroundColor: 'var(--rr-panel)',
                                 padding: '0 16px',
-                                color: '#A0AEC0',
+                                color: 'var(--rr-text3)',
                                 fontSize: '12px',
-                                fontFamily: 'Inter',
+                                fontFamily: 'inherit',
                                 fontWeight: 300,
                                 textTransform: 'uppercase'
                               }}>
@@ -3382,13 +3382,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               <span style={{
                                 fontSize: '16px',
                                 fontWeight: 700,
-                                color: pilot.squadron?.primary_color || '#374151',
+                                color: pilot.squadron?.primary_color || 'var(--rr-text)',
                                 flex: '0 0 120px'
                               }}>
                                 {pilot.callsign}
                               </span>
                               {hoveredPilotId === `all-${pilot.pilot_id}` && (
-                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--rr-text2)' }}>
                                   Click to enroll
                                 </div>
                               )}
@@ -3409,12 +3409,12 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', height: '900px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {instructorError && (
                 <div style={{
-                  color: '#EF4444',
+                  color: 'var(--rr-bad)',
                   fontSize: '14px',
                   marginBottom: '16px',
                   padding: '12px',
-                  backgroundColor: '#FEE2E2',
-                  border: '1px solid #FECACA',
+                  backgroundColor: 'rgba(224,82,78,.12)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '6px'
                 }}>
                   {instructorError}
@@ -3422,7 +3422,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               )}
 
               {loadingInstructors ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#6B7280' }}>
+                <div style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-text2)' }}>
                   Loading instructor data...
                 </div>
               ) : (
@@ -3434,7 +3434,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     marginBottom: '16px',
                     justifyContent: 'flex-end'
                   }}>
-                    <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--rr-text2)', marginRight: '4px', alignSelf: 'center' }}>
                       Sort by:
                     </span>
                     <button
@@ -3443,10 +3443,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       style={{
                         padding: '4px 10px',
                         fontSize: '12px',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
-                        backgroundColor: instructorSortBySquadron ? '#EFF6FF' : 'white',
-                        color: instructorSortBySquadron ? '#2563EB' : '#6B7280',
+                        backgroundColor: instructorSortBySquadron ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
+                        color: instructorSortBySquadron ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -3461,10 +3461,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       style={{
                         padding: '4px 10px',
                         fontSize: '12px',
-                        border: '1px solid #D1D5DB',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
-                        backgroundColor: 'white',
-                        color: '#6B7280',
+                        backgroundColor: 'var(--rr-panel)',
+                        color: 'var(--rr-text2)',
                         cursor: 'pointer',
                         display: 'flex',
                         alignItems: 'center',
@@ -3482,11 +3482,11 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   <div style={{ flex: 1, overflowY: 'auto', overflowX: 'hidden' }}>
                     {/* Currently Enrolled Instructors */}
                     <div style={{ marginBottom: '32px' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '12px', textTransform: 'uppercase' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '12px', textTransform: 'uppercase' }}>
                         Enrolled Instructors ({cycleId ? enrolledInstructors.length : stagedInstructorIds.length})
                       </h3>
                       {(cycleId ? enrolledInstructors.length : stagedInstructorIds.length) === 0 ? (
-                        <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '14px', textAlign: 'center' }}>
+                        <div style={{ padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center' }}>
                           No instructors enrolled yet
                         </div>
                       ) : (
@@ -3519,7 +3519,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               <span style={{
                                 fontSize: '16px',
                                 fontWeight: 700,
-                                color: instructor.squadron?.primary_color || '#374151',
+                                color: instructor.squadron?.primary_color || 'var(--rr-text)',
                                 flex: '0 0 120px'
                               }}>
                                 {instructor.callsign}
@@ -3528,9 +3528,9 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                                 <span style={{
                                   fontSize: '10px',
                                   fontWeight: 500,
-                                  color: '#1E40AF',
-                                  backgroundColor: '#EFF6FF',
-                                  border: '1px solid #BFDBFE',
+                                  color: 'var(--rr-accent-text)',
+                                  backgroundColor: 'var(--rr-accent-weak)',
+                                  border: '1px solid var(--rr-accent)',
                                   borderRadius: '9999px',
                                   padding: '1px 6px',
                                   whiteSpace: 'nowrap'
@@ -3546,7 +3546,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                                     style={{
                                       padding: '4px',
                                       backgroundColor: 'transparent',
-                                      color: '#DC2626',
+                                      color: 'var(--rr-bad)',
                                       border: 'none',
                                       borderRadius: '4px',
                                       cursor: 'pointer',
@@ -3568,10 +3568,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     {/* Suggested Instructors */}
                     {suggestedInstructors.length > 0 && (
                       <div style={{ marginBottom: '32px' }}>
-                        <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px', textTransform: 'uppercase' }}>
+                        <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px', textTransform: 'uppercase' }}>
                           Suggested Instructors ({suggestedInstructors.length})
                         </h3>
-                        <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px', marginTop: 0 }}>
+                        <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '12px', marginTop: 0 }}>
                           Based on syllabus instructor qualification rules. Click to enroll.
                         </p>
                         <div style={{ display: 'flex', flexDirection: 'column' }}>
@@ -3604,13 +3604,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               <span style={{
                                 fontSize: '16px',
                                 fontWeight: 700,
-                                color: instructor.squadron?.primary_color || '#374151',
+                                color: instructor.squadron?.primary_color || 'var(--rr-text)',
                                 flex: '0 0 120px'
                               }}>
                                 {instructor.callsign}
                               </span>
                               {hoveredInstructorId === `suggested-${instructor.pilot_id}` && (
-                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--rr-text2)' }}>
                                   Click to enroll
                                 </div>
                               )}
@@ -3622,14 +3622,14 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
                     {/* All Available Pilots (for adding instructors manually) */}
                     <div style={{ marginBottom: '32px' }}>
-                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: '#374151', marginBottom: '4px', textTransform: 'uppercase' }}>
+                      <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px', textTransform: 'uppercase' }}>
                         Add Instructor
                       </h3>
-                      <p style={{ fontSize: '12px', color: '#6B7280', marginBottom: '12px', marginTop: 0 }}>
+                      <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '12px', marginTop: 0 }}>
                         Select any pilot to enroll as an instructor. Click to add.
                       </p>
                       {allPilots.length === 0 ? (
-                        <div style={{ padding: '20px', backgroundColor: '#F9FAFB', borderRadius: '6px', color: '#6B7280', fontSize: '14px', textAlign: 'center' }}>
+                        <div style={{ padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', color: 'var(--rr-text2)', fontSize: '14px', textAlign: 'center' }}>
                           All pilots are already enrolled or suggested
                         </div>
                       ) : (
@@ -3670,13 +3670,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               <span style={{
                                 fontSize: '16px',
                                 fontWeight: 700,
-                                color: pilot.squadron?.primary_color || '#374151',
+                                color: pilot.squadron?.primary_color || 'var(--rr-text)',
                                 flex: '0 0 120px'
                               }}>
                                 {pilot.callsign}
                               </span>
                               {hoveredInstructorId === `all-${pilot.pilot_id}` && (
-                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: '#6B7280' }}>
+                                <div style={{ marginLeft: 'auto', fontSize: '12px', color: 'var(--rr-text2)' }}>
                                   Click to enroll as instructor
                                 </div>
                               )}
@@ -3695,7 +3695,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             display: 'flex',
             justifyContent: 'flex-end',
             gap: '12px',
-            borderTop: '1px solid #E2E8F0',
+            borderTop: '1px solid var(--rr-border)',
             padding: '16px 24px'
           }}>
             <button
@@ -3703,10 +3703,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               onClick={onCancel}
               style={{
                 padding: '8px 16px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
-                backgroundColor: 'white',
-                color: '#64748B',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text2)',
                 cursor: 'pointer',
                 fontSize: '14px'
               }}
@@ -3720,7 +3720,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 padding: '8px 16px',
                 border: 'none',
                 borderRadius: '4px',
-                backgroundColor: '#2563EB',
+                backgroundColor: 'var(--rr-accent)',
                 color: 'white',
                 cursor: isSaving ? 'not-allowed' : 'pointer',
                 fontSize: '14px',
@@ -3735,7 +3735,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                   width: '16px',
                   height: '16px',
                   border: '2px solid rgba(255, 255, 255, 0.3)',
-                  borderTop: '2px solid white',
+                  borderTop: '2px solid var(--rr-panel)',
                   borderRadius: '50%',
                   animation: 'spin 0.6s linear infinite'
                 }} />

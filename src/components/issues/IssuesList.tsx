@@ -74,13 +74,13 @@ export const IssuesList: React.FC<IssuesListProps> = ({
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#6B7280' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--rr-text2)' }}>
         <div
           style={{
             width: '24px',
             height: '24px',
-            border: '2px solid #E5E7EB',
-            borderTopColor: '#2563EB',
+            border: '2px solid var(--rr-border)',
+            borderTopColor: 'var(--rr-accent)',
             borderRadius: '50%',
             animation: 'spin 1s linear infinite',
             margin: '0 auto 12px',
@@ -98,8 +98,8 @@ export const IssuesList: React.FC<IssuesListProps> = ({
         style={{
           padding: '24px',
           textAlign: 'center',
-          color: '#DC2626',
-          backgroundColor: '#FEE2E2',
+          color: 'var(--rr-bad)',
+          backgroundColor: 'rgba(224,82,78,.12)',
           borderRadius: '8px',
           margin: '16px',
         }}
@@ -118,8 +118,8 @@ export const IssuesList: React.FC<IssuesListProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between',
           padding: '12px 16px',
-          borderBottom: '1px solid #E5E7EB',
-          backgroundColor: '#F9FAFB',
+          borderBottom: '1px solid var(--rr-border)',
+          backgroundColor: 'var(--rr-panel2)',
         }}
       >
         {showFilters && (
@@ -139,8 +139,8 @@ export const IssuesList: React.FC<IssuesListProps> = ({
                       fontWeight: 500,
                       border: 'none',
                       borderRadius: '6px',
-                      backgroundColor: isActive ? '#2563EB' : 'transparent',
-                      color: isActive ? 'white' : '#6B7280',
+                      backgroundColor: isActive ? 'var(--rr-accent)' : 'transparent',
+                      color: isActive ? 'white' : 'var(--rr-text2)',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
                     }}
@@ -158,10 +158,10 @@ export const IssuesList: React.FC<IssuesListProps> = ({
               style={{
                 padding: '6px 10px',
                 fontSize: '13px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
-                backgroundColor: 'white',
-                color: '#374151',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text)',
                 cursor: 'pointer',
               }}
             >
@@ -188,13 +188,13 @@ export const IssuesList: React.FC<IssuesListProps> = ({
               fontWeight: 500,
               border: 'none',
               borderRadius: '6px',
-              backgroundColor: '#2563EB',
+              backgroundColor: 'var(--rr-accent)',
               color: 'white',
               cursor: 'pointer',
               transition: 'background-color 0.15s ease',
             }}
-            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#1D4ED8')}
-            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '#2563EB')}
+            onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--rr-accent)')}
+            onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--rr-accent)')}
           >
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <line x1="12" y1="5" x2="12" y2="19" />
@@ -212,7 +212,7 @@ export const IssuesList: React.FC<IssuesListProps> = ({
             style={{
               padding: '40px 24px',
               textAlign: 'center',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
             }}
           >
             <svg
@@ -230,14 +230,14 @@ export const IssuesList: React.FC<IssuesListProps> = ({
             </svg>
             <p style={{ margin: 0, fontSize: '14px' }}>{emptyMessage}</p>
             {canCreate && onCreateClick && statusFilter !== 'all' && issues.length > 0 && (
-              <p style={{ margin: '8px 0 0', fontSize: '13px', color: '#9CA3AF' }}>
+              <p style={{ margin: '8px 0 0', fontSize: '13px', color: 'var(--rr-text3)' }}>
                 Try changing your filters or{' '}
                 <button
                   onClick={onCreateClick}
                   style={{
                     background: 'none',
                     border: 'none',
-                    color: '#2563EB',
+                    color: 'var(--rr-accent-text)',
                     cursor: 'pointer',
                     padding: 0,
                     fontSize: 'inherit',

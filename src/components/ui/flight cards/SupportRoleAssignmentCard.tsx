@@ -143,11 +143,11 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
         boxSizing: 'border-box',
         width: 'calc(100% - 20px)',
         margin: '10px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
-        fontFamily: 'Inter, sans-serif',
+        fontFamily: 'inherit',
         userSelect: 'none',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         transition: 'all 0.2s ease-in-out',
         display: 'flex',
         flexDirection: 'row',
@@ -175,25 +175,25 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               padding: '4px',
               borderRadius: '4px',
               cursor: 'pointer',
-              background: 'white',
-              boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+              background: 'var(--rr-panel)',
+              boxShadow: 'var(--rr-shadow)',
               border: 'none',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               transition: 'all 0.1s ease',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               width: '24px',
               height: '24px'
             }}
             title="Edit support role"
             onMouseEnter={(e) => {
               e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              e.currentTarget.style.background = '#F8FAFC';
+              e.currentTarget.style.background = 'var(--rr-panel2)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.currentTarget.style.background = 'white';
+              e.currentTarget.style.background = 'var(--rr-panel)';
             }}
           >
             <Edit2 size={14} color="#64748B" />          </button>
@@ -206,14 +206,14 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: hasAssignedPilots ? 'not-allowed' : 'pointer',
-                background: hasAssignedPilots ? '#F1F5F9' : 'white',
+                background: hasAssignedPilots ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                 boxShadow: hasAssignedPilots ? 'none' : '0 2px 4px rgba(0,0,0,0.1)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: hasAssignedPilots ? '#CBD5E1' : '#64748B',
+                color: hasAssignedPilots ? 'var(--rr-text3)' : 'var(--rr-text2)',
                 width: '24px',
                 height: '24px'
               }}
@@ -221,13 +221,13 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               onMouseEnter={(e) => {
                 if (!hasAssignedPilots) {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (!hasAssignedPilots) {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }
               }}
               disabled={hasAssignedPilots}
@@ -284,7 +284,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
             transform: 'rotate(180deg)',
             fontSize: '12px',
             fontWeight: 400,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px',
             lineHeight: '1.4',

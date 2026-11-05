@@ -165,7 +165,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
       <div
         className="aircraft-tile-label"
         style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontWeight: 400, // Changed to regular weight
           fontSize: '12px', // Changed to size 12
           lineHeight: '15px',
@@ -234,7 +234,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               <div
                 className="indicator-dots"
                 style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: 700,
                   fontSize: getIndicatorFontSize(),
                   lineHeight: '10px',
@@ -288,12 +288,12 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             {/* Board number */}
             <div
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontWeight: 400,
                 fontSize: '16px',
                 lineHeight: '19px',
                 textAlign: 'center',
-                color: isEmpty ? TEXT_GRAY : '#646F7E',
+                color: isEmpty ? TEXT_GRAY : 'var(--rr-text2)',
                 marginTop: '-2px' // Shift down by 4px from previous position
               }}
             >
@@ -303,7 +303,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             {/* Pilot callsign with tentative badge if applicable */}
             <div
               style={{
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontWeight: 700,
                 fontSize: '14px',
                 lineHeight: '17px',
@@ -346,7 +346,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                           size={14}
                           strokeWidth={3}
                           style={{
-                            color: '#DC2626',
+                            color: 'var(--rr-bad)',
                             flexShrink: 0,
                             marginTop: '2px',
                           }}
@@ -378,7 +378,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
                           size={14}
                           strokeWidth={2}
                           style={{
-                            color: '#9CA3AF',
+                            color: 'var(--rr-text3)',
                             flexShrink: 0,
                             marginTop: '2px',
                           }}
@@ -415,7 +415,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             >
               <span
                 style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: 400,
                   fontSize: '10px',
                   lineHeight: '12px',
@@ -446,7 +446,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
             >
               <span
                 style={{
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: 400,
                   fontSize: '10px',
                   lineHeight: '12px',

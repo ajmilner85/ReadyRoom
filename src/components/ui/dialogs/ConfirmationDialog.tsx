@@ -81,12 +81,12 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '400px',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -102,13 +102,13 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   const titleStyle: React.CSSProperties = {
     fontSize: '18px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 12px 0',
   };
 
   const messageStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     lineHeight: '1.5',
     margin: 0,
   };
@@ -135,9 +135,9 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
 
   const cancelButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    color: '#374151',
+    backgroundColor: 'var(--rr-panel)',
+    borderColor: 'var(--rr-border2)',
+    color: 'var(--rr-text)',
   };
 
   const confirmButtonStyle: React.CSSProperties = {
@@ -165,10 +165,10 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
             onClick={onCancel}
             style={cancelButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F9FAFB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             {cancelText}

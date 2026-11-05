@@ -596,8 +596,8 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         <div style={{
           fontSize: '14px',
           fontWeight: 500,
-          color: '#64748B',
-          borderBottom: '1px solid #E2E8F0',
+          color: 'var(--rr-text2)',
+          borderBottom: '1px solid var(--rr-border)',
           paddingBottom: '4px',
           marginBottom: '8px'
         }}>
@@ -605,7 +605,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         </div>
 
         {pilots.length === 0 && (
-          <div style={{ color: '#94A3B8', padding: '0 10px', fontSize: '14px' }}>
+          <div style={{ color: 'var(--rr-text3)', padding: '0 10px', fontSize: '14px' }}>
             None
           </div>
         )}
@@ -620,7 +620,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               marginBottom: '10px',
               borderRadius: '8px',
               padding: '0 10px',
-              backgroundColor: pilotIndex % 2 === 0 ? '#F8FAFC' : 'transparent',
+              backgroundColor: pilotIndex % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
             }}
           >
             <span style={{
@@ -628,7 +628,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               textAlign: 'center',
               fontSize: '16px',
               fontWeight: 400,
-              color: '#646F7E'
+              color: 'var(--rr-text2)'
             }}>
               {pilot.pilotRecord?.boardNumber}
             </span>
@@ -642,7 +642,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             <span style={{
               fontSize: '16px',
               fontWeight: 300,
-              color: '#646F7E'
+              color: 'var(--rr-text2)'
             }}>
               {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
             </span>
@@ -689,11 +689,11 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                   marginLeft: '8px',
                   maxWidth: '110px',
                   padding: '2px 4px',
-                  border: '1px solid #E2E8F0',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '4px',
                   fontSize: '12px',
-                  color: '#64748B',
-                  backgroundColor: '#FFFFFF',
+                  color: 'var(--rr-text2)',
+                  backgroundColor: 'var(--rr-panel)',
                   fontFamily: "'Inter', sans-serif"
                 }}
               >
@@ -726,7 +726,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           boxSizing: 'border-box'
         }}
       >
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: '#64748B' }}>
+        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--rr-text2)' }}>
           Select an event to view attendance
         </div>
       </div>
@@ -750,8 +750,8 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
       {error && (
         <div style={{ 
           padding: '8px 12px',
-          backgroundColor: '#FEE2E2',
-          color: '#B91C1C',
+          backgroundColor: 'rgba(224,82,78,.12)',
+          color: 'var(--rr-bad)',
           borderRadius: '4px',
           fontSize: '14px',
           marginBottom: '16px'
@@ -764,7 +764,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '10px 15px',          backgroundColor: '#ECFDF5',
+          padding: '10px 15px',          backgroundColor: 'rgba(64,168,91,.14)',
           borderLeft: '4px solid #57F287',
           borderRadius: '4px',
           marginBottom: '12px'
@@ -805,7 +805,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginBottom: '10px',
                 borderRadius: '8px',
                 padding: '0 10px',
-                backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
               }}
             >
               <span style={{
@@ -813,7 +813,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 textAlign: 'center',
                 fontSize: '16px',
                 fontWeight: 400,
-                color: '#646F7E'
+                color: 'var(--rr-text2)'
               }}>
                 {pilot.pilotRecord?.boardNumber}
               </span>
@@ -827,7 +827,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               <span style={{
                 fontSize: '16px',
                 fontWeight: 300,
-                color: '#646F7E'
+                color: 'var(--rr-text2)'
               }}>
                 {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
               </span>
@@ -897,7 +897,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '10px 15px',
-                backgroundColor: '#F0F9FF',
+                backgroundColor: 'var(--rr-accent-weak)',
                 borderLeft: '4px solid #0EA5E9',
                 borderRadius: '4px',
                 marginBottom: '12px'
@@ -928,8 +928,8 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             <div style={{ 
               fontSize: '14px', 
               fontWeight: 500, 
-              color: '#64748B',
-              borderBottom: '1px solid #E2E8F0',
+              color: 'var(--rr-text2)',
+              borderBottom: '1px solid var(--rr-border)',
               paddingBottom: '4px',
               marginBottom: '8px'
             }}>
@@ -944,7 +944,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                   alignItems: 'center',
                   padding: '8px',
                   borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                  backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
                 }}
               >
                 <span style={{ fontWeight: 500 }}>
@@ -956,7 +956,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         )}
 
         {attendance.filter(pilot => pilot.status === 'accepted').length === 0 && (
-          <div style={{ color: '#94A3B8', padding: '8px' }}>No attendees yet</div>
+          <div style={{ color: 'var(--rr-text3)', padding: '8px' }}>No attendees yet</div>
         )}
       </div>
 
@@ -1007,7 +1007,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginBottom: '10px',
                 borderRadius: '8px',
                 padding: '0 10px',
-                backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
               }}
             >
               <span style={{
@@ -1015,7 +1015,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 textAlign: 'center',
                 fontSize: '16px',
                 fontWeight: 400,
-                color: '#646F7E'
+                color: 'var(--rr-text2)'
               }}>
                 {pilot.pilotRecord?.boardNumber}
               </span>
@@ -1029,7 +1029,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               <span style={{
                 fontSize: '16px',
                 fontWeight: 300,
-                color: '#646F7E'
+                color: 'var(--rr-text2)'
               }}>
                 {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
               </span>
@@ -1073,8 +1073,8 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             <div style={{ 
               fontSize: '14px', 
               fontWeight: 500, 
-              color: '#64748B',
-              borderBottom: '1px solid #E2E8F0',
+              color: 'var(--rr-text2)',
+              borderBottom: '1px solid var(--rr-border)',
               paddingBottom: '4px',
               marginBottom: '8px'
             }}>
@@ -1089,7 +1089,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                   alignItems: 'center',
                   padding: '8px',
                   borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                  backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
                 }}
               >
                 <span style={{ fontWeight: 500 }}>
@@ -1101,7 +1101,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         )}
 
         {attendance.filter(pilot => pilot.status === 'tentative').length === 0 && (
-          <div style={{ color: '#94A3B8', padding: '8px' }}>No tentative responses</div>
+          <div style={{ color: 'var(--rr-text3)', padding: '8px' }}>No tentative responses</div>
         )}
       </div>
 
@@ -1111,7 +1111,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '10px 15px',          backgroundColor: '#FEF2F2',
+          padding: '10px 15px',          backgroundColor: 'rgba(224,82,78,.12)',
           borderLeft: '4px solid #ED4245',
           borderRadius: '4px',
           marginBottom: '12px'
@@ -1152,7 +1152,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 marginBottom: '10px',
                 borderRadius: '8px',
                 padding: '0 10px',
-                backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
               }}
             >
               <span style={{
@@ -1160,7 +1160,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                 textAlign: 'center',
                 fontSize: '16px',
                 fontWeight: 400,
-                color: '#646F7E'
+                color: 'var(--rr-text2)'
               }}>
                 {pilot.pilotRecord?.boardNumber}
               </span>
@@ -1174,7 +1174,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
               <span style={{
                 fontSize: '16px',
                 fontWeight: 300,
-                color: '#646F7E'
+                color: 'var(--rr-text2)'
               }}>
                 {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
               </span>
@@ -1218,8 +1218,8 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
             <div style={{ 
               fontSize: '14px', 
               fontWeight: 500, 
-              color: '#64748B',
-              borderBottom: '1px solid #E2E8F0',
+              color: 'var(--rr-text2)',
+              borderBottom: '1px solid var(--rr-border)',
               paddingBottom: '4px',
               marginBottom: '8px'
             }}>
@@ -1234,7 +1234,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                   alignItems: 'center',
                   padding: '8px',
                   borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? '#F8FAFC' : 'transparent',
+                  backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
                 }}
               >
                 <span style={{ fontWeight: 500 }}>
@@ -1246,7 +1246,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
         )}
 
         {attendance.filter(pilot => pilot.status === 'declined').length === 0 && (
-          <div style={{ color: '#94A3B8', padding: '8px' }}>No declined responses</div>
+          <div style={{ color: 'var(--rr-text3)', padding: '8px' }}>No declined responses</div>
         )}
       </div>
       

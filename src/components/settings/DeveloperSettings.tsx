@@ -148,14 +148,14 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '40px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         minHeight: '200px'
       }}>
         <div style={{
           width: '32px',
           height: '32px',
-          border: '3px solid #E2E8F0',
-          borderTopColor: '#3B82F6',
+          border: '3px solid var(--rr-border)',
+          borderTopColor: 'var(--rr-accent)',
           borderRadius: '50%',
           animation: 'spin 1s linear infinite'
         }} />
@@ -174,7 +174,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
   const sectionStyle = {
     paddingTop: '32px',
     paddingBottom: '32px',
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
     marginTop: '32px'
   };
 
@@ -186,17 +186,17 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
             <Code size={28} style={{ color: '#7C3AED' }} />
-            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
               Developer Settings
             </h2>
           </div>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Advanced settings for development and testing. These settings only affect your account.
           </p>
         </div>
@@ -209,7 +209,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
           <div style={firstSectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <Server size={20} style={{ color: '#5865F2' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Discord Bot Configuration
             </h3>
             {/* Status indicator */}
@@ -218,8 +218,8 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
                 display: 'flex',
                 alignItems: 'center',
                 gap: '4px',
-                backgroundColor: '#FEF3C7',
-                color: '#D97706',
+                backgroundColor: 'rgba(222,154,31,.14)',
+                color: 'var(--rr-warn)',
                 padding: '4px 8px',
                 borderRadius: '4px',
                 fontSize: '12px',
@@ -231,7 +231,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
             )}
           </div>
           
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
             Choose which Discord bot token to use for local development. Production token gives access to real squadron Discord server with full role and user data.
           </p>
 
@@ -242,9 +242,9 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               alignItems: 'center',
               gap: '12px',
               padding: '16px',
-              border: settings?.developer?.discordBotToken === 'development' ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+              border: settings?.developer?.discordBotToken === 'development' ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
               borderRadius: '8px',
-              backgroundColor: settings?.developer?.discordBotToken === 'development' ? '#EFF6FF' : '#FFFFFF',
+              backgroundColor: settings?.developer?.discordBotToken === 'development' ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}>
@@ -258,10 +258,10 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
                 style={{ marginRight: '4px' }}
               />
               <div>
-                <div style={{ fontWeight: 500, color: '#0F172A', fontSize: '14px' }}>
+                <div style={{ fontWeight: 500, color: 'var(--rr-text)', fontSize: '14px' }}>
                   Development Bot Token
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '2px' }}>
                   Uses Squadron Duty Officer (DEV) bot - connects to personal Discord server
                 </div>
               </div>
@@ -273,9 +273,9 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               alignItems: 'center',
               gap: '12px',
               padding: '16px',
-              border: settings?.developer?.discordBotToken === 'production' ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+              border: settings?.developer?.discordBotToken === 'production' ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
               borderRadius: '8px',
-              backgroundColor: settings?.developer?.discordBotToken === 'production' ? '#EFF6FF' : '#FFFFFF',
+              backgroundColor: settings?.developer?.discordBotToken === 'production' ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
               cursor: 'pointer',
               transition: 'all 0.2s ease'
             }}>
@@ -289,13 +289,13 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
                 style={{ marginRight: '4px' }}
               />
               <div>
-                <div style={{ fontWeight: 500, color: '#0F172A', fontSize: '14px' }}>
+                <div style={{ fontWeight: 500, color: 'var(--rr-text)', fontSize: '14px' }}>
                   Production Bot Token
                 </div>
-                <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '2px' }}>
                   Uses Squadron Duty Officer bot - connects to squadron Discord server with real data
                 </div>
-                <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '4px', fontWeight: 500 }}>
+                <div style={{ fontSize: '12px', color: 'var(--rr-bad)', marginTop: '4px', fontWeight: 500 }}>
                   ⚠️ Use with caution - can affect real squadron data
                 </div>
               </div>
@@ -311,17 +311,17 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               marginTop: '16px',
               padding: '12px 16px',
               borderRadius: '6px',
-              backgroundColor: saveStatus === 'success' ? '#F0FDF4' : '#FEF2F2',
-              border: `1px solid ${saveStatus === 'success' ? '#BBF7D0' : '#FECACA'}`
+              backgroundColor: saveStatus === 'success' ? 'rgba(64,168,91,.14)' : 'rgba(224,82,78,.12)',
+              border: `1px solid ${saveStatus === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)'}`
             }}>
               {saveStatus === 'success' ? (
-                <CheckCircle size={16} style={{ color: '#10B981' }} />
+                <CheckCircle size={16} style={{ color: 'var(--rr-good)' }} />
               ) : (
-                <AlertCircle size={16} style={{ color: '#EF4444' }} />
+                <AlertCircle size={16} style={{ color: 'var(--rr-bad)' }} />
               )}
               <span style={{
                 fontSize: '14px',
-                color: saveStatus === 'success' ? '#065F46' : '#991B1B',
+                color: saveStatus === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)',
                 fontWeight: 500
               }}>
                 {saveStatus === 'success' 
@@ -337,12 +337,12 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
         <div style={sectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
             <FlaskConical size={20} style={{ color: '#7C3AED' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Experimental Features
             </h3>
           </div>
 
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
             Feature flags for in-development functionality. These only affect your account; other users see the current production behavior.
           </p>
 
@@ -351,9 +351,9 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
             alignItems: 'center',
             gap: '12px',
             padding: '16px',
-            border: settings?.developer?.enableEventActivities ? '2px solid #3B82F6' : '1px solid #E2E8F0',
+            border: settings?.developer?.enableEventActivities ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
             borderRadius: '8px',
-            backgroundColor: settings?.developer?.enableEventActivities ? '#EFF6FF' : '#FFFFFF',
+            backgroundColor: settings?.developer?.enableEventActivities ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
             cursor: 'pointer',
             transition: 'all 0.2s ease'
           }}>
@@ -365,10 +365,10 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               style={{ marginRight: '4px' }}
             />
             <div>
-              <div style={{ fontWeight: 500, color: '#0F172A', fontSize: '14px' }}>
+              <div style={{ fontWeight: 500, color: 'var(--rr-text)', fontSize: '14px' }}>
                 Event Activities
               </div>
-              <div style={{ fontSize: '12px', color: '#64748B', marginTop: '2px' }}>
+              <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '2px' }}>
                 Per-event parallel activities (syllabus lessons, ad-hoc objectives, qualification pursuits) replacing the single Training mission step. Only test against new, unpublished events.
               </div>
             </div>
@@ -378,13 +378,13 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
         {/* Permission Cache Section */}
         <div style={sectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Trash2 size={20} style={{ color: '#EF4444' }} />
-            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+            <Trash2 size={20} style={{ color: 'var(--rr-bad)' }} />
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Permission Cache
             </h3>
           </div>
 
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 24px 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 24px 0', fontFamily: 'inherit' }}>
             Clear cached permissions for all users. Use this after making changes to permission rules or if you're experiencing permission issues.
           </p>
 
@@ -396,7 +396,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               alignItems: 'center',
               gap: '8px',
               padding: '10px 16px',
-              backgroundColor: clearingCache ? '#E5E7EB' : '#EF4444',
+              backgroundColor: clearingCache ? 'var(--rr-panel3)' : 'var(--rr-bad)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '6px',
@@ -408,12 +408,12 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
             }}
             onMouseEnter={(e) => {
               if (!clearingCache) {
-                e.currentTarget.style.backgroundColor = '#DC2626';
+                e.currentTarget.style.backgroundColor = 'var(--rr-bad)';
               }
             }}
             onMouseLeave={(e) => {
               if (!clearingCache) {
-                e.currentTarget.style.backgroundColor = '#EF4444';
+                e.currentTarget.style.backgroundColor = 'var(--rr-bad)';
               }
             }}
           >
@@ -430,17 +430,17 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               marginTop: '16px',
               padding: '12px 16px',
               borderRadius: '6px',
-              backgroundColor: cacheStatus === 'success' ? '#F0FDF4' : '#FEF2F2',
-              border: `1px solid ${cacheStatus === 'success' ? '#BBF7D0' : '#FECACA'}`
+              backgroundColor: cacheStatus === 'success' ? 'rgba(64,168,91,.14)' : 'rgba(224,82,78,.12)',
+              border: `1px solid ${cacheStatus === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)'}`
             }}>
               {cacheStatus === 'success' ? (
-                <CheckCircle size={16} style={{ color: '#10B981' }} />
+                <CheckCircle size={16} style={{ color: 'var(--rr-good)' }} />
               ) : (
-                <AlertCircle size={16} style={{ color: '#EF4444' }} />
+                <AlertCircle size={16} style={{ color: 'var(--rr-bad)' }} />
               )}
               <span style={{
                 fontSize: '14px',
-                color: cacheStatus === 'success' ? '#065F46' : '#991B1B',
+                color: cacheStatus === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)',
                 fontWeight: 500
               }}>
                 {cacheStatus === 'success'

@@ -50,7 +50,7 @@ export const ParticipantCriteriaBubbles: React.FC<{
 
   if (completedBlocks.length === 0) {
     return (
-      <span style={{ fontSize: '11px', color: '#94A3B8', fontFamily: 'Inter', fontStyle: 'italic' }}>
+      <span style={{ fontSize: '11px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic' }}>
         All participants
       </span>
     );
@@ -65,8 +65,8 @@ export const ParticipantCriteriaBubbles: React.FC<{
             display: 'inline-flex',
             alignItems: 'center',
             gap: '4px',
-            backgroundColor: '#F1F5F9',
-            border: '1px solid #E2E8F0',
+            backgroundColor: 'var(--rr-panel2)',
+            border: '1px solid var(--rr-border)',
             borderRadius: '9999px',
             padding: '2px 8px 2px 4px',
             maxWidth: maxWidth ? `${maxWidth}px` : undefined
@@ -88,7 +88,7 @@ export const ParticipantCriteriaBubbles: React.FC<{
                 }}
               />
             ) : (
-              <span key={squadron.id} style={{ fontSize: '10px', fontWeight: 600, color: '#475569' }}>
+              <span key={squadron.id} style={{ fontSize: '10px', fontWeight: 600, color: 'var(--rr-text2)' }}>
                 {squadron.designation || squadron.name}
               </span>
             )
@@ -97,7 +97,7 @@ export const ParticipantCriteriaBubbles: React.FC<{
             <span style={{
               fontSize: '10px',
               fontWeight: 500,
-              color: '#1E40AF',
+              color: 'var(--rr-accent-text)',
               whiteSpace: 'nowrap',
               overflow: 'hidden',
               textOverflow: 'ellipsis'
@@ -178,18 +178,18 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
           display: 'block',
           fontSize: '12px',
           fontWeight: 600,
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           marginBottom: '4px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           textTransform: 'uppercase'
         }}>
           {label}
         </label>
         <div style={{
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '4px',
           padding: '4px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           // Uniform height across all four lists: exactly five rows visible
           height: '148px',
           overflowY: 'auto',
@@ -211,13 +211,13 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
-                  backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                  backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
                   borderRadius: '3px',
                   transition: 'background-color 0.2s',
                   marginBottom: '2px'
                 }}
                 onMouseEnter={e => {
-                  if (!isSelected) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={e => {
                   if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -226,9 +226,9 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                 <div style={{
                   width: '14px',
                   height: '14px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '3px',
-                  backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                  backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -255,7 +255,7 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                     <div style={{
                       width: '18px',
                       height: '18px',
-                      backgroundColor: '#E5E7EB',
+                      backgroundColor: 'var(--rr-panel3)',
                       borderRadius: '3px',
                       flexShrink: 0
                     }} />
@@ -264,8 +264,8 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                 <span style={{
                   fontSize: '12px',
                   fontWeight: isSelected ? 600 : 400,
-                  color: '#374151',
-                  fontFamily: 'Inter',
+                  color: 'var(--rr-text)',
+                  fontFamily: 'inherit',
                   whiteSpace: 'nowrap',
                   overflow: 'hidden',
                   textOverflow: 'ellipsis'
@@ -290,9 +290,9 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                 alignSelf: 'center',
                 fontSize: '12px',
                 fontWeight: 600,
-                color: '#9CA3AF',
+                color: 'var(--rr-text3)',
                 padding: '4px 10px',
-                backgroundColor: '#F3F4F6',
+                backgroundColor: 'var(--rr-panel2)',
                 borderRadius: '12px',
                 flexShrink: 0
               }}>
@@ -300,8 +300,8 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
               </span>
             )}
             <div style={{
-              backgroundColor: '#F9FAFB',
-              border: '1px solid #E5E7EB',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border)',
               borderRadius: '8px',
               padding: '12px 32px 12px 12px',
               position: 'relative',
@@ -348,13 +348,13 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
         style={{
           marginTop: '10px',
           padding: '6px 14px',
-          backgroundColor: '#EFF6FF',
-          color: '#2563EB',
-          border: '1px solid #BFDBFE',
+          backgroundColor: 'var(--rr-accent-weak)',
+          color: 'var(--rr-accent-text)',
+          border: '1px solid var(--rr-accent)',
           borderRadius: '6px',
           cursor: 'pointer',
           fontSize: '13px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontWeight: 500,
           display: 'flex',
           alignItems: 'center',

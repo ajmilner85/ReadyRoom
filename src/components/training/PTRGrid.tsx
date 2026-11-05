@@ -659,7 +659,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
 
   if (loading) {
     return (
-      <div style={{ padding: '32px', textAlign: 'center', color: '#6B7280' }}>
+      <div style={{ padding: '32px', textAlign: 'center', color: 'var(--rr-text2)' }}>
         Loading PTR data...
       </div>
     );
@@ -667,7 +667,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
 
   if (studentRows.length === 0) {
     return (
-      <div style={{ padding: '32px', textAlign: 'center', color: '#6B7280' }}>
+      <div style={{ padding: '32px', textAlign: 'center', color: 'var(--rr-text2)' }}>
         No students enrolled in this training cycle
       </div>
     );
@@ -677,14 +677,14 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
     <div>
       <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-          <div style={{ fontSize: '14px', color: '#6B7280' }}>
+          <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>
             {sortedStudentRows.length} student{sortedStudentRows.length !== 1 ? 's' : ''}, {weekInfo.length} week{weekInfo.length !== 1 ? 's' : ''}
             {!showInactive && inactiveCount > 0 && (
-              <span style={{ color: '#9CA3AF' }}> ({inactiveCount} inactive hidden)</span>
+              <span style={{ color: 'var(--rr-text3)' }}> ({inactiveCount} inactive hidden)</span>
             )}
           </div>
           {inactiveCount > 0 && (
-            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#6B7280', cursor: 'pointer', userSelect: 'none' }}>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: 'var(--rr-text2)', cursor: 'pointer', userSelect: 'none' }}>
               <input
                 type="checkbox"
                 checked={showInactive}
@@ -698,8 +698,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
           onClick={exportToCSV}
           style={{
             padding: '8px 12px',
-            backgroundColor: 'white',
-            border: '1px solid #D1D5DB',
+            backgroundColor: 'var(--rr-panel)',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '6px',
             cursor: 'pointer',
             fontSize: '14px',
@@ -713,20 +713,20 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
         </button>
       </div>
 
-      <div style={{ border: '1px solid #E5E7EB', borderRadius: '6px', position: 'relative', overflow: 'visible', width: 'fit-content', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', position: 'relative', overflow: 'visible', width: 'fit-content', height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, position: 'relative' }}>
           <table style={{ borderCollapse: 'collapse', width: 'auto' }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
               {/* Week Number Row */}
-              <tr style={{ backgroundColor: '#F9FAFB' }}>
+              <tr style={{ backgroundColor: 'var(--rr-panel2)' }}>
                 <th style={{
                   padding: '12px 8px 2px 16px',
                   textAlign: 'left',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
-                  backgroundColor: '#F9FAFB',
+                  backgroundColor: 'var(--rr-panel2)',
                   whiteSpace: 'nowrap',
                   position: 'sticky',
                   left: 0,
@@ -740,7 +740,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       border: 'none',
                       padding: '0',
                       cursor: 'pointer',
-                      color: '#6B7280',
+                      color: 'var(--rr-text2)',
                       fontSize: '12px',
                       fontWeight: 500,
                       textTransform: 'uppercase',
@@ -766,9 +766,9 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         textAlign: 'center',
                         fontSize: '12px',
                         fontWeight: 500,
-                        color: '#6B7280',
+                        color: 'var(--rr-text2)',
                         textTransform: 'uppercase',
-                        backgroundColor: (hoveredCol === week.weekNumber || clickedWeekPopup === week.weekNumber) ? '#E5E7EB' : '#F9FAFB',
+                        backgroundColor: (hoveredCol === week.weekNumber || clickedWeekPopup === week.weekNumber) ? 'var(--rr-panel3)' : 'var(--rr-panel2)',
                         whiteSpace: 'nowrap',
                         width: '90px',
                         transition: 'background-color 0.1s',
@@ -820,10 +820,10 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                             left: '50%',
                             transform: 'translateX(-50%)',
                             top: 'calc(100% + 30px)',
-                            backgroundColor: '#FFFFFF',
-                            border: '1px solid #E5E7EB',
+                            backgroundColor: 'var(--rr-panel)',
+                            border: '1px solid var(--rr-border)',
                             borderRadius: '8px',
-                            boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06)',
+                            boxShadow: 'var(--rr-shadow)',
                             padding: '12px',
                             minWidth: 'max-content',
                             width: 'max-content',
@@ -836,9 +836,9 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         >
                           {/* Header */}
                           {week.eventName && (
-                            <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid #E5E7EB' }}>
+                            <div style={{ marginBottom: '16px', paddingBottom: '12px', borderBottom: '1px solid var(--rr-border)' }}>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                                <div style={{ fontSize: '16px', fontWeight: 600, color: '#000000' }}>
+                                <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)' }}>
                                   {week.eventName}
                                 </div>
                                 {week.eventId && (
@@ -854,7 +854,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                       padding: '4px',
                                       display: 'flex',
                                       alignItems: 'center',
-                                      color: '#9CA3AF'
+                                      color: 'var(--rr-text3)'
                                     }}
                                     title="Go to Event"
                                   >
@@ -864,10 +864,10 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                               </div>
                               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
                                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#6B7280' }}>
+                                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)' }}>
                                     {week.missionNumber !== null ? `H${String(week.missionNumber).padStart(2, '0')}` : ''}
                                   </span>
-                                  <span style={{ fontSize: '14px', fontWeight: 500, color: '#000000' }}>
+                                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
                                     {week.missionName}
                                   </span>
                                 </div>
@@ -884,7 +884,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                       padding: '4px',
                                       display: 'flex',
                                       alignItems: 'center',
-                                      color: '#9CA3AF'
+                                      color: 'var(--rr-text3)'
                                     }}
                                     title="Go to Mission Preparation"
                                   >
@@ -893,7 +893,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                 )}
                               </div>
                               {week.eventDate && (
-                                <div style={{ fontSize: '13px', color: '#6B7280' }}>
+                                <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
                                   {new Date(week.eventDate).toLocaleDateString('en-US', {
                                     weekday: 'short',
                                     month: 'short',
@@ -912,7 +912,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                               <div style={{
                                 fontSize: '13px',
                                 fontWeight: 600,
-                                color: '#1F2937',
+                                color: 'var(--rr-text)',
                                 marginBottom: '8px'
                               }}>
                                 Desired Learning Objectives
@@ -924,10 +924,10 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                     alignItems: 'flex-start',
                                     gap: '8px'
                                   }}>
-                                    <CheckCircle2 size={16} style={{ color: '#9CA3AF', marginTop: '2px', flexShrink: 0 }} />
+                                    <CheckCircle2 size={16} style={{ color: 'var(--rr-text3)', marginTop: '2px', flexShrink: 0 }} />
                                     <span style={{
                                       fontSize: '13px',
-                                      color: '#6B7280',
+                                      color: 'var(--rr-text2)',
                                       lineHeight: '1.4'
                                     }}>
                                       {obj.objectiveText}
@@ -943,7 +943,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                               <div style={{
                                 fontSize: '13px',
                                 fontWeight: 600,
-                                color: '#1F2937',
+                                color: 'var(--rr-text)',
                                 marginBottom: '8px'
                               }}>
                                 Reference Materials
@@ -953,13 +953,13 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                   <div key={idx} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
                                     <div style={{ flexShrink: 0, width: '16px' }}>
                                       {item.isInherited && (
-                                        <BookOpen size={16} style={{ color: '#6B7280' }} />
+                                        <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
                                       )}
                                     </div>
                                     <div style={{ flex: 1, minWidth: 0 }}>
                                       <div style={{
                                         fontSize: '12px',
-                                        color: '#1F2937',
+                                        color: 'var(--rr-text)',
                                         marginBottom: '2px'
                                       }}>
                                         {item.material.type}
@@ -970,7 +970,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                                         rel="noopener noreferrer"
                                         style={{
                                           fontSize: '14px',
-                                          color: '#3B82F6',
+                                          color: 'var(--rr-accent-text)',
                                           textDecoration: 'none',
                                           display: 'block',
                                           overflow: 'hidden',
@@ -996,7 +996,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                   <th style={{
                     padding: '12px 8px 2px',
                     textAlign: 'center',
-                    backgroundColor: '#F9FAFB',
+                    backgroundColor: 'var(--rr-panel2)',
                     whiteSpace: 'nowrap',
                     width: '48px',
                     minWidth: '48px',
@@ -1004,16 +1004,16 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     top: 0,
                     zIndex: 10,
                   }}>
-                    <GraduationCap size={16} style={{ color: '#6B7280' }} />
+                    <GraduationCap size={16} style={{ color: 'var(--rr-text2)' }} />
                   </th>
                 )}
               </tr>
               {/* Hop Number Row */}
-              <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
+              <tr style={{ backgroundColor: 'var(--rr-panel2)', borderBottom: '1px solid var(--rr-border)' }}>
                 <th style={{
                   padding: '2px 8px 12px 16px',
                   textAlign: 'left',
-                  backgroundColor: '#F9FAFB',
+                  backgroundColor: 'var(--rr-panel2)',
                   position: 'sticky',
                   left: 0,
                   zIndex: 11,
@@ -1030,8 +1030,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         textAlign: 'center',
                         fontSize: '11px',
                         fontWeight: 400,
-                        color: '#4B5563',
-                        backgroundColor: (hoveredCol === week.weekNumber || clickedWeekPopup === week.weekNumber) ? '#E5E7EB' : '#F9FAFB',
+                        color: 'var(--rr-text2)',
+                        backgroundColor: (hoveredCol === week.weekNumber || clickedWeekPopup === week.weekNumber) ? 'var(--rr-panel3)' : 'var(--rr-panel2)',
                         whiteSpace: 'nowrap',
                         width: '90px',
                         transition: 'background-color 0.1s',
@@ -1065,7 +1065,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                   <th style={{
                     padding: '2px 8px 12px',
                     textAlign: 'center',
-                    backgroundColor: '#F9FAFB',
+                    backgroundColor: 'var(--rr-panel2)',
                     width: '48px',
                     minWidth: '48px',
                   }} />
@@ -1077,10 +1077,10 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                 <tr key={row.student.id}>
                   <td style={{
                     padding: '12px 8px 12px 16px',
-                    borderBottom: '1px solid #E5E7EB',
+                    borderBottom: '1px solid var(--rr-border)',
                     position: 'sticky',
                     left: 0,
-                    backgroundColor: hoveredRow === row.student.id ? '#F9FAFB' : 'white',
+                    backgroundColor: hoveredRow === row.student.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                     zIndex: 1,
                     width: '220px',
                     transition: 'background-color 0.1s'
@@ -1105,7 +1105,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       <span style={{
                         fontSize: '16px',
                         fontWeight: 700,
-                        color: row.student.squadron?.primary_color || '#000000'
+                        color: row.student.squadron?.primary_color || 'var(--rr-text)'
                       }}>
                         {row.student.callsign}
                       </span>
@@ -1191,7 +1191,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         style={{
                           padding: '12px 16px',
                           textAlign: 'center',
-                          borderBottom: '1px solid #E5E7EB',
+                          borderBottom: '1px solid var(--rr-border)',
                           width: '90px',
                           backgroundColor,
                           color: textColor,
@@ -1211,7 +1211,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       style={{
                         padding: '12px 8px',
                         textAlign: 'center',
-                        borderBottom: '1px solid #E5E7EB',
+                        borderBottom: '1px solid var(--rr-border)',
                         width: '48px',
                         minWidth: '48px',
                         backgroundColor: row.student.enrollment_status === 'graduated'
@@ -1225,7 +1225,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       {row.student.enrollment_status === 'graduated' ? (
                         <CheckCircle2
                           size={16}
-                          style={{ color: '#16A34A', display: 'block', margin: '0 auto' }}
+                          style={{ color: 'var(--rr-good)', display: 'block', margin: '0 auto' }}
                         />
                       ) : hoveredRow === row.student.id && (
                         <button
@@ -1248,10 +1248,10 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                             margin: '0 auto',
                           }}
                           title="Graduate this student"
-                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = '#EFF6FF')}
+                          onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)')}
                           onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'transparent')}
                         >
-                          <GraduationCap size={16} style={{ color: '#2563EB' }} />
+                          <GraduationCap size={16} style={{ color: 'var(--rr-accent-text)' }} />
                         </button>
                       )}
                     </td>

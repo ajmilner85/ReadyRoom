@@ -88,10 +88,10 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
     left: `${adjustedPosition.x}px`,
     top: `${adjustedPosition.y}px`,
     transform: adjustedPosition.showBelow ? 'translate(-50%, 0)' : 'translate(-50%, -100%)',
-    backgroundColor: 'white',
-    border: '1px solid #E5E7EB',
+    backgroundColor: 'var(--rr-panel)',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
-    boxShadow: '0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05)',
+    boxShadow: 'var(--rr-shadow)',
     padding: '16px',
     zIndex: 9999,
     minWidth: '320px',
@@ -102,24 +102,24 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
   return (
     <div ref={tooltipRef} style={tooltipStyle}>
       {/* Header - Week/Mission Info and Attempt Number */}
-      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #E5E7EB' }}>
+      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--rr-border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '4px' }}>
           <div style={{ flex: 1 }}>
-            <div style={{ fontSize: '14px', fontWeight: 600, color: '#111827', marginBottom: '4px' }}>
+            <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px' }}>
               Week {weekNumber} - H{String(missionNumber).padStart(2, '0')}
             </div>
-            <div style={{ fontSize: '13px', color: '#6B7280' }}>
+            <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
               {missionName}
             </div>
           </div>
           <div style={{
             padding: '4px 10px',
-            backgroundColor: '#EFF6FF',
-            border: '1px solid #BFDBFE',
+            backgroundColor: 'var(--rr-accent-weak)',
+            border: '1px solid var(--rr-accent)',
             borderRadius: '6px',
             fontSize: '11px',
             fontWeight: 600,
-            color: '#1E40AF',
+            color: 'var(--rr-accent-text)',
             whiteSpace: 'nowrap',
             marginLeft: '12px'
           }}>
@@ -129,26 +129,26 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
       </div>
 
       {/* Student and Instructor */}
-      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #E5E7EB' }}>
+      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--rr-border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '4px' }}>
-          <span style={{ fontSize: '12px', color: '#6B7280' }}>Student:</span>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+          <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Student:</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text)' }}>
             {grade.student?.callsign || 'Unknown'}
           </span>
         </div>
         <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: '12px', color: '#6B7280' }}>Instructor:</span>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+          <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Instructor:</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text)' }}>
             {grade.gradedByPilot?.callsign || grade.assignedIpPilot?.callsign || 'Unknown'}
           </span>
         </div>
       </div>
 
       {/* Flight Date and Makeup Status */}
-      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #E5E7EB' }}>
+      <div style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid var(--rr-border)' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <span style={{ fontSize: '12px', color: '#6B7280' }}>Flight Date:</span>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#111827' }}>
+          <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Flight Date:</span>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text)' }}>
             {grade.flightDate ? new Date(grade.flightDate + 'T00:00:00Z').toLocaleDateString('en-US', { 
               month: 'short', 
               day: 'numeric', 
@@ -161,12 +161,12 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
           <div style={{ 
             marginTop: '6px',
             padding: '4px 8px',
-            backgroundColor: '#FEF3C7',
-            border: '1px solid #FDE68A',
+            backgroundColor: 'rgba(222,154,31,.14)',
+            border: '1px solid var(--rr-warn)',
             borderRadius: '4px',
             fontSize: '11px',
             fontWeight: 500,
-            color: '#92400E',
+            color: 'var(--rr-warn)',
             textAlign: 'center'
           }}>
             Make-up Flight
@@ -176,7 +176,7 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
 
       {/* DLO Grades */}
       <div style={{ marginBottom: '12px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', marginBottom: '8px', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '8px', textTransform: 'uppercase' }}>
           Training Objectives
         </div>
         {objectives.map((objective) => {
@@ -187,13 +187,13 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
           return (
             <div key={objective.id} style={{ marginBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'start', gap: '6px' }}>
-                {isSat && <CheckCircle2 size={14} style={{ color: '#10B981', marginTop: '2px', flexShrink: 0 }} />}
-                {isUnsat && <MinusCircle size={14} style={{ color: '#9CA3AF', marginTop: '2px', flexShrink: 0 }} />}
+                {isSat && <CheckCircle2 size={14} style={{ color: 'var(--rr-good)', marginTop: '2px', flexShrink: 0 }} />}
+                {isUnsat && <MinusCircle size={14} style={{ color: 'var(--rr-text3)', marginTop: '2px', flexShrink: 0 }} />}
                 {!isSat && !isUnsat && <MinusCircle size={14} style={{ color: '#E5E7EB', marginTop: '2px', flexShrink: 0 }} />}
                 <div style={{ flex: 1 }}>
                   <div style={{ 
                     fontSize: '12px', 
-                    color: '#111827', 
+                    color: 'var(--rr-text)', 
                     lineHeight: '1.4',
                     fontWeight: isSat || isUnsat ? 500 : 400
                   }}>
@@ -202,7 +202,7 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
                   {dloGrade?.notes && (
                     <div style={{ 
                       fontSize: '11px', 
-                      color: '#6B7280', 
+                      color: 'var(--rr-text2)', 
                       marginTop: '2px',
                       lineHeight: '1.4',
                       fontStyle: 'italic'
@@ -221,18 +221,18 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
       <div style={{ 
         marginTop: '12px', 
         paddingTop: '12px', 
-        borderTop: '1px solid #E5E7EB' 
+        borderTop: '1px solid var(--rr-border)' 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
-          <span style={{ fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>
+          <span style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase' }}>
             Overall Grade
           </span>
           <span style={{ 
             fontSize: '13px', 
             fontWeight: 700,
-            color: grade.overallGrade === 'SAT' ? '#065F46' : '#92400E',
+            color: grade.overallGrade === 'SAT' ? 'var(--rr-good)' : 'var(--rr-warn)',
             padding: '2px 8px',
-            backgroundColor: grade.overallGrade === 'SAT' ? '#D1FAE5' : '#FEF3C7',
+            backgroundColor: grade.overallGrade === 'SAT' ? 'rgba(64,168,91,.14)' : 'rgba(222,154,31,.14)',
             borderRadius: '4px'
           }}>
             {grade.overallGrade}
@@ -241,9 +241,9 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
         {grade.overallNotes && (
           <div style={{ 
             fontSize: '12px', 
-            color: '#374151', 
+            color: 'var(--rr-text)', 
             lineHeight: '1.4',
-            backgroundColor: '#F9FAFB',
+            backgroundColor: 'var(--rr-panel2)',
             padding: '8px',
             borderRadius: '4px',
             fontStyle: 'italic'

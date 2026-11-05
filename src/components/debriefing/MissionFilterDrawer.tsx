@@ -107,14 +107,14 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
   };
 
   return (
-    <div style={{ backgroundColor: '#FFFFFF' }}>
+    <div style={{ backgroundColor: 'var(--rr-panel)' }}>
       {/* Drawer header with active filters */}
       <div
         onClick={() => setIsExpanded(!isExpanded)}
         style={{
           padding: '12px 16px',
           cursor: 'pointer',
-          borderBottom: isExpanded ? '1px solid #E2E8F0' : 'none',
+          borderBottom: isExpanded ? '1px solid var(--rr-border)' : 'none',
           transition: 'all 0.2s ease'
         }}
       >
@@ -144,13 +144,13 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                     }}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: filtersEnabled ? '#EFF6FF' : '#F3F4F6',
-                      border: '1px solid ' + (filtersEnabled ? '#DBEAFE' : '#D1D5DB'),
+                      backgroundColor: filtersEnabled ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
+                      border: '1px solid ' + (filtersEnabled ? 'var(--rr-accent)' : 'var(--rr-border2)'),
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: filtersEnabled ? '#1E40AF' : '#6B7280'
+                      fontFamily: 'inherit',
+                      color: filtersEnabled ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                     }}
                   >
                     {filtersEnabled ? 'ON' : 'OFF'}
@@ -162,13 +162,13 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                     }}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: '#FEF2F2',
-                      border: '1px solid #FECACA',
+                      backgroundColor: 'rgba(224,82,78,.12)',
+                      border: '1px solid var(--rr-bad)',
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#DC2626'
+                      fontFamily: 'inherit',
+                      color: 'var(--rr-bad)'
                     }}
                   >
                     Clear All
@@ -216,8 +216,8 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                   <h4 style={{
                     fontSize: '12px',
                     fontWeight: 500,
-                    fontFamily: 'Inter',
-                    color: '#374151',
+                    fontFamily: 'inherit',
+                    color: 'var(--rr-text)',
                     margin: 0
                   }}>
                     Squadron
@@ -227,13 +227,13 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                       onClick={() => setSelectedSquadronIds(safeSquadrons.map(s => s.id))}
                       style={{
                         padding: '2px 6px',
-                        backgroundColor: '#EFF6FF',
-                        border: '1px solid #DBEAFE',
+                        backgroundColor: 'var(--rr-accent-weak)',
+                        border: '1px solid var(--rr-accent)',
                         borderRadius: '3px',
                         fontSize: '10px',
                         cursor: 'pointer',
-                        fontFamily: 'Inter',
-                        color: '#1E40AF'
+                        fontFamily: 'inherit',
+                        color: 'var(--rr-accent-text)'
                       }}
                     >
                       All
@@ -242,13 +242,13 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                       onClick={() => setSelectedSquadronIds([])}
                       style={{
                         padding: '2px 6px',
-                        backgroundColor: '#FEF2F2',
-                        border: '1px solid #FECACA',
+                        backgroundColor: 'rgba(224,82,78,.12)',
+                        border: '1px solid var(--rr-bad)',
                         borderRadius: '3px',
                         fontSize: '10px',
                         cursor: 'pointer',
-                        fontFamily: 'Inter',
-                        color: '#DC2626'
+                        fontFamily: 'inherit',
+                        color: 'var(--rr-bad)'
                       }}
                     >
                       None
@@ -258,7 +258,7 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                 <div style={{
                   maxHeight: '200px',
                   overflowY: 'auto',
-                  border: '1px solid #E5E7EB',
+                  border: '1px solid var(--rr-border)',
                   borderRadius: '4px',
                   padding: '4px'
                 }}>
@@ -274,13 +274,13 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                           display: 'flex',
                           alignItems: 'center',
                           gap: '8px',
-                          backgroundColor: isSelected ? '#EFF6FF' : 'transparent',
+                          backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
                           transition: 'background-color 0.2s',
                           fontSize: '12px',
-                          fontFamily: 'Inter'
+                          fontFamily: 'inherit'
                         }}
                         onMouseEnter={(e) => {
-                          if (!isSelected) e.currentTarget.style.backgroundColor = '#F8FAFC';
+                          if (!isSelected) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                         }}
                         onMouseLeave={(e) => {
                           if (!isSelected) e.currentTarget.style.backgroundColor = 'transparent';
@@ -301,25 +301,25 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                           <div style={{
                             width: '20px',
                             height: '20px',
-                            backgroundColor: '#E5E7EB',
+                            backgroundColor: 'var(--rr-panel3)',
                             borderRadius: '3px',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
                             flexShrink: 0
                           }}>
-                            <span style={{ fontSize: '10px', color: '#6B7280' }}>?</span>
+                            <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
                           </div>
                         )}
                         <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                          <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'Inter' }}>
+                          <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
                             {squadron.designation}
                           </span>
-                          <span style={{ fontSize: '10px', color: '#64748B', fontFamily: 'Inter' }}>
+                          <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                             {squadron.name}
                           </span>
                         </div>
-                        <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginLeft: 'auto' }}>
+                        <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginLeft: 'auto' }}>
                           ({getSquadronMissionCount(squadron.id)})
                         </span>
                       </div>
@@ -353,9 +353,9 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                   display: 'block',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   marginBottom: '8px',
-                  fontFamily: 'Inter'
+                  fontFamily: 'inherit'
                 }}>
                   Date Range
                 </label>
@@ -368,15 +368,15 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                       flex: 1,
                       padding: '8px 12px',
                       fontSize: '12px',
-                      color: '#1E293B',
-                      backgroundColor: '#F9FAFB',
-                      border: '1px solid #D1D5DB',
+                      color: 'var(--rr-text)',
+                      backgroundColor: 'var(--rr-panel2)',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       outline: 'none',
-                      fontFamily: 'Inter'
+                      fontFamily: 'inherit'
                     }}
                   />
-                  <span style={{ color: '#9CA3AF', fontSize: '12px', fontFamily: 'Inter' }}>to</span>
+                  <span style={{ color: 'var(--rr-text3)', fontSize: '12px', fontFamily: 'inherit' }}>to</span>
                   <input
                     type="date"
                     value={endDate}
@@ -385,12 +385,12 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
                       flex: 1,
                       padding: '8px 12px',
                       fontSize: '12px',
-                      color: '#1E293B',
-                      backgroundColor: '#F9FAFB',
-                      border: '1px solid #D1D5DB',
+                      color: 'var(--rr-text)',
+                      backgroundColor: 'var(--rr-panel2)',
+                      border: '1px solid var(--rr-border2)',
                       borderRadius: '6px',
                       outline: 'none',
-                      fontFamily: 'Inter'
+                      fontFamily: 'inherit'
                     }}
                   />
                 </div>
@@ -456,8 +456,8 @@ const SingleSelectDropdown: React.FC<{
         <h4 style={{
           fontSize: '12px',
           fontWeight: 500,
-          fontFamily: 'Inter',
-          color: '#374151',
+          fontFamily: 'inherit',
+          color: 'var(--rr-text)',
           margin: 0
         }}>
           {title}
@@ -468,15 +468,15 @@ const SingleSelectDropdown: React.FC<{
         onClick={() => setIsOpen(!isOpen)}
         style={{
           padding: '8px 12px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           cursor: 'pointer',
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
           fontSize: '12px',
-          fontFamily: 'Inter'
+          fontFamily: 'inherit'
         }}
       >
         <span>{getDisplayText()}</span>
@@ -491,13 +491,13 @@ const SingleSelectDropdown: React.FC<{
           top: '100%',
           left: 0,
           right: 0,
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #CBD5E1',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '6px',
           maxHeight: '200px',
           overflowY: 'auto',
           zIndex: 1000,
-          boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           marginTop: '4px'
         }}>
           {options.map(option => (
@@ -510,9 +510,9 @@ const SingleSelectDropdown: React.FC<{
               style={{
                 padding: '8px 12px',
                 cursor: 'pointer',
-                backgroundColor: selectedValue === option.value ? '#EFF6FF' : 'transparent',
+                backgroundColor: selectedValue === option.value ? 'var(--rr-accent-weak)' : 'transparent',
                 fontSize: '12px',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 display: 'flex',
                 justifyContent: 'space-between',
                 alignItems: 'center',
@@ -520,7 +520,7 @@ const SingleSelectDropdown: React.FC<{
               }}
               onMouseEnter={(e) => {
                 if (selectedValue !== option.value) {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -530,7 +530,7 @@ const SingleSelectDropdown: React.FC<{
               }}
             >
               <span>{option.label}</span>
-              <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter' }}>
+              <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit' }}>
                 ({getCount(option.value)})
               </span>
             </div>
@@ -546,9 +546,9 @@ const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
   <div style={{
     width: '14px',
     height: '14px',
-    border: '1px solid #CBD5E1',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '3px',
-    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+    backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',

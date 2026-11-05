@@ -48,7 +48,7 @@ const CommsEntriesEditor: React.FC<CommsEntriesEditorProps> = ({ entries, onChan
     <td style={{
       ...styles.tableCell,
       textAlign: align,
-      color: invalid ? '#DC2626' : row[field] === '——' ? '#94A3B8' : 'inherit'
+      color: invalid ? 'var(--rr-bad)' : row[field] === '——' ? 'var(--rr-text3)' : 'inherit'
     }}>
       {readOnly ? (
         <span style={row[field] === '——' ? styles.tableCellPlaceholder : undefined}>{row[field]}</span>

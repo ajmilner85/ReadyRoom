@@ -33,7 +33,7 @@ const SaveCommsTemplatePopover: React.FC<SaveCommsTemplatePopoverProps> = ({ anc
 
   return (
     <AnchoredPopover anchorRef={anchorRef} onClose={onClose} width={320}>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: '#0F172A', marginBottom: '12px' }}>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '12px' }}>
         Save as Template
       </div>
 
@@ -56,13 +56,13 @@ const SaveCommsTemplatePopover: React.FC<SaveCommsTemplatePopoverProps> = ({ anc
           style={{ ...popoverInputStyle, resize: 'vertical' }}
         />
       </div>
-      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: '#374151', cursor: 'pointer' }}>
+      <label style={{ display: 'flex', alignItems: 'center', gap: '6px', fontSize: '12px', color: 'var(--rr-text)', cursor: 'pointer' }}>
         <input type="checkbox" checked={isShared} onChange={e => setIsShared(e.target.checked)} />
         Share this template with other users
       </label>
 
-      {error && <div style={{ fontSize: '12px', color: '#DC2626', marginTop: '8px' }}>{error}</div>}
-      {saved && <div style={{ fontSize: '12px', color: '#16A34A', marginTop: '8px' }}>Template saved</div>}
+      {error && <div style={{ fontSize: '12px', color: 'var(--rr-bad)', marginTop: '8px' }}>{error}</div>}
+      {saved && <div style={{ fontSize: '12px', color: 'var(--rr-good)', marginTop: '8px' }}>Template saved</div>}
 
       <PopoverActions
         confirmLabel="Save"

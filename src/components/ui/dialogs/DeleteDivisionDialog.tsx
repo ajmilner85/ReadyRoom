@@ -31,19 +31,19 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      backgroundColor: 'white',
+      backgroundColor: 'var(--rr-panel)',
       padding: '20px',
       borderRadius: '8px',
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      boxShadow: 'var(--rr-shadow)',
       width: '320px',
       zIndex: 1001,
       pointerEvents: 'auto'
     }}>
       <div style={{
         marginBottom: '16px',
-        fontFamily: 'Inter',
+        fontFamily: 'inherit',
         fontSize: '14px',
-        color: '#64748B',
+        color: 'var(--rr-text2)',
         textAlign: 'center'
       }}>
         {sectionTitle === 'Event'
@@ -56,7 +56,7 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
           <div style={{
             marginTop: '12px',
             fontSize: '13px',
-            color: '#475569',
+            color: 'var(--rr-text2)',
             fontWeight: 500,
             textAlign: 'left'
           }}>
@@ -69,7 +69,7 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
           <div style={{
             marginTop: '12px',
             fontSize: '13px',
-            color: '#DC2626',
+            color: 'var(--rr-bad)',
             fontWeight: 500,
             textAlign: 'left'
           }}>
@@ -83,7 +83,7 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
           <div style={{
             marginTop: '12px',
             fontSize: '13px',
-            color: '#475569',
+            color: 'var(--rr-text2)',
             fontWeight: 500,
             textAlign: 'left'
           }}>
@@ -102,10 +102,10 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
           onClick={onCancel}
           style={{
             padding: '8px 16px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             borderRadius: '4px',
-            backgroundColor: 'white',
-            color: '#64748B',
+            backgroundColor: 'var(--rr-panel)',
+            color: 'var(--rr-text2)',
             cursor: 'pointer'
           }}
         >
@@ -117,7 +117,7 @@ export const DeleteDivisionDialog: React.FC<DeleteDivisionDialogProps> = ({
             padding: '8px 16px',
             border: 'none',
             borderRadius: '4px',
-            backgroundColor: archives && isPast ? '#475569' : '#EF4444',
+            backgroundColor: archives && isPast ? '#475569' : 'var(--rr-bad)',
             color: 'white',
             cursor: 'pointer'
           }}

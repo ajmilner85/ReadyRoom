@@ -127,7 +127,7 @@ const KillTypeContainer: React.FC<KillTypeContainerProps> = ({
             margin: 0,
             fontSize: '14px',
             fontWeight: 600,
-            color: '#1F2937',
+            color: 'var(--rr-text)',
             textTransform: 'uppercase',
             letterSpacing: '0.5px'
           }}

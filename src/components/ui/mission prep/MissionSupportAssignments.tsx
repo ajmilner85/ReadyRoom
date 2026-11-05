@@ -881,7 +881,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
         style={{
           width: '100%',
           height: '100%',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           display: 'flex',
@@ -890,7 +890,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           overflowY: 'hidden',
           boxSizing: 'border-box',
           transition: 'all 0.2s ease-in-out',
-          backgroundColor: '#FFFFFF'
+          backgroundColor: 'var(--rr-panel)'
         }}
       >
         <div style={{
@@ -899,12 +899,12 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           marginBottom: '16px'
         }}>
           <span style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 300,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase'
           }}>
             Mission Support Assignments
@@ -947,7 +947,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           alignItems: 'center',
           marginTop: 'auto',
           padding: '18px 0 0 0',
-          borderTop: '1px solid #E2E8F0'
+          borderTop: '1px solid var(--rr-border)'
         }}>
           <button
             onClick={handleRemoveAll}
@@ -957,22 +957,22 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
               justifyContent: 'center',
               gap: '8px',
               padding: '8px 16px',
-              backgroundColor: '#FFFFFF',
-              color: '#64748B',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               borderRadius: '8px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 400,
               flex: '0 0 30%'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
             disabled={carriersLoading || supportRoles.length === 0}
           >
@@ -985,17 +985,17 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
               style={{
                 width: '119px',
                 height: '30px',
-                background: '#FFFFFF',
+                background: 'var(--rr-panel)',
                 borderRadius: '8px',
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'box-shadow 0.2s ease-in-out',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontStyle: 'normal',
                 fontWeight: 400,
                 fontSize: '20px',
                 lineHeight: '24px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center'
@@ -1061,27 +1061,27 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
             zIndex: 1001,
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             width: '400px'
           }}>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '18px',
               fontWeight: 600,
-              color: '#1E293B',
+              color: 'var(--rr-text)',
               marginBottom: '16px',
               textAlign: 'center'
             }}>
               Remove All Mission Support Assignments?
             </div>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               marginBottom: '24px',
               textAlign: 'center'
             }}>
@@ -1096,21 +1096,21 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                 onClick={cancelRemoveAll}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#64748B',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 400,
                   transition: 'background-color 0.2s ease'
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 }}
               >
                 Cancel
@@ -1119,21 +1119,21 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
                 onClick={confirmRemoveAll}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#DC2626',
+                  backgroundColor: 'var(--rr-bad)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '8px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 400,
                   transition: 'background-color 0.2s ease'
                 }}
                 onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = '#B91C1C';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-bad)';
                 }}
                 onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = '#DC2626';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-bad)';
                 }}
               >
                 Remove All

@@ -27,7 +27,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
     transition,
     zIndex: isDragging ? 10 : 1,
     position: 'relative' as const,
-    backgroundColor: isDragging ? '#F8FAFC' : 'white',
+    backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
     boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none'
   };
 
@@ -37,7 +37,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
       style={{
         width: '44px',
         height: '24px',
-        backgroundColor: enabled ? '#3B82F6' : '#E5E7EB',
+        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
         borderRadius: '12px',
         position: 'relative',
         cursor: 'pointer',
@@ -48,13 +48,13 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
         style={{
           width: '20px',
           height: '20px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '50%',
           position: 'absolute',
           top: '2px',
           left: enabled ? '22px' : '2px',
           transition: 'left 0.2s ease',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+          boxShadow: 'var(--rr-shadow)'
         }}
       />
     </div>
@@ -66,8 +66,8 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
       style={{
         ...style,
         display: 'flex',
-        borderBottom: '1px solid #F3F4F6',
-        backgroundColor: isDragging ? '#F8FAFC' : '#FFFFFF',
+        borderBottom: '1px solid var(--rr-border)',
+        backgroundColor: isDragging ? 'var(--rr-panel2)' : 'var(--rr-panel)',
         boxShadow: isDragging ? '0 4px 8px rgba(0,0,0,0.1)' : 'none',
         height: 'auto',
         minHeight: '48px'
@@ -87,7 +87,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: '#64748B' }} />
+        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Status Name Column */}
@@ -97,9 +97,9 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
         display: 'flex',
         alignItems: 'center',
         fontSize: '14px',
-        color: '#1F2937',
+        color: 'var(--rr-text)',
         fontWeight: 500,
-        fontFamily: 'Inter'
+        fontFamily: 'inherit'
       }}>
         {status.name}
       </div>
@@ -132,25 +132,25 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px'
               }}
               title="Edit status"
               onMouseEnter={(e) => {
                 e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                e.currentTarget.style.background = '#F8FAFC';
+                e.currentTarget.style.background = 'var(--rr-panel2)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                e.currentTarget.style.background = 'white';
+                e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
               <Edit size={14} color="#64748B" />
@@ -162,14 +162,14 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
                 padding: '4px',
                 borderRadius: '4px',
                 cursor: statusUsage[status.id] > 0 ? 'not-allowed' : 'pointer',
-                background: 'white',
-                boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+                background: 'var(--rr-panel)',
+                boxShadow: 'var(--rr-shadow)',
                 border: 'none',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 transition: 'all 0.1s ease',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 width: '24px',
                 height: '24px',
                 opacity: statusUsage[status.id] > 0 ? 0.5 : 1
@@ -178,13 +178,13 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
               onMouseEnter={(e) => {
                 if (statusUsage[status.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                  e.currentTarget.style.background = '#F8FAFC';
+                  e.currentTarget.style.background = 'var(--rr-panel2)';
                 }
               }}
               onMouseLeave={(e) => {
                 if (statusUsage[status.id] === 0) {
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                  e.currentTarget.style.background = 'white';
+                  e.currentTarget.style.background = 'var(--rr-panel)';
                 }
               }}
             >

@@ -443,7 +443,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
       style={{
         width: '44px',
         height: '24px',
-        backgroundColor: enabled ? '#3B82F6' : '#E5E7EB',
+        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
         borderRadius: '12px',
         position: 'relative',
         cursor: disabled ? 'not-allowed' : 'pointer',
@@ -455,13 +455,13 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
         style={{
           width: '20px',
           height: '20px',
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '50%',
           position: 'absolute',
           top: '2px',
           left: enabled ? '22px' : '2px',
           transition: 'left 0.2s ease',
-          boxShadow: '0 2px 4px rgba(0, 0, 0, 0.2)'
+          boxShadow: 'var(--rr-shadow)'
         }}
       />
     </div>
@@ -483,10 +483,10 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
         style={{
           width: '80px',
           padding: '8px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '4px',
           fontSize: '14px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           textAlign: 'center',
           opacity: disabled ? 0.5 : 1
         }}
@@ -497,11 +497,11 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
         disabled={disabled}
         style={{
           padding: '8px',
-          border: '1px solid #CBD5E1',
+          border: '1px solid var(--rr-border2)',
           borderRadius: '4px',
           fontSize: '14px',
-          fontFamily: 'Inter',
-          backgroundColor: 'white',
+          fontFamily: 'inherit',
+          backgroundColor: 'var(--rr-panel)',
           opacity: disabled ? 0.5 : 1
         }}
       >
@@ -511,7 +511,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
           </option>
         ))}
       </select>
-      <span style={{ fontSize: '14px', color: '#64748B' }}>after mission completion</span>
+      <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>after mission completion</span>
     </div>
   );
 
@@ -530,18 +530,18 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
     return (
       <div style={{
         padding: '24px',
-        backgroundColor: '#F8FAFC',
-        border: '1px solid #E2E8F0',
+        backgroundColor: 'var(--rr-panel2)',
+        border: '1px solid var(--rr-border)',
         borderRadius: '8px',
         marginBottom: '16px'
       }}>
         {/* Header with toggle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
             {title}
           </h3>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px', color: '#64748B' }}>Enabled by default</span>
+            <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>Enabled by default</span>
             {renderToggle(
               reminder.enabled,
               (enabled) => setSettings({
@@ -554,7 +554,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
 
         {/* Time selector */}
         <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
             Default {title.toLowerCase()} time
           </label>
           {renderReminderTimeSelector(
@@ -566,10 +566,10 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
 
         {/* Escalation Recipients */}
         <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
             Escalation recipients
           </label>
-          <p style={{ fontSize: '13px', color: '#64748B', margin: '0 0 12px 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '0 0 12px 0', fontFamily: 'inherit' }}>
             These users or billets will be @mentioned in this reminder.
           </p>
 
@@ -581,7 +581,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
               disabled={!reminder.enabled}
               style={{
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 width: '120px',
@@ -600,7 +600,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
                 style={{
                   flex: 1,
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   opacity: reminder.enabled ? 1 : 0.5
@@ -621,7 +621,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
                 style={{
                   flex: 1,
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   opacity: reminder.enabled ? 1 : 0.5
@@ -641,7 +641,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
               disabled={!reminder.enabled || (recipientType === 'user' ? !selectedUserId : !selectedBilletId)}
               style={{
                 padding: '8px 16px',
-                backgroundColor: reminder.enabled && (recipientType === 'user' ? selectedUserId : selectedBilletId) ? '#3B82F6' : '#94A3B8',
+                backgroundColor: reminder.enabled && (recipientType === 'user' ? selectedUserId : selectedBilletId) ? 'var(--rr-accent)' : '#94A3B8',
                 color: 'white',
                 border: 'none',
                 borderRadius: '6px',
@@ -671,9 +671,9 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
                     height: '26px',
                     boxSizing: 'border-box',
                     whiteSpace: 'nowrap',
-                    backgroundColor: recipient.type === 'user' ? '#DBEAFE' : '#FEF3C7',
-                    color: recipient.type === 'user' ? '#1D4ED8' : '#D97706',
-                    border: `1px solid ${recipient.type === 'user' ? '#3B82F6' : '#F59E0B'}`,
+                    backgroundColor: recipient.type === 'user' ? 'var(--rr-accent-weak)' : 'rgba(222,154,31,.14)',
+                    color: recipient.type === 'user' ? 'var(--rr-accent-text)' : 'var(--rr-warn)',
+                    border: `1px solid ${recipient.type === 'user' ? 'var(--rr-accent)' : 'var(--rr-warn)'}`,
                     opacity: reminder.enabled ? 1 : 0.5
                   }}
                 >
@@ -689,7 +689,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
                       backgroundColor: 'transparent',
                       border: 'none',
                       cursor: reminder.enabled ? 'pointer' : 'not-allowed',
-                      color: recipient.type === 'user' ? '#1D4ED8' : '#D97706',
+                      color: recipient.type === 'user' ? 'var(--rr-accent-text)' : 'var(--rr-warn)',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
@@ -713,11 +713,11 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
           ) : (
             <div style={{
               padding: '16px',
-              backgroundColor: 'white',
-              border: '1px dashed #CBD5E1',
+              backgroundColor: 'var(--rr-panel)',
+              border: '1px dashed var(--rr-border2)',
               borderRadius: '6px',
               textAlign: 'center',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               fontSize: '14px'
             }}>
               No escalation recipients configured
@@ -730,19 +730,19 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
         <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+            <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
               Mission Debriefing
             </h2>
-            <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
               Configure AAR submission reminders and debriefing thread settings
             </p>
           </div>
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 40px 40px' }}>
-          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', color: '#64748B' }}>
+          <div style={{ maxWidth: '800px', margin: '0 auto', textAlign: 'center', color: 'var(--rr-text2)' }}>
             Loading settings...
           </div>
         </div>
@@ -751,14 +751,14 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
             Mission Debriefing
           </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Configure AAR submission reminders and debriefing thread settings
           </p>
         </div>
@@ -771,21 +771,21 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
         {/* Wing-Level Settings */}
         <div style={{
           padding: '24px',
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel2)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           marginBottom: '24px'
         }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Wing-Level Settings
           </h3>
 
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '4px' }}>
                 Group Debriefing Threads by Squadron
               </div>
-              <div style={{ fontSize: '13px', color: '#64748B', fontFamily: 'Inter' }}>
+              <div style={{ fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
                 When enabled, each squadron gets its own debriefing thread. When disabled, all squadrons share one thread per mission.
               </div>
             </div>
@@ -798,7 +798,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
 
         {/* Reminders Section */}
         <div style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0' }}>
+          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
             Reminders
           </h3>
 
@@ -828,19 +828,19 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
         {/* Thread Settings */}
         <div style={{
           padding: '24px',
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           marginBottom: '24px'
         }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#0F172A', margin: '0 0 8px 0' }}>
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 8px 0' }}>
             Discord Thread Settings
           </h3>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
             Debriefing reports always use Discord threads.
           </p>
 
           <div>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#374151', marginBottom: '8px' }}>
+            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
               Thread Auto-Archive Duration
             </label>
             <select
@@ -849,7 +849,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
               style={{
                 width: '200px',
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px'
               }}
@@ -858,7 +858,7 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
               <option value="3">3 days</option>
               <option value="7">7 days</option>
             </select>
-            <p style={{ fontSize: '13px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+            <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
               Threads will automatically archive after this duration of inactivity.
             </p>
           </div>

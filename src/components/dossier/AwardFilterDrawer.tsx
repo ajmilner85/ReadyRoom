@@ -52,19 +52,19 @@ interface AwardFilterDrawerProps {
 const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
-  backgroundColor: '#F8FAFC',
+  backgroundColor: 'var(--rr-panel2)',
   fontSize: '12px',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   boxSizing: 'border-box'
 };
 
 const sectionTitleStyle: React.CSSProperties = {
   fontSize: '12px',
   fontWeight: 500,
-  fontFamily: 'Inter',
-  color: '#374151',
+  fontFamily: 'inherit',
+  color: 'var(--rr-text)',
   margin: 0
 };
 
@@ -75,9 +75,9 @@ const ThreeWayToggle: React.FC<{ mode: CategoryFilterMode | undefined }> = ({ mo
       <div style={{
         width: '14px',
         height: '14px',
-        border: '1px solid #CBD5E1',
+        border: '1px solid var(--rr-border2)',
         borderRadius: '3px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         flexShrink: 0
       }} />
     );
@@ -93,9 +93,9 @@ const ThreeWayToggle: React.FC<{ mode: CategoryFilterMode | undefined }> = ({ mo
       flexShrink: 0
     }}>
       {mode === 'include' ? (
-        <span style={{ color: '#3B82F6', fontSize: '14px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>
+        <span style={{ color: 'var(--rr-accent-text)', fontSize: '14px', fontWeight: 'bold', lineHeight: 1 }}>✓</span>
       ) : (
-        <span style={{ color: '#EF4444', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✕</span>
+        <span style={{ color: 'var(--rr-bad)', fontSize: '12px', fontWeight: 'bold', lineHeight: 1 }}>✕</span>
       )}
     </div>
   );
@@ -133,8 +133,8 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
 
   return (
     <div style={{
-      backgroundColor: '#FFFFFF',
-      border: '1px solid #E2E8F0',
+      backgroundColor: 'var(--rr-panel)',
+      border: '1px solid var(--rr-border)',
       borderRadius: '8px',
       overflow: 'visible',
       marginBottom: '16px'
@@ -145,7 +145,7 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
         style={{
           padding: '12px 16px',
           cursor: 'pointer',
-          borderBottom: isExpanded ? '1px solid #E2E8F0' : 'none',
+          borderBottom: isExpanded ? '1px solid var(--rr-border)' : 'none',
           transition: 'all 0.2s ease'
         }}
       >
@@ -167,13 +167,13 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
                     }}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: filtersEnabled ? '#EFF6FF' : '#F3F4F6',
-                      border: '1px solid ' + (filtersEnabled ? '#DBEAFE' : '#D1D5DB'),
+                      backgroundColor: filtersEnabled ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
+                      border: '1px solid ' + (filtersEnabled ? 'var(--rr-accent)' : 'var(--rr-border2)'),
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: filtersEnabled ? '#1E40AF' : '#6B7280'
+                      fontFamily: 'inherit',
+                      color: filtersEnabled ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                     }}
                   >
                     {filtersEnabled ? 'ON' : 'OFF'}
@@ -185,13 +185,13 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
                     }}
                     style={{
                       padding: '2px 6px',
-                      backgroundColor: '#FEF2F2',
-                      border: '1px solid #FECACA',
+                      backgroundColor: 'rgba(224,82,78,.12)',
+                      border: '1px solid var(--rr-bad)',
                       borderRadius: '3px',
                       fontSize: '10px',
                       cursor: 'pointer',
-                      fontFamily: 'Inter',
-                      color: '#DC2626'
+                      fontFamily: 'inherit',
+                      color: 'var(--rr-bad)'
                     }}
                   >
                     Clear All
@@ -233,8 +233,8 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
                       setFilters({ ...filters, categoryModes: newModes });
                     }}
                     style={{
-                      padding: '2px 6px', backgroundColor: '#EFF6FF', border: '1px solid #DBEAFE',
-                      borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#1E40AF'
+                      padding: '2px 6px', backgroundColor: 'var(--rr-accent-weak)', border: '1px solid var(--rr-accent)',
+                      borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-accent-text)'
                     }}
                   >
                     All
@@ -242,8 +242,8 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
                   <button
                     onClick={() => setFilters({ ...filters, categoryModes: {} })}
                     style={{
-                      padding: '2px 6px', backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
-                      borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'Inter', color: '#DC2626'
+                      padding: '2px 6px', backgroundColor: 'rgba(224,82,78,.12)', border: '1px solid var(--rr-bad)',
+                      borderRadius: '3px', fontSize: '10px', cursor: 'pointer', fontFamily: 'inherit', color: 'var(--rr-bad)'
                     }}
                   >
                     None
@@ -253,7 +253,7 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
               <div style={{
                 maxHeight: '220px',
                 overflowY: 'auto',
-                border: '1px solid #E5E7EB',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '4px',
                 padding: '4px'
               }}>
@@ -277,14 +277,14 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
                         transition: 'background-color 0.2s',
                         marginBottom: '2px'
                       }}
-                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
+                      onMouseEnter={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
                       onMouseLeave={e => { if (!isActive) e.currentTarget.style.backgroundColor = 'transparent'; }}
                     >
                       <ThreeWayToggle mode={mode} />
-                      <span style={{ fontSize: '12px', fontFamily: 'Inter', flex: 1 }}>
+                      <span style={{ fontSize: '12px', fontFamily: 'inherit', flex: 1 }}>
                         {category.name}
                       </span>
-                      <span style={{ fontSize: '10px', color: '#94A3B8', fontFamily: 'Inter', marginLeft: 'auto' }}>
+                      <span style={{ fontSize: '10px', color: 'var(--rr-text3)', fontFamily: 'inherit', marginLeft: 'auto' }}>
                         ({getCategoryAwardCount(category.id)})
                       </span>
                     </div>

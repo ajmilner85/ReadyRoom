@@ -188,13 +188,13 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '900px',
     maxHeight: '80vh',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -207,7 +207,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: 0,
   };
 
@@ -220,7 +220,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
     borderRadius: '6px',
     border: 'none',
     backgroundColor: 'transparent',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -232,11 +232,11 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
   };
 
   const postItemStyle: React.CSSProperties = {
-    border: '1px solid #E5E7EB',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
     padding: '16px',
     marginBottom: '12px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
   };
 
   const postHeaderStyle: React.CSSProperties = {
@@ -249,14 +249,14 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
   const postTitleStyle: React.CSSProperties = {
     fontSize: '16px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 4px 0',
     flex: 1,
   };
 
   const postContentPreviewStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     margin: 0,
     maxHeight: '60px',
     overflow: 'hidden',
@@ -270,8 +270,8 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
     borderRadius: '4px',
     fontSize: '12px',
     fontWeight: 500,
-    backgroundColor: isArchived ? '#F3F4F6' : '#DEF7EC',
-    color: isArchived ? '#6B7280' : '#047857',
+    backgroundColor: isArchived ? 'var(--rr-panel2)' : '#DEF7EC',
+    color: isArchived ? 'var(--rr-text2)' : 'var(--rr-good)',
   });
 
   const actionsStyle: React.CSSProperties = {
@@ -289,8 +289,8 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
     width: '32px',
     height: '32px',
     borderRadius: '6px',
-    border: '1px solid #E5E7EB',
-    backgroundColor: '#FFFFFF',
+    border: '1px solid var(--rr-border)',
+    backgroundColor: 'var(--rr-panel)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -300,19 +300,19 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
     alignItems: 'center',
     gap: '16px',
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     marginTop: '8px',
   };
 
   const emptyStateStyle: React.CSSProperties = {
     textAlign: 'center',
     padding: '40px 20px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
   };
 
   const editFormStyle: React.CSSProperties = {
-    backgroundColor: '#F9FAFB',
-    border: '2px solid #E5E7EB',
+    backgroundColor: 'var(--rr-panel2)',
+    border: '2px solid var(--rr-border)',
     borderRadius: '8px',
     padding: '16px',
     marginBottom: '12px',
@@ -321,7 +321,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '8px 12px',
-    border: '1px solid #D1D5DB',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '4px',
     fontSize: '14px',
     marginBottom: '12px',
@@ -360,9 +360,9 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
 
   const cancelButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    color: '#374151',
+    backgroundColor: 'var(--rr-panel)',
+    borderColor: 'var(--rr-border2)',
+    color: 'var(--rr-text)',
   };
 
   return (
@@ -375,7 +375,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
             onClick={onClose}
             style={closeButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -390,12 +390,12 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
           {error && (
             <div style={{
               padding: '12px',
-              backgroundColor: '#FEF2F2',
+              backgroundColor: 'rgba(224,82,78,.12)',
               borderRadius: '6px',
-              border: '1px solid #FECACA',
+              border: '1px solid var(--rr-bad)',
               marginBottom: '20px',
             }}>
-              <div style={{ color: '#DC2626', fontSize: '14px' }}>
+              <div style={{ color: 'var(--rr-bad)', fontSize: '14px' }}>
                 {error}
               </div>
             </div>
@@ -406,7 +406,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
               <div style={{
                 width: '24px',
                 height: '24px',
-                border: '2px solid #E5E7EB',
+                border: '2px solid var(--rr-border)',
                 borderTopColor: primaryColor,
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite',
@@ -416,8 +416,8 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
             </div>
           ) : posts.length === 0 ? (
             <div style={emptyStateStyle}>
-              <FileText size={48} style={{ color: '#9CA3AF', margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#4B5563', margin: '0 0 8px 0' }}>
+              <FileText size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text2)', margin: '0 0 8px 0' }}>
                 No posts found
               </h3>
               <p style={{ margin: 0 }}>Create your first change log post to get started.</p>
@@ -427,7 +427,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
               {/* Editing Form */}
               {editingPost && (
                 <div style={editFormStyle}>
-                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: '#1F2937' }}>
+                  <h3 style={{ margin: '0 0 12px 0', fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)' }}>
                     Edit Post
                   </h3>
                   <input
@@ -456,7 +456,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         onChange={e => setEditingPost({ ...editingPost, useCustomDateTime: e.target.checked })}
                         style={{ marginRight: '8px' }}
                       />
-                      <label htmlFor={`useCustomDateTime-${editingPost.id}`} style={{ fontSize: '14px', fontWeight: 500, color: '#374151', cursor: 'pointer' }}>
+                      <label htmlFor={`useCustomDateTime-${editingPost.id}`} style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', cursor: 'pointer' }}>
                         Override publication date/time
                       </label>
                     </div>
@@ -464,7 +464,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                     {editingPost.useCustomDateTime && (
                       <div style={{ display: 'flex', gap: '12px' }}>
                         <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Date</label>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '4px' }}>Date</label>
                           <input
                             type="date"
                             value={editingPost.customDate}
@@ -472,7 +472,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                             style={{
                               width: '100%',
                               padding: '8px',
-                              border: '1px solid #D1D5DB',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '4px',
                               fontSize: '14px',
                               boxSizing: 'border-box',
@@ -481,7 +481,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                           />
                         </div>
                         <div style={{ flex: 1 }}>
-                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: '#374151', marginBottom: '4px' }}>Time</label>
+                          <label style={{ display: 'block', fontSize: '12px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '4px' }}>Time</label>
                           <input
                             type="time"
                             value={editingPost.customTime}
@@ -489,7 +489,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                             style={{
                               width: '100%',
                               padding: '8px',
-                              border: '1px solid #D1D5DB',
+                              border: '1px solid var(--rr-border2)',
                               borderRadius: '4px',
                               fontSize: '14px',
                               boxSizing: 'border-box',
@@ -500,7 +500,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                     )}
                     
                     {editingPost.useCustomDateTime && (
-                      <div style={{ fontSize: '12px', color: '#6B7280', marginTop: '4px' }}>
+                      <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px' }}>
                         Original: {new Date(editingPost.originalCreatedAt).toLocaleString()}
                       </div>
                     )}
@@ -511,10 +511,10 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                       onClick={handleCancelEdit}
                       style={cancelButtonStyle}
                       onMouseEnter={e => {
-                        e.currentTarget.style.backgroundColor = '#F9FAFB';
+                        e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                       }}
                       onMouseLeave={e => {
-                        e.currentTarget.style.backgroundColor = '#FFFFFF';
+                        e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                       }}
                     >
                       Cancel
@@ -581,12 +581,12 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         }}
                         onMouseLeave={e => {
                           if (processingPost !== post.id && editingPost?.id !== post.id) {
-                            e.currentTarget.style.backgroundColor = '#FFFFFF';
+                            e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                           }
                         }}
                         title="Edit post"
                       >
-                        <Edit3 size={16} style={{ color: '#3B82F6' }} />
+                        <Edit3 size={16} style={{ color: 'var(--rr-accent-text)' }} />
                       </button>
 
                       <button
@@ -599,17 +599,17 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         }}
                         onMouseEnter={e => {
                           if (processingPost !== post.id) {
-                            e.currentTarget.style.backgroundColor = '#FEF3C7';
+                            e.currentTarget.style.backgroundColor = 'rgba(222,154,31,.14)';
                           }
                         }}
                         onMouseLeave={e => {
                           if (processingPost !== post.id) {
-                            e.currentTarget.style.backgroundColor = '#FFFFFF';
+                            e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                           }
                         }}
                         title={post.is_archived ? 'Unarchive post' : 'Archive post'}
                       >
-                        {post.is_archived ? <Eye size={16} style={{ color: '#D97706' }} /> : <EyeOff size={16} style={{ color: '#D97706' }} />}
+                        {post.is_archived ? <Eye size={16} style={{ color: 'var(--rr-warn)' }} /> : <EyeOff size={16} style={{ color: 'var(--rr-warn)' }} />}
                       </button>
 
                       <button
@@ -622,17 +622,17 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         }}
                         onMouseEnter={e => {
                           if (processingPost !== post.id) {
-                            e.currentTarget.style.backgroundColor = '#FEF2F2';
+                            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                           }
                         }}
                         onMouseLeave={e => {
                           if (processingPost !== post.id) {
-                            e.currentTarget.style.backgroundColor = '#FFFFFF';
+                            e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                           }
                         }}
                         title="Delete post"
                       >
-                        <Trash2 size={16} style={{ color: '#EF4444' }} />
+                        <Trash2 size={16} style={{ color: 'var(--rr-bad)' }} />
                       </button>
                     </div>
                   </div>

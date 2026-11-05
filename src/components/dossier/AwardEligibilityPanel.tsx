@@ -32,8 +32,8 @@ function renderColumnValue(column: EligibilityColumn, columnValue: EligibilityCo
   const metricDef = awardMetricDefinition(column.metric);
   if (metricDef.isBoolean) {
     return columnValue.value >= 1
-      ? <Check size={14} style={{ color: '#16A34A' }} />
-      : <X size={14} style={{ color: '#CBD5E1' }} />;
+      ? <Check size={14} style={{ color: 'var(--rr-good)' }} />
+      : <X size={14} style={{ color: 'var(--rr-text3)' }} />;
   }
   if (columnValue.total !== undefined) {
     return <>{columnValue.value}/{columnValue.total}</>;
@@ -60,18 +60,18 @@ const labelStyle: React.CSSProperties = {
   marginBottom: '6px',
   fontSize: '14px',
   fontWeight: 500,
-  color: '#64748B'
+  color: 'var(--rr-text2)'
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px 12px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
-  backgroundColor: '#F8FAFC',
+  backgroundColor: 'var(--rr-panel2)',
   fontSize: '14px',
   boxSizing: 'border-box',
-  fontFamily: 'Inter'
+  fontFamily: 'inherit'
 };
 
 const primaryButtonStyle: React.CSSProperties = {
@@ -79,12 +79,12 @@ const primaryButtonStyle: React.CSSProperties = {
   alignItems: 'center',
   gap: '8px',
   padding: '8px 16px',
-  backgroundColor: '#3B82F6',
+  backgroundColor: 'var(--rr-accent)',
   color: '#FFFFFF',
   borderRadius: '6px',
-  border: '1px solid #3B82F6',
+  border: '1px solid var(--rr-accent)',
   cursor: 'pointer',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   fontSize: '14px',
   fontWeight: 500,
   justifyContent: 'center'
@@ -93,8 +93,8 @@ const primaryButtonStyle: React.CSSProperties = {
 const cellStyle: React.CSSProperties = {
   padding: '6px 8px',
   fontSize: '13px',
-  color: '#0F172A',
-  borderBottom: '1px solid #F1F5F9',
+  color: 'var(--rr-text)',
+  borderBottom: '1px solid var(--rr-border)',
   textAlign: 'left'
 };
 
@@ -102,10 +102,10 @@ const headerCellStyle: React.CSSProperties = {
   ...cellStyle,
   fontSize: '12px',
   fontWeight: 500,
-  color: '#64748B',
+  color: 'var(--rr-text2)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
-  borderBottom: '1px solid #E2E8F0'
+  borderBottom: '1px solid var(--rr-border)'
 };
 
 const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
@@ -277,11 +277,11 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
         <div style={{
           marginTop: '12px',
           padding: '8px 12px',
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel2)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
           fontSize: '12px',
-          color: '#64748B'
+          color: 'var(--rr-text2)'
         }}>
           <span style={{ fontWeight: 500 }}>Criteria: </span>
           {describeRuleNode(selectedAward.eligibility_rules.rules, cycleNameById)}
@@ -289,7 +289,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
             <span> · Evaluated over {eventsConsidered} published event{eventsConsidered === 1 ? '' : 's'} in the cycle</span>
           )}
           {!referencesIssuedCycle && (
-            <div style={{ marginTop: '6px', color: '#B45309' }}>
+            <div style={{ marginTop: '6px', color: 'var(--rr-warn)' }}>
               None of this award's criteria depend on the cycle selected here, so the results are the same for every
               cycle (the selection is still recorded on the issuance). Scope a condition to "Cycle being issued for"
               if eligibility should be judged per cycle.
@@ -300,7 +300,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
 
       {candidates && (
         <>
-          <div style={{ marginTop: '16px', maxHeight: '320px', overflowY: 'auto', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
+          <div style={{ marginTop: '16px', maxHeight: '320px', overflowY: 'auto', border: '1px solid var(--rr-border)', borderRadius: '8px' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
@@ -325,29 +325,29 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
                       />
                     </td>
                     <td style={cellStyle}>
-                      <span style={{ color: '#646F7E', marginRight: '6px' }}>{candidate.boardNumber}</span>
+                      <span style={{ color: 'var(--rr-text2)', marginRight: '6px' }}>{candidate.boardNumber}</span>
                       <span style={{ fontWeight: 500 }}>{candidate.callsign}</span>
                     </td>
-                    <td style={{ ...cellStyle, color: '#64748B' }}>{candidate.squadronDesignation || '—'}</td>
+                    <td style={{ ...cellStyle, color: 'var(--rr-text2)' }}>{candidate.squadronDesignation || '—'}</td>
                     {columns.map((column, index) => (
                       <td key={index} style={cellStyle} title={column.title}>
                         {renderColumnValue(column, candidate.columnValues[index])}
                       </td>
                     ))}
                     {selectedAward?.device_config?.mode === 'tier' && (
-                      <td style={{ ...cellStyle, color: '#64748B' }}>{candidate.earnedTier?.name || '—'}</td>
+                      <td style={{ ...cellStyle, color: 'var(--rr-text2)' }}>{candidate.earnedTier?.name || '—'}</td>
                     )}
                     <td style={cellStyle}>
                       {candidate.alreadyIssued ? (
-                        <span style={{ padding: '1px 6px', borderRadius: '6px', backgroundColor: '#EFF6FF', color: '#2563EB', fontSize: '11px', fontWeight: 600 }}>
+                        <span style={{ padding: '1px 6px', borderRadius: '6px', backgroundColor: 'var(--rr-accent-weak)', color: 'var(--rr-accent-text)', fontSize: '11px', fontWeight: 600 }}>
                           ISSUED
                         </span>
                       ) : candidate.eligible ? (
-                        <span style={{ padding: '1px 6px', borderRadius: '6px', backgroundColor: '#F0FDF4', color: '#16A34A', fontSize: '11px', fontWeight: 600 }}>
+                        <span style={{ padding: '1px 6px', borderRadius: '6px', backgroundColor: 'rgba(64,168,91,.14)', color: 'var(--rr-good)', fontSize: '11px', fontWeight: 600 }}>
                           ELIGIBLE
                         </span>
                       ) : (
-                        <span style={{ color: '#94A3B8', fontSize: '11px' }}>Not eligible</span>
+                        <span style={{ color: 'var(--rr-text3)', fontSize: '11px' }}>Not eligible</span>
                       )}
                     </td>
                   </tr>
@@ -356,7 +356,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
             </table>
           </div>
 
-          <div style={{ marginTop: '6px', fontSize: '12px', color: '#94A3B8' }}>
+          <div style={{ marginTop: '6px', fontSize: '12px', color: 'var(--rr-text3)' }}>
             {eligibleCount} eligible · {selected.size} selected. Deselect anyone you don't want to include, or
             manually select ineligible pilots to override the criteria.
           </div>

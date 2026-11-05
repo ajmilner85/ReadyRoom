@@ -23,15 +23,15 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<string, { abbr: string; color: string
   },
   'LSO': { 
     abbr: 'LSO', 
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   'Flight Lead': { 
     abbr: '4S', 
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   'Section Lead': { 
     abbr: '2S', 
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   'CQ': { 
     abbr: 'CQ', 
@@ -55,11 +55,11 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<string, { abbr: string; color: string
   },
   '4FL': {
     abbr: '4FL',
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   '2FL': {
     abbr: '2FL',
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   'WQ': {
     abbr: 'WQ',
@@ -67,7 +67,7 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<string, { abbr: string; color: string
   },
   'T/O': {
     abbr: 'TO',
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   'NATOPS': {
     abbr: 'NAT',
@@ -75,7 +75,7 @@ const LEGACY_QUALIFICATION_CONFIGS: Record<string, { abbr: string; color: string
   },
   'DFL': {
     abbr: 'DFL',
-    color: '#646F7E'  // Slate
+    color: 'var(--rr-text2)'  // Slate
   },
   'DTL': {
     abbr: 'DTL',

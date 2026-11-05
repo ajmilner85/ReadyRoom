@@ -290,7 +290,7 @@ const PilotList: React.FC<PilotListProps> = ({
       justifyContent: 'flex-end',
       paddingRight: '12px'
     }}>
-      <span style={{ fontSize: '12px', color: '#6B7280', marginRight: '4px', alignSelf: 'center' }}>
+      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', marginRight: '4px', alignSelf: 'center' }}>
         Sort by:
       </span>
       <button
@@ -298,9 +298,9 @@ const PilotList: React.FC<PilotListProps> = ({
         onClick={() => setSortBySquadron(!sortBySquadron)}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBySquadron ? '#2563EB' : 'white',
-          color: sortBySquadron ? 'white' : '#6B7280',
-          border: `1px solid ${sortBySquadron ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBySquadron ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -319,9 +319,9 @@ const PilotList: React.FC<PilotListProps> = ({
         onClick={() => setSortBy('role')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'role' ? '#2563EB' : 'white',
-          color: sortBy === 'role' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'role' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'role' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'role' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'role' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -336,9 +336,9 @@ const PilotList: React.FC<PilotListProps> = ({
         onClick={() => setSortBy('boardNumber')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'boardNumber' ? '#2563EB' : 'white',
-          color: sortBy === 'boardNumber' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'boardNumber' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'boardNumber' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -353,9 +353,9 @@ const PilotList: React.FC<PilotListProps> = ({
         onClick={() => setSortBy('callsign')}
         style={{
           padding: '4px 12px',
-          backgroundColor: sortBy === 'callsign' ? '#2563EB' : 'white',
-          color: sortBy === 'callsign' ? 'white' : '#6B7280',
-          border: `1px solid ${sortBy === 'callsign' ? '#2563EB' : '#D1D5DB'}`,
+          backgroundColor: sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-panel)',
+          color: sortBy === 'callsign' ? 'white' : 'var(--rr-text2)',
+          border: `1px solid ${sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
           borderRadius: '4px',
           cursor: 'pointer',
           fontSize: '12px',
@@ -427,17 +427,17 @@ const PilotList: React.FC<PilotListProps> = ({
                         right: 0,
                         top: '50%',
                         height: '1px',
-                        backgroundColor: '#E2E8F0'
+                        backgroundColor: 'var(--rr-panel3)'
                       }}
                     />
                     <span 
                       style={{
                         position: 'relative',
-                        backgroundColor: '#FFFFFF',
+                        backgroundColor: 'var(--rr-panel)',
                         padding: '0 16px',
-                        color: '#646F7E',
+                        color: 'var(--rr-text2)',
                         fontSize: '12px',
-                        fontFamily: 'Inter',
+                        fontFamily: 'inherit',
                         fontWeight: 300,
                         textTransform: 'uppercase'
                       }}
@@ -503,17 +503,17 @@ const PilotList: React.FC<PilotListProps> = ({
                         right: 0,
                         top: '50%',
                         height: '1px',
-                        backgroundColor: '#E2E8F0'
+                        backgroundColor: 'var(--rr-panel3)'
                       }}
                     />
                     <span 
                       style={{
                         position: 'relative',
-                        backgroundColor: '#FFFFFF',
+                        backgroundColor: 'var(--rr-panel)',
                         padding: '0 16px',
-                        color: '#A0AEC0',
+                        color: 'var(--rr-text3)',
                         fontSize: '12px',
-                        fontFamily: 'Inter',
+                        fontFamily: 'inherit',
                         fontWeight: 300,
                         textTransform: 'uppercase'
                       }}
@@ -570,17 +570,17 @@ const PilotList: React.FC<PilotListProps> = ({
                   right: 0,
                   top: '50%',
                   height: '1px',
-                  backgroundColor: '#E2E8F0'
+                  backgroundColor: 'var(--rr-panel3)'
                 }}
               />
               <span 
                 style={{
                   position: 'relative',
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--rr-panel)',
                   padding: '0 16px',
-                  color: '#DC2626',
+                  color: 'var(--rr-bad)',
                   fontSize: '12px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontWeight: 300,
                   textTransform: 'uppercase'
                 }}
@@ -631,7 +631,7 @@ const PilotList: React.FC<PilotListProps> = ({
         padding: '18px',
         position: 'relative',
         zIndex: 5,
-        borderTop: '1px solid #E2E8F0'
+        borderTop: '1px solid var(--rr-border)'
       }}>
         <button
           onClick={onAddPilot}

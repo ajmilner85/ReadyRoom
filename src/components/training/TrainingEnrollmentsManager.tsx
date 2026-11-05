@@ -142,25 +142,25 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
       }}>
         {/* Enrollments Table */}
         <div style={{
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '6px',
-          backgroundColor: '#FFFFFF'
+          backgroundColor: 'var(--rr-panel)'
         }}>
         {/* Table Header */}
         <div style={{
           display: 'flex',
-          backgroundColor: '#F9FAFB',
-          borderBottom: '1px solid #E5E7EB',
+          backgroundColor: 'var(--rr-panel2)',
+          borderBottom: '1px solid var(--rr-border)',
           borderRadius: '6px 6px 0 0'
         }}>
           <div style={{
             padding: '8px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             width: '300px',
-            borderRight: '1px solid #E5E7EB'
+            borderRight: '1px solid var(--rr-border)'
           }}>
             Cycle / Training
           </div>
@@ -168,10 +168,10 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
             padding: '8px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             width: '100px',
-            borderRight: '1px solid #E5E7EB'
+            borderRight: '1px solid var(--rr-border)'
           }}>
             Status
           </div>
@@ -179,10 +179,10 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
             padding: '8px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             width: '120px',
-            borderRight: '1px solid #E5E7EB'
+            borderRight: '1px solid var(--rr-border)'
           }}>
             Enrolled
           </div>
@@ -190,10 +190,10 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
             padding: '8px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             width: '120px',
-            borderRight: '1px solid #E5E7EB'
+            borderRight: '1px solid var(--rr-border)'
           }}>
             Completed
           </div>
@@ -201,7 +201,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
             padding: '8px 12px',
             fontSize: '12px',
             fontWeight: 500,
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase',
             width: '60px',
             textAlign: 'center'
@@ -215,7 +215,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
           <div style={{
             padding: '16px',
             textAlign: 'center',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             fontSize: '14px'
           }}>
             Loading enrollments...
@@ -224,7 +224,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
           <div style={{
             padding: '16px',
             textAlign: 'center',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             fontSize: '14px'
           }}>
             No training enrollments
@@ -236,15 +236,15 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 key={enrollment.id}
                 style={{
                   display: 'flex',
-                  borderBottom: '1px solid #E5E7EB'
+                  borderBottom: '1px solid var(--rr-border)'
                 }}
               >
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '14px',
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   width: '300px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   {getCycleName(enrollment)}
                 </div>
@@ -252,7 +252,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                   padding: '8px 12px',
                   fontSize: '14px',
                   width: '100px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   <span style={{
                     display: 'inline-block',
@@ -269,18 +269,18 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '14px',
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   width: '120px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   {formatDate(enrollment.enrolled_at)}
                 </div>
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '14px',
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   width: '120px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   {(enrollment.status === 'graduated' || enrollment.status === 'completed') && enrollment.status_changed_at
                     ? formatDate(enrollment.status_changed_at)
@@ -301,7 +301,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                       border: 'none',
                       cursor: isUpdating ? 'not-allowed' : 'pointer',
                       padding: '4px',
-                      color: '#EF4444',
+                      color: 'var(--rr-bad)',
                       fontSize: '16px',
                       opacity: isUpdating ? 0.5 : 1
                     }}
@@ -329,17 +329,17 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
           style={{
             width: '119px',
             height: '30px',
-            background: '#FFFFFF',
+            background: 'var(--rr-panel)',
             borderRadius: '8px',
             border: 'none',
             cursor: isUpdating || availableTrainingCycles.length === 0 ? 'not-allowed' : 'pointer',
             transition: 'box-shadow 0.2s ease-in-out',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 400,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -376,18 +376,18 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
           zIndex: 9999
         }}>
           <div style={{
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '20px',
             width: '400px',
             maxWidth: '90%',
-            boxShadow: '0 10px 25px rgba(0, 0, 0, 0.2)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             <div style={{
               fontSize: '18px',
               fontWeight: 600,
               marginBottom: '16px',
-              color: '#111827'
+              color: 'var(--rr-text)'
             }}>
               Add Training Enrollment
             </div>
@@ -398,7 +398,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 fontSize: '14px',
                 fontWeight: 500,
                 marginBottom: '6px',
-                color: '#374151'
+                color: 'var(--rr-text)'
               }}>
                 Select Training Cycle
               </label>
@@ -409,11 +409,11 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  color: '#374151',
-                  backgroundColor: '#FFFFFF',
+                  color: 'var(--rr-text)',
+                  backgroundColor: 'var(--rr-panel)',
                   cursor: isAdding ? 'not-allowed' : 'pointer'
                 }}
               >
@@ -438,10 +438,10 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 disabled={isAdding}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                   fontSize: '14px',
                   fontWeight: 500,
                   cursor: isAdding ? 'not-allowed' : 'pointer',
@@ -455,7 +455,7 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
                 disabled={!selectedCycleId || isAdding}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !selectedCycleId || isAdding ? '#9CA3AF' : '#3B82F6',
+                  backgroundColor: !selectedCycleId || isAdding ? '#9CA3AF' : 'var(--rr-accent)',
                   border: 'none',
                   borderRadius: '6px',
                   color: '#FFFFFF',

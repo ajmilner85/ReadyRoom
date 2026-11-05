@@ -588,7 +588,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
   }
 
   return (
-    <div style={{ fontFamily: 'Inter, sans-serif' }}>
+    <div style={{ fontFamily: 'inherit' }}>
       {/* Header with actions */}
       <div style={{
         display: 'flex',
@@ -600,14 +600,14 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
           <h2 style={{
             fontSize: '18px',
             fontWeight: 600,
-            color: '#1F2937',
+            color: 'var(--rr-text)',
             marginBottom: '4px'
           }}>
             Discord Role Verification
           </h2>
           <p style={{
             fontSize: '14px',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             margin: 0
           }}>
             Compare Discord roles with ReadyRoom app pilot records to identify discrepancies
@@ -628,11 +628,11 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: showFilters ? '#82728C' : 'white',
-              color: showFilters ? 'white' : '#64748B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: showFilters ? '#82728C' : 'var(--rr-panel)',
+              color: showFilters ? 'white' : 'var(--rr-text2)',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               cursor: refreshing ? 'not-allowed' : 'pointer',
               opacity: refreshing ? 0.6 : 1
             }}
@@ -650,11 +650,11 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: 'white',
-              color: '#64748B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               cursor: refreshing ? 'not-allowed' : 'pointer',
               opacity: refreshing ? 0.6 : 1
             }}
@@ -672,11 +672,11 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               gap: '6px',
               padding: '8px 12px',
               borderRadius: '6px',
-              border: '1px solid #E2E8F0',
-              backgroundColor: 'white',
-              color: '#64748B',
+              border: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               cursor: (verificationIssues.length > 0 && !refreshing) ? 'pointer' : 'not-allowed',
               opacity: (verificationIssues.length > 0 && !refreshing) ? 1 : 0.5
             }}
@@ -690,8 +690,8 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
       {/* Filters Panel */}
       {showFilters && (
         <div style={{
-          backgroundColor: '#F8FAFC',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel2)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           padding: '16px',
           marginBottom: '24px'
@@ -703,10 +703,10 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
             marginBottom: '16px'
           }}>
             <h3 style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 600,
-              color: '#1E293B',
+              color: 'var(--rr-text)',
               margin: 0
             }}>
               Filter Options
@@ -720,11 +720,11 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 alignItems: 'center',
                 gap: '4px',
                 fontSize: '12px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 backgroundColor: 'transparent',
                 border: 'none',
                 cursor: 'pointer',
-                fontFamily: 'Inter'
+                fontFamily: 'inherit'
               }}
             >
               <X size={14} />
@@ -759,7 +759,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                     <div style={{
                       width: '20px',
                       height: '20px',
-                      backgroundColor: '#E5E7EB',
+                      backgroundColor: 'var(--rr-panel3)',
                       borderRadius: '3px',
                       flexShrink: 0
                     }} />
@@ -782,28 +782,28 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
         marginBottom: '24px'
       }}>
         <div style={{
-          backgroundColor: '#FEF2F2',
+          backgroundColor: 'rgba(224,82,78,.12)',
           border: '1px solid #FEE2E2',
           borderRadius: '8px',
           padding: '16px'
         }}>
-          <div style={{ fontSize: '24px', fontWeight: 600, color: '#DC2626' }}>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--rr-bad)' }}>
             {verificationIssues.length}
           </div>
-          <div style={{ fontSize: '14px', color: '#991B1B', marginTop: '4px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--rr-bad)', marginTop: '4px' }}>
             Pilots with Issues
           </div>
         </div>
         <div style={{
-          backgroundColor: '#FEF3C7',
-          border: '1px solid #FDE68A',
+          backgroundColor: 'rgba(222,154,31,.14)',
+          border: '1px solid var(--rr-warn)',
           borderRadius: '8px',
           padding: '16px'
         }}>
-          <div style={{ fontSize: '24px', fontWeight: 600, color: '#D97706' }}>
+          <div style={{ fontSize: '24px', fontWeight: 600, color: 'var(--rr-warn)' }}>
             {verificationIssues.filter(i => i.missingFromRecord.length > 0).length}
           </div>
-          <div style={{ fontSize: '14px', color: '#92400E', marginTop: '4px' }}>
+          <div style={{ fontSize: '14px', color: 'var(--rr-warn)', marginTop: '4px' }}>
             Missing from Pilot Record
           </div>
         </div>
@@ -827,35 +827,35 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
         <div style={{
           textAlign: 'center',
           padding: '48px',
-          backgroundColor: '#F9FAFB',
+          backgroundColor: 'var(--rr-panel2)',
           borderRadius: '8px',
-          border: '1px solid #E5E7EB'
+          border: '1px solid var(--rr-border)'
         }}>
-          <AlertCircle size={48} style={{ color: '#9CA3AF', margin: '0 auto 16px' }} />
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#374151', marginBottom: '8px' }}>
+          <AlertCircle size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
+          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px' }}>
             No Discrepancies Found
           </h3>
-          <p style={{ fontSize: '14px', color: '#6B7280', margin: 0 }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: 0 }}>
             All pilot records match their Discord roles for the selected squadrons.
           </p>
         </div>
       ) : (
         <div style={{
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E5E7EB',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           overflow: 'hidden'
         }}>
           <table style={{ width: '100%', borderCollapse: 'collapse' }}>
             <thead>
-              <tr style={{ backgroundColor: '#F9FAFB', borderBottom: '1px solid #E5E7EB' }}>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>
+              <tr style={{ backgroundColor: 'var(--rr-panel2)', borderBottom: '1px solid var(--rr-border)' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase' }}>
                   Pilot Record
                 </th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase' }}>
                   Missing from Pilot Record
                 </th>
-                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: '#6B7280', textTransform: 'uppercase' }}>
+                <th style={{ padding: '12px 16px', textAlign: 'left', fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase' }}>
                   Missing Discord Role
                 </th>
               </tr>
@@ -877,7 +877,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                   <tr
                     key={issue.pilotId}
                     style={{
-                      borderBottom: index < verificationIssues.length - 1 ? '1px solid #F3F4F6' : 'none'
+                      borderBottom: index < verificationIssues.length - 1 ? '1px solid var(--rr-border)' : 'none'
                     }}
                   >
                     <td style={{ padding: '12px 16px', fontSize: '14px' }}>
@@ -890,7 +890,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                           />
                         </div>
                         <span style={{
-                          fontFamily: 'Inter',
+                          fontFamily: 'inherit',
                           fontWeight: 700,
                           fontSize: '16px',
                           color: getCallsignColor(),
@@ -902,7 +902,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '14px' }}>
                       {issue.missingFromRecord.length > 0 ? (
-                        <ul style={{ margin: 0, paddingLeft: '20px', color: '#D97706', listStyle: 'none' }}>
+                        <ul style={{ margin: 0, paddingLeft: '20px', color: 'var(--rr-warn)', listStyle: 'none' }}>
                           {issue.missingFromRecord.map((item, i) => (
                             <li key={i} style={{ display: 'flex', alignItems: 'center', gap: '6px', marginBottom: '4px' }}>
                               <span>{item.displayText}</span>
@@ -917,7 +917,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                                   display: 'inline-flex',
                                   alignItems: 'center',
                                   justifyContent: 'center',
-                                  color: '#D97706'
+                                  color: 'var(--rr-warn)'
                                 }}
                                 onMouseEnter={(e) => {
                                   e.currentTarget.style.backgroundColor = 'rgba(217, 119, 6, 0.1)';
@@ -933,7 +933,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                           ))}
                         </ul>
                       ) : (
-                        <span style={{ color: '#9CA3AF' }}>-</span>
+                        <span style={{ color: 'var(--rr-text3)' }}>-</span>
                       )}
                     </td>
                     <td style={{ padding: '12px 16px', fontSize: '14px' }}>
@@ -944,7 +944,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                           ))}
                         </ul>
                       ) : (
-                        <span style={{ color: '#9CA3AF' }}>-</span>
+                        <span style={{ color: 'var(--rr-text3)' }}>-</span>
                       )}
                     </td>
                   </tr>
@@ -974,12 +974,12 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
               minWidth: '500px',
               maxWidth: '600px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: 'var(--rr-shadow-lg)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1005,7 +1005,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 margin: '0',
                 fontSize: '18px',
                 fontWeight: '600',
-                color: '#1F2937'
+                color: 'var(--rr-text)'
               }}>
                 {repairDialogData.item.type === 'qualification' ? 'Add Missing Qualification' : 'Add to Team'}
               </h3>
@@ -1018,9 +1018,9 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               gap: '12px',
               marginBottom: '24px',
               padding: '16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--rr-panel2)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0'
+              border: '1px solid var(--rr-border)'
             }}>
               {/* Discord Logo */}
               <div style={{
@@ -1039,7 +1039,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               {/* Discord Role Name */}
               <span style={{
                 fontSize: '14px',
-                color: '#1F2937',
+                color: 'var(--rr-text)',
                 fontWeight: '500',
                 flexShrink: 0
               }}>
@@ -1055,9 +1055,9 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               <span style={{
                 fontSize: '14px',
                 fontWeight: '600',
-                backgroundColor: repairDialogData.item.type === 'qualification' ? '#EDE9FE' : '#D1FAE5',
-                color: repairDialogData.item.type === 'qualification' ? '#5B21B6' : '#065F46',
-                border: repairDialogData.item.type === 'qualification' ? '1px solid #7C3AED' : '1px solid #10B981',
+                backgroundColor: repairDialogData.item.type === 'qualification' ? '#EDE9FE' : 'rgba(64,168,91,.14)',
+                color: repairDialogData.item.type === 'qualification' ? '#5B21B6' : 'var(--rr-good)',
+                border: repairDialogData.item.type === 'qualification' ? '1px solid #7C3AED' : '1px solid var(--rr-good)',
                 padding: '4px 12px',
                 borderRadius: '4px'
               }}>
@@ -1074,7 +1074,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 marginBottom: '8px',
                 fontSize: '14px',
                 fontWeight: '500',
-                color: '#374151'
+                color: 'var(--rr-text)'
               }}>
                 {repairDialogData.item.type === 'qualification' ? 'Earned Date' : 'Start Date'}
               </label>
@@ -1088,7 +1088,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   boxSizing: 'border-box'
@@ -1102,9 +1102,9 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 onClick={handleRepairCancel}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: 'pointer'
@@ -1116,7 +1116,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 onClick={handleRepairConfirm}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: repairDialogData.item.type === 'qualification' ? '#7C3AED' : '#10B981',
+                  backgroundColor: repairDialogData.item.type === 'qualification' ? '#7C3AED' : 'var(--rr-good)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
@@ -1140,8 +1140,8 @@ const Checkbox: React.FC<{ isSelected: boolean }> = ({ isSelected }) => (
     width: '14px',
     height: '14px',
     borderRadius: '3px',
-    border: `1.5px solid ${isSelected ? '#3B82F6' : '#D1D5DB'}`,
-    backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+    border: `1.5px solid ${isSelected ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
+    backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1169,8 +1169,8 @@ const FilterSection: React.FC<{
       <h4 style={{
         fontSize: '12px',
         fontWeight: 500,
-        fontFamily: 'Inter',
-        color: '#374151',
+        fontFamily: 'inherit',
+        color: 'var(--rr-text)',
         margin: 0
       }}>
         {title}
@@ -1178,25 +1178,25 @@ const FilterSection: React.FC<{
       <div style={{ display: 'flex', gap: '6px' }}>
         <button onClick={onSelectAll} style={{
           padding: '2px 6px',
-          backgroundColor: '#EFF6FF',
-          border: '1px solid #DBEAFE',
+          backgroundColor: 'var(--rr-accent-weak)',
+          border: '1px solid var(--rr-accent)',
           borderRadius: '3px',
           fontSize: '10px',
           cursor: 'pointer',
-          fontFamily: 'Inter',
-          color: '#1E40AF'
+          fontFamily: 'inherit',
+          color: 'var(--rr-accent-text)'
         }}>
           All
         </button>
         <button onClick={onClearAll} style={{
           padding: '2px 6px',
-          backgroundColor: '#FEF2F2',
-          border: '1px solid #FECACA',
+          backgroundColor: 'rgba(224,82,78,.12)',
+          border: '1px solid var(--rr-bad)',
           borderRadius: '3px',
           fontSize: '10px',
           cursor: 'pointer',
-          fontFamily: 'Inter',
-          color: '#DC2626'
+          fontFamily: 'inherit',
+          color: 'var(--rr-bad)'
         }}>
           None
         </button>
@@ -1205,7 +1205,7 @@ const FilterSection: React.FC<{
     <div style={{
       maxHeight: '200px',
       overflowY: 'auto',
-      border: '1px solid #E5E7EB',
+      border: '1px solid var(--rr-border)',
       borderRadius: '4px',
       padding: '4px'
     }}>
@@ -1232,7 +1232,7 @@ const FilterItem: React.FC<{
         display: 'flex',
         alignItems: 'center',
         gap: '8px',
-        backgroundColor: isSelected ? '#EFF6FF' : (isHovered ? '#F8FAFC' : 'transparent'),
+        backgroundColor: isSelected ? 'var(--rr-accent-weak)' : (isHovered ? 'var(--rr-panel2)' : 'transparent'),
         borderRadius: '3px',
         transition: 'background-color 0.2s',
         marginBottom: '2px'

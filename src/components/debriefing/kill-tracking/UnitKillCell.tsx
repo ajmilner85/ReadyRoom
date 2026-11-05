@@ -41,12 +41,12 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
         style={{
           width: '100%',
           height: '48px',
-          border: '1px solid #E2E8F0',
+          border: '1px solid var(--rr-border)',
           borderRadius: '4px',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: isHovered ? '#F8FAFC' : '#FFFFFF',
+          backgroundColor: isHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)',
           cursor: 'pointer',
           transition: 'background-color 0.15s ease',
           position: 'relative'
@@ -62,7 +62,7 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#3B82F6',
+              backgroundColor: 'var(--rr-accent)',
               border: 'none',
               borderRadius: '4px',
               color: '#FFFFFF',
@@ -71,10 +71,10 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               padding: 0
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#2563EB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#3B82F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
           >
             <Plus size={16} strokeWidth={2.5} />
@@ -95,9 +95,9 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
       style={{
         width: '100%',
         height: '48px',
-        border: '1px solid #E2E8F0',
+        border: '1px solid var(--rr-border)',
         borderRadius: '4px',
-        backgroundColor: '#FFFFFF',
+        backgroundColor: 'var(--rr-panel)',
         padding: '8px',
         boxSizing: 'border-box',
         display: 'flex',
@@ -114,7 +114,7 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
           flex: 1,
           fontSize: '13px',
           fontWeight: 500,
-          color: '#1F2937',
+          color: 'var(--rr-text)',
           lineHeight: '16px',
           display: '-webkit-box',
           WebkitLineClamp: 2,
@@ -147,21 +147,21 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '3px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
               padding: 0
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#EFF6FF';
-              e.currentTarget.style.borderColor = '#3B82F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
+              e.currentTarget.style.borderColor = 'var(--rr-accent)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
-              e.currentTarget.style.borderColor = '#CBD5E1';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+              e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
           >
             <Minus size={12} strokeWidth={2.5} />
@@ -174,7 +174,7 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
             style={{
               fontSize: '12px',
               fontWeight: 700,
-              color: '#000000',
+              color: 'var(--rr-text)',
               whiteSpace: 'nowrap'
             }}
           >
@@ -193,21 +193,21 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '3px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               transition: 'all 0.15s ease',
               padding: 0
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#EFF6FF';
-              e.currentTarget.style.borderColor = '#3B82F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
+              e.currentTarget.style.borderColor = 'var(--rr-accent)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
-              e.currentTarget.style.borderColor = '#CBD5E1';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+              e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
           >
             <Plus size={12} strokeWidth={2.5} />

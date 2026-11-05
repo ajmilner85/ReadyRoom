@@ -2016,7 +2016,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
         style={{
           width: '100%',
           height: '100%', // Ensures card takes full height of container
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+          boxShadow: 'var(--rr-shadow)',
           borderRadius: '8px',
           padding: '24px',
           display: 'flex',
@@ -2025,7 +2025,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           overflowY: 'hidden',
           boxSizing: 'border-box',
           transition: 'all 0.2s ease-in-out',
-          backgroundColor: '#FFFFFF'
+          backgroundColor: 'var(--rr-panel)'
         }}
       >
         <div style={{
@@ -2034,12 +2034,12 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           marginBottom: '16px'
         }}>
           <span style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontStyle: 'normal',
             fontWeight: 300,
             fontSize: '20px',
             lineHeight: '24px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             textTransform: 'uppercase'
           }}>
             Flight Assignments
@@ -2077,7 +2077,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '18px 0 0 0',
-          borderTop: '1px solid #E2E8F0'
+          borderTop: '1px solid var(--rr-border)'
         }}>
           <button
             onClick={handleRemoveAll}
@@ -2087,22 +2087,22 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               justifyContent: 'center',
               gap: '8px',
               padding: '8px 16px',
-              backgroundColor: '#FFFFFF',
-              color: '#64748B',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               borderRadius: '8px',
-              border: '1px solid #CBD5E1',
+              border: '1px solid var(--rr-border2)',
               cursor: 'pointer',
               transition: 'background-color 0.2s ease',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 400,
               flex: '0 0 30%'
             }}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             <Trash2 size={16} />
@@ -2113,17 +2113,17 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             style={{
               width: '119px',
               height: '30px',
-              background: '#FFFFFF',
+              background: 'var(--rr-panel)',
               borderRadius: '8px',
               border: 'none',
               cursor: 'pointer',
               transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontStyle: 'normal',
               fontWeight: 400,
               fontSize: '20px',
               lineHeight: '24px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -2142,7 +2142,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             display: 'flex',
             flex: '0 0 30%',
             borderRadius: '8px',
-            border: isPublished ? 'none' : '1px solid #CBD5E1',
+            border: isPublished ? 'none' : '1px solid var(--rr-border2)',
             overflow: 'hidden'
           }}>
             {/* Main Publish Button */}
@@ -2156,27 +2156,27 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 justifyContent: 'center',
                 gap: '8px',
                 padding: '8px 12px',
-                backgroundColor: isLoading ? '#F1F5F9' : isPublished ? '#5865F2' : '#FFFFFF',
-                color: isLoading ? '#94A3B8' : isPublished ? '#E3E5E8' : '#64748B',
+                backgroundColor: isLoading ? 'var(--rr-panel2)' : isPublished ? '#5865F2' : 'var(--rr-panel)',
+                color: isLoading ? 'var(--rr-text3)' : isPublished ? '#E3E5E8' : 'var(--rr-text2)',
                 border: 'none',
                 cursor: isLoading ? 'not-allowed' : 'pointer',
                 transition: 'background-color 0.2s ease',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontSize: '14px',
                 fontWeight: 400,
                 flex: 1,
-                borderRight: '1px solid #CBD5E1'
+                borderRight: '1px solid var(--rr-border2)'
               }}
               onMouseEnter={e => {
                 if (!isPublished) {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 } else {
                   e.currentTarget.style.backgroundColor = '#4752C4';
                 }
               }}
               onMouseLeave={e => {
                 if (!isPublished) {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 } else {
                   e.currentTarget.style.backgroundColor = '#5865F2';
                 }
@@ -2194,8 +2194,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 alignItems: 'center',
                 justifyContent: 'center',
                 padding: '8px',
-                backgroundColor: isPublished ? '#5865F2' : '#FFFFFF',
-                color: isPublished ? '#FFFFFF' : '#64748B',
+                backgroundColor: isPublished ? '#5865F2' : 'var(--rr-panel)',
+                color: isPublished ? '#FFFFFF' : 'var(--rr-text2)',
                 border: 'none',
                 cursor: 'pointer',
                 transition: 'background-color 0.2s ease',
@@ -2203,21 +2203,21 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               }}
               onMouseEnter={e => {
                 if (!isPublished) {
-                  e.currentTarget.style.backgroundColor = '#F8FAFC';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                 } else {
                   e.currentTarget.style.backgroundColor = '#4752C4';
                 }
               }}
               onMouseLeave={e => {
                 if (!isPublished) {
-                  e.currentTarget.style.backgroundColor = '#FFFFFF';
+                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                 } else {
                   e.currentTarget.style.backgroundColor = '#5865F2';
                 }
               }}
               title="Publication settings"
             >
-              <Settings size={16} style={{ color: isPublished ? '#FFFFFF' : '#64748B' }} />
+              <Settings size={16} style={{ color: isPublished ? '#FFFFFF' : 'var(--rr-text2)' }} />
             </button>
           </div>
         </div>
@@ -2270,27 +2270,27 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             zIndex: 1001,
             minWidth: '400px'
           }}>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '18px',
               fontWeight: 500,
-              color: '#1F2937',
+              color: 'var(--rr-text)',
               marginBottom: '16px',
               textAlign: 'center'
             }}>
               Remove All Flight Assignments?
             </div>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               marginBottom: '24px',
               textAlign: 'center'
             }}>
@@ -2306,13 +2306,13 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 style={{
                   width: '100px',
                   height: '32px',
-                  background: '#F3F4F6',
+                  background: 'var(--rr-panel2)',
                   borderRadius: '6px',
                   border: 'none',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
-                  color: '#374151'
+                  color: 'var(--rr-text)'
                 }}
               >
                 Cancel
@@ -2322,11 +2322,11 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 style={{
                   width: '100px',
                   height: '32px',
-                  background: '#EF4444',
+                  background: 'var(--rr-bad)',
                   borderRadius: '6px',
                   border: 'none',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   color: '#FFFFFF'
                 }}
@@ -2358,18 +2358,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             zIndex: 1001,
             minWidth: '400px'
           }}>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '18px',
               fontWeight: 500,
-              color: '#1F2937',
+              color: 'var(--rr-text)',
               marginBottom: '24px',
               textAlign: 'center'
             }}>
@@ -2380,10 +2380,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             <div style={{ marginBottom: '16px' }}>
               <label style={{
                 display: 'block',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 marginBottom: '8px'
               }}>
                 Callsign
@@ -2395,10 +2395,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   boxSizing: 'border-box'
                 }}
               />
@@ -2408,10 +2408,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             <div style={{ marginBottom: '24px' }}>
               <label style={{
                 display: 'block',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 marginBottom: '8px'
               }}>
                 Step Time Offset (minutes)
@@ -2425,10 +2425,10 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px 12px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   boxSizing: 'border-box'
                 }}
               />
@@ -2444,12 +2444,12 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 onClick={handleCancelEdit}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#64748B',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 400
                 }}
@@ -2460,12 +2460,12 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 onClick={handleSaveEditedFlight}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#3B82F6',
+                  backgroundColor: 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 500
                 }}
@@ -2497,27 +2497,27 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             top: '50%',
             left: '50%',
             transform: 'translate(-50%, -50%)',
-            backgroundColor: '#FFFFFF',
+            backgroundColor: 'var(--rr-panel)',
             borderRadius: '8px',
             padding: '24px',
-            boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+            boxShadow: 'var(--rr-shadow)',
             zIndex: 1001,
             minWidth: '400px'
           }}>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '18px',
               fontWeight: 500,
-              color: '#1F2937',
+              color: 'var(--rr-text)',
               marginBottom: '16px',
               textAlign: 'center'
             }}>
               Delete Flight?
             </div>
             <div style={{
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '14px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               marginBottom: '24px',
               textAlign: 'center'
             }}>
@@ -2534,12 +2534,12 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 onClick={cancelDeleteFlight}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#64748B',
-                  border: '1px solid #CBD5E1',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 400
                 }}
@@ -2550,12 +2550,12 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
                 onClick={() => confirmDeleteFlight()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#EF4444',
+                  backgroundColor: 'var(--rr-bad)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '4px',
                   cursor: 'pointer',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontSize: '14px',
                   fontWeight: 500
                 }}

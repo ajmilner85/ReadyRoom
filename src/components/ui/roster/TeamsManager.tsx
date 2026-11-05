@@ -87,7 +87,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
         <div style={{
           textAlign: 'center',
           padding: '24px',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           fontSize: '14px'
         }}>
           Loading teams...
@@ -100,25 +100,25 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
           }}>
             {/* Teams Table */}
             <div style={{
-              border: '1px solid #E5E7EB',
+              border: '1px solid var(--rr-border)',
               borderRadius: '6px',
-              backgroundColor: '#FFFFFF'
+              backgroundColor: 'var(--rr-panel)'
             }}>
               {/* Table Header */}
               <div style={{
                 display: 'flex',
-                backgroundColor: '#F9FAFB',
-                borderBottom: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel2)',
+                borderBottom: '1px solid var(--rr-border)',
                 borderRadius: '6px 6px 0 0'
               }}>
                 <div style={{
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '300px',
-                  borderRight: '1px solid #E5E7EB'
+                  borderRight: '1px solid var(--rr-border)'
                 }}>
                   Team
                 </div>
@@ -126,10 +126,10 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '100px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Scope
@@ -138,10 +138,10 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                   padding: '8px 12px',
                   fontSize: '12px',
                   fontWeight: 500,
-                  color: '#6B7280',
+                  color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   width: '80px',
-                  borderRight: '1px solid #E5E7EB',
+                  borderRight: '1px solid var(--rr-border)',
                   textAlign: 'center'
                 }}>
                   Joined
@@ -168,8 +168,8 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                     key={pilotTeam.id}
                     style={{
                       display: 'flex',
-                      borderBottom: index < filteredArray.length - 1 ? '1px solid #F3F4F6' : 'none',
-                      backgroundColor: '#FFFFFF',
+                      borderBottom: index < filteredArray.length - 1 ? '1px solid var(--rr-border)' : 'none',
+                      backgroundColor: 'var(--rr-panel)',
                       height: '34px'
                     }}
                   >
@@ -179,21 +179,21 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                       display: 'flex',
                       alignItems: 'center',
                       width: '300px',
-                      borderRight: '1px solid #F3F4F6',
+                      borderRight: '1px solid var(--rr-border)',
                       gap: '8px'
                     }}>
                       <span style={{
                         fontSize: '14px',
                         fontWeight: 500,
-                        color: '#111827'
+                        color: 'var(--rr-text)'
                       }}>
                         {pilotTeam.team?.name || 'Unknown Team'}
                       </span>
                       {!pilotTeam.team?.active && (
                         <span style={{
                           fontSize: '11px',
-                          color: '#DC2626',
-                          backgroundColor: '#FEE2E2',
+                          color: 'var(--rr-bad)',
+                          backgroundColor: 'rgba(224,82,78,.12)',
                           padding: '2px 6px',
                           borderRadius: '4px',
                           fontWeight: 400
@@ -210,11 +210,11 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: '100px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <span style={{
                         fontSize: '13px',
-                        color: '#6B7280'
+                        color: 'var(--rr-text2)'
                       }}>
                         {pilotTeam.team ? getTeamScopeLabel(pilotTeam.team) : '-'}
                       </span>
@@ -227,11 +227,11 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center',
                       width: '80px',
-                      borderRight: '1px solid #F3F4F6'
+                      borderRight: '1px solid var(--rr-border)'
                     }}>
                       <span style={{
                         fontSize: '13px',
-                        color: '#6B7280'
+                        color: 'var(--rr-text2)'
                       }}>
                         {pilotTeam.start_date ?
                           new Date(pilotTeam.start_date + 'T00:00:00').toLocaleDateString() :
@@ -263,18 +263,18 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                           alignItems: 'center',
                           justifyContent: 'center',
                           cursor: updatingTeams ? 'not-allowed' : 'pointer',
-                          color: '#9CA3AF',
+                          color: 'var(--rr-text3)',
                           opacity: updatingTeams ? 0.5 : 1
                         }}
                         onMouseEnter={(e) => {
                           if (!updatingTeams) {
-                            e.currentTarget.style.color = '#EF4444';
-                            e.currentTarget.style.backgroundColor = '#FEF2F2';
+                            e.currentTarget.style.color = 'var(--rr-bad)';
+                            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                           }
                         }}
                         onMouseLeave={(e) => {
                           if (!updatingTeams) {
-                            e.currentTarget.style.color = '#9CA3AF';
+                            e.currentTarget.style.color = 'var(--rr-text3)';
                             e.currentTarget.style.backgroundColor = 'transparent';
                           }
                         }}
@@ -289,7 +289,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                   padding: '16px',
                   textAlign: 'center',
                   fontSize: '14px',
-                  color: '#9CA3AF'
+                  color: 'var(--rr-text3)'
                 }}>
                   Not a member of any teams
                 </div>
@@ -309,17 +309,17 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                 style={{
                   width: '119px',
                   height: '30px',
-                  background: '#FFFFFF',
+                  background: 'var(--rr-panel)',
                   borderRadius: '8px',
                   border: 'none',
                   cursor: isAddingTeam || updatingTeams ? 'not-allowed' : 'pointer',
                   transition: 'box-shadow 0.2s ease-in-out',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   fontStyle: 'normal',
                   fontWeight: 400,
                   fontSize: '20px',
                   lineHeight: '24px',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -362,12 +362,12 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
         >
           <div
             style={{
-              backgroundColor: '#FFFFFF',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
               padding: '24px',
               minWidth: '600px',
               maxWidth: '700px',
-              boxShadow: '0 10px 25px rgba(0, 0, 0, 0.1)'
+              boxShadow: 'var(--rr-shadow-lg)'
             }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -380,7 +380,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                 margin: '0',
                 fontSize: '18px',
                 fontWeight: '600',
-                color: '#1F2937'
+                color: 'var(--rr-text)'
               }}>
                 Add to Team
               </h3>
@@ -392,9 +392,9 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
               gap: '12px',
               marginBottom: '24px',
               padding: '16px',
-              backgroundColor: '#F8FAFC',
+              backgroundColor: 'var(--rr-panel2)',
               borderRadius: '8px',
-              border: '1px solid #E2E8F0'
+              border: '1px solid var(--rr-border)'
             }}>
               {/* Team Selector */}
               <div ref={dropdownRef} style={{ flex: '1', minWidth: '200px', position: 'relative' }}>
@@ -404,10 +404,10 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
                     fontSize: '14px',
-                    backgroundColor: '#FFFFFF',
+                    backgroundColor: 'var(--rr-panel)',
                     cursor: isAddingTeam ? 'not-allowed' : 'pointer',
                     display: 'flex',
                     alignItems: 'center',
@@ -423,8 +423,8 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                     {availableTeams.find(t => t.id === selectedTeam) && (
                       <span style={{
                         fontSize: '11px',
-                        color: '#6B7280',
-                        backgroundColor: '#F3F4F6',
+                        color: 'var(--rr-text2)',
+                        backgroundColor: 'var(--rr-panel2)',
                         padding: '2px 6px',
                         borderRadius: '4px'
                       }}>
@@ -443,10 +443,10 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                     top: '100%',
                     left: 0,
                     right: 0,
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '6px',
-                    boxShadow: '0 4px 12px rgba(0, 0, 0, 0.1)',
+                    boxShadow: 'var(--rr-shadow)',
                     zIndex: 1000,
                     maxHeight: '200px',
                     overflowY: 'auto'
@@ -464,7 +464,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                             width: '100%',
                             padding: '6px 12px',
                             border: 'none',
-                            backgroundColor: selectedTeam === team.id ? '#F3F4F6' : 'transparent',
+                            backgroundColor: selectedTeam === team.id ? 'var(--rr-panel2)' : 'transparent',
                             cursor: 'pointer',
                             display: 'flex',
                             alignItems: 'center',
@@ -476,7 +476,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                           }}
                           onMouseEnter={(e) => {
                             if (selectedTeam !== team.id) {
-                              e.currentTarget.style.backgroundColor = '#F9FAFB';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                             }
                           }}
                           onMouseLeave={(e) => {
@@ -488,8 +488,8 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                           <span>{team.name}</span>
                           <span style={{
                             fontSize: '11px',
-                            color: '#6B7280',
-                            backgroundColor: '#F3F4F6',
+                            color: 'var(--rr-text2)',
+                            backgroundColor: 'var(--rr-panel2)',
                             padding: '2px 6px',
                             borderRadius: '4px'
                           }}>
@@ -511,10 +511,10 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                 disabled={isAddingTeam}
                 style={{
                   padding: '8px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  backgroundColor: '#FFFFFF',
+                  backgroundColor: 'var(--rr-panel)',
                   width: '140px',
                   height: '40px',
                   boxSizing: 'border-box',
@@ -530,9 +530,9 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                 disabled={isAddingTeam}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: '#FFFFFF',
-                  color: '#6B7280',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  color: 'var(--rr-text2)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   cursor: isAddingTeam ? 'not-allowed' : 'pointer',
@@ -546,7 +546,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                 disabled={!selectedTeam || isAddingTeam}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !selectedTeam || isAddingTeam ? '#9CA3AF' : '#3B82F6',
+                  backgroundColor: !selectedTeam || isAddingTeam ? '#9CA3AF' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',

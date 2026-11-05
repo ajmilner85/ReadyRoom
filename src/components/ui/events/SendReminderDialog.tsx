@@ -88,17 +88,17 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '480px',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
   };
 
   const headerStyle: React.CSSProperties = {
     padding: '24px',
-    borderBottom: '1px solid #E5E7EB',
+    borderBottom: '1px solid var(--rr-border)',
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -113,7 +113,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
   const titleStyle: React.CSSProperties = {
     fontSize: '18px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: 0,
   };
 
@@ -121,7 +121,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
     background: 'none',
     border: 'none',
     cursor: 'pointer',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     padding: '4px',
     display: 'flex',
     alignItems: 'center',
@@ -134,7 +134,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
 
   const eventNameStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     marginBottom: '20px',
     lineHeight: '1.5',
   };
@@ -143,7 +143,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
     display: 'block',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#374151',
+    color: 'var(--rr-text)',
     marginBottom: '12px',
   };
 
@@ -161,14 +161,14 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
     cursor: 'pointer',
     padding: '12px',
     borderRadius: '6px',
-    border: '1px solid #E5E7EB',
+    border: '1px solid var(--rr-border)',
     transition: 'all 0.2s ease',
   };
 
   const checkboxStyle: React.CSSProperties = {
     width: '20px',
     height: '20px',
-    border: '2px solid #D1D5DB',
+    border: '2px solid var(--rr-border2)',
     borderRadius: '4px',
     display: 'flex',
     alignItems: 'center',
@@ -179,8 +179,8 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
 
   const checkboxCheckedStyle: React.CSSProperties = {
     ...checkboxStyle,
-    backgroundColor: '#3B82F6',
-    borderColor: '#3B82F6',
+    backgroundColor: 'var(--rr-accent)',
+    borderColor: 'var(--rr-accent)',
   };
 
   const checkboxTextContainerStyle: React.CSSProperties = {
@@ -192,12 +192,12 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
   const checkboxLabelStyle: React.CSSProperties = {
     fontSize: '14px',
     fontWeight: 500,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
   };
 
   const checkboxDescriptionStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     lineHeight: '1.4',
   };
 
@@ -205,7 +205,7 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
     display: 'flex',
     gap: '12px',
     padding: '16px 24px 24px 24px',
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -224,16 +224,16 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
 
   const cancelButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    color: '#374151',
+    backgroundColor: 'var(--rr-panel)',
+    borderColor: 'var(--rr-border2)',
+    color: 'var(--rr-text)',
   };
 
   const sendButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: hasSelection ? '#3B82F6' : '#E5E7EB',
-    borderColor: hasSelection ? '#3B82F6' : '#E5E7EB',
-    color: hasSelection ? '#FFFFFF' : '#9CA3AF',
+    backgroundColor: hasSelection ? 'var(--rr-accent)' : 'var(--rr-panel3)',
+    borderColor: hasSelection ? 'var(--rr-accent)' : 'var(--rr-border)',
+    color: hasSelection ? '#FFFFFF' : 'var(--rr-text3)',
     cursor: hasSelection && !sending ? 'pointer' : 'not-allowed',
   };
 
@@ -272,10 +272,10 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
             onClick={onClose}
             style={closeButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.color = '#1F2937';
+              e.currentTarget.style.color = 'var(--rr-text)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.color = '#6B7280';
+              e.currentTarget.style.color = 'var(--rr-text2)';
             }}
           >
             <X size={20} />
@@ -300,10 +300,10 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
                   style={checkboxItemStyle}
                   onClick={() => toggleRecipientType(option.key)}
                   onMouseEnter={e => {
-                    e.currentTarget.style.backgroundColor = '#F9FAFB';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }}
                   onMouseLeave={e => {
-                    e.currentTarget.style.backgroundColor = '#FFFFFF';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                   }}
                 >
                   <div style={isChecked ? checkboxCheckedStyle : checkboxStyle}>
@@ -337,9 +337,9 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
           {!hasSelection && (
             <div style={{
               fontSize: '12px',
-              color: '#EF4444',
+              color: 'var(--rr-bad)',
               padding: '8px 12px',
-              backgroundColor: '#FEF2F2',
+              backgroundColor: 'rgba(224,82,78,.12)',
               borderRadius: '4px',
               border: '1px solid #FEE2E2'
             }}>
@@ -354,10 +354,10 @@ export const SendReminderDialog: React.FC<SendReminderDialogProps> = ({
             style={cancelButtonStyle}
             disabled={sending}
             onMouseEnter={e => {
-              if (!sending) e.currentTarget.style.backgroundColor = '#F9FAFB';
+              if (!sending) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              if (!sending) e.currentTarget.style.backgroundColor = '#FFFFFF';
+              if (!sending) e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             Cancel

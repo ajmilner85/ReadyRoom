@@ -20,7 +20,7 @@ const fieldRowStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'baseline',
   padding: '8px 0',
-  borderBottom: '1px solid #F1F5F9'
+  borderBottom: '1px solid var(--rr-border)'
 };
 
 const fieldRowLabelStyle: React.CSSProperties = {
@@ -28,7 +28,7 @@ const fieldRowLabelStyle: React.CSSProperties = {
   flexShrink: 0,
   fontSize: '14px',
   fontWeight: 500,
-  color: '#64748B'
+  color: 'var(--rr-text2)'
 };
 
 const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
@@ -130,17 +130,17 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
               <h2 style={{
                 fontSize: '24px',
                 fontWeight: 700,
-                color: '#0F172A',
+                color: 'var(--rr-text)',
                 display: 'flex',
                 alignItems: 'baseline',
                 gap: '12px',
                 margin: 0
               }}>
-                <span style={{ fontWeight: 400, color: '#64748B' }}>{boardNumber}</span>
+                <span style={{ fontWeight: 400, color: 'var(--rr-text2)' }}>{boardNumber}</span>
                 {callsign}
               </h2>
               {profile?.roleName && (
-                <span style={{ fontSize: '18px', fontWeight: 400, color: '#64748B' }}>
+                <span style={{ fontSize: '18px', fontWeight: 400, color: 'var(--rr-text2)' }}>
                   {profile.roleName}{profile.roleIsActing ? ' (Acting)' : ''}
                 </span>
               )}
@@ -152,8 +152,8 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
               alignItems: 'center',
               gap: '16px',
               padding: '16px',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #E2E8F0',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border)',
               borderRadius: '8px',
               marginBottom: '8px'
             }}>
@@ -173,21 +173,21 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
                   height: '64px',
                   flexShrink: 0,
                   borderRadius: '50%',
-                  backgroundColor: '#E2E8F0',
+                  backgroundColor: 'var(--rr-panel3)',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  color: '#64748B',
+                  color: 'var(--rr-text2)',
                   fontSize: '12px'
                 }}>
                   N/A
                 </div>
               )}
               <div>
-                <div style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A' }}>
+                <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)' }}>
                   {profile?.squadron?.designation || 'No Squadron Assignment'}
                 </div>
-                <div style={{ fontSize: '14px', color: '#64748B' }}>
+                <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>
                   {profile?.squadron?.name || ''}
                 </div>
               </div>
@@ -209,15 +209,15 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
                       code={qual.code || undefined}
                       color={qual.color || undefined}
                     />
-                    <span style={{ fontSize: '14px', color: '#0F172A', flex: 1 }}>{qual.name}</span>
-                    <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '14px', color: 'var(--rr-text)', flex: 1 }}>{qual.name}</span>
+                    <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
                       {formatDossierDate(qual.achieved_date)}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: '14px', color: '#94A3B8', fontStyle: 'italic' }}>No qualifications recorded</div>
+              <div style={{ fontSize: '14px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No qualifications recorded</div>
             )}
 
             {/* Training Enrollments */}
@@ -226,16 +226,16 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
               <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
                 {profile.enrollments.map(enrollment => (
                   <div key={enrollment.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '14px', color: '#0F172A', flex: 1 }}>{enrollment.cycleName}</span>
+                    <span style={{ fontSize: '14px', color: 'var(--rr-text)', flex: 1 }}>{enrollment.cycleName}</span>
                     {enrollmentStatusChip(enrollment.status)}
-                    <span style={{ fontSize: '12px', color: '#94A3B8' }}>
+                    <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
                       {formatDossierDate(enrollment.enrolledAt)}
                     </span>
                   </div>
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: '14px', color: '#94A3B8', fontStyle: 'italic' }}>No training enrollments</div>
+              <div style={{ fontSize: '14px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No training enrollments</div>
             )}
 
             {/* Teams */}
@@ -251,16 +251,16 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
                     borderRadius: '8px',
                     fontSize: '12px',
                     fontWeight: 500,
-                    backgroundColor: '#D1FAE5',
-                    color: '#065F46',
-                    border: '1px solid #10B981'
+                    backgroundColor: 'rgba(64,168,91,.14)',
+                    color: 'var(--rr-good)',
+                    border: '1px solid var(--rr-good)'
                   }}>
                     {team.name}
                   </span>
                 ))}
               </div>
             ) : (
-              <div style={{ fontSize: '14px', color: '#94A3B8', fontStyle: 'italic' }}>No team memberships</div>
+              <div style={{ fontSize: '14px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No team memberships</div>
             )}
           </>
         )}

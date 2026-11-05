@@ -28,21 +28,21 @@ const KIND_GROUPS: Array<{ title: string; kinds: string[] }> = [
 const selectStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '4px',
   fontSize: '14px',
   boxSizing: 'border-box',
   height: '35px',
   appearance: 'menulist',
-  backgroundColor: '#FFFFFF',
-  color: '#374151',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text)',
   fontFamily: "'Inter', sans-serif"
 };
 
 const inputStyle: React.CSSProperties = {
   width: '100%',
   padding: '8px',
-  border: '1px solid #CBD5E1',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '4px',
   fontSize: '14px',
   boxSizing: 'border-box',
@@ -89,7 +89,7 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
   };
 
   return (
-    <div style={{ marginTop: '12px', padding: '12px', border: '1px solid #CBD5E1', borderRadius: '8px', backgroundColor: '#FFFFFF' }}>
+    <div style={{ marginTop: '12px', padding: '12px', border: '1px solid var(--rr-border2)', borderRadius: '8px', backgroundColor: 'var(--rr-panel)' }}>
       {/* What this activity is */}
       <select
         value={activity.kind === 'objectives' ? 'objectives' : (activity.syllabusId || '')}
@@ -183,9 +183,9 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                   })}
                   style={{
                     padding: '8px',
-                    backgroundColor: 'white',
-                    color: '#9CA3AF',
-                    border: '1px solid #E5E7EB',
+                    backgroundColor: 'var(--rr-panel)',
+                    color: 'var(--rr-text3)',
+                    border: '1px solid var(--rr-border)',
                     borderRadius: '6px',
                     cursor: 'pointer',
                     display: 'flex',
@@ -193,14 +193,14 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
                     justifyContent: 'center'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#FEE2E2';
-                    e.currentTarget.style.color = '#DC2626';
-                    e.currentTarget.style.borderColor = '#FECACA';
+                    e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
+                    e.currentTarget.style.color = 'var(--rr-bad)';
+                    e.currentTarget.style.borderColor = 'var(--rr-bad)';
                   }}
                   onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = 'white';
-                    e.currentTarget.style.color = '#9CA3AF';
-                    e.currentTarget.style.borderColor = '#E5E7EB';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                    e.currentTarget.style.color = 'var(--rr-text3)';
+                    e.currentTarget.style.borderColor = 'var(--rr-border)';
                   }}
                   title="Remove objective"
                 >
@@ -213,13 +213,13 @@ const CycleActivityConfigPanel: React.FC<CycleActivityConfigPanelProps> = ({
               onClick={addObjective}
               style={{
                 padding: '6px 12px',
-                border: '1px solid #CBD5E1',
-                backgroundColor: '#F8FAFC',
-                color: '#64748B',
+                border: '1px solid var(--rr-border2)',
+                backgroundColor: 'var(--rr-panel2)',
+                color: 'var(--rr-text2)',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '13px',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontWeight: 500,
                 display: 'flex',
                 alignItems: 'center',

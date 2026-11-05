@@ -25,8 +25,8 @@ export const styles = {
       padding: '4px',
       borderRadius: '4px',
       cursor: 'pointer',
-      background: 'white',
-      boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
+      background: 'var(--rr-panel)',
+      boxShadow: 'var(--rr-shadow)',
       transition: 'box-shadow 0.1s ease',
     },
     modalOverlay: {

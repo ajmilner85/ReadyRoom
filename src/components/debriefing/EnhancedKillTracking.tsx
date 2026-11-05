@@ -213,13 +213,13 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
 
   return (
     <div>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: '#475569', marginBottom: '12px' }}>
+      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '12px' }}>
         Enhanced Kill Tracking
       </div>
 
       {/* Unit Pool Section */}
-      <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '8px', textTransform: 'uppercase' }}>
+      <div style={{ marginBottom: '16px', padding: '12px', backgroundColor: 'var(--rr-panel2)', border: '1px solid var(--rr-border)', borderRadius: '8px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '8px', textTransform: 'uppercase' }}>
           Unit Pool
         </div>
 
@@ -227,7 +227,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
           {/* A2A Section */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#1E40AF', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-accent-text)', textTransform: 'uppercase' }}>
                 Air-to-Air
               </div>
               <button
@@ -240,9 +240,9 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   padding: '4px 8px',
                   fontSize: '11px',
                   fontWeight: 500,
-                  color: '#1E40AF',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #93C5FD',
+                  color: 'var(--rr-accent-text)',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-accent)',
                   borderRadius: '4px',
                   cursor: disabled ? 'not-allowed' : 'pointer',
                   opacity: disabled ? 0.5 : 1
@@ -260,12 +260,12 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   onDragStart={() => handleDragStart(unit.unit_type_id, 'A2A')}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: '#DBEAFE',
-                    border: '1px solid #93C5FD',
+                    backgroundColor: 'var(--rr-accent-weak)',
+                    border: '1px solid var(--rr-accent)',
                     borderRadius: '4px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#1E40AF',
+                    color: 'var(--rr-accent-text)',
                     cursor: disabled ? 'default' : 'grab'
                   }}
                 >
@@ -273,7 +273,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                 </div>
               ))}
               {getCategoryUnits('A2A').length === 0 && (
-                <div style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic' }}>
+                <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>
                   No units added
                 </div>
               )}
@@ -283,7 +283,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
           {/* A2G Section */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#991B1B', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-bad)', textTransform: 'uppercase' }}>
                 Air-to-Ground
               </div>
               <button
@@ -296,9 +296,9 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   padding: '4px 8px',
                   fontSize: '11px',
                   fontWeight: 500,
-                  color: '#991B1B',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #FCA5A5',
+                  color: 'var(--rr-bad)',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '4px',
                   cursor: disabled ? 'not-allowed' : 'pointer',
                   opacity: disabled ? 0.5 : 1
@@ -316,12 +316,12 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   onDragStart={() => handleDragStart(unit.unit_type_id, 'A2G')}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: '#FEE2E2',
-                    border: '1px solid #FCA5A5',
+                    backgroundColor: 'rgba(224,82,78,.12)',
+                    border: '1px solid var(--rr-bad)',
                     borderRadius: '4px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#991B1B',
+                    color: 'var(--rr-bad)',
                     cursor: disabled ? 'default' : 'grab'
                   }}
                 >
@@ -329,7 +329,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                 </div>
               ))}
               {getCategoryUnits('A2G').length === 0 && (
-                <div style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic' }}>
+                <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>
                   No units added
                 </div>
               )}
@@ -339,7 +339,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
           {/* A2S Section */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-              <div style={{ fontSize: '11px', fontWeight: 600, color: '#065F46', textTransform: 'uppercase' }}>
+              <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-good)', textTransform: 'uppercase' }}>
                 Air-to-Surface
               </div>
               <button
@@ -352,8 +352,8 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   padding: '4px 8px',
                   fontSize: '11px',
                   fontWeight: 500,
-                  color: '#065F46',
-                  backgroundColor: '#FFFFFF',
+                  color: 'var(--rr-good)',
+                  backgroundColor: 'var(--rr-panel)',
                   border: '1px solid #6EE7B7',
                   borderRadius: '4px',
                   cursor: disabled ? 'not-allowed' : 'pointer',
@@ -372,12 +372,12 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                   onDragStart={() => handleDragStart(unit.unit_type_id, 'A2S')}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: '#D1FAE5',
+                    backgroundColor: 'rgba(64,168,91,.14)',
                     border: '1px solid #6EE7B7',
                     borderRadius: '4px',
                     fontSize: '12px',
                     fontWeight: 600,
-                    color: '#065F46',
+                    color: 'var(--rr-good)',
                     cursor: disabled ? 'default' : 'grab'
                   }}
                 >
@@ -385,7 +385,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
                 </div>
               ))}
               {getCategoryUnits('A2S').length === 0 && (
-                <div style={{ fontSize: '11px', color: '#94A3B8', fontStyle: 'italic' }}>
+                <div style={{ fontSize: '11px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>
                   No units added
                 </div>
               )}
@@ -395,8 +395,8 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
       </div>
 
       {/* Pilot Kills Section */}
-      <div style={{ backgroundColor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: '8px', padding: '12px' }}>
-        <div style={{ fontSize: '12px', fontWeight: 600, color: '#64748B', marginBottom: '12px', textTransform: 'uppercase' }}>
+      <div style={{ backgroundColor: 'var(--rr-panel2)', border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '12px' }}>
+        <div style={{ fontSize: '12px', fontWeight: 600, color: 'var(--rr-text2)', marginBottom: '12px', textTransform: 'uppercase' }}>
           Pilot Kills (Drag units from pool above)
         </div>
 
@@ -416,7 +416,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
               style={{
                 marginBottom: '12px',
                 padding: '12px',
-                backgroundColor: isDropTarget ? '#EFF6FF' : '#FFFFFF',
+                backgroundColor: isDropTarget ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
                 border: `2px ${isDropTarget ? 'dashed' : 'solid'} ${isDropTarget ? '#3B82F6' : '#E2E8F0'}`,
                 borderRadius: '6px',
                 transition: 'all 0.15s ease'
@@ -424,7 +424,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
             >
               {/* Pilot Header */}
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '8px' }}>
-                <div style={{ fontSize: '12px', color: '#64748B', width: '60px' }}>
+                <div style={{ fontSize: '12px', color: 'var(--rr-text2)', width: '60px' }}>
                   {flightName} {flightLeadDashNumber}-{dashNumber}
                 </div>
                 <PilotIDBadgeSm
@@ -495,7 +495,7 @@ const EnhancedKillTracking: React.FC<EnhancedKillTrackingProps> = ({
 
                 {/* No kills message */}
                 {a2aKills.length === 0 && a2gKills.length === 0 && a2sKills.length === 0 && (
-                  <div style={{ fontSize: '12px', color: '#94A3B8', fontStyle: 'italic' }}>
+                  <div style={{ fontSize: '12px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>
                     No kills recorded
                   </div>
                 )}

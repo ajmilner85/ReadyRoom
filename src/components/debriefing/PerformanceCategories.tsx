@@ -47,9 +47,9 @@ const PerformanceCategories: React.FC<PerformanceCategoriesProps> = ({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
       {/* Single light gray container for all categories */}
       <div style={{
-        backgroundColor: '#F8FAFC',
+        backgroundColor: 'var(--rr-panel2)',
         borderRadius: '6px',
-        border: '1px solid #E2E8F0',
+        border: '1px solid var(--rr-border)',
         padding: '16px',
         display: 'flex',
         flexDirection: 'column',
@@ -62,7 +62,7 @@ const PerformanceCategories: React.FC<PerformanceCategoriesProps> = ({
               <div style={{
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#1E293B'
+                color: 'var(--rr-text)'
               }}>
                 {category.label}
               </div>
@@ -81,8 +81,8 @@ const PerformanceCategories: React.FC<PerformanceCategoriesProps> = ({
                       padding: '6px 10px',
                       height: '32px',
                       backgroundColor:
-                        ratings[category.key] === true ? '#10B981' : '#FFFFFF',
-                      color: ratings[category.key] === true ? '#FFFFFF' : '#64748B',
+                        ratings[category.key] === true ? 'var(--rr-good)' : 'var(--rr-panel)',
+                      color: ratings[category.key] === true ? '#FFFFFF' : 'var(--rr-text2)',
                       border: `1px solid ${
                         ratings[category.key] === true ? '#10B981' : '#CBD5E1'
                       }`,
@@ -108,8 +108,8 @@ const PerformanceCategories: React.FC<PerformanceCategoriesProps> = ({
                       padding: '6px 10px',
                       height: '32px',
                       backgroundColor:
-                        ratings[category.key] === false ? '#94A3B8' : '#FFFFFF',
-                      color: ratings[category.key] === false ? '#1E293B' : '#64748B',
+                        ratings[category.key] === false ? '#94A3B8' : 'var(--rr-panel)',
+                      color: ratings[category.key] === false ? 'var(--rr-text)' : 'var(--rr-text2)',
                       border: `1px solid ${
                         ratings[category.key] === false ? '#94A3B8' : '#CBD5E1'
                       }`,
@@ -136,9 +136,9 @@ const PerformanceCategories: React.FC<PerformanceCategoriesProps> = ({
                     padding: '4px 8px 8px 8px',
                     fontSize: '13px',
                     lineHeight: '1.5',
-                    color: '#1E293B',
-                    backgroundColor: '#FFFFFF',
-                    border: '1px solid #CBD5E1',
+                    color: 'var(--rr-text)',
+                    backgroundColor: 'var(--rr-panel)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     resize: 'none',
                     outline: 'none',

@@ -31,29 +31,29 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '500px',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
   };
 
   const headerStyle: React.CSSProperties = {
     padding: '24px 24px 16px 24px',
-    borderBottom: '1px solid #E5E7EB',
+    borderBottom: '1px solid var(--rr-border)',
   };
 
   const titleStyle: React.CSSProperties = {
     fontSize: '18px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 8px 0',
   };
 
   const subtitleStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     margin: 0,
   };
 
@@ -66,8 +66,8 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
     padding: '16px',
     marginBottom: '12px',
     borderRadius: '8px',
-    border: '2px solid #E5E7EB',
-    backgroundColor: '#FFFFFF',
+    border: '2px solid var(--rr-border)',
+    backgroundColor: 'var(--rr-panel)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     textAlign: 'left',
@@ -77,7 +77,7 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
   };
 
   const optionIconStyle: React.CSSProperties = {
-    color: '#3B82F6',
+    color: 'var(--rr-accent-text)',
     flexShrink: 0,
     marginTop: '2px',
   };
@@ -89,20 +89,20 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
   const optionTitleStyle: React.CSSProperties = {
     fontSize: '14px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 4px 0',
   };
 
   const optionDescStyle: React.CSSProperties = {
     fontSize: '13px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     lineHeight: '1.5',
     margin: 0,
   };
 
   const footerStyle: React.CSSProperties = {
     padding: '16px 24px',
-    borderTop: '1px solid #E5E7EB',
+    borderTop: '1px solid var(--rr-border)',
     display: 'flex',
     justifyContent: 'flex-end',
   };
@@ -113,9 +113,9 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
     fontSize: '14px',
     fontWeight: 500,
     cursor: 'pointer',
-    backgroundColor: '#FFFFFF',
-    border: '1px solid #D1D5DB',
-    color: '#374151',
+    backgroundColor: 'var(--rr-panel)',
+    border: '1px solid var(--rr-border2)',
+    color: 'var(--rr-text)',
   };
 
   return (
@@ -134,15 +134,15 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             onClick={() => onSelectMode('clear')}
             style={optionButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#EF4444';
-              e.currentTarget.style.backgroundColor = '#FEF2F2';
+              e.currentTarget.style.borderColor = 'var(--rr-bad)';
+              e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#E5E7EB';
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.borderColor = 'var(--rr-border)';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
-            <div style={{ ...optionIconStyle, color: '#EF4444' }}>
+            <div style={{ ...optionIconStyle, color: 'var(--rr-bad)' }}>
               <FileUp size={20} />
             </div>
             <div style={optionTextContainerStyle}>
@@ -158,12 +158,12 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             onClick={() => onSelectMode('merge')}
             style={optionButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#3B82F6';
-              e.currentTarget.style.backgroundColor = '#EFF6FF';
+              e.currentTarget.style.borderColor = 'var(--rr-accent)';
+              e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#E5E7EB';
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.borderColor = 'var(--rr-border)';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             <div style={optionIconStyle}>
@@ -182,15 +182,15 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             onClick={() => onSelectMode('dataOnly')}
             style={optionButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.borderColor = '#10B981';
-              e.currentTarget.style.backgroundColor = '#F0FDF4';
+              e.currentTarget.style.borderColor = 'var(--rr-good)';
+              e.currentTarget.style.backgroundColor = 'rgba(64,168,91,.14)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.borderColor = '#E5E7EB';
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.borderColor = 'var(--rr-border)';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
-            <div style={{ ...optionIconStyle, color: '#10B981' }}>
+            <div style={{ ...optionIconStyle, color: 'var(--rr-good)' }}>
               <Info size={20} />
             </div>
             <div style={optionTextContainerStyle}>
@@ -208,10 +208,10 @@ export const MizImportOptionsDialog: React.FC<MizImportOptionsDialogProps> = ({
             onClick={() => onSelectMode('cancel')}
             style={cancelButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F9FAFB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             Cancel

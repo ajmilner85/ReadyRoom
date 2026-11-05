@@ -100,13 +100,13 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
     >
       <div
         style={{
-          backgroundColor: 'white',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '12px',
           width: '90%',
           maxWidth: '500px',
           maxHeight: '90vh',
           overflow: 'hidden',
-          boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04)',
+          boxShadow: 'var(--rr-shadow-lg)',
         }}
       >
         {/* Header */}
@@ -116,10 +116,10 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
             justifyContent: 'space-between',
             alignItems: 'center',
             padding: '16px 24px',
-            borderBottom: '1px solid #E5E7EB',
+            borderBottom: '1px solid var(--rr-border)',
           }}
         >
-          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: '#1F2937' }}>
+          <h2 style={{ margin: 0, fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)' }}>
             New {getEntityTypeLabel()} Issue
           </h2>
           <button
@@ -128,7 +128,7 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
               padding: '8px',
               border: 'none',
               backgroundColor: 'transparent',
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               borderRadius: '6px',
             }}
@@ -148,11 +148,11 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
               <div
                 style={{
                   padding: '12px',
-                  backgroundColor: '#F3F4F6',
+                  backgroundColor: 'var(--rr-panel2)',
                   borderRadius: '6px',
                   marginBottom: '20px',
                   fontSize: '13px',
-                  color: '#4B5563',
+                  color: 'var(--rr-text2)',
                 }}
               >
                 <strong>{getEntityTypeLabel()}:</strong> {entityName}
@@ -164,10 +164,10 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
               <div
                 style={{
                   padding: '12px',
-                  backgroundColor: '#FEE2E2',
+                  backgroundColor: 'rgba(224,82,78,.12)',
                   borderRadius: '6px',
                   marginBottom: '20px',
-                  color: '#DC2626',
+                  color: 'var(--rr-bad)',
                   fontSize: '13px',
                 }}
               >
@@ -183,10 +183,10 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                   marginBottom: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                 }}
               >
-                Title <span style={{ color: '#DC2626' }}>*</span>
+                Title <span style={{ color: 'var(--rr-bad)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -197,7 +197,7 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   boxSizing: 'border-box',
@@ -213,7 +213,7 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                   marginBottom: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                 }}
               >
                 Description
@@ -226,7 +226,7 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
                   resize: 'vertical',
@@ -243,7 +243,7 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                   marginBottom: '6px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151',
+                  color: 'var(--rr-text)',
                 }}
               >
                 Priority
@@ -254,10 +254,10 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                 style={{
                   width: '100%',
                   padding: '10px 12px',
-                  border: '1px solid #D1D5DB',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  backgroundColor: 'white',
+                  backgroundColor: 'var(--rr-panel)',
                   cursor: 'pointer',
                   boxSizing: 'border-box',
                 }}
@@ -277,8 +277,8 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
               justifyContent: 'flex-end',
               gap: '12px',
               padding: '16px 24px',
-              borderTop: '1px solid #E5E7EB',
-              backgroundColor: '#F9FAFB',
+              borderTop: '1px solid var(--rr-border)',
+              backgroundColor: 'var(--rr-panel2)',
             }}
           >
             <button
@@ -289,10 +289,10 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                 padding: '10px 20px',
                 fontSize: '14px',
                 fontWeight: 500,
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
-                backgroundColor: 'white',
-                color: '#374151',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text)',
                 cursor: submitting ? 'not-allowed' : 'pointer',
               }}
             >
@@ -307,8 +307,8 @@ export const CreateIssueDialog: React.FC<CreateIssueDialogProps> = ({
                 fontWeight: 500,
                 border: 'none',
                 borderRadius: '6px',
-                backgroundColor: !title.trim() || submitting ? '#E5E7EB' : '#2563EB',
-                color: !title.trim() || submitting ? '#9CA3AF' : 'white',
+                backgroundColor: !title.trim() || submitting ? 'var(--rr-panel3)' : 'var(--rr-accent)',
+                color: !title.trim() || submitting ? 'var(--rr-text3)' : 'white',
                 cursor: !title.trim() || submitting ? 'not-allowed' : 'pointer',
               }}
             >

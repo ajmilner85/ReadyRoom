@@ -188,11 +188,11 @@ export function MissionProcessor({ onMissionProcessed }: MissionProcessorProps) 
       />
       <label
         htmlFor="mission-file-input"
-        className="cursor-pointer bg-blue-500 hover:bg-blue-700 text-white py-2 px-4 rounded"
+        className="cursor-pointer bg-accent hover:brightness-110 text-white py-2 px-4 rounded"
       >
         Import Mission
       </label>
-      {status && <p className="mt-2 text-sm text-gray-600">{status}</p>}
+      {status && <p className="mt-2 text-sm text-text2">{status}</p>}
     </div>
   );
 }

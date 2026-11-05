@@ -49,9 +49,9 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
       return (
         <div style={{
           padding: '12px',
-          color: '#94A3B8',
+          color: 'var(--rr-text3)',
           fontSize: '13px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           textAlign: 'center'
         }}>
           No pilots
@@ -68,20 +68,20 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
       }}>
         {pilotsBySquadron.map((group, index) => (
           <div key={index} style={{
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderRadius: '8px',
-            border: '1px solid #E2E8F0',
+            border: '1px solid var(--rr-border)',
             overflow: 'hidden'
           }}>
             {/* Squadron header - matching Squadron AAR tiles */}
             {group.squadron && (
               <div style={{
-                backgroundColor: '#F8FAFC',
+                backgroundColor: 'var(--rr-panel2)',
                 padding: '12px 16px',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '12px',
-                borderBottom: '1px solid #E2E8F0'
+                borderBottom: '1px solid var(--rr-border)'
               }}>
                 {group.squadron.insignia_url && (
                   <img
@@ -98,9 +98,9 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
                   <div style={{
                     fontSize: '14px',
                     fontWeight: 600,
-                    color: '#1E293B',
+                    color: 'var(--rr-text)',
                     marginBottom: '2px',
-                    fontFamily: 'Inter'
+                    fontFamily: 'inherit'
                   }}>
                     {group.squadron.designation}
                   </div>
@@ -108,8 +108,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
                     <div style={{
                       fontSize: '12px',
                       fontWeight: 400,
-                      color: '#64748B',
-                      fontFamily: 'Inter'
+                      color: 'var(--rr-text2)',
+                      fontFamily: 'inherit'
                     }}>
                       {group.squadron.name}
                     </div>
@@ -130,8 +130,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
                   key={pilot.id}
                   style={{
                     fontSize: '12px',
-                    color: '#64748B',
-                    fontFamily: 'Inter',
+                    color: 'var(--rr-text2)',
+                    fontFamily: 'inherit',
                     padding: '4px 0'
                   }}
                 >
@@ -150,9 +150,9 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
       return (
         <div style={{
           padding: '12px',
-          color: '#94A3B8',
+          color: 'var(--rr-text3)',
           fontSize: '13px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           textAlign: 'center'
         }}>
           No kills
@@ -170,15 +170,15 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
               justifyContent: 'space-between',
               alignItems: 'baseline',
               padding: '8px 12px',
-              backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#F9FAFB',
+              backgroundColor: index % 2 === 0 ? 'var(--rr-panel)' : 'var(--rr-panel2)',
               borderRadius: '4px',
               marginBottom: '4px'
             }}
           >
             <span style={{
               fontSize: '13px',
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               paddingRight: '12px'
             }}>
               {kill.displayName}
@@ -186,8 +186,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
             <span style={{
               fontSize: '14px',
               fontWeight: 600,
-              color: '#2563EB',
-              fontFamily: 'Inter'
+              color: 'var(--rr-accent-text)',
+              fontFamily: 'inherit'
             }}>
               x{kill.count}
             </span>
@@ -202,9 +202,9 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
       return (
         <div style={{
           padding: '12px',
-          color: '#94A3B8',
+          color: 'var(--rr-text3)',
           fontSize: '13px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           textAlign: 'center'
         }}>
           No performance data
@@ -219,7 +219,7 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
             key={index}
             style={{
               padding: '12px',
-              backgroundColor: index % 2 === 0 ? '#FFFFFF' : '#F9FAFB',
+              backgroundColor: index % 2 === 0 ? 'var(--rr-panel)' : 'var(--rr-panel2)',
               borderRadius: '4px',
               marginBottom: '8px'
             }}
@@ -227,8 +227,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
             <div style={{
               fontSize: '13px',
               fontWeight: 600,
-              color: '#1E293B',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text)',
+              fontFamily: 'inherit',
               marginBottom: '8px'
             }}>
               {category.displayName}
@@ -245,8 +245,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
               }}>
                 <span style={{
                   fontSize: '11px',
-                  color: '#64748B',
-                  fontFamily: 'Inter',
+                  color: 'var(--rr-text2)',
+                  fontFamily: 'inherit',
                   textTransform: 'uppercase'
                 }}>
                   SAT
@@ -254,8 +254,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
                 <span style={{
                   fontSize: '16px',
                   fontWeight: 600,
-                  color: '#10B981',
-                  fontFamily: 'Inter'
+                  color: 'var(--rr-good)',
+                  fontFamily: 'inherit'
                 }}>
                   {category.sats}
                 </span>
@@ -267,8 +267,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
               }}>
                 <span style={{
                   fontSize: '11px',
-                  color: '#64748B',
-                  fontFamily: 'Inter',
+                  color: 'var(--rr-text2)',
+                  fontFamily: 'inherit',
                   textTransform: 'uppercase'
                 }}>
                   UNSAT
@@ -276,8 +276,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
                 <span style={{
                   fontSize: '16px',
                   fontWeight: 600,
-                  color: '#EF4444',
-                  fontFamily: 'Inter'
+                  color: 'var(--rr-bad)',
+                  fontFamily: 'inherit'
                 }}>
                   {category.unsats}
                 </span>
@@ -289,8 +289,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
               }}>
                 <span style={{
                   fontSize: '11px',
-                  color: '#64748B',
-                  fontFamily: 'Inter',
+                  color: 'var(--rr-text2)',
+                  fontFamily: 'inherit',
                   textTransform: 'uppercase'
                 }}>
                   N/A
@@ -298,8 +298,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
                 <span style={{
                   fontSize: '16px',
                   fontWeight: 600,
-                  color: '#94A3B8',
-                  fontFamily: 'Inter'
+                  color: 'var(--rr-text3)',
+                  fontFamily: 'inherit'
                 }}>
                   {category.unassessed}
                 </span>
@@ -329,10 +329,10 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
           position: 'fixed',
           top: position.top,
           left: position.left,
-          backgroundColor: '#FFFFFF',
-          border: '1px solid #E2E8F0',
+          backgroundColor: 'var(--rr-panel)',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          boxShadow: '0px 10px 20px rgba(0, 0, 0, 0.15)',
+          boxShadow: 'var(--rr-shadow-lg)',
           zIndex: 1000,
           maxWidth: '400px',
           maxHeight: `calc(100vh - ${position.top}px - 20px)`,
@@ -349,8 +349,8 @@ const MissionSummaryDetailPopup: React.FC<MissionSummaryDetailPopupProps> = ({
           <h3 style={{
             fontSize: '20px',
             fontWeight: 300,
-            color: '#646F7E',
-            fontFamily: 'Inter',
+            color: 'var(--rr-text2)',
+            fontFamily: 'inherit',
             margin: 0,
             textTransform: 'uppercase',
             letterSpacing: '0.5px'

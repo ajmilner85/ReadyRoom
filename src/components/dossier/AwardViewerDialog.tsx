@@ -25,9 +25,9 @@ const iconButtonStyle: React.CSSProperties = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  backgroundColor: '#FFFFFF',
-  color: '#64748B',
-  border: '1px solid #CBD5E1',
+  backgroundColor: 'var(--rr-panel)',
+  color: 'var(--rr-text2)',
+  border: '1px solid var(--rr-border2)',
   borderRadius: '6px',
   cursor: 'pointer'
 };
@@ -104,9 +104,9 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
     >
       <div
         style={{
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '12px',
-          boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.4)',
+          boxShadow: 'var(--rr-shadow-lg)',
           display: 'flex',
           maxWidth: 'calc(100vw - 64px)',
           maxHeight: 'calc(100vh - 64px)',
@@ -120,7 +120,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          backgroundColor: '#F8FAFC',
+          backgroundColor: 'var(--rr-panel2)',
           padding: '16px',
           position: 'relative'
         }}>
@@ -149,7 +149,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
               }}
             />
           ) : (
-            <Medal size={96} style={{ color: '#D1D5DB', margin: '32px' }} />
+            <Medal size={96} style={{ color: 'var(--rr-text3)', margin: '32px' }} />
           )}
 
           {/* Certificate/image inset — click to swap with the main view */}
@@ -166,10 +166,10 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                 maxWidth: '160px',
                 maxHeight: '120px',
                 objectFit: 'contain',
-                backgroundColor: '#FFFFFF',
-                border: '2px solid #FFFFFF',
+                backgroundColor: 'var(--rr-panel)',
+                border: '2px solid var(--rr-panel)',
                 borderRadius: '6px',
-                boxShadow: '0 4px 12px rgba(0, 0, 0, 0.35)',
+                boxShadow: 'var(--rr-shadow)',
                 cursor: 'pointer'
               }}
             />
@@ -185,7 +185,7 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
           flexDirection: 'column',
           gap: '12px',
           overflowY: 'auto',
-          borderLeft: '1px solid #E2E8F0'
+          borderLeft: '1px solid var(--rr-border)'
         }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
             <div style={{ display: 'flex', gap: '8px' }}>
@@ -196,8 +196,8 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                     disabled={!onPrevious}
                     title="Previous award (←)"
                     style={{ ...iconButtonStyle, opacity: onPrevious ? 1 : 0.4, cursor: onPrevious ? 'pointer' : 'default' }}
-                    onMouseEnter={(e) => { if (onPrevious) e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                    onMouseEnter={(e) => { if (onPrevious) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
                   >
                     <ChevronLeft size={16} />
                   </button>
@@ -206,8 +206,8 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                     disabled={!onNext}
                     title="Next award (→)"
                     style={{ ...iconButtonStyle, opacity: onNext ? 1 : 0.4, cursor: onNext ? 'pointer' : 'default' }}
-                    onMouseEnter={(e) => { if (onNext) e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
-                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                    onMouseEnter={(e) => { if (onNext) e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+                    onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
                   >
                     <ChevronRight size={16} />
                   </button>
@@ -220,8 +220,8 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
                 onClick={() => window.open(originalUrl, '_blank', 'noopener')}
                 title="Open in new tab"
                 style={iconButtonStyle}
-                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
               >
                 <ExternalLink size={16} />
               </button>
@@ -230,8 +230,8 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
               onClick={onClose}
               title="Close"
               style={iconButtonStyle}
-              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
-              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+              onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+              onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
             >
               <X size={16} />
             </button>
@@ -239,68 +239,68 @@ const AwardViewerDialog: React.FC<AwardViewerDialogProps> = ({ pilotAward, repea
           </div>
 
           <div>
-            <div style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', lineHeight: '24px' }}>
+            <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', lineHeight: '24px' }}>
               {award?.name || 'Unknown award'}
             </div>
-            <div style={{ fontSize: '12px', color: '#94A3B8', marginTop: '2px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--rr-text3)', marginTop: '2px' }}>
               {award?.category?.name || ''}
               {award && !award.is_repeatable ? ' · Unique' : ''}
             </div>
           </div>
 
           {deviceLabel && (
-            <div style={{ fontSize: '13px', color: '#B45309', fontWeight: 500 }}>
+            <div style={{ fontSize: '13px', color: 'var(--rr-warn)', fontWeight: 500 }}>
               {deviceLabel}
             </div>
           )}
 
           {groupIssuances ? (
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Awarded {groupIssuances.length} times
               </div>
               {groupIssuances.map(issuance => (
-                <div key={issuance.id} style={{ fontSize: '14px', color: '#0F172A' }}>
+                <div key={issuance.id} style={{ fontSize: '14px', color: 'var(--rr-text)' }}>
                   {formatDossierDate(issuance.awarded_date)}
                   {issuance.citation && (
-                    <span style={{ color: '#94A3B8', fontSize: '12px' }}> — {issuance.citation}</span>
+                    <span style={{ color: 'var(--rr-text3)', fontSize: '12px' }}> — {issuance.citation}</span>
                   )}
                 </div>
               ))}
             </div>
           ) : (
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Awarded
               </div>
-              <div style={{ fontSize: '14px', color: '#0F172A' }}>{formatDossierDate(pilotAward.awarded_date)}</div>
+              <div style={{ fontSize: '14px', color: 'var(--rr-text)' }}>{formatDossierDate(pilotAward.awarded_date)}</div>
             </div>
           )}
 
           {pilotAward.citation && !groupIssuances && (
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Citation
               </div>
-              <div style={{ fontSize: '14px', color: '#0F172A', lineHeight: '20px' }}>{pilotAward.citation}</div>
+              <div style={{ fontSize: '14px', color: 'var(--rr-text)', lineHeight: '20px' }}>{pilotAward.citation}</div>
             </div>
           )}
 
           {award?.description && (
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Description
               </div>
-              <div style={{ fontSize: '13px', color: '#334155', lineHeight: '18px' }}>{award.description}</div>
+              <div style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: '18px' }}>{award.description}</div>
             </div>
           )}
 
           {award?.criteria && (
             <div>
-              <div style={{ fontSize: '12px', fontWeight: 500, color: '#64748B', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
+              <div style={{ fontSize: '12px', fontWeight: 500, color: 'var(--rr-text2)', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                 Criteria
               </div>
-              <div style={{ fontSize: '13px', color: '#334155', lineHeight: '18px' }}>{award.criteria}</div>
+              <div style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: '18px' }}>{award.criteria}</div>
             </div>
           )}
         </div>

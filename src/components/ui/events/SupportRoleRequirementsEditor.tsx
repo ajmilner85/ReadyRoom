@@ -78,9 +78,9 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
     display: 'flex',
     alignItems: 'center',
     justifyContent: 'center',
-    border: '1px solid #D1D5DB',
-    backgroundColor: '#FFFFFF',
-    color: disabled ? '#D1D5DB' : '#64748B',
+    border: '1px solid var(--rr-border2)',
+    backgroundColor: 'var(--rr-panel)',
+    color: disabled ? 'var(--rr-text3)' : 'var(--rr-text2)',
     cursor: disabled ? 'default' : 'pointer',
     padding: 0
   });
@@ -126,12 +126,12 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
               style={{
                 flex: 1,
                 padding: '8px 12px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 fontFamily: "'Inter', sans-serif",
-                backgroundColor: '#FFFFFF',
-                color: '#374151'
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text)'
               }}
             >
               {!selectedRole && (
@@ -151,7 +151,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
               style={{
                 width: '70px',
                 padding: '8px',
-                border: '1px solid #D1D5DB',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 fontSize: '14px',
                 fontFamily: "'Inter', sans-serif",
@@ -162,9 +162,9 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
               onClick={() => removeRequirement(index)}
               style={{
                 padding: '8px',
-                backgroundColor: 'white',
-                color: '#9CA3AF',
-                border: '1px solid #E5E7EB',
+                backgroundColor: 'var(--rr-panel)',
+                color: 'var(--rr-text3)',
+                border: '1px solid var(--rr-border)',
                 borderRadius: '6px',
                 cursor: 'pointer',
                 display: 'flex',
@@ -172,14 +172,14 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
                 justifyContent: 'center'
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#FEE2E2';
-                e.currentTarget.style.color = '#DC2626';
-                e.currentTarget.style.borderColor = '#FECACA';
+                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
+                e.currentTarget.style.color = 'var(--rr-bad)';
+                e.currentTarget.style.borderColor = 'var(--rr-bad)';
               }}
               onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'white';
-                e.currentTarget.style.color = '#9CA3AF';
-                e.currentTarget.style.borderColor = '#E5E7EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                e.currentTarget.style.color = 'var(--rr-text3)';
+                e.currentTarget.style.borderColor = 'var(--rr-border)';
               }}
               title="Remove role"
             >
@@ -190,7 +190,7 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
       })}
 
       {!loading && availableRoles.length === 0 && (
-        <p style={{ fontSize: '12px', color: '#94A3B8', margin: '4px 0 8px 0', fontFamily: 'Inter', fontStyle: 'italic' }}>
+        <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '4px 0 8px 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
           No qualifications are flagged as Mission Support roles. Enable "Mission Support role" on qualifications in Settings &gt; Roster.
         </p>
       )}
@@ -200,13 +200,13 @@ const SupportRoleRequirementsEditor: React.FC<SupportRoleRequirementsEditorProps
         disabled={unusedRoles.length === 0}
         style={{
           padding: '8px 16px',
-          border: '1px solid #3B82F6',
-          backgroundColor: '#EFF6FF',
-          color: '#3B82F6',
+          border: '1px solid var(--rr-accent)',
+          backgroundColor: 'var(--rr-accent-weak)',
+          color: 'var(--rr-accent-text)',
           borderRadius: '6px',
           cursor: unusedRoles.length === 0 ? 'default' : 'pointer',
           fontSize: '14px',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontWeight: 500,
           marginTop: '8px',
           opacity: unusedRoles.length === 0 ? 0.5 : 1

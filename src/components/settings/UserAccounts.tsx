@@ -41,7 +41,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
 
   const sectionStyle = {
     paddingBottom: '32px',
-    borderBottom: '1px solid #E5E7EB',
+    borderBottom: '1px solid var(--rr-border)',
     marginBottom: '32px'
   };
 
@@ -50,14 +50,14 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: '#FFFFFF' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
-        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid #E2E8F0', paddingBottom: '24px' }}>
-          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: '#0F172A' }}>
+        <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+          <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
             Account
           </h2>
-          <p style={{ fontSize: '14px', color: '#64748B', margin: '8px 0 0 0', fontFamily: 'Inter' }}>
+          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
             Manage your account information and security settings.
           </p>
         </div>
@@ -68,64 +68,64 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
         <div style={{ maxWidth: '800px', margin: '0 auto' }}>
           {/* Current Session Info */}
           <div style={sectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Shield size={20} />
           Current Session
         </h3>
         
         <div style={{
           padding: '16px',
-          backgroundColor: '#F0F9FF',
+          backgroundColor: 'var(--rr-accent-weak)',
           border: '1px solid #BAE6FD',
           borderRadius: '8px',
           marginBottom: '16px'
         }}>
           <div style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             marginBottom: '4px'
           }}>
-            Session Status: <span style={{ color: '#059669', fontWeight: 500 }}>Active</span>
+            Session Status: <span style={{ color: 'var(--rr-good)', fontWeight: 500 }}>Active</span>
           </div>
           <div style={{
             fontSize: '14px',
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             marginBottom: '4px'
           }}>
-            Logged in as: <span style={{ color: '#0F172A', fontWeight: 500 }}>{user?.email || 'Unknown'}</span>
+            Logged in as: <span style={{ color: 'var(--rr-text)', fontWeight: 500 }}>{user?.email || 'Unknown'}</span>
           </div>
         </div>
       </div>
 
       {/* Account Information */}
       <div style={sectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <User size={20} />
           Account Information
         </h3>
         
         <div style={{
           padding: '16px',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          backgroundColor: '#FFFFFF'
+          backgroundColor: 'var(--rr-panel)'
         }}>
           <div style={{ display: 'grid', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Mail size={16} className="text-gray-500" />
+              <Mail size={16} className="text-text2" />
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>Email Address</div>
-                <div style={{ fontSize: '13px', color: '#64748B' }}>{user?.email || 'Not available'}</div>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Email Address</div>
+                <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>{user?.email || 'Not available'}</div>
               </div>
             </div>
             
             {userProfile?.pilot && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <User size={16} className="text-gray-500" />
+                  <User size={16} className="text-text2" />
                   <div>
-                    <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>Pilot Record</div>
-                    <div style={{ fontSize: '13px', color: '#64748B' }}>
+                    <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Pilot Record</div>
+                    <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
                       {userProfile.pilot.callsign} (Board #{userProfile.pilot.boardNumber})
                     </div>
                   </div>
@@ -134,10 +134,10 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             )}
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Link size={16} className="text-gray-500" />
+              <Link size={16} className="text-text2" />
               <div>
-                <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A' }}>Discord Account</div>
-                <div style={{ fontSize: '13px', color: '#64748B' }}>
+                <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Discord Account</div>
+                <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
                   {userProfile?.discordUsername ? `@${userProfile.discordUsername}` : 'Not connected'}
                 </div>
               </div>
@@ -148,11 +148,11 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
 
       {/* Password Reset Section */}
       <div style={sectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Key size={20} />
           Password & Security
         </h3>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
           Reset your password if Discord OAuth isn't working or you need to update your credentials.
         </p>
         
@@ -161,25 +161,25 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             onClick={() => setShowPasswordReset(true)}
             style={{
               padding: '10px 16px',
-              backgroundColor: '#F8FAFC',
-              color: '#374151',
-              border: '1px solid #D1D5DB',
+              backgroundColor: 'var(--rr-panel2)',
+              color: 'var(--rr-text)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               cursor: 'pointer',
               fontSize: '14px',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               display: 'flex',
               alignItems: 'center',
               gap: '8px',
               transition: 'all 0.2s ease'
             }}
             onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = '#F1F5F9';
-              e.currentTarget.style.borderColor = '#94A3B8';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+              e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
             onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = '#F8FAFC';
-              e.currentTarget.style.borderColor = '#D1D5DB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+              e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
           >
             <Lock size={16} />
@@ -188,9 +188,9 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
         ) : (
           <div style={{
             padding: '16px',
-            border: '1px solid #E5E7EB',
+            border: '1px solid var(--rr-border)',
             borderRadius: '8px',
-            backgroundColor: '#FAFAFA'
+            backgroundColor: 'var(--rr-panel2)'
           }}>
             <form onSubmit={handlePasswordReset}>
               <div style={{ marginBottom: '16px' }}>
@@ -199,7 +199,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                   marginBottom: '8px',
                   fontSize: '14px',
                   fontWeight: 500,
-                  color: '#374151'
+                  color: 'var(--rr-text)'
                 }}>
                   Email Address
                 </label>
@@ -212,11 +212,11 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                   style={{
                     width: '100%',
                     padding: '8px 12px',
-                    border: '1px solid #D1D5DB',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box',
-                    fontFamily: 'Inter'
+                    fontFamily: 'inherit'
                   }}
                 />
               </div>
@@ -225,10 +225,10 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                 <div style={{
                   marginBottom: '16px',
                   padding: '12px',
-                  backgroundColor: resetMessage.includes('successfully') ? '#DCFCE7' : '#FEF2F2',
-                  border: `1px solid ${resetMessage.includes('successfully') ? '#BBF7D0' : '#FECACA'}`,
+                  backgroundColor: resetMessage.includes('successfully') ? 'rgba(64,168,91,.14)' : 'rgba(224,82,78,.12)',
+                  border: `1px solid ${resetMessage.includes('successfully') ? 'var(--rr-good)' : 'var(--rr-bad)'}`,
                   borderRadius: '6px',
-                  color: resetMessage.includes('successfully') ? '#166534' : '#DC2626',
+                  color: resetMessage.includes('successfully') ? 'var(--rr-good)' : 'var(--rr-bad)',
                   fontSize: '14px'
                 }}>
                   {resetMessage}
@@ -241,14 +241,14 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                   disabled={resetLoading}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: resetLoading ? '#9CA3AF' : '#2563EB',
+                    backgroundColor: resetLoading ? '#9CA3AF' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '4px',
                     fontSize: '14px',
                     fontWeight: 500,
                     cursor: resetLoading ? 'not-allowed' : 'pointer',
-                    fontFamily: 'Inter',
+                    fontFamily: 'inherit',
                     display: 'flex',
                     alignItems: 'center',
                     gap: '8px'
@@ -275,13 +275,13 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                   }}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: '#F8FAFC',
-                    color: '#374151',
-                    border: '1px solid #D1D5DB',
+                    backgroundColor: 'var(--rr-panel2)',
+                    color: 'var(--rr-text)',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     cursor: 'pointer',
-                    fontFamily: 'Inter'
+                    fontFamily: 'inherit'
                   }}
                 >
                   Cancel
@@ -294,11 +294,11 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
 
       {/* Discord Integration */}
       <div style={sectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Link size={20} />
           Discord Integration
         </h3>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
           {userProfile?.discordUsername
             ? 'Your Discord account is linked. You can relink if you\'re experiencing issues.'
             : 'Link your Discord account for seamless authentication and access.'
@@ -307,21 +307,21 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
 
         <div style={{
           padding: '16px',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           borderRadius: '8px',
-          backgroundColor: userProfile?.discordUsername ? '#F0F9FF' : '#FEF2F2'
+          backgroundColor: userProfile?.discordUsername ? 'var(--rr-accent-weak)' : 'rgba(224,82,78,.12)'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <div>
-              <div style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A', marginBottom: '4px' }}>
+              <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '4px' }}>
                 Discord Status: {userProfile?.discordUsername ? (
-                  <span style={{ color: '#059669' }}>Connected</span>
+                  <span style={{ color: 'var(--rr-good)' }}>Connected</span>
                 ) : (
-                  <span style={{ color: '#DC2626' }}>Not Connected</span>
+                  <span style={{ color: 'var(--rr-bad)' }}>Not Connected</span>
                 )}
               </div>
               {userProfile?.discordUsername && (
-                <div style={{ fontSize: '13px', color: '#64748B' }}>
+                <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
                   Connected as: @{userProfile.discordUsername}
                 </div>
               )}
@@ -337,7 +337,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                 borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '14px',
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 display: 'flex',
                 alignItems: 'center',
                 gap: '8px',
@@ -355,11 +355,11 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
 
       {/* OpenKneeboard Integration */}
       <div style={lastSectionStyle}>
-        <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#0F172A', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Tablet size={20} />
           OpenKneeboard
         </h3>
-        <p style={{ fontSize: '14px', color: '#64748B', margin: '0 0 16px 0', fontFamily: 'Inter' }}>
+        <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
           Access live flight assignments and mission data directly in your cockpit using OpenKneeboard.
         </p>
 
@@ -375,7 +375,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
               display: 'block',
               fontSize: '13px',
               fontWeight: 500,
-              color: '#6B7280',
+              color: 'var(--rr-text2)',
               marginBottom: '6px'
             }}>
               Kneeboard URL (paste this into OpenKneeboard)
@@ -388,12 +388,12 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                 style={{
                   flex: 1,
                   padding: '10px 12px',
-                  backgroundColor: '#FFFFFF',
-                  border: '1px solid #D1D5DB',
+                  backgroundColor: 'var(--rr-panel)',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   fontSize: '13px',
-                  color: '#374151',
-                  fontFamily: 'Inter'
+                  color: 'var(--rr-text)',
+                  fontFamily: 'inherit'
                 }}
               />
               <button
@@ -404,13 +404,13 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                 }}
                 style={{
                   padding: '10px 16px',
-                  backgroundColor: copied ? '#059669' : '#7C3AED',
+                  backgroundColor: copied ? 'var(--rr-good)' : '#7C3AED',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '14px',
-                  fontFamily: 'Inter',
+                  fontFamily: 'inherit',
                   display: 'flex',
                   alignItems: 'center',
                   gap: '6px',
@@ -439,10 +439,10 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             paddingTop: '16px',
             borderTop: '1px solid #DDD6FE'
           }}>
-            <p style={{ fontSize: '13px', color: '#6B7280', margin: '0 0 8px 0' }}>
+            <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '0 0 8px 0' }}>
               <strong>Setup:</strong> In OpenKneeboard, go to Settings → Tabs → Add Tab → Web Dashboard, then paste the kneeboard URL above.
             </p>
-            <p style={{ fontSize: '13px', color: '#6B7280', margin: 0 }}>
+            <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: 0 }}>
               You'll be prompted to authenticate with Discord when you first open the kneeboard page.{' '}
               <a
                 href="https://openkneeboard.com/api/web-dashboards/"

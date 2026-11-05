@@ -55,19 +55,19 @@ const headerCellStyle: React.CSSProperties = {
   padding: '8px 12px',
   fontSize: '11px',
   fontWeight: 500,
-  color: '#64748B',
+  color: 'var(--rr-text2)',
   textTransform: 'uppercase',
   letterSpacing: '0.5px',
   textAlign: 'left',
-  borderBottom: '1px solid #E2E8F0',
+  borderBottom: '1px solid var(--rr-border)',
   whiteSpace: 'nowrap'
 };
 
 const cellStyle: React.CSSProperties = {
   padding: '8px 12px',
   fontSize: '13px',
-  color: '#0F172A',
-  borderBottom: '1px solid #F1F5F9',
+  color: 'var(--rr-text)',
+  borderBottom: '1px solid var(--rr-border)',
   whiteSpace: 'nowrap'
 };
 
@@ -152,7 +152,7 @@ const DossierTrapSheetTab: React.FC<DossierTrapSheetTabProps> = ({ traps, loadin
         <div style={{ ...dossierStyles.emptyState, flex: 1, flexDirection: 'column', gap: '8px' }}>
           <div>{traps.length === 0 ? 'No trap records yet' : 'No passes match the selected filters'}</div>
           {traps.length === 0 && (
-            <div style={{ fontSize: '12px', color: '#94A3B8', maxWidth: '360px' }}>
+            <div style={{ fontSize: '12px', color: 'var(--rr-text3)', maxWidth: '360px' }}>
               Passes graded by squadron LSOs or imported from the Tactical Paddles app will appear here.
             </div>
           )}
@@ -189,7 +189,7 @@ const DossierTrapSheetTab: React.FC<DossierTrapSheetTabProps> = ({ traps, loadin
                     height: '6px',
                     borderRadius: '50%',
                     backgroundColor: '#0F172A',
-                    border: '1px solid #FFFFFF'
+                    border: '1px solid var(--rr-panel)'
                   }} />
                 )}
               </div>
@@ -237,7 +237,7 @@ const DossierTrapSheetTab: React.FC<DossierTrapSheetTabProps> = ({ traps, loadin
                   <td style={{ ...cellStyle, fontFamily: 'monospace', fontSize: '12px' }}>
                     {formatDeviations(trap.deviations)}
                   </td>
-                  <td style={{ ...cellStyle, whiteSpace: 'normal', color: '#64748B', fontSize: '12px' }}>
+                  <td style={{ ...cellStyle, whiteSpace: 'normal', color: 'var(--rr-text2)', fontSize: '12px' }}>
                     {trap.lso_comment || trap.remarks || '—'}
                   </td>
                 </tr>

@@ -98,15 +98,15 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
   const getInputStyle = (inputName: string) => ({
     width: '80px',
     height: '44px',
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontStyle: 'normal',
     fontWeight: 700,
     fontSize: '20px',
     textAlign: 'center' as const,
-    color: inputName === 'boardNumber' ? '#000000' : getFuelColor(parseFloat(fuelState) || 0),
-    border: focusedInput === inputName ? '2px solid #2563EB' : '2px solid transparent',
+    color: inputName === 'boardNumber' ? 'var(--rr-text)' : getFuelColor(parseFloat(fuelState) || 0),
+    border: focusedInput === inputName ? '2px solid var(--rr-accent)' : '2px solid transparent',
     outline: 'none',
-    backgroundColor: '#F8FAFC',
+    backgroundColor: 'var(--rr-panel2)',
     borderRadius: '4px',
     boxSizing: 'border-box' as const,
     caretColor: 'transparent'
@@ -132,8 +132,8 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
         left: '50%',
         transform: 'translate(-50%, -50%)',
         width: '361px',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderRadius: '8px',
         zIndex: 1001,
         display: 'flex',
@@ -143,13 +143,13 @@ export const FuelStateDialog: React.FC<FuelStateDialogProps> = ({
       }}>
         <div style={{
           width: '100%',
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontStyle: 'normal',
           fontWeight: 400,
           fontSize: '20px',
           lineHeight: '24px',
           textAlign: 'center',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           marginBottom: '8px'
         }}>
           Update State

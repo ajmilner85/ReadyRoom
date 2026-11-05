@@ -136,9 +136,9 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
         style={{
           width: '100%',
           maxWidth: '600px',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)',
+          boxShadow: 'var(--rr-shadow)',
           display: 'flex',
           flexDirection: 'column',
           maxHeight: '90vh'
@@ -149,13 +149,13 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
         <div
           style={{
             padding: '24px',
-            borderBottom: '1px solid #E2E8F0',
+            borderBottom: '1px solid var(--rr-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
           }}
         >
-          <h3 style={{ fontSize: '20px', fontWeight: 600, color: '#0F172A', margin: 0 }}>
+          <h3 style={{ fontSize: '20px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
             {unit ? 'Edit Unit Type' : 'Add Unit Type'}
           </h3>
           <button
@@ -166,11 +166,11 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#F1F5F9',
+              backgroundColor: 'var(--rr-panel2)',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}
           >
             <X size={18} />
@@ -182,8 +182,8 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
             {/* Type Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0F172A', marginBottom: '8px' }}>
-                Type Name <span style={{ color: '#DC2626' }}>*</span>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
+                Type Name <span style={{ color: 'var(--rr-bad)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -195,21 +195,21 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
                   width: '100%',
                   padding: '10px 12px',
                   fontSize: '14px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   outline: 'none',
                   boxSizing: 'border-box'
                 }}
               />
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '6px 0 0 0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '6px 0 0 0' }}>
                 Internal identifier (must be unique)
               </p>
             </div>
 
             {/* Display Name */}
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0F172A', marginBottom: '8px' }}>
-                Display Name <span style={{ color: '#DC2626' }}>*</span>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
+                Display Name <span style={{ color: 'var(--rr-bad)' }}>*</span>
               </label>
               <input
                 type="text"
@@ -221,21 +221,21 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
                   width: '100%',
                   padding: '10px 12px',
                   fontSize: '14px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   outline: 'none',
                   boxSizing: 'border-box'
                 }}
               />
-              <p style={{ fontSize: '12px', color: '#64748B', margin: '6px 0 0 0' }}>
+              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '6px 0 0 0' }}>
                 Human-readable name shown in UI
               </p>
             </div>
 
             {/* Category */}
             <div>
-              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: '#0F172A', marginBottom: '8px' }}>
-                Category <span style={{ color: '#DC2626' }}>*</span>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
+                Category <span style={{ color: 'var(--rr-bad)' }}>*</span>
               </label>
               <select
                 value={formData.category}
@@ -249,7 +249,7 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
                   width: '100%',
                   padding: '10px 12px',
                   fontSize: '14px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '6px',
                   outline: 'none',
                   boxSizing: 'border-box',
@@ -277,7 +277,7 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
                 disabled={saving}
                 style={{ width: '18px', height: '18px', cursor: 'pointer' }}
               />
-              <label htmlFor="is_active" style={{ fontSize: '14px', fontWeight: 500, color: '#0F172A', cursor: 'pointer' }}>
+              <label htmlFor="is_active" style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', cursor: 'pointer' }}>
                 Active (visible in unit selection)
               </label>
             </div>
@@ -287,11 +287,11 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
               <div
                 style={{
                   padding: '12px',
-                  backgroundColor: '#FEE2E2',
-                  border: '1px solid #FCA5A5',
+                  backgroundColor: 'rgba(224,82,78,.12)',
+                  border: '1px solid var(--rr-bad)',
                   borderRadius: '6px',
                   fontSize: '14px',
-                  color: '#991B1B'
+                  color: 'var(--rr-bad)'
                 }}
               >
                 {error}
@@ -304,11 +304,11 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
         <div
           style={{
             padding: '16px 24px',
-            borderTop: '1px solid #E2E8F0',
+            borderTop: '1px solid var(--rr-border)',
             display: 'flex',
             justifyContent: 'flex-end',
             gap: '12px',
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             borderBottomLeftRadius: '8px',
             borderBottomRightRadius: '8px'
           }}
@@ -321,9 +321,9 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
               padding: '10px 20px',
               fontSize: '14px',
               fontWeight: 500,
-              color: '#64748B',
-              backgroundColor: '#FFFFFF',
-              border: '1px solid #CBD5E1',
+              color: 'var(--rr-text2)',
+              backgroundColor: 'var(--rr-panel)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               cursor: saving ? 'not-allowed' : 'pointer',
               opacity: saving ? 0.5 : 1
@@ -340,7 +340,7 @@ const AddEditUnitDialog: React.FC<AddEditUnitDialogProps> = ({ unit, onClose, on
               fontSize: '14px',
               fontWeight: 500,
               color: '#FFFFFF',
-              backgroundColor: saving ? '#94A3B8' : '#3B82F6',
+              backgroundColor: saving ? '#94A3B8' : 'var(--rr-accent)',
               border: 'none',
               borderRadius: '6px',
               cursor: saving ? 'not-allowed' : 'pointer',

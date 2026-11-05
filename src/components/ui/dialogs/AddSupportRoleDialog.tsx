@@ -208,10 +208,10 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      backgroundColor: 'white',
+      backgroundColor: 'var(--rr-panel)',
       padding: '20px',
       borderRadius: '8px',
-      boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)',
+      boxShadow: 'var(--rr-shadow)',
       width: '350px',
       zIndex: 1001,
       pointerEvents: 'auto'
@@ -223,17 +223,17 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
       }}>
         <form onSubmit={handleSubmit} style={{ width: '100%' }}>
           <h2 style={{
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '18px',
             fontWeight: 500,
-            marginBottom: '16px',            color: '#1E293B'
+            marginBottom: '16px',            color: 'var(--rr-text)'
           }}>
             {title}
           </h2>
 
           {/* Role Type Selection */}
           <div style={{ marginBottom: '15px', width: '100%' }}>
-            <label htmlFor="roleTypeSelect" style={{ display: 'block', marginBottom: '5px', color: '#4A5568', fontSize: '14px' }}>
+            <label htmlFor="roleTypeSelect" style={{ display: 'block', marginBottom: '5px', color: 'var(--rr-text2)', fontSize: '14px' }}>
               Role Type:
             </label>
             <select
@@ -244,7 +244,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
               style={{
                 width: '100%',
                 padding: '8px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '4px',
                 fontSize: '14px',
                 boxSizing: 'border-box'
@@ -258,7 +258,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
           {/* Conditional rendering based on role type */}
           {roleType === SupportRoleType.CARRIER_AIR_OPS && (
             <div style={{ marginBottom: '15px', width: '100%' }}>
-              <label htmlFor="carrierSelect" style={{ display: 'block', marginBottom: '5px', color: '#4A5568', fontSize: '14px' }}>
+              <label htmlFor="carrierSelect" style={{ display: 'block', marginBottom: '5px', color: 'var(--rr-text2)', fontSize: '14px' }}>
                 Select Carrier:
               </label>
               <select
@@ -269,7 +269,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                 style={{
                   width: '100%',
                   padding: '8px',
-                  border: '1px solid #CBD5E1',
+                  border: '1px solid var(--rr-border2)',
                   borderRadius: '4px',
                   fontSize: '14px',
                   boxSizing: 'border-box'
@@ -291,7 +291,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
             <>
               {/* Callsign input for Command & Control */}
               <div style={{ marginBottom: '15px', width: '100%' }}>
-                <label htmlFor="callsignInput" style={{ display: 'block', marginBottom: '5px', color: '#4A5568', fontSize: '14px' }}>
+                <label htmlFor="callsignInput" style={{ display: 'block', marginBottom: '5px', color: 'var(--rr-text2)', fontSize: '14px' }}>
                   Callsign:
                 </label>
                 <input
@@ -304,7 +304,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                   style={{
                     width: '100%',
                     padding: '8px',
-                    border: '1px solid #CBD5E1',
+                    border: '1px solid var(--rr-border2)',
                     borderRadius: '4px',
                     fontSize: '14px',
                     boxSizing: 'border-box'
@@ -314,7 +314,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
               
               {/* Slots section title */}
               <div style={{ marginBottom: '10px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <label style={{ color: '#4A5568', fontSize: '14px', fontWeight: 'bold' }}>
+                <label style={{ color: 'var(--rr-text2)', fontSize: '14px', fontWeight: 'bold' }}>
                   Slots ({slots.length}/4):
                 </label>
                 <button 
@@ -323,10 +323,10 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                   disabled={slots.length >= 4}
                   style={{
                     padding: '4px 8px',
-                    backgroundColor: slots.length >= 4 ? '#E2E8F0' : '#2563EB',
+                    backgroundColor: slots.length >= 4 ? 'var(--rr-panel3)' : 'var(--rr-accent)',
                     border: 'none',
                     borderRadius: '4px',
-                    color: slots.length >= 4 ? '#94A3B8' : 'white',
+                    color: slots.length >= 4 ? 'var(--rr-text3)' : 'white',
                     cursor: slots.length >= 4 ? 'not-allowed' : 'pointer',
                     fontSize: '12px'
                   }}
@@ -340,9 +340,9 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                 <div key={slot.id} style={{ 
                   marginBottom: '15px', 
                   padding: '10px', 
-                  border: '1px solid #E2E8F0', 
+                  border: '1px solid var(--rr-border)', 
                   borderRadius: '4px',
-                  backgroundColor: '#F8FAFC'
+                  backgroundColor: 'var(--rr-panel2)'
                 }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '8px' }}>
                     <span style={{ fontWeight: 'bold', fontSize: '14px' }}>Slot {index + 1}</span>
@@ -354,7 +354,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                         padding: '2px 6px',
                         backgroundColor: 'transparent',
                         border: 'none',
-                        color: slots.length <= 1 ? '#CBD5E1' : '#EF4444',
+                        color: slots.length <= 1 ? 'var(--rr-text3)' : 'var(--rr-bad)',
                         cursor: slots.length <= 1 ? 'not-allowed' : 'pointer',
                         fontSize: '12px'
                       }}
@@ -365,7 +365,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                   
                   {/* Slot type selection */}
                   <div style={{ marginBottom: '8px' }}>
-                    <label htmlFor={`slotType-${slot.id}`} style={{ display: 'block', marginBottom: '5px', color: '#4A5568', fontSize: '14px' }}>
+                    <label htmlFor={`slotType-${slot.id}`} style={{ display: 'block', marginBottom: '5px', color: 'var(--rr-text2)', fontSize: '14px' }}>
                       Type:
                     </label>
                     <select
@@ -375,7 +375,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                       style={{
                         width: '100%',
                         padding: '8px',
-                        border: '1px solid #CBD5E1',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
                         fontSize: '14px',
                         boxSizing: 'border-box'
@@ -389,7 +389,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                   
                   {/* Slot name input */}
                   <div>
-                    <label htmlFor={`slotName-${slot.id}`} style={{ display: 'block', marginBottom: '5px', color: '#4A5568', fontSize: '14px' }}>
+                    <label htmlFor={`slotName-${slot.id}`} style={{ display: 'block', marginBottom: '5px', color: 'var(--rr-text2)', fontSize: '14px' }}>
                       Name:
                     </label>
                     <input
@@ -401,7 +401,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
                       style={{
                         width: '100%',
                         padding: '8px',
-                        border: '1px solid #CBD5E1',
+                        border: '1px solid var(--rr-border2)',
                         borderRadius: '4px',
                         fontSize: '14px',
                         boxSizing: 'border-box'
@@ -418,10 +418,10 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
           <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '20px' }}>
             <button type="button" onClick={onCancel} style={{
               padding: '8px 16px',
-              backgroundColor: '#F8FAFC',
-              border: '1px solid #CBD5E1',
+              backgroundColor: 'var(--rr-panel2)',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '4px',
-              color: '#64748B',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               fontSize: '14px',
               marginRight: '8px'
@@ -430,7 +430,7 @@ const AddSupportRoleDialog: React.FC<AddSupportRoleDialogProps> = ({
             </button>
             <button type="submit" style={{
               padding: '8px 16px',
-              backgroundColor: '#2563EB',
+              backgroundColor: 'var(--rr-accent)',
               border: 'none',
               borderRadius: '4px',
               color: 'white',

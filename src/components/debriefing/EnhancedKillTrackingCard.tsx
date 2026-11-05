@@ -662,7 +662,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
         <div
           style={{
             display: 'flex',
-            border: '1px solid #E2E8F0',
+            border: '1px solid var(--rr-border)',
             borderRadius: '8px',
             overflow: 'hidden'
           }}
@@ -769,7 +769,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
                       justifyContent: 'center',
                       fontSize: '14px',
                       fontWeight: 700,
-                      color: '#000000'
+                      color: 'var(--rr-text)'
                     }}
                   >
                     {total > 0 ? `x${total}` : ''}
@@ -793,7 +793,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
                       justifyContent: 'center',
                       fontSize: '14px',
                       fontWeight: 700,
-                      color: '#2563EB'
+                      color: 'var(--rr-accent-text)'
                     }}
                   >
                     {friendlyTotal > 0 ? `x${friendlyTotal}` : ''}
@@ -809,7 +809,7 @@ const EnhancedKillTrackingCardV2 = forwardRef<EnhancedKillTrackingCardRef, Enhan
 
   if (loading) {
     return (
-      <div style={{ padding: '40px', textAlign: 'center', color: '#64748B' }}>
+      <div style={{ padding: '40px', textAlign: 'center', color: 'var(--rr-text2)' }}>
         Loading kill tracking data...
       </div>
     );

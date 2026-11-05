@@ -29,18 +29,18 @@ const MissionPresenceBanner: React.FC<MissionPresenceBannerProps> = ({
       position: 'fixed',
       top: '72px',
       right: '20px',
-      backgroundColor: '#EFF6FF',
-      border: '1px solid #93C5FD',
+      backgroundColor: 'var(--rr-accent-weak)',
+      border: '1px solid var(--rr-accent)',
       borderRadius: '6px',
       padding: '8px 14px',
       display: 'flex',
       alignItems: 'center',
       gap: '8px',
       zIndex: 900,
-      fontFamily: 'Inter',
+      fontFamily: 'inherit',
       fontSize: '13px',
-      color: '#1E40AF',
-      boxShadow: '0 1px 3px rgba(0,0,0,0.1)'
+      color: 'var(--rr-accent-text)',
+      boxShadow: 'var(--rr-shadow)'
     }}>
       {/* Simple dot indicator */}
       <span style={{
@@ -48,7 +48,7 @@ const MissionPresenceBanner: React.FC<MissionPresenceBannerProps> = ({
         width: '8px',
         height: '8px',
         borderRadius: '50%',
-        backgroundColor: '#3B82F6',
+        backgroundColor: 'var(--rr-accent)',
         flexShrink: 0
       }} />
       <span>{displayText}</span>

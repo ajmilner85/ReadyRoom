@@ -69,9 +69,9 @@ export const RecoveryToggleSwitch: React.FC = () => {
 
   // Define labels and styles for each mode
   const modes = [
-    { label: 'CASE I', color: '#10B981', hover: '#059669' },
-    { label: 'CASE II', color: '#F59E0B', hover: '#D97706' },
-    { label: 'CASE III', color: '#EF4444', hover: '#DC2626' }
+    { label: 'CASE I', color: 'var(--rr-good)', hover: '#059669' },
+    { label: 'CASE II', color: 'var(--rr-warn)', hover: '#D97706' },
+    { label: 'CASE III', color: 'var(--rr-bad)', hover: '#DC2626' }
   ];
 
   return (
@@ -86,7 +86,7 @@ export const RecoveryToggleSwitch: React.FC = () => {
         border: 'none',
         cursor: 'pointer',
         color: 'white',
-        fontFamily: 'Inter',
+        fontFamily: 'inherit',
         fontStyle: 'normal',
         fontWeight: 400,
         fontSize: '14px',

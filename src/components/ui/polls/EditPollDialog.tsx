@@ -149,13 +149,13 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '600px',
     maxHeight: '80vh',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
     display: 'flex',
     flexDirection: 'column',
   };
@@ -170,7 +170,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: 0,
   };
 
@@ -183,7 +183,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     borderRadius: '6px',
     border: 'none',
     backgroundColor: 'transparent',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -203,17 +203,17 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     display: 'block',
     fontSize: '14px',
     fontWeight: 500,
-    color: '#374151',
+    color: 'var(--rr-text)',
     marginBottom: '6px',
   };
 
   const inputStyle: React.CSSProperties = {
     width: '100%',
     padding: '12px',
-    border: '1px solid #D1D5DB',
+    border: '1px solid var(--rr-border2)',
     borderRadius: '6px',
     fontSize: '14px',
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     transition: 'border-color 0.2s ease',
     boxSizing: 'border-box',
   };
@@ -246,9 +246,9 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     gap: '8px',
     marginBottom: '16px',
     padding: '12px',
-    border: '1px solid #E5E7EB',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
-    backgroundColor: '#FAFAFA',
+    backgroundColor: 'var(--rr-panel2)',
   };
 
   const optionFieldsStyle: React.CSSProperties = {
@@ -264,7 +264,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     justifyContent: 'center',
     width: '24px',
     height: '24px',
-    color: '#9CA3AF',
+    color: 'var(--rr-text3)',
     cursor: 'grab',
     flexShrink: 0,
   };
@@ -294,9 +294,9 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     width: '32px',
     height: '32px',
     borderRadius: '6px',
-    border: '1px solid #E5E7EB',
-    backgroundColor: '#FFFFFF',
-    color: '#EF4444',
+    border: '1px solid var(--rr-border)',
+    backgroundColor: 'var(--rr-panel)',
+    color: 'var(--rr-bad)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
     flexShrink: 0,
@@ -307,10 +307,10 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     alignItems: 'center',
     gap: '8px',
     padding: '8px 12px',
-    border: '1px dashed #D1D5DB',
+    border: '1px dashed var(--rr-border2)',
     borderRadius: '6px',
     backgroundColor: 'transparent',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     fontSize: '14px',
     width: '100%',
@@ -323,9 +323,9 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '20px 24px 24px 24px',
-    borderTop: '1px solid #F3F4F6',
+    borderTop: '1px solid var(--rr-border)',
     flexShrink: 0,
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
   };
 
   const buttonStyle: React.CSSProperties = {
@@ -343,9 +343,9 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
 
   const cancelButtonStyle: React.CSSProperties = {
     ...buttonStyle,
-    backgroundColor: '#FFFFFF',
-    borderColor: '#D1D5DB',
-    color: '#374151',
+    backgroundColor: 'var(--rr-panel)',
+    borderColor: 'var(--rr-border2)',
+    color: 'var(--rr-text)',
   };
 
   const updateButtonStyle: React.CSSProperties = {
@@ -365,7 +365,7 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
             onClick={handleClose}
             style={closeButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -380,12 +380,12 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
           {error && (
             <div style={{
               padding: '12px',
-              backgroundColor: '#FEF2F2',
+              backgroundColor: 'rgba(224,82,78,.12)',
               borderRadius: '6px',
-              border: '1px solid #FECACA',
+              border: '1px solid var(--rr-bad)',
               marginBottom: '20px',
             }}>
-              <div style={{ color: '#DC2626', fontSize: '14px' }}>
+              <div style={{ color: 'var(--rr-bad)', fontSize: '14px' }}>
                 {error}
               </div>
             </div>
@@ -471,12 +471,12 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
                     onClick={() => removeOption(index)}
                     style={removeButtonStyle}
                     onMouseEnter={e => {
-                      e.currentTarget.style.backgroundColor = '#FEF2F2';
-                      e.currentTarget.style.borderColor = '#FECACA';
+                      e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
+                      e.currentTarget.style.borderColor = 'var(--rr-bad)';
                     }}
                     onMouseLeave={e => {
-                      e.currentTarget.style.backgroundColor = '#FFFFFF';
-                      e.currentTarget.style.borderColor = '#E5E7EB';
+                      e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                      e.currentTarget.style.borderColor = 'var(--rr-border)';
                     }}
                   >
                     <Trash2 size={14} />
@@ -490,12 +490,12 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
               onClick={addOption}
               style={addButtonStyle}
               onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = '#F9FAFB';
-                e.currentTarget.style.borderColor = '#9CA3AF';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }}
               onMouseLeave={e => {
                 e.currentTarget.style.backgroundColor = 'transparent';
-                e.currentTarget.style.borderColor = '#D1D5DB';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }}
             >
               <Plus size={16} />
@@ -511,10 +511,10 @@ const EditPollDialog: React.FC<EditPollDialogProps> = ({
             onClick={handleClose}
             style={cancelButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F9FAFB';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = '#FFFFFF';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
             Cancel

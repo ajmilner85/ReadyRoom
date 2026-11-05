@@ -169,7 +169,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
 
   return (
     <div style={{
-      backgroundColor: '#F0F4F8',
+      backgroundColor: 'var(--rr-panel2)',
       minHeight: '100vh',
       height: '100%',
       display: 'flex',
@@ -205,9 +205,9 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               display: 'flex',
               flexDirection: 'column',
               position: 'relative',
-              backgroundColor: 'white',
+              backgroundColor: 'var(--rr-panel)',
               borderRadius: '8px',
-              boxShadow: '0px 4px 6px -1px rgba(0, 0, 0, 0.1)',
+              boxShadow: 'var(--rr-shadow)',
               padding: '24px',
               margin: '0 0 20px 0'
             }}
@@ -220,12 +220,12 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               position: 'relative'
             }}>
               <span style={{
-                fontFamily: 'Inter',
+                fontFamily: 'inherit',
                 fontStyle: 'normal',
                 fontWeight: 300,
                 fontSize: '20px',
                 lineHeight: '24px',
-                color: '#64748B',
+                color: 'var(--rr-text2)',
                 textTransform: 'uppercase'
               }}>
                 {section.title}
@@ -251,7 +251,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
-              borderTop: '1px solid #E2E8F0',
+              borderTop: '1px solid var(--rr-border)',
               paddingTop: '18px',
               minHeight: '48px'
             }}>
@@ -283,8 +283,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
         maxWidth: 'calc(100vw - 120px)', // Don't exceed viewport minus nav bar margin
         zIndex: 1000,
         transition: 'transform 0.3s ease-in-out',
-        backgroundColor: '#FFFFFF',
-        boxShadow: '0px -4px 12px rgba(0, 0, 0, 0.15)',
+        backgroundColor: 'var(--rr-panel)',
+        boxShadow: 'var(--rr-shadow)',
         borderTopLeftRadius: '12px',
         borderTopRightRadius: '12px',
         pointerEvents: 'auto'
@@ -295,7 +295,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
           style={{
             width: '100%',
             height: '38px', // Reduced from 48px
-            backgroundColor: '#F8FAFC',
+            backgroundColor: 'var(--rr-panel2)',
             border: 'none',
             borderTopLeftRadius: '12px',
             borderTopRightRadius: '12px',
@@ -304,17 +304,17 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             alignItems: 'center',
             justifyContent: 'center',
             gap: '8px',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '14px',
             fontWeight: 500,
-            color: '#64748B',
+            color: 'var(--rr-text2)',
             transition: 'background-color 0.2s ease',
             pointerEvents: 'auto',
             position: 'relative',
             zIndex: 1
           }}
-          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#E2E8F0'}
-          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#F8FAFC'}
+          onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel3)'}
+          onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
         >
           {isDrawerOpen ? (
             <>
@@ -335,8 +335,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
           style={{
             maxHeight: '60vh',
             overflowY: 'auto',
-            backgroundColor: isDrawerOver ? '#E0E7FF' : '#F8FAFC',
-            borderTop: '1px solid #E2E8F0',
+            backgroundColor: isDrawerOver ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
+            borderTop: '1px solid var(--rr-border)',
             display: 'flex',
             flexWrap: 'wrap',
             gap: '10px',
@@ -360,8 +360,8 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             <div style={{
               padding: '40px',
               textAlign: 'center',
-              color: '#94A3B8',
-              fontFamily: 'Inter',
+              color: 'var(--rr-text3)',
+              fontFamily: 'inherit',
               fontSize: '14px'
             }}>
               No inactive flights

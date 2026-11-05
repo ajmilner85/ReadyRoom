@@ -48,12 +48,12 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
     <div style={{ ...dossierStyles.card, flexShrink: 0 }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 24px' }}>
         <span style={{
-          fontFamily: 'Inter',
+          fontFamily: 'inherit',
           fontStyle: 'normal',
           fontWeight: 300,
           fontSize: '20px',
           lineHeight: '24px',
-          color: '#64748B',
+          color: 'var(--rr-text2)',
           textTransform: 'uppercase',
           whiteSpace: 'nowrap',
           marginRight: '12px'
@@ -123,28 +123,28 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
             alignItems: 'center',
             gap: '8px',
             padding: '8px 16px',
-            backgroundColor: '#FFFFFF',
-            color: '#64748B',
+            backgroundColor: 'var(--rr-panel)',
+            color: 'var(--rr-text2)',
             borderRadius: '8px',
-            border: '1px solid #CBD5E1',
+            border: '1px solid var(--rr-border2)',
             cursor: findingLastMission ? 'wait' : 'pointer',
             transition: 'background-color 0.2s ease',
-            fontFamily: 'Inter',
+            fontFamily: 'inherit',
             fontSize: '14px',
             fontWeight: 400,
             whiteSpace: 'nowrap',
             height: '35px',
             flexShrink: 0
           }}
-          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F8FAFC'; }}
-          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = '#FFFFFF'; }}
+          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
+          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
         >
           <Crosshair size={16} />
           {findingLastMission ? 'Finding...' : 'Last Mission'}
         </button>
 
         {notice && (
-          <span style={{ fontSize: '12px', color: '#B45309', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '12px', color: 'var(--rr-warn)', whiteSpace: 'nowrap' }}>
             {notice}
           </span>
         )}

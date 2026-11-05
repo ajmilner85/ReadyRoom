@@ -60,22 +60,22 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
   };
 
   const containerStyle: React.CSSProperties = {
-    border: '1px solid #E5E7EB',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     overflow: 'hidden',
   };
 
   const headerStyle: React.CSSProperties = {
     padding: '16px 20px 12px 20px',
-    borderBottom: '1px solid #F3F4F6',
-    backgroundColor: '#F9FAFB',
+    borderBottom: '1px solid var(--rr-border)',
+    backgroundColor: 'var(--rr-panel2)',
   };
 
   const titleStyle: React.CSSProperties = {
     fontSize: '16px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 8px 0',
     lineHeight: '1.4',
   };
@@ -85,7 +85,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
     alignItems: 'center',
     gap: '12px',
     fontSize: '12px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
   };
 
   const metaItemStyle: React.CSSProperties = {
@@ -103,8 +103,8 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
     alignItems: 'center',
     justifyContent: 'space-between',
     padding: '12px 20px 16px 20px',
-    borderTop: '1px solid #F3F4F6',
-    backgroundColor: '#F9FAFB',
+    borderTop: '1px solid var(--rr-border)',
+    backgroundColor: 'var(--rr-panel2)',
   };
 
   const reactionsStyle: React.CSSProperties = {
@@ -118,9 +118,9 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
     gap: '6px',
     padding: '6px 12px',
     borderRadius: '16px',
-    border: `1px solid ${isActive ? primaryColor : '#E5E7EB'}`,
+    border: `1px solid ${isActive ? primaryColor : 'var(--rr-border)'}`,
     backgroundColor: isActive ? `${primaryColor}10` : '#FFFFFF',
-    color: isActive ? primaryColor : '#6B7280',
+    color: isActive ? primaryColor : 'var(--rr-text2)',
     cursor: onReact ? 'pointer' : 'default',
     fontSize: '12px',
     fontWeight: 500,
@@ -132,7 +132,7 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
 
   const statsStyle: React.CSSProperties = {
     fontSize: '12px',
-    color: '#9CA3AF',
+    color: 'var(--rr-text3)',
   };
 
   const canReact = Boolean(onReact && onRemoveReaction);
@@ -175,14 +175,14 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
             disabled={!canReact || isReacting === 'thumbs_up'}
             onMouseEnter={e => {
               if (canReact && post.stats.user_reaction !== 'thumbs_up') {
-                e.currentTarget.style.backgroundColor = '#F9FAFB';
-                e.currentTarget.style.borderColor = '#D1D5DB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }
             }}
             onMouseLeave={e => {
               if (canReact && post.stats.user_reaction !== 'thumbs_up') {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-                e.currentTarget.style.borderColor = '#E5E7EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                e.currentTarget.style.borderColor = 'var(--rr-border)';
               }
             }}
           >
@@ -207,14 +207,14 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
             disabled={!canReact || isReacting === 'thumbs_down'}
             onMouseEnter={e => {
               if (canReact && post.stats.user_reaction !== 'thumbs_down') {
-                e.currentTarget.style.backgroundColor = '#F9FAFB';
-                e.currentTarget.style.borderColor = '#D1D5DB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
+                e.currentTarget.style.borderColor = 'var(--rr-border2)';
               }
             }}
             onMouseLeave={e => {
               if (canReact && post.stats.user_reaction !== 'thumbs_down') {
-                e.currentTarget.style.backgroundColor = '#FFFFFF';
-                e.currentTarget.style.borderColor = '#E5E7EB';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
+                e.currentTarget.style.borderColor = 'var(--rr-border)';
               }
             }}
           >

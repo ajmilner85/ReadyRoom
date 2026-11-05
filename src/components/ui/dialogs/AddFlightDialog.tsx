@@ -203,10 +203,10 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
       top: '50%',
       left: '50%',
       transform: 'translate(-50%, -50%)',
-      backgroundColor: '#FFFFFF',
+      backgroundColor: 'var(--rr-panel)',
       borderRadius: '12px',
       padding: '24px',
-      boxShadow: '0px 20px 25px -5px rgba(0, 0, 0, 0.1), 0px 10px 10px -5px rgba(0, 0, 0, 0.04)',
+      boxShadow: 'var(--rr-shadow-lg)',
       zIndex: 1001,
       width: getDialogWidth(),
       maxHeight: '80vh',
@@ -216,7 +216,7 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
       <div style={{
         fontSize: '18px',
         fontWeight: '600',
-        color: '#111827',
+        color: 'var(--rr-text)',
         marginBottom: '24px',
         textAlign: 'center'
       }}>
@@ -229,7 +229,7 @@ ADD FLIGHT
           <div style={{
             fontSize: '14px',
             fontWeight: '500',
-            color: '#6B7280',
+            color: 'var(--rr-text2)',
             marginBottom: '12px'
           }}>
             Participating Squadrons Callsigns
@@ -252,7 +252,7 @@ ADD FLIGHT
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              color: '#9CA3AF',
+              color: 'var(--rr-text3)',
               fontSize: '14px',
               fontStyle: 'italic'
             }}>
@@ -265,10 +265,10 @@ ADD FLIGHT
                 style={{
                   width: participatingSquadrons.length <= 2 ? '200px' : participatingSquadrons.length === 3 ? '200px' : '220px',
                   maxWidth: participatingSquadrons.length <= 3 ? '200px' : '220px',
-                  backgroundColor: '#F9FAFB',
+                  backgroundColor: 'var(--rr-panel2)',
                   borderRadius: '8px',
                   padding: '16px',
-                  border: '1px solid #E5E7EB'
+                  border: '1px solid var(--rr-border)'
                 }}
               >
               {/* Squadron header */}
@@ -300,13 +300,13 @@ ADD FLIGHT
                   <div style={{
                     fontSize: '12px',
                     fontWeight: '600',
-                    color: '#111827'
+                    color: 'var(--rr-text)'
                   }}>
                     {squadron.designation}
                   </div>
                   <div style={{
                     fontSize: '10px',
-                    color: '#6B7280'
+                    color: 'var(--rr-text2)'
                   }}>
                     {squadron.name}
                   </div>
@@ -348,14 +348,14 @@ ADD FLIGHT
                       style={{
                         width: '30px',
                         height: '30px',
-                        background: '#FFFFFF',
+                        background: 'var(--rr-panel)',
                         borderRadius: '8px',
                         border: 'none',
                         cursor: 'pointer',
                         transition: 'box-shadow 0.2s ease-in-out',
-                        fontFamily: 'Inter',
+                        fontFamily: 'inherit',
                         fontSize: '20px',
-                        color: '#64748B',
+                        color: 'var(--rr-text2)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center'
@@ -384,7 +384,7 @@ ADD FLIGHT
         <div style={{
           fontSize: '14px',
           fontWeight: '500',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           marginBottom: '8px'
         }}>
           {participatingSquadrons.length > 0 ? 'Other Callsign' : 'Callsign'}
@@ -407,29 +407,29 @@ ADD FLIGHT
               flex: 1,
               padding: '8px 12px',
               height: '36px',
-              border: '1px solid #D1D5DB',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
               fontSize: '14px',
               outline: 'none',
               transition: 'border-color 0.2s ease',
               boxSizing: 'border-box'
             }}
-            onFocus={(e) => e.currentTarget.style.borderColor = '#3B82F6'}
-            onBlur={(e) => e.currentTarget.style.borderColor = '#D1D5DB'}
+            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--rr-accent)'}
+            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--rr-border2)'}
           />
           <button
             onClick={addOtherFlight}
             style={{
               width: '30px',
               height: '30px',
-              background: '#FFFFFF',
+              background: 'var(--rr-panel)',
               borderRadius: '8px',
               border: 'none',
               cursor: otherCallsign.trim() ? 'pointer' : 'not-allowed',
               transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'Inter',
+              fontFamily: 'inherit',
               fontSize: '20px',
-              color: otherCallsign.trim() ? '#64748B' : '#D1D5DB',
+              color: otherCallsign.trim() ? 'var(--rr-text2)' : 'var(--rr-text3)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center'
@@ -454,22 +454,22 @@ ADD FLIGHT
         <div style={{
           fontSize: '14px',
           fontWeight: '500',
-          color: '#6B7280',
+          color: 'var(--rr-text2)',
           marginBottom: '12px'
         }}>
           Flights to be added
         </div>
         
         <div style={{
-          backgroundColor: '#F9FAFB',
+          backgroundColor: 'var(--rr-panel2)',
           borderRadius: '8px',
           padding: '16px',
-          border: '1px solid #E5E7EB',
+          border: '1px solid var(--rr-border)',
           minHeight: '120px'
         }}>
           {flightRows.length === 0 ? (
             <div style={{
-              color: '#9CA3AF',
+              color: 'var(--rr-text3)',
               fontSize: '14px',
               textAlign: 'center',
               fontStyle: 'italic'
@@ -503,7 +503,7 @@ ADD FLIGHT
                         padding: '4px 12px',
                         height: '24px',
                         backgroundColor: getFlightColor(flight.source, flight.callsign),
-                        color: flight.source === 'existing' ? '#6B7280' : 'white',
+                        color: flight.source === 'existing' ? 'var(--rr-text2)' : 'white',
                         borderRadius: '8px',
                         fontSize: '12px',
                         fontWeight: '500',
@@ -531,7 +531,7 @@ ADD FLIGHT
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        color: '#EF4444',
+                        color: 'var(--rr-bad)',
                         opacity: '0',
                         transition: 'opacity 0.2s ease'
                       }}
@@ -550,7 +550,7 @@ ADD FLIGHT
       {/* Error message */}
       {error && (
         <div style={{
-          color: '#EF4444',
+          color: 'var(--rr-bad)',
           fontSize: '14px',
           marginBottom: '16px',
           textAlign: 'center'
@@ -569,10 +569,10 @@ ADD FLIGHT
             onClick={onCancel}
             style={{
               padding: '8px 16px',
-              border: '1px solid #D1D5DB',
+              border: '1px solid var(--rr-border2)',
               borderRadius: '6px',
-              backgroundColor: '#FFFFFF',
-              color: '#6B7280',
+              backgroundColor: 'var(--rr-panel)',
+              color: 'var(--rr-text2)',
               cursor: 'pointer',
               fontSize: '14px'
             }}
@@ -585,7 +585,7 @@ ADD FLIGHT
               padding: '8px 16px',
               border: 'none',
               borderRadius: '6px',
-              backgroundColor: '#3B82F6',
+              backgroundColor: 'var(--rr-accent)',
               color: 'white',
               cursor: 'pointer',
               fontSize: '14px',

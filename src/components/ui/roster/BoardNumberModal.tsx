@@ -152,14 +152,14 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
   };
 
   const modalStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '8px',
     padding: '16px 24px 24px 24px',
     maxWidth: '950px',
     width: '90%',
     maxHeight: '80vh',
     overflow: 'auto',
-    boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)',
+    boxShadow: 'var(--rr-shadow)',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -171,12 +171,12 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
   };
 
   const titleStyle: React.CSSProperties = {
-    fontFamily: 'Inter',
+    fontFamily: 'inherit',
     fontStyle: 'normal',
     fontWeight: 300,
     fontSize: '20px',
     lineHeight: '24px',
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     textTransform: 'uppercase',
     textAlign: 'center',
   };
@@ -186,7 +186,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
     border: 'none',
     cursor: 'pointer',
     padding: '4px',
-    color: '#64748B',
+    color: 'var(--rr-text2)',
     position: 'absolute',
     right: 0,
   };
@@ -207,7 +207,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
     padding: '4px 8px',
     margin: '2px 0',
     cursor: status === 'available' ? 'pointer' : 'default',
-    color: status === 'available' ? '#10B981' : status === 'active' ? '#EF4444' : '#94A3B8',
+    color: status === 'available' ? 'var(--rr-good)' : status === 'active' ? 'var(--rr-bad)' : 'var(--rr-text3)',
     backgroundColor: status === 'available' ? 'transparent' : 'transparent',
     border: 'none',
     textAlign: 'left',
@@ -238,7 +238,7 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
           title={num.pilot ? `Assigned to ${num.pilot}` : 'Available'}
           onMouseEnter={(e) => {
             if (num.status === 'available') {
-              e.currentTarget.style.backgroundColor = '#F0FDF4';
+              e.currentTarget.style.backgroundColor = 'rgba(64,168,91,.14)';
             }
           }}
           onMouseLeave={(e) => {
@@ -264,15 +264,15 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
 
         <div style={legendStyle}>
           <div style={legendItemStyle}>
-            <span style={{ color: '#10B981' }}>●</span>
+            <span style={{ color: 'var(--rr-good)' }}>●</span>
             <span>Available</span>
           </div>
           <div style={legendItemStyle}>
-            <span style={{ color: '#EF4444' }}>●</span>
+            <span style={{ color: 'var(--rr-bad)' }}>●</span>
             <span>Active Pilot</span>
           </div>
           <div style={legendItemStyle}>
-            <span style={{ color: '#94A3B8' }}>●</span>
+            <span style={{ color: 'var(--rr-text3)' }}>●</span>
             <span>Inactive Pilot</span>
           </div>
         </div>

@@ -15,11 +15,11 @@ const AircraftStatusMenu: React.FC<AircraftStatusMenuProps> = ({
   position
 }) => {
   const statuses: Array<{ value: AircraftStatus; label: string; color: string; icon: React.ComponentType<any> }> = [
-    { value: 'recovered', label: 'Recovered', color: '#10B981', icon: PlaneLanding }, // Green
-    { value: 'damaged', label: 'Damaged', color: '#F59E0B', icon: Wrench },     // Amber
-    { value: 'destroyed', label: 'Destroyed', color: '#EF4444', icon: Flame },  // Red
-    { value: 'down', label: 'Down', color: '#6B7280', icon: ThumbsDown }, // Gray
-    { value: 'unaccounted', label: 'Unaccounted', color: '#9CA3AF', icon: HelpCircle } // Light Gray
+    { value: 'recovered', label: 'Recovered', color: 'var(--rr-good)', icon: PlaneLanding }, // Green
+    { value: 'damaged', label: 'Damaged', color: 'var(--rr-warn)', icon: Wrench },     // Amber
+    { value: 'destroyed', label: 'Destroyed', color: 'var(--rr-bad)', icon: Flame },  // Red
+    { value: 'down', label: 'Down', color: 'var(--rr-text2)', icon: ThumbsDown }, // Gray
+    { value: 'unaccounted', label: 'Unaccounted', color: 'var(--rr-text3)', icon: HelpCircle } // Light Gray
   ];
 
   return (
@@ -29,10 +29,10 @@ const AircraftStatusMenu: React.FC<AircraftStatusMenuProps> = ({
         position: 'fixed',
         top: position.top,
         left: position.left,
-        backgroundColor: '#FFFFFF',
-        border: '1px solid #E2E8F0',
+        backgroundColor: 'var(--rr-panel)',
+        border: '1px solid var(--rr-border)',
         borderRadius: '8px',
-        boxShadow: '0px 4px 12px rgba(0, 0, 0, 0.15)',
+        boxShadow: 'var(--rr-shadow)',
         padding: '4px',
         zIndex: 1000,
         display: 'flex',
@@ -64,7 +64,7 @@ const AircraftStatusMenu: React.FC<AircraftStatusMenuProps> = ({
             }}
             onMouseEnter={(e) => {
               if (currentStatus !== status.value) {
-                e.currentTarget.style.backgroundColor = '#F3F4F6';
+                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
               }
             }}
             onMouseLeave={(e) => {

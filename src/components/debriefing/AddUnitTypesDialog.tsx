@@ -142,9 +142,9 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
           width: '100%',
           maxWidth: '600px',
           maxHeight: '80vh',
-          backgroundColor: '#FFFFFF',
+          backgroundColor: 'var(--rr-panel)',
           borderRadius: '8px',
-          boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)',
+          boxShadow: 'var(--rr-shadow)',
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden'
@@ -155,17 +155,17 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
         <div
           style={{
             padding: '20px 24px',
-            borderBottom: '1px solid #E2E8F0',
+            borderBottom: '1px solid var(--rr-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between'
           }}
         >
           <div>
-            <h3 style={{ fontSize: '18px', fontWeight: 600, color: '#1E293B', margin: '0 0 4px 0' }}>
+            <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 4px 0' }}>
               Add Unit Types
             </h3>
-            <div style={{ fontSize: '14px', color: '#64748B', display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <div style={{ fontSize: '14px', color: 'var(--rr-text2)', display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span
                 style={{
                   display: 'inline-block',
@@ -189,11 +189,11 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              backgroundColor: '#F1F5F9',
+              backgroundColor: 'var(--rr-panel2)',
               border: 'none',
               borderRadius: '6px',
               cursor: 'pointer',
-              color: '#64748B'
+              color: 'var(--rr-text2)'
             }}
           >
             <X size={18} />
@@ -201,7 +201,7 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
         </div>
 
         {/* Search */}
-        <div style={{ padding: '16px 24px', borderBottom: '1px solid #E2E8F0' }}>
+        <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--rr-border)' }}>
           <div style={{ position: 'relative' }}>
             <Search
               size={18}
@@ -210,7 +210,7 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                 left: '12px',
                 top: '50%',
                 transform: 'translateY(-50%)',
-                color: '#94A3B8'
+                color: 'var(--rr-text3)'
               }}
             />
             <input
@@ -224,7 +224,7 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                 paddingLeft: '40px',
                 paddingRight: '12px',
                 fontSize: '14px',
-                border: '1px solid #CBD5E1',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 outline: 'none',
                 boxSizing: 'border-box'
@@ -236,15 +236,15 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
         {/* Unit List */}
         <div style={{ flex: 1, overflowY: 'auto', padding: '16px 24px' }}>
           {loading ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-text2)' }}>
               Loading units...
             </div>
           ) : error ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#DC2626' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-bad)' }}>
               {error}
             </div>
           ) : filteredUnits.length === 0 ? (
-            <div style={{ textAlign: 'center', padding: '40px', color: '#64748B' }}>
+            <div style={{ textAlign: 'center', padding: '40px', color: 'var(--rr-text2)' }}>
               {searchQuery ? 'No units found matching your search' : 'No units available'}
             </div>
           ) : (
@@ -257,19 +257,19 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                     onClick={() => toggleUnit(unit.id)}
                     style={{
                       padding: '12px 16px',
-                      border: `2px solid ${isSelected ? '#3B82F6' : '#E2E8F0'}`,
+                      border: `2px solid ${isSelected ? 'var(--rr-accent)' : 'var(--rr-border)'}`,
                       borderRadius: '6px',
                       cursor: 'pointer',
-                      backgroundColor: isSelected ? '#EFF6FF' : '#FFFFFF',
+                      backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
                       transition: 'all 0.15s ease'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                       <div>
-                        <div style={{ fontSize: '14px', fontWeight: 600, color: '#1E293B', marginBottom: '2px' }}>
+                        <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '2px' }}>
                           {unit.display_name}
                         </div>
-                        <div style={{ fontSize: '12px', color: '#64748B' }}>
+                        <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
                           {unit.sub_category || unit.category}
                         </div>
                       </div>
@@ -278,8 +278,8 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                           width: '20px',
                           height: '20px',
                           borderRadius: '4px',
-                          border: `2px solid ${isSelected ? '#3B82F6' : '#CBD5E1'}`,
-                          backgroundColor: isSelected ? '#3B82F6' : '#FFFFFF',
+                          border: `2px solid ${isSelected ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
+                          backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -310,14 +310,14 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
         <div
           style={{
             padding: '16px 24px',
-            borderTop: '1px solid #E2E8F0',
+            borderTop: '1px solid var(--rr-border)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            backgroundColor: '#F8FAFC'
+            backgroundColor: 'var(--rr-panel2)'
           }}
         >
-          <div style={{ fontSize: '14px', color: '#64748B' }}>
+          <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>
             {selectedIds.size} {selectedIds.size === 1 ? 'unit' : 'units'} selected
           </div>
           <div style={{ display: 'flex', gap: '12px' }}>
@@ -327,9 +327,9 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                 padding: '8px 16px',
                 fontSize: '14px',
                 fontWeight: 500,
-                color: '#64748B',
-                backgroundColor: '#FFFFFF',
-                border: '1px solid #CBD5E1',
+                color: 'var(--rr-text2)',
+                backgroundColor: 'var(--rr-panel)',
+                border: '1px solid var(--rr-border2)',
                 borderRadius: '6px',
                 cursor: 'pointer'
               }}
@@ -344,7 +344,7 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                 fontSize: '14px',
                 fontWeight: 500,
                 color: '#FFFFFF',
-                backgroundColor: selectedIds.size > 0 ? '#3B82F6' : '#CBD5E1',
+                backgroundColor: selectedIds.size > 0 ? 'var(--rr-accent)' : 'var(--rr-panel3)',
                 border: 'none',
                 borderRadius: '6px',
                 cursor: selectedIds.size > 0 ? 'pointer' : 'not-allowed',

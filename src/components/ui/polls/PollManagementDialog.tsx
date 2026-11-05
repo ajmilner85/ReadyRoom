@@ -167,13 +167,13 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
   };
 
   const dialogStyle: React.CSSProperties = {
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
     borderRadius: '12px',
     width: '100%',
     maxWidth: '800px',
     maxHeight: '80vh',
     overflow: 'hidden',
-    boxShadow: '0 25px 50px -12px rgba(0, 0, 0, 0.25)',
+    boxShadow: 'var(--rr-shadow-lg)',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -186,7 +186,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
   const titleStyle: React.CSSProperties = {
     fontSize: '20px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: 0,
   };
 
@@ -199,7 +199,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
     borderRadius: '6px',
     border: 'none',
     backgroundColor: 'transparent',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -211,11 +211,11 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
   };
 
   const pollItemStyle: React.CSSProperties = {
-    border: '1px solid #E5E7EB',
+    border: '1px solid var(--rr-border)',
     borderRadius: '8px',
     padding: '16px',
     marginBottom: '12px',
-    backgroundColor: '#FFFFFF',
+    backgroundColor: 'var(--rr-panel)',
   };
 
   const pollHeaderStyle: React.CSSProperties = {
@@ -228,14 +228,14 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
   const pollTitleStyle: React.CSSProperties = {
     fontSize: '16px',
     fontWeight: 600,
-    color: '#1F2937',
+    color: 'var(--rr-text)',
     margin: '0 0 4px 0',
     flex: 1,
   };
 
   const pollDescriptionStyle: React.CSSProperties = {
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     margin: 0,
   };
 
@@ -244,8 +244,8 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
     borderRadius: '4px',
     fontSize: '12px',
     fontWeight: 500,
-    backgroundColor: status === 'active' ? '#DEF7EC' : status === 'archived' ? '#F3F4F6' : '#FEF2F2',
-    color: status === 'active' ? '#047857' : status === 'archived' ? '#6B7280' : '#DC2626',
+    backgroundColor: status === 'active' ? '#DEF7EC' : status === 'archived' ? 'var(--rr-panel2)' : 'rgba(224,82,78,.12)',
+    color: status === 'active' ? 'var(--rr-good)' : status === 'archived' ? 'var(--rr-text2)' : 'var(--rr-bad)',
   });
 
   const actionsStyle: React.CSSProperties = {
@@ -263,8 +263,8 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
     width: '32px',
     height: '32px',
     borderRadius: '6px',
-    border: '1px solid #E5E7EB',
-    backgroundColor: '#FFFFFF',
+    border: '1px solid var(--rr-border)',
+    backgroundColor: 'var(--rr-panel)',
     cursor: 'pointer',
     transition: 'all 0.2s ease',
   };
@@ -274,14 +274,14 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
     alignItems: 'center',
     gap: '16px',
     fontSize: '14px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
     marginTop: '8px',
   };
 
   const emptyStateStyle: React.CSSProperties = {
     textAlign: 'center',
     padding: '40px 20px',
-    color: '#6B7280',
+    color: 'var(--rr-text2)',
   };
 
   const getStatusText = (poll: PollWithResults): string => {
@@ -300,7 +300,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
             onClick={onClose}
             style={closeButtonStyle}
             onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = '#F3F4F6';
+              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
             }}
             onMouseLeave={e => {
               e.currentTarget.style.backgroundColor = 'transparent';
@@ -315,12 +315,12 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
           {error && (
             <div style={{
               padding: '12px',
-              backgroundColor: '#FEF2F2',
+              backgroundColor: 'rgba(224,82,78,.12)',
               borderRadius: '6px',
-              border: '1px solid #FECACA',
+              border: '1px solid var(--rr-bad)',
               marginBottom: '20px',
             }}>
-              <div style={{ color: '#DC2626', fontSize: '14px' }}>
+              <div style={{ color: 'var(--rr-bad)', fontSize: '14px' }}>
                 {error}
               </div>
             </div>
@@ -331,7 +331,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
               <div style={{
                 width: '24px',
                 height: '24px',
-                border: '2px solid #E5E7EB',
+                border: '2px solid var(--rr-border)',
                 borderTopColor: primaryColor,
                 borderRadius: '50%',
                 animation: 'spin 1s linear infinite',
@@ -341,8 +341,8 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
             </div>
           ) : polls.length === 0 ? (
             <div style={emptyStateStyle}>
-              <BarChart size={48} style={{ color: '#9CA3AF', margin: '0 auto 16px' }} />
-              <h3 style={{ fontSize: '16px', fontWeight: 600, color: '#4B5563', margin: '0 0 8px 0' }}>
+              <BarChart size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
+              <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text2)', margin: '0 0 8px 0' }}>
                 No polls found
               </h3>
               <p style={{ margin: 0 }}>Create your first poll to get started.</p>
@@ -385,12 +385,12 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                           }}
                           onMouseLeave={e => {
                             if (processingPoll !== poll.id) {
-                              e.currentTarget.style.backgroundColor = '#FFFFFF';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                             }
                           }}
                           title="Edit poll"
                         >
-                          <Edit3 size={16} style={{ color: '#3B82F6' }} />
+                          <Edit3 size={16} style={{ color: 'var(--rr-accent-text)' }} />
                         </button>
 
                         <button
@@ -403,12 +403,12 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                           }}
                           onMouseEnter={e => {
                             if (processingPoll !== poll.id) {
-                              e.currentTarget.style.backgroundColor = '#F3F4F6';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                             }
                           }}
                           onMouseLeave={e => {
                             if (processingPoll !== poll.id) {
-                              e.currentTarget.style.backgroundColor = '#FFFFFF';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                             }
                           }}
                           title={poll.is_active ? 'Deactivate poll' : 'Activate poll'}
@@ -426,17 +426,17 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                           }}
                           onMouseEnter={e => {
                             if (processingPoll !== poll.id) {
-                              e.currentTarget.style.backgroundColor = '#FEF3C7';
+                              e.currentTarget.style.backgroundColor = 'rgba(222,154,31,.14)';
                             }
                           }}
                           onMouseLeave={e => {
                             if (processingPoll !== poll.id) {
-                              e.currentTarget.style.backgroundColor = '#FFFFFF';
+                              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                             }
                           }}
                           title="Archive poll"
                         >
-                          <Archive size={16} style={{ color: '#D97706' }} />
+                          <Archive size={16} style={{ color: 'var(--rr-warn)' }} />
                         </button>
                       </>
                     )}
@@ -451,17 +451,17 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                       }}
                       onMouseEnter={e => {
                         if (processingPoll !== poll.id) {
-                          e.currentTarget.style.backgroundColor = '#FEF2F2';
+                          e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
                         }
                       }}
                       onMouseLeave={e => {
                         if (processingPoll !== poll.id) {
-                          e.currentTarget.style.backgroundColor = '#FFFFFF';
+                          e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                         }
                       }}
                       title="Delete poll"
                     >
-                      <Trash2 size={16} style={{ color: '#EF4444' }} />
+                      <Trash2 size={16} style={{ color: 'var(--rr-bad)' }} />
                     </button>
                   </div>
                 </div>

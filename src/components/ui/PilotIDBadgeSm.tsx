@@ -58,7 +58,7 @@ const PilotIDBadgeSm: React.FC<PilotIDBadgeSmProps> = ({
           display: 'flex',
           alignItems: 'center',
           textAlign: 'center',
-          color: '#575A58'
+          color: 'var(--rr-text2)'
         }}>
           {displaySquadron}
         </div>
@@ -79,7 +79,7 @@ const PilotIDBadgeSm: React.FC<PilotIDBadgeSmProps> = ({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        color: '#575A58'
+        color: 'var(--rr-text2)'
       }}>
         {displayBoardNumber}
       </div>

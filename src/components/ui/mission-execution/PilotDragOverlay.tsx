@@ -17,9 +17,9 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
-        backgroundColor: '#F9FAFB', // LIGHT_SLATE_GREY
+        backgroundColor: 'var(--rr-panel2)', // LIGHT_SLATE_GREY
         borderRadius: '8px',
-        boxShadow: '0px 4px 6px rgba(0, 0, 0, 0.1)',
+        boxShadow: 'var(--rr-shadow)',
         padding: '6px',
         pointerEvents: 'none',
         cursor: 'grabbing',
@@ -41,7 +41,7 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
           fontSize: '14px',
           fontWeight: 400,
           textAlign: 'center',
-          color: '#646F7E',
+          color: 'var(--rr-text2)',
           marginBottom: '1px'
         }}
       >
@@ -52,7 +52,7 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
           fontSize: '12px',
           fontWeight: 700,
           textAlign: 'center',
-          color: '#000000',
+          color: 'var(--rr-text)',
         }}
       >
         {draggedPilot.callsign}
@@ -66,9 +66,9 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
         alignItems: 'center',
         height: '24px',
         padding: '0 10px',
-        backgroundColor: 'white',
+        backgroundColor: 'var(--rr-panel)',
         borderRadius: '8px',
-        boxShadow: '0px 10px 15px -3px rgba(0, 0, 0, 0.25)',
+        boxShadow: 'var(--rr-shadow)',
         opacity: 0.9,
         cursor: 'grabbing',
         pointerEvents: 'none', // Prevent the overlay from interfering with drops
@@ -83,7 +83,7 @@ const PilotDragOverlay: React.FC<PilotDragOverlayProps> = ({ draggedPilot, dragS
         width: '50px', 
         textAlign: 'center', 
         fontSize: '16px', 
-        color: '#646F7E',
+        color: 'var(--rr-text2)',
         marginRight: '8px' 
       }}>
         {draggedPilot.boardNumber}

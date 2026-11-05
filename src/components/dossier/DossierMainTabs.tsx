@@ -28,9 +28,9 @@ const tabButtonStyle = (active: boolean): React.CSSProperties => ({
   borderRadius: '4px',
   border: 'none',
   fontSize: '14px',
-  fontFamily: 'Inter',
+  fontFamily: 'inherit',
   backgroundColor: active ? 'rgba(249, 115, 22, 0.1)' : 'transparent',
-  color: active ? '#F97316' : '#646F7E'
+  color: active ? '#F97316' : 'var(--rr-text2)'
 });
 
 const TABS: Array<{ id: DossierTabId; label: string }> = [
