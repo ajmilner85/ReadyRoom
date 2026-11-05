@@ -1,4 +1,5 @@
-import React, { useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { getAllSquadrons } from '../../utils/squadronService';
 import { useDroppable } from '@dnd-kit/core';
 import DroppableZone from './DroppableZone';
 import DivisionEditor from '../ui/DivisionEditor';
@@ -22,6 +23,18 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   const { sections, createLaunchDivisionsFromStepTimes } = useSections();
   const sectionRefs = useRef<(HTMLDivElement | null)[]>([]);
   const [isDrawerOpen, setIsDrawerOpen] = useState(false);
+  // squadron_id -> insignia URL for the strip backdrop (keyed by id, never tail code)
+  const [insigniaById, setInsigniaById] = useState<Record<string, string>>({});
+  useEffect(() => {
+    let alive = true;
+    getAllSquadrons().then(r => {
+      if (!alive || !r.data) return;
+      const m: Record<string, string> = {};
+      r.data.forEach(sq => { if (sq.insignia_url) m[sq.id] = sq.insignia_url; });
+      setInsigniaById(m);
+    }).catch(() => {});
+    return () => { alive = false; };
+  }, []);
   const { isOver: isDrawerOver, setNodeRef: setDrawerRef } = useDroppable({
     id: 'inactive',
   });
@@ -76,6 +89,7 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   const renderFlightCard = (flight: Flight) => {
     const commonProps = {
       ...flight,
+      insigniaUrl: flight.squadronId ? insigniaById[flight.squadronId] : undefined,
       onUpdateMemberFuel: (dashNumber: string, newFuel: number) => 
         onUpdateMemberFuel?.(flight.id, dashNumber, newFuel)
     };
