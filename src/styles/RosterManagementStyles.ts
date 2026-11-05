@@ -2,7 +2,7 @@
 export const rosterStyles = {
   container: {
     backgroundColor: 'var(--rr-panel2)',
-    height: '100vh',
+    height: '100%',
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -13,7 +13,7 @@ export const rosterStyles = {
   contentWrapper: {
     display: 'flex',
     flexDirection: 'column' as const,
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     position: 'relative' as const,
     zIndex: 1,
     maxWidth: '2009px', // baseWidth * 3 + 20
@@ -24,7 +24,7 @@ export const rosterStyles = {
     display: 'flex',
     gap: '20px',
     flex: 1,
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     overflow: 'visible'
   },
   loading: {
@@ -68,7 +68,7 @@ export const pilotListStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflow: 'hidden',
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     boxSizing: 'border-box' as const
   },
   content: {

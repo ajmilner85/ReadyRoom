@@ -194,7 +194,7 @@ const Settings: React.FC = () => {
     <div
       style={{
         backgroundColor: 'var(--rr-panel2)',
-        height: '100vh',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -207,7 +207,7 @@ const Settings: React.FC = () => {
         maxWidth: '1350px',
         width: '100%',
         margin: '0 auto',
-        height: 'calc(100vh - 40px)',
+        height: '100%',
         display: 'flex',
         flexDirection: 'column'
       }}>
@@ -219,7 +219,7 @@ const Settings: React.FC = () => {
           border: '1px solid var(--rr-border)',
             borderRadius: '10px',
             backgroundColor: 'var(--rr-panel)',
-            height: 'calc(100vh - 40px)',
+            height: '100%',
             display: 'flex',
             flexDirection: 'column',
             overflow: 'hidden'

@@ -176,12 +176,12 @@ const MissionSummaryWithPopups: React.FC<MissionSummaryWithPopupsProps> = ({
   return (
     <>
       <h3 style={{
-        fontSize: '20px',
-        fontWeight: 300,
+        fontSize: '12px',
+        fontWeight: 600,
         color: 'var(--rr-text2)',
         fontFamily: 'inherit',
         textTransform: 'uppercase',
-        letterSpacing: '0.5px',
+        letterSpacing: '.14em',
         marginBottom: '16px',
         marginTop: '24px',
         textAlign: 'center'
