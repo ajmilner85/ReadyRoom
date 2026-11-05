@@ -809,16 +809,9 @@ const EventDetails: React.FC<EventDetailsProps> = ({
         }}
       >
       {/* Title + creator */}
-      <div style={{ marginBottom: '10px' }}>
-        <h1 style={{
-          fontSize: '18px',
-          fontWeight: 700,
-          color: 'var(--rr-text)',
-          marginBottom: '4px'
-        }}>
-          {event.title}
-        </h1>
-        <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
+      {/* The event title is shown in the Events page header; keep the creator line here */}
+      <div style={{ margin: '12px 0 10px' }}>
+        <div style={{ fontSize: '12.5px', color: 'var(--rr-text2)' }}>
           Created by{' '}
           <span style={{ fontWeight: 500, color: 'var(--rr-text2)' }}>
             {event.creator && (event.creator.callsign || event.creator.boardNumber)
