@@ -30,6 +30,8 @@ module.exports = {
       },
       textColor: {
         'foreground': 'hsl(var(--foreground))',
+        // text-accent uses the legibility-adjusted accent
+        accent: 'var(--rr-accent-text)',
       },
       fontFamily: {
         ui: ['Saira', 'system-ui', 'sans-serif'],

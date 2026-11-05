@@ -56,13 +56,13 @@ export const PageBody: React.FC<{ children: React.ReactNode; className?: string;
 /* ------------------------------------------------------------------ */
 /* Aircraft icon (CSS mask so it takes currentColor / squadron colour) */
 /* ------------------------------------------------------------------ */
-export const AircraftIcon: React.FC<{ color?: string; width?: number; height?: number; className?: string; style?: React.CSSProperties; title?: string }> = ({
-  color = 'currentColor', width = 20, height = 26, className, style, title,
+export const AircraftIcon: React.FC<{ color?: string; width?: number; height?: number; className?: string; style?: React.CSSProperties; title?: string; block?: boolean }> = ({
+  color = 'currentColor', width = 20, height = 26, className, style, title, block,
 }) => (
   <span
     title={title}
     aria-hidden={title ? undefined : true}
-    className={clsx('inline-block flex-none', className)}
+    className={clsx(block ? 'block' : 'inline-block', 'flex-none', className)}
     style={{
       width, height, background: color,
       WebkitMask: `url("${aircraftMaskUrl}") center/contain no-repeat`,

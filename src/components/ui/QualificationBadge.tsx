@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Qualification, getAllQualifications } from '../../utils/qualificationService';
+import { QualTag } from './primitives/Pickers';
 
 interface QualificationBadgeProps {
   type: string; // Qualification name from the qualifications table
@@ -166,35 +167,11 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
     backgroundColor = stringToColor(type);
   }
 
-  // ReadyRoom UI Kit qualification badge: mono 10/600, 5px radius, tinted background with the
-  // admin-configured qualification colour as foreground (readable in both themes).
-  const small = size === 'small';
+  // ReadyRoom UI Kit qualification tag (shared with filters/pickers via QualTag).
   return (
-    <span
-      title={matchingQualification?.name || type}
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '3px',
-        minWidth: small ? '24px' : '30px',
-        height: small ? '16px' : '20px',
-        padding: small ? '0 5px' : '0 7px',
-        borderRadius: small ? '4px' : '5px',
-        fontFamily: 'var(--rr-font-mono)',
-        fontSize: small ? '9.5px' : '10px',
-        fontWeight: 600,
-        lineHeight: 1,
-        whiteSpace: 'nowrap',
-        background: `color-mix(in srgb, ${backgroundColor} 18%, transparent)`,
-        color: `color-mix(in oklab, ${backgroundColor} 62%, var(--rr-text))`,
-        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${backgroundColor} 30%, transparent)`,
-        flex: 'none',
-      }}
-    >
-      {abbreviation}
+    <QualTag code={abbreviation} color={backgroundColor} size={size === 'small' ? 'sm' : 'md'} title={matchingQualification?.name || type}>
       {count !== undefined && count > 1 ? <span style={{ opacity: 0.75 }}>+{count}</span> : null}
-    </span>
+    </QualTag>
   );
 };
 
