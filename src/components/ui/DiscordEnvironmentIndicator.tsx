@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Server, AlertTriangle } from 'lucide-react';
+import { Icon } from './primitives';
 import { getUserSettings } from '../../utils/userSettingsService';
 
 interface DiscordEnvironmentIndicatorProps {
@@ -85,12 +85,12 @@ const DiscordEnvironmentIndicator: React.FC<DiscordEnvironmentIndicatorProps> = 
       fontWeight: 500
     }}>
       {isProduction ? (
-        <AlertTriangle 
+        <Icon name="alertTriangle" 
           size={iconSize} 
           style={{ color: 'var(--rr-warn)' }} 
         />
       ) : (
-        <Server 
+        <Icon name="server" 
           size={iconSize} 
           style={{ color: 'var(--rr-accent-text)' }} 
         />

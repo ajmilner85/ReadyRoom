@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { RefreshCw, Download, Filter, X, AlertCircle, Wrench } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import { supabase } from '../../utils/supabaseClient';
 import { fetchDiscordGuildRoles } from '../../utils/discordService';
@@ -637,7 +637,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               opacity: refreshing ? 0.6 : 1
             }}
           >
-            <Filter size={16} />
+            <Icon name="filter" size={16} />
             Filters
           </button>
 
@@ -659,7 +659,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               opacity: refreshing ? 0.6 : 1
             }}
           >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            <Icon name="refresh" size={16} className={refreshing ? 'animate-spin' : ''} />
             Refresh
           </button>
 
@@ -681,7 +681,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
               opacity: (verificationIssues.length > 0 && !refreshing) ? 1 : 0.5
             }}
           >
-            <Download size={16} />
+            <Icon name="download" size={16} />
             Export CSV
           </button>
         </div>
@@ -727,7 +727,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                 fontFamily: 'inherit'
               }}
             >
-              <X size={14} />
+              <Icon name="close" size={14} />
               Clear All
             </button>
           </div>
@@ -831,7 +831,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
           borderRadius: '8px',
           border: '1px solid var(--rr-border)'
         }}>
-          <AlertCircle size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
+          <Icon name="alertCircle" size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
           <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px' }}>
             No Discrepancies Found
           </h3>
@@ -927,7 +927,7 @@ const DiscordRoleVerificationReport: React.FC<DiscordRoleVerificationReportProps
                                 }}
                                 title={`Quick Add ${item.type === 'qualification' ? 'Qualification' : 'Team'}`}
                               >
-                                <Wrench size={12} />
+                                <Icon name="wrench" size={12} />
                               </button>
                             </li>
                           ))}

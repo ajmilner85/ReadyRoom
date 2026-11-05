@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect } from 'react';
-import { Pencil, Trash2, BookOpen } from 'lucide-react';
+import { Icon } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import type { ReferenceMaterial } from '../../../types/EventTypes';
 
@@ -131,7 +131,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                 onMouseEnter={() => setShowBookTooltip(true)}
                 onMouseLeave={() => setShowBookTooltip(false)}
               >
-                <BookOpen size={16} style={{ color: 'var(--rr-text2)' }} />
+                <Icon name="bookOpen" size={16} style={{ color: 'var(--rr-text2)' }} />
                 {showBookTooltip && (
                   <div style={{
                     position: 'absolute',
@@ -195,7 +195,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                   }}
                   title="Edit"
                 >
-                  <Pencil size={16} />
+                  <Icon name="edit" size={16} />
                 </button>
                 <button type="button"
                   onClick={() => handleRemove(item.originalIndex)}
@@ -210,7 +210,7 @@ const ReferenceMaterialsInput: React.FC<ReferenceMaterialsInputProps> = ({
                   }}
                   title="Delete"
                 >
-                  <Trash2 size={16} />
+                  <Icon name="trash" size={16} />
                 </button>
               </>
             )}

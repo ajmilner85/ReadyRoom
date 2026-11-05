@@ -1,5 +1,5 @@
 import React from 'react';
-import { Plus, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import StyledSelect from './StyledSelect';
 import {
   AWARD_METRICS,
@@ -156,7 +156,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
           title="Remove condition"
           style={{ ...smallButtonStyle, padding: '5px 6px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
         >
-          <X size={12} />
+          <Icon name="close" size={12} />
         </button>
       </div>
     );
@@ -200,7 +200,7 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
               title="Remove sub-group"
               style={{ ...smallButtonStyle, padding: '5px 6px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
             >
-              <X size={12} />
+              <Icon name="close" size={12} />
             </button>
           </div>
         )
@@ -208,11 +208,11 @@ const AwardRuleBuilder: React.FC<AwardRuleBuilderProps> = ({ group, onChange, cy
 
       <div style={{ display: 'flex', gap: '8px' }}>
         <button onClick={addCondition} style={smallButtonStyle}>
-          <Plus size={12} /> Condition
+          <Icon name="plus" size={12} /> Condition
         </button>
         {depth === 0 && (
           <button onClick={addGroup} style={smallButtonStyle}>
-            <Plus size={12} /> Sub-group
+            <Icon name="plus" size={12} /> Sub-group
           </button>
         )}
       </div>

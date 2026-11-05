@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Users, UserCheck } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import PTRGrid from './PTRGrid';
 import GradingDialog from './GradingDialog';
 import GraduationDialog from './GraduationDialog';
@@ -261,7 +261,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
           borderRadius: '8px', 
           padding: '60px' 
         }}>
-          <UserCheck size={48} style={{ marginBottom: '16px', color: 'var(--rr-text3)' }} />
+          <Icon name="userCheck" size={48} style={{ marginBottom: '16px', color: 'var(--rr-text3)' }} />
           <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px', margin: 0 }}>
             No Training Cycles Available
           </h3>
@@ -293,7 +293,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                     color: 'var(--rr-accent-text)',
                     fontWeight: 500
                   }}>
-                    <Users size={14} />
+                    <Icon name="roster" size={14} />
                     {enrollmentCounts[selectedCycleId] ?? 0} students
                   </div>
                   <div style={{
@@ -308,7 +308,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                     color: 'var(--rr-good)',
                     fontWeight: 500
                   }}>
-                    <UserCheck size={14} />
+                    <Icon name="userCheck" size={14} />
                     {instructorCounts[selectedCycleId] ?? 0} instructors
                   </div>
                 </div>

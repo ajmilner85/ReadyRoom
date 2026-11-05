@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Edit2, Trash2, Star, Plus } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import StyledSelect from '../dossier/StyledSelect';
@@ -390,16 +390,16 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
                 title="Set as default"
                 onClick={() => saveSettings({ default_comms_template_id: t.id })}
               >
-                <Star size={16} color="#64748B" />
+                <Icon name="star" size={16} color="#64748B" />
               </button>
             )}
             {own && (
               <>
                 <button style={iconButton} title="Edit" onClick={() => startEdit(t)}>
-                  <Edit2 size={16} color="#64748B" />
+                  <Icon name="edit" size={16} color="#64748B" />
                 </button>
                 <button style={iconButton} title="Delete" onClick={() => setConfirmDeleteId(t.id)}>
-                  <Trash2 size={16} color="#DC2626" />
+                  <Icon name="trash" size={16} color="#DC2626" />
                 </button>
               </>
             )}
@@ -502,7 +502,7 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
                 </div>
                 {canManage && !draft && (
                   <button style={primaryButton(true)} onClick={startNew}>
-                    <Plus size={16} /> New Template
+                    <Icon name="plus" size={16} /> New Template
                   </button>
                 )}
               </div>

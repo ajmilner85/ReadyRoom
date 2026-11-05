@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Medal, Plus, Pencil, Trash2, X, Upload, Check } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { ConfirmationDialog } from '../ui/dialogs/ConfirmationDialog';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import {
@@ -199,7 +199,7 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ accept, file, onFile, place
           <span>{processingText}</span>
         ) : file ? (
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Upload size={16} />
+            <Icon name="upload" size={16} />
             {file.name}
             <button
               onClick={(e) => { e.stopPropagation(); onFile(null); }}
@@ -217,7 +217,7 @@ const FileDropZone: React.FC<FileDropZoneProps> = ({ accept, file, onFile, place
                 cursor: 'pointer'
               }}
             >
-              <X size={14} />
+              <Icon name="close" size={14} />
             </button>
           </div>
         ) : (
@@ -1328,7 +1328,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       title={issuance.certificate_url ? 'Replace certificate' : 'Attach certificate (image/PDF)'}
                       style={{ ...secondaryButtonStyle, padding: '6px 8px', cursor: isBusy ? 'wait' : 'pointer' }}
                     >
-                      <Upload size={14} />
+                      <Icon name="upload" size={14} />
                       <input
                         type="file"
                         accept="image/*,application/pdf,.pdf"
@@ -1347,7 +1347,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         title="Remove certificate"
                         style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                       >
-                        <X size={14} />
+                        <Icon name="close" size={14} />
                       </button>
                     )}
                   </div>
@@ -1444,7 +1444,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
               disabled={busy}
               style={{ ...secondaryButtonStyle, color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)', whiteSpace: 'nowrap' }}
             >
-              <Trash2 size={14} /> Revoke Selected ({selectedRecords.length})
+              <Icon name="trash" size={14} /> Revoke Selected ({selectedRecords.length})
             </button>
           )}
         </div>
@@ -1540,7 +1540,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       cursor: dirty && !isBusy ? 'pointer' : 'not-allowed'
                     }}
                   >
-                    <Check size={14} />
+                    <Icon name="check" size={14} />
                   </button>
                   <button
                     onClick={() => setPendingRevoke([record])}
@@ -1548,7 +1548,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     title="Revoke this award"
                     style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                   >
-                    <Trash2 size={14} />
+                    <Icon name="trash" size={14} />
                   </button>
                 </div>
               );
@@ -1569,7 +1569,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
         <>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
             <button onClick={() => openNewAwardForm(false)} style={primaryButtonStyle}>
-              <Plus size={14} /> New Award
+              <Icon name="plus" size={14} /> New Award
             </button>
           </div>
 
@@ -1662,7 +1662,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
-                      <Medal size={20} style={{ color: 'var(--rr-text3)' }} />
+                      <Icon name="award" size={20} style={{ color: 'var(--rr-text3)' }} />
                     </div>
                   )}
                   <div style={{ flex: 1, minWidth: 0 }}>
@@ -1741,7 +1741,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         cursor: uniqueAndIssued ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      <Medal size={14} />
+                      <Icon name="award" size={14} />
                     </button>
                   )}
                   <button
@@ -1761,14 +1761,14 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     title="Edit award"
                     style={{ ...secondaryButtonStyle, padding: '6px 8px' }}
                   >
-                    <Pencil size={14} />
+                    <Icon name="edit" size={14} />
                   </button>
                   <button
                     onClick={() => setPendingDeleteAward(award)}
                     title="Delete award (removes all issuances)"
                     style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                   >
-                    <Trash2 size={14} />
+                    <Icon name="trash" size={14} />
                   </button>
                 </div>
                 );
@@ -1796,7 +1796,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           disabled={busy || !newCategoryName.trim()}
           style={{ ...primaryButtonStyle, opacity: busy || !newCategoryName.trim() ? 0.7 : 1 }}
         >
-          <Plus size={14} /> Add
+          <Icon name="plus" size={14} /> Add
         </button>
       </div>
 
@@ -1838,7 +1838,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                     alignItems: 'center',
                     justifyContent: 'center'
                   }}>
-                    <Medal size={16} style={{ color: 'var(--rr-text3)' }} />
+                    <Icon name="award" size={16} style={{ color: 'var(--rr-text3)' }} />
                   </div>
                 )}
                 {isEditing ? (
@@ -1857,14 +1857,14 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       title="Save"
                       style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-good)', borderColor: 'var(--rr-good)' }}
                     >
-                      <Check size={14} />
+                      <Icon name="check" size={14} />
                     </button>
                     <button
                       onClick={() => setEditingCategoryId(null)}
                       title="Cancel"
                       style={{ ...secondaryButtonStyle, padding: '6px 8px' }}
                     >
-                      <X size={14} />
+                      <Icon name="close" size={14} />
                     </button>
                   </>
                 ) : (
@@ -1879,7 +1879,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       title={category.default_image_url ? 'Replace default award image' : 'Set a default award image for this category'}
                       style={{ ...secondaryButtonStyle, padding: '6px 8px', cursor: isBusy ? 'wait' : 'pointer' }}
                     >
-                      <Upload size={14} />
+                      <Icon name="upload" size={14} />
                       <input
                         type="file"
                         accept="image/*,application/pdf,.pdf"
@@ -1898,7 +1898,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         title="Remove default image"
                         style={{ ...secondaryButtonStyle, padding: '6px 8px', color: 'var(--rr-bad)', borderColor: 'var(--rr-bad)' }}
                       >
-                        <X size={14} />
+                        <Icon name="close" size={14} />
                       </button>
                     )}
                     <button
@@ -1906,7 +1906,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                       title="Rename category"
                       style={{ ...secondaryButtonStyle, padding: '6px 8px' }}
                     >
-                      <Pencil size={14} />
+                      <Icon name="edit" size={14} />
                     </button>
                     <button
                       onClick={() => setPendingDeleteCategory(category)}
@@ -1920,7 +1920,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
                         cursor: inUseCount > 0 ? 'not-allowed' : 'pointer'
                       }}
                     >
-                      <Trash2 size={14} />
+                      <Icon name="trash" size={14} />
                     </button>
                   </>
                 )}
@@ -1972,7 +1972,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
             title="Create a new award and issue it to the selected pilots in one step"
             style={{ ...secondaryButtonStyle, whiteSpace: 'nowrap' }}
           >
-            <Plus size={14} /> New Award
+            <Icon name="plus" size={14} /> New Award
           </button>
         )}
       </div>
@@ -1994,7 +1994,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
           {renderIssuanceFields()}
 
           <button onClick={handleIssue} disabled={busy} style={{ ...primaryButtonStyle, marginTop: '20px', opacity: busy ? 0.7 : 1 }}>
-            <Medal size={14} /> {busy ? 'Issuing...' : 'Issue Award'}
+            <Icon name="award" size={14} /> {busy ? 'Issuing...' : 'Issue Award'}
           </button>
         </>
       )}
@@ -2052,7 +2052,7 @@ const AwardsManagerDialog: React.FC<AwardsManagerDialogProps> = ({
               cursor: 'pointer'
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 

@@ -10,7 +10,7 @@ import type { Team, PilotTeam } from '../../../types/TeamTypes';
 import StatusSelector from './StatusSelector';
 import StandingSelector from './StandingSelector';
 import SquadronSelector from './SquadronSelector';
-import { Trash2, Plus, X } from 'lucide-react';
+import { Icon } from '../primitives';
 import QualificationBadge from '../QualificationBadge';
 
 interface BulkEditPilotDetailsProps {
@@ -610,7 +610,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                 e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
             >
-              <Plus size={16} />
+              <Icon name="plus" size={16} />
               Bulk Add Qualification
             </button>
           </div>
@@ -824,7 +824,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                           e.currentTarget.style.backgroundColor = 'transparent';
                         }}
                       >
-                        <X size={12} strokeWidth={2.5} />
+                        <Icon name="close" size={12} strokeWidth={2.5} />
                       </button>
                     </div>
                   </div>
@@ -869,7 +869,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   }
                 }}
               >
-                <Plus size={16} />
+                <Icon name="plus" size={16} />
                 Bulk Add Training Enrollment
               </button>
             </div>
@@ -1030,7 +1030,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
-                      <X size={12} strokeWidth={2.5} />
+                      <Icon name="close" size={12} strokeWidth={2.5} />
                     </button>
                   </div>
                 </div>
@@ -1066,7 +1066,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                 e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
               }}
             >
-              <Plus size={16} />
+              <Icon name="plus" size={16} />
               Bulk Add Team
             </button>
           </div>
@@ -1222,7 +1222,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                         e.currentTarget.style.backgroundColor = 'transparent';
                       }}
                     >
-                      <X size={12} strokeWidth={2.5} />
+                      <Icon name="close" size={12} strokeWidth={2.5} />
                     </button>
                   </div>
                 </div>
@@ -1259,7 +1259,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
             e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
           }}
         >
-          <Trash2 size={16} />
+          <Icon name="trash" size={16} />
           Delete {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
         </button>
 

@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { X, Users, Trash2, ArrowUpDown, UserCheck, ChevronsLeft, ChevronsRight, Plus } from 'lucide-react';
+import { Icon } from '../primitives';
 import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
 import { supabase, getCycleActivities, createEvent, deleteEvent, softDeleteEvent, isEventHistorical } from '../../../utils/supabaseClient';
@@ -357,7 +357,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           transition: 'all 0.2s ease'
         }}
       >
-        <ArrowUpDown size={12} />
+        <Icon name="arrowUpDown" size={12} />
         Squadron
       </button>
       <button
@@ -378,7 +378,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           transition: 'all 0.2s ease'
         }}
       >
-        <ArrowUpDown size={12} />
+        <Icon name="arrowUpDown" size={12} />
         Board Number
       </button>
       <button
@@ -399,7 +399,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           transition: 'all 0.2s ease'
         }}
       >
-        <ArrowUpDown size={12} />
+        <Icon name="arrowUpDown" size={12} />
         Callsign
       </button>
     </div>
@@ -1058,7 +1058,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               }}
               title="Remove"
             >
-              <X size={14} />
+              <Icon name="close" size={14} />
             </button>
           )}
         </div>
@@ -1172,7 +1172,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 cursor: available.length === 0 ? 'default' : 'pointer'
               }}
             >
-              <ChevronsRight size={16} />
+              <Icon name="chevronsRight" size={16} />
             </button>
             <button
               type="button"
@@ -1192,7 +1192,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 cursor: enrolled.length === 0 ? 'default' : 'pointer'
               }}
             >
-              <ChevronsLeft size={16} />
+              <Icon name="chevronsLeft" size={16} />
             </button>
           </div>
 
@@ -1996,7 +1996,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
               justifyContent: 'center'
             }}
           >
-            <X size={20} color="#64748B" />
+            <Icon name="close" size={20} color="#64748B" />
           </button>
         </div>
 
@@ -2045,7 +2045,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 gap: '6px'
               }}
             >
-              <Users size={16} />
+              <Icon name="roster" size={16} />
               Students ({cycleId ? enrolledPilots.length : stagedEnrollmentIds.length})
             </button>
             <button
@@ -2068,7 +2068,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                 gap: '6px'
               }}
             >
-              <UserCheck size={16} />
+              <Icon name="userCheck" size={16} />
               Instructors ({cycleId ? enrolledInstructors.length : stagedInstructorIds.length})
             </button>
           </div>
@@ -2802,7 +2802,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                         gap: '4px'
                       }}
                     >
-                      <Plus size={16} />
+                      <Icon name="plus" size={16} />
                       Add
                     </button>
                   </div>
@@ -2854,7 +2854,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             }}
                             title="Remove role"
                           >
-                            <X size={12} strokeWidth={2.5} />
+                            <Icon name="close" size={12} strokeWidth={2.5} />
                           </button>
                         </div>
                       ))}
@@ -3192,7 +3192,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                                     justifyContent: 'center'
                                   }}
                                 >
-                                  <Trash2 size={16} />
+                                  <Icon name="trash" size={16} />
                                 </button>
                               )}
                             </div>
@@ -3472,7 +3472,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                         gap: '4px'
                       }}
                     >
-                      <ArrowUpDown size={12} />
+                      <Icon name="arrowUpDown" size={12} />
                       {instructorSortBy === 'callsign' ? 'Callsign' : 'Board #'}
                     </button>
                   </div>
@@ -3556,7 +3556,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                                       justifyContent: 'center'
                                     }}
                                   >
-                                    <Trash2 size={16} />
+                                    <Icon name="trash" size={16} />
                                   </button>
                                 )}
                               </div>

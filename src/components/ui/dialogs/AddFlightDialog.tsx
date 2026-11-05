@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Trash2 } from 'lucide-react';
+import { Icon } from '../primitives';
 
 interface FlightEntry {
   callsign: string;
@@ -537,7 +537,7 @@ ADD FLIGHT
                       }}
                       className="delete-button"
                     >
-                      <Trash2 size={14} />
+                      <Icon name="trash" size={14} />
                     </button>
                   )}
                 </div>

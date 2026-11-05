@@ -10,7 +10,7 @@ import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
 import { fetchCarriers } from '../../../utils/supabaseClient';
 import { SupportRole, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
 import type { Mission, SupportRoleAssignment } from '../../../types/MissionTypes';
-import { Trash2 } from 'lucide-react';
+import { Icon } from '../primitives';
 
 // Interface for fetched carrier data
 interface CarrierData {
@@ -978,7 +978,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             }}
             disabled={carriersLoading || supportRoles.length === 0}
           >
-            <Trash2 size={16} />
+            <Icon name="trash" size={16} />
             Remove All
           </button>
           <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>

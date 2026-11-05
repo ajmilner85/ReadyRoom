@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Search, Plus } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 
 interface DCSUnitType {
@@ -197,14 +197,14 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
               color: 'var(--rr-text2)'
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
         {/* Search */}
         <div style={{ padding: '16px 24px', borderBottom: '1px solid var(--rr-border)' }}>
           <div style={{ position: 'relative' }}>
-            <Search
+            <Icon name="search"
               size={18}
               style={{
                 position: 'absolute',
@@ -354,7 +354,7 @@ const AddUnitTypesDialog: React.FC<AddUnitTypesDialogProps> = ({
                 gap: '6px'
               }}
             >
-              <Plus size={16} />
+              <Icon name="plus" size={16} />
               Add Selected
             </button>
           </div>

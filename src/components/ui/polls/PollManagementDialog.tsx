@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Archive, Trash2, BarChart, Edit3 } from 'lucide-react';
+import { Icon } from '../primitives';
 import { pollService } from '../../../utils/pollService';
 import type { PollWithResults } from '../../../types/PollTypes';
 import { ConfirmationDialog } from '../dialogs/ConfirmationDialog';
@@ -306,7 +306,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -341,7 +341,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
             </div>
           ) : polls.length === 0 ? (
             <div style={emptyStateStyle}>
-              <BarChart size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
+              <Icon name="reports" size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text2)', margin: '0 0 8px 0' }}>
                 No polls found
               </h3>
@@ -390,7 +390,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                           }}
                           title="Edit poll"
                         >
-                          <Edit3 size={16} style={{ color: 'var(--rr-accent-text)' }} />
+                          <Icon name="edit" size={16} style={{ color: 'var(--rr-accent-text)' }} />
                         </button>
 
                         <button
@@ -413,7 +413,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                           }}
                           title={poll.is_active ? 'Deactivate poll' : 'Activate poll'}
                         >
-                          {poll.is_active ? <EyeOff size={16} /> : <Eye size={16} />}
+                          {poll.is_active ? <Icon name="eyeOff" size={16} /> : <Icon name="eye" size={16} />}
                         </button>
 
                         <button
@@ -436,7 +436,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                           }}
                           title="Archive poll"
                         >
-                          <Archive size={16} style={{ color: 'var(--rr-warn)' }} />
+                          <Icon name="archive" size={16} style={{ color: 'var(--rr-warn)' }} />
                         </button>
                       </>
                     )}
@@ -461,7 +461,7 @@ const PollManagementDialog: React.FC<PollManagementDialogProps> = ({
                       }}
                       title="Delete poll"
                     >
-                      <Trash2 size={16} style={{ color: 'var(--rr-bad)' }} />
+                      <Icon name="trash" size={16} style={{ color: 'var(--rr-bad)' }} />
                     </button>
                   </div>
                 </div>

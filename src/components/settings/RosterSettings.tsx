@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { AlertCircle, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { Status, getAllStatuses, createStatus, updateStatus, deleteStatus, getStatusUsageCount, initializeDefaultStatuses } from '../../utils/statusService';
 import { Standing, getAllStandings, createStanding, updateStanding, deleteStanding, getStandingUsageCount } from '../../utils/standingService';
 import { Role, getAllRoles, createRole, updateRole, deleteRole, getRoleUsageCount, initializeDefaultRoles } from '../../utils/roleService';
@@ -973,7 +973,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
               fontFamily: 'inherit',
               fontSize: '14px'
             }} role="alert">
-              <AlertCircle size={18} style={{ marginRight: '8px' }} />
+              <Icon name="alertCircle" size={18} style={{ marginRight: '8px' }} />
               <span>{error || localError}</span>
               <button onClick={() => setErrorMessage(null)} style={{
                 marginLeft: 'auto',
@@ -982,7 +982,7 @@ const RosterSettings: React.FC<RosterSettingsProps> = ({ error, setError }) => {
                 cursor: 'pointer',
                 padding: '4px'
               }}>
-                <X size={16} />
+                <Icon name="close" size={16} />
               </button>
             </div>
           )}

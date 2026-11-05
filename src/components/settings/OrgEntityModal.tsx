@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Save, Upload, Edit, Trash } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2, getAccessToken, deleteStorageFileByUrl } from '../../utils/r2StorageService';
 import SquadronDiscordSettings from './SquadronDiscordSettings';
@@ -749,7 +749,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               justifyContent: 'center'
             }}
           >
-            <X size={20} color="#64748B" />
+            <Icon name="close" size={20} color="#64748B" />
           </button>
         </div>
 
@@ -1386,7 +1386,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   }}
                 >
                   {uploadingImage ? (
-                    <Upload size={32} color="#64748B" />
+                    <Icon name="upload" size={32} color="#64748B" />
                   ) : formData.insignia_url ? (
                     <img 
                       src={formData.insignia_url} 
@@ -1398,7 +1398,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                       }} 
                     />
                   ) : (
-                    <Upload size={32} color="#64748B" />
+                    <Icon name="upload" size={32} color="#64748B" />
                   )}
                 </div>
                 
@@ -1735,7 +1735,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           alignItems: 'center'
                         }}
                       >
-                        <X size={12} />
+                        <Icon name="close" size={12} />
                       </button>
                     </div>
                   ))}
@@ -1874,7 +1874,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <Edit size={14} color="#64748B" />
+                          <Icon name="edit" size={14} color="#64748B" />
                         </button>
                         <button
                           onClick={() => handleDeleteTeam(team.id)}
@@ -1891,7 +1891,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <Trash size={14} color="#EF4444" />
+                          <Icon name="trash" size={14} color="#EF4444" />
                         </button>
                       </div>
                     </div>
@@ -2082,7 +2082,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                 gap: '8px'
               }}
             >
-              <Save size={16} />
+              <Icon name="save" size={16} />
               {mode === 'create' ? 'Create' : 'Save'}
             </button>
           </div>

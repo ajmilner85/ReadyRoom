@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { MessageSquare, Plus, Trash, Crown, Shield, Users, User, Server, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { getAvailableDiscordServers, getServerChannels, DiscordServer, fetchDiscordGuildRoles } from '../../utils/discordService';
 import { getAllQualifications } from '../../utils/qualificationService';
 import { getAllTeams } from '../../utils/teamService';
@@ -356,31 +356,31 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
   const getRoleMappingIcon = (mapping: RoleMapping) => {
     let overlayIcon;
     if (mapping.isIgnoreUsers) {
-      overlayIcon = <X style={{ color: 'var(--rr-bad)', width: 7, height: 7 }} strokeWidth={2.5} />;
+      overlayIcon = <Icon name="close" style={{ color: 'var(--rr-bad)', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else if (mapping.appPermission) {
       // Create appropriately sized icon based on permission
       switch (mapping.appPermission) {
         case 'admin':
-          overlayIcon = <Crown size={7} className="text-bad" strokeWidth={2.5} />;
+          overlayIcon = <Icon name="crown" size={7} className="text-bad" strokeWidth={2.5} />;
           break;
         case 'flight_lead':
-          overlayIcon = <Shield size={7} className="text-orange-600" strokeWidth={2.5} />;
+          overlayIcon = <Icon name="shield" size={7} className="text-orange-600" strokeWidth={2.5} />;
           break;
         case 'member':
-          overlayIcon = <Users size={7} className="text-accent" strokeWidth={2.5} />;
+          overlayIcon = <Icon name="roster" size={7} className="text-accent" strokeWidth={2.5} />;
           break;
         case 'guest':
-          overlayIcon = <User size={7} className="text-text2" strokeWidth={2.5} />;
+          overlayIcon = <Icon name="user" size={7} className="text-text2" strokeWidth={2.5} />;
           break;
         default:
-          overlayIcon = <Shield size={7} className="text-text2" strokeWidth={2.5} />;
+          overlayIcon = <Icon name="shield" size={7} className="text-text2" strokeWidth={2.5} />;
       }
     } else if (mapping.squadronId) {
       // Icon for squadron affiliation
-      overlayIcon = <Server style={{ color: '#7C3AED', width: 7, height: 7 }} strokeWidth={2.5} />;
+      overlayIcon = <Icon name="server" style={{ color: '#7C3AED', width: 7, height: 7 }} strokeWidth={2.5} />;
     } else {
       // Default icon for qualifications
-      overlayIcon = <Shield style={{ color: 'var(--rr-good)', width: 7, height: 7 }} strokeWidth={2.5} />;
+      overlayIcon = <Icon name="shield" style={{ color: 'var(--rr-good)', width: 7, height: 7 }} strokeWidth={2.5} />;
     }
     return <DiscordLogo size={18} overlayIcon={overlayIcon} />;
   };
@@ -534,7 +534,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
         marginBottom: '20px' 
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <MessageSquare size={18} style={{ color: '#5865F2' }} />
+          <Icon name="message" size={18} style={{ color: '#5865F2' }} />
           <h4 style={{ 
             fontSize: '16px', 
             fontWeight: 600, 
@@ -577,7 +577,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
           alignItems: 'center',
           gap: '8px'
         }}>
-          <Server size={16} style={{ color: '#5865F2' }} />
+          <Icon name="server" size={16} style={{ color: '#5865F2' }} />
           <select
             value={selectedGuildId || ''}
             onChange={(e) => onGuildChange?.(e.target.value)}
@@ -681,7 +681,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               fontFamily: 'inherit'
             }}
           >
-            <Plus size={12} />
+            <Icon name="plus" size={12} />
             Add Channel
           </button>
         </div>
@@ -745,7 +745,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       color: 'var(--rr-bad)'
                     }}
                   >
-                    <Trash size={12} />
+                    <Icon name="trash" size={12} />
                   </button>
                 </div>
               ))}
@@ -968,7 +968,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                   }}
                   title="Remove role"
                 >
-                  <X size={12} strokeWidth={2.5} />
+                  <Icon name="close" size={12} strokeWidth={2.5} />
                 </button>
               </div>
             ))}
@@ -1161,7 +1161,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
               fontFamily: 'inherit'
             }}
           >
-            <Plus size={12} />
+            <Icon name="plus" size={12} />
             Map Role
           </button>
         </div>
@@ -1226,7 +1226,7 @@ const SquadronDiscordSettings: React.FC<SquadronDiscordSettingsProps> = ({
                       color: 'var(--rr-bad)'
                     }}
                   >
-                    <Trash size={12} />
+                    <Icon name="trash" size={12} />
                   </button>
                 </div>
               ))}

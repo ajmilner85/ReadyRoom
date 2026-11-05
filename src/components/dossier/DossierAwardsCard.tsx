@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Medal, Settings } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { dossierStyles, formatDossierDate } from './dossierStyles';
 import AwardViewerDialog from './AwardViewerDialog';
 import { groupPilotAwardsForDisplay, type PilotAward, type PilotAwardDisplayGroup } from '../../utils/awardService';
@@ -55,7 +55,7 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
             onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
             onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel)'; }}
           >
-            <Settings size={14} />
+            <Icon name="settings" size={14} />
           </button>
         )}
       </div>
@@ -73,7 +73,7 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
             padding: '16px 0',
             color: 'var(--rr-text3)'
           }}>
-            <Medal size={40} style={{ color: 'var(--rr-text3)' }} />
+            <Icon name="award" size={40} style={{ color: 'var(--rr-text3)' }} />
             <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>No awards in the selected scope</div>
           </div>
         ) : (
@@ -153,7 +153,7 @@ const DossierAwardsCard: React.FC<DossierAwardsCardProps> = ({
                       alignItems: 'center',
                       justifyContent: 'center'
                     }}>
-                      <Medal size={36} style={{ color: 'var(--rr-text3)' }} />
+                      <Icon name="award" size={36} style={{ color: 'var(--rr-text3)' }} />
                     </div>
                   )}
                   <div style={{

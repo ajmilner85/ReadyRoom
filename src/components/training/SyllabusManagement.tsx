@@ -2,7 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
-import { BookOpen, Plus, Edit, Trash2 } from 'lucide-react';
+import { Edit } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { useComponentPermissions } from '../../hooks/usePermissions';
 import SyllabusEditor from './SyllabusEditor';
 
@@ -163,7 +164,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
             }}
             onClick={() => setSelectedSyllabusId('new')}
           >
-            <Plus size={16} />
+            <Icon name="plus" size={16} />
             Create Syllabus
           </button>
         </div>
@@ -245,7 +246,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                       }}
                       onClick={() => setSelectedSyllabusId(syllabus.id)}
                     >
-                      <Edit size={14} />
+                      <Icon name="edit" size={14} />
                       Edit
                     </button>
                     {isVisible('manage_training_syllabi') && (
@@ -264,7 +265,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
                         }}
                         onClick={() => handleDeleteClick(syllabus.id)}
                       >
-                        <Trash2 size={14} />
+                        <Icon name="trash" size={14} />
                       </button>
                     )}
                   </div>
@@ -277,7 +278,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
           })
         ) : (
           <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px' }}>
-            <BookOpen size={48} style={{ color: 'var(--rr-text3)', marginBottom: '16px' }} />
+            <Icon name="bookOpen" size={48} style={{ color: 'var(--rr-text3)', marginBottom: '16px' }} />
             <p style={{ color: 'var(--rr-text2)', marginBottom: '16px', margin: 0 }}>No training syllabi created yet</p>
             <button
               style={{
@@ -296,7 +297,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
               }}
               onClick={() => setSelectedSyllabusId('new')}
             >
-              <Plus size={16} />
+              <Icon name="plus" size={16} />
               Create Your First Syllabus
             </button>
           </div>

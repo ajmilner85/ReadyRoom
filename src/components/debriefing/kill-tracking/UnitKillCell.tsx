@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Minus } from 'lucide-react';
+import { Icon } from '../../ui/primitives';
 
 interface UnitKillCellProps {
   unitDisplayName?: string;
@@ -77,7 +77,7 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
             }}
           >
-            <Plus size={16} strokeWidth={2.5} />
+            <Icon name="plus" size={16} strokeWidth={2.5} />
           </button>
         )}
       </div>
@@ -164,7 +164,7 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
           >
-            <Minus size={12} strokeWidth={2.5} />
+            <Icon name="minus" size={12} strokeWidth={2.5} />
           </button>
         )}
 
@@ -210,7 +210,7 @@ const UnitKillCell: React.FC<UnitKillCellProps> = ({
               e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
           >
-            <Plus size={12} strokeWidth={2.5} />
+            <Icon name="plus" size={12} strokeWidth={2.5} />
           </button>
         )}
       </div>

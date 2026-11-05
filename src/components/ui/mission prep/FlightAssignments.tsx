@@ -5,7 +5,6 @@ import AddFlightDialog from '../dialogs/AddFlightDialog';
 import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import type { Mission } from '../../../types/MissionTypes';
-import { Trash2, Settings } from 'lucide-react';
 import { Button, EmptyState, Icon } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import type { Squadron } from '../../../types/OrganizationTypes';
@@ -2143,7 +2142,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
             }}
           >
-            <Trash2 size={16} />
+            <Icon name="trash" size={16} />
             Remove All
           </button>
           {/* Split Publish Button */}
@@ -2226,7 +2225,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               }}
               title="Publication settings"
             >
-              <Settings size={16} style={{ color: isPublished ? '#FFFFFF' : 'var(--rr-text2)' }} />
+              <Icon name="settings" size={16} style={{ color: isPublished ? '#FFFFFF' : 'var(--rr-text2)' }} />
             </button>
           </div>
         </div>

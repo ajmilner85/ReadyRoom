@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Plus, Minus, Trash2 } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 
 interface UnitBadgeProps {
   unitTypeName: string;
@@ -114,7 +114,7 @@ const UnitBadge: React.FC<UnitBadgeProps> = ({
               padding: 0
             }}
           >
-            <Minus size={12} strokeWidth={2.5} />
+            <Icon name="minus" size={12} strokeWidth={2.5} />
           </button>
 
           {/* Increment Button */}
@@ -137,7 +137,7 @@ const UnitBadge: React.FC<UnitBadgeProps> = ({
               padding: 0
             }}
           >
-            <Plus size={12} strokeWidth={2.5} />
+            <Icon name="plus" size={12} strokeWidth={2.5} />
           </button>
 
           {/* Remove Button */}
@@ -161,7 +161,7 @@ const UnitBadge: React.FC<UnitBadgeProps> = ({
               padding: 0
             }}
           >
-            <Trash2 size={11} strokeWidth={2.5} />
+            <Icon name="trash" size={11} strokeWidth={2.5} />
           </button>
         </div>
       )}

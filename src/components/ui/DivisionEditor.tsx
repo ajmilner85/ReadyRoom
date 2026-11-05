@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import ReactDOM from 'react-dom';
-import { Edit2, Trash2 } from 'lucide-react';
+import { Icon } from './primitives';
 import { useSections } from '../layout/SectionContext';
 import { LaunchDivisionDialog } from './dialogs/LaunchDivisionDialog';
 import { EnRouteDivisionDialog } from './dialogs/EnRouteDivisionDialog';
@@ -160,7 +160,7 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({
                 e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
               }}
             >
-              <Edit2 size={16} />
+              <Icon name="edit" size={16} />
             </button>
             {!hasFlights && (
               <button
@@ -174,7 +174,7 @@ const DivisionEditor: React.FC<DivisionEditorProps> = ({
                   e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
                 }}
               >
-                <Trash2 size={16} />
+                <Icon name="trash" size={16} />
               </button>
             )}
           </div>

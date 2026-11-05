@@ -6,7 +6,7 @@ import {
   processPilotMatches
 } from '../../../utils/discordPilotService';
 import { syncUserDiscordRoles } from '../../../utils/discordRoleSync';
-import { X, Shield, Filter, Eye, EyeOff } from 'lucide-react';
+import { Icon } from '../primitives';
 import { Pilot } from '../../../utils/pilotTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { Status } from '../../../utils/statusService';
@@ -797,7 +797,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             }}
             disabled={processing}
           >
-            <X size={20} color="#64748B" />
+            <Icon name="close" size={20} color="#64748B" />
           </button>
         </div>
 
@@ -887,7 +887,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               color: filterDiscordRoles.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                             }}
                           >
-                            <Filter size={12} />
+                            <Icon name="filter" size={12} />
                           </button>
                         </div>
                         {showDiscordRolesFilter && (
@@ -917,10 +917,10 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                 
                                 if (mode === 'include') {
                                   backgroundColor = 'var(--rr-accent-weak)';
-                                  icon = <Eye size={12} style={{ color: 'var(--rr-accent-text)' }} />;
+                                  icon = <Icon name="eye" size={12} style={{ color: 'var(--rr-accent-text)' }} />;
                                 } else if (mode === 'exclude') {
                                   backgroundColor = 'rgba(224,82,78,.12)';
-                                  icon = <EyeOff size={12} style={{ color: 'var(--rr-bad)' }} />;
+                                  icon = <Icon name="eyeOff" size={12} style={{ color: 'var(--rr-bad)' }} />;
                                 }
                                 
                                 return (
@@ -1015,7 +1015,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               color: filterStandingIds.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                             }}
                           >
-                            <Filter size={12} />
+                            <Icon name="filter" size={12} />
                           </button>
                         </div>
                         {showStandingFilter && (
@@ -1111,7 +1111,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                               color: filterSquadronIds.length > 0 ? 'var(--rr-accent-text)' : 'var(--rr-text2)'
                             }}
                           >
-                            <Filter size={12} />
+                            <Icon name="filter" size={12} />
                           </button>
                         </div>
                         {showSquadronFilter && (
@@ -1556,7 +1556,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                       alignItems: 'center'
                                     }}
                                   >
-                                    <Eye size={14} />
+                                    <Icon name="eye" size={14} />
                                   </button>
                                   
                                   {showRolesPopup === match.discordMember.id && popupPosition && (
@@ -1730,7 +1730,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             border: '1px solid var(--rr-border)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Shield size={16} className="text-accent" />
+              <Icon name="shield" size={16} className="text-accent" />
               <label style={{
                 display: 'flex',
                 alignItems: 'center',

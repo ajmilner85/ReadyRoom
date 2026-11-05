@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { User, Lock, RefreshCw, Link, ExternalLink, Shield, Mail, Copy, Check, Tablet, Key } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 
 interface UserAccountsProps {
   error?: string | null;
@@ -69,7 +69,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
           {/* Current Session Info */}
           <div style={sectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Shield size={20} />
+          <Icon name="shield" size={20} />
           Current Session
         </h3>
         
@@ -100,7 +100,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
       {/* Account Information */}
       <div style={sectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <User size={20} />
+          <Icon name="user" size={20} />
           Account Information
         </h3>
         
@@ -112,7 +112,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
         }}>
           <div style={{ display: 'grid', gap: '12px' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Mail size={16} className="text-text2" />
+              <Icon name="mail" size={16} className="text-text2" />
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Email Address</div>
                 <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>{user?.email || 'Not available'}</div>
@@ -122,7 +122,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             {userProfile?.pilot && (
               <>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <User size={16} className="text-text2" />
+                  <Icon name="user" size={16} className="text-text2" />
                   <div>
                     <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Pilot Record</div>
                     <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
@@ -134,7 +134,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
             )}
             
             <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-              <Link size={16} className="text-text2" />
+              <Icon name="link" size={16} className="text-text2" />
               <div>
                 <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Discord Account</div>
                 <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>
@@ -149,7 +149,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
       {/* Password Reset Section */}
       <div style={sectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Key size={20} />
+          <Icon name="key" size={20} />
           Password & Security
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
@@ -182,7 +182,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
               e.currentTarget.style.borderColor = 'var(--rr-border2)';
             }}
           >
-            <Lock size={16} />
+            <Icon name="lock" size={16} />
             Reset Password
           </button>
         ) : (
@@ -256,12 +256,12 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                 >
                   {resetLoading ? (
                     <>
-                      <RefreshCw size={14} className="animate-spin" />
+                      <Icon name="refresh" size={14} className="animate-spin" />
                       Sending...
                     </>
                   ) : (
                     <>
-                      <Mail size={14} />
+                      <Icon name="mail" size={14} />
                       Send Reset Email
                     </>
                   )}
@@ -295,7 +295,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
       {/* Discord Integration */}
       <div style={sectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Link size={20} />
+          <Icon name="link" size={20} />
           Discord Integration
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
@@ -346,7 +346,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
               onMouseEnter={(e) => e.currentTarget.style.backgroundColor = '#4752C4'}
               onMouseLeave={(e) => e.currentTarget.style.backgroundColor = '#5865F2'}
             >
-              <ExternalLink size={14} />
+              <Icon name="externalLink" size={14} />
               {userProfile?.discordUsername ? 'Relink Discord' : 'Connect Discord'}
             </button>
           </div>
@@ -356,7 +356,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
       {/* OpenKneeboard Integration */}
       <div style={lastSectionStyle}>
         <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0', display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Tablet size={20} />
+          <Icon name="tablet" size={20} />
           OpenKneeboard
         </h3>
         <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
@@ -421,12 +421,12 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
               >
                 {copied ? (
                   <>
-                    <Check size={16} />
+                    <Icon name="check" size={16} />
                     Copied!
                   </>
                 ) : (
                   <>
-                    <Copy size={16} />
+                    <Icon name="copy" size={16} />
                     Copy URL
                   </>
                 )}

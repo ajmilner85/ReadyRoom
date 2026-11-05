@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Check, Medal, RefreshCw, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import StyledSelect from './StyledSelect';
 import { describeRuleNode, awardMetricDefinition, collectRuleConditions } from '../../utils/awardRules';
 import {
@@ -32,8 +32,8 @@ function renderColumnValue(column: EligibilityColumn, columnValue: EligibilityCo
   const metricDef = awardMetricDefinition(column.metric);
   if (metricDef.isBoolean) {
     return columnValue.value >= 1
-      ? <Check size={14} style={{ color: 'var(--rr-good)' }} />
-      : <X size={14} style={{ color: 'var(--rr-text3)' }} />;
+      ? <Icon name="check" size={14} style={{ color: 'var(--rr-good)' }} />
+      : <Icon name="close" size={14} style={{ color: 'var(--rr-text3)' }} />;
   }
   if (columnValue.total !== undefined) {
     return <>{columnValue.value}/{columnValue.total}</>;
@@ -269,7 +269,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
           disabled={!cycleId || checking}
           style={{ ...primaryButtonStyle, opacity: !cycleId || checking ? 0.6 : 1, whiteSpace: 'nowrap' }}
         >
-          <RefreshCw size={14} /> {checking ? 'Checking...' : 'Check Eligibility'}
+          <Icon name="refresh" size={14} /> {checking ? 'Checking...' : 'Check Eligibility'}
         </button>
       </div>
 
@@ -383,7 +383,7 @@ const AwardEligibilityPanel: React.FC<AwardEligibilityPanelProps> = ({
             disabled={issuing || selected.size === 0 || !awardedDate}
             style={{ ...primaryButtonStyle, marginTop: '16px', opacity: issuing || selected.size === 0 || !awardedDate ? 0.6 : 1 }}
           >
-            <Medal size={14} /> {issuing ? 'Issuing...' : `Issue to ${selected.size} Pilot${selected.size === 1 ? '' : 's'}`}
+            <Icon name="award" size={14} /> {issuing ? 'Issuing...' : `Issue to ${selected.size} Pilot${selected.size === 1 ? '' : 's'}`}
           </button>
         </>
       )}

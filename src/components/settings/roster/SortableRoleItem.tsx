@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Edit, Trash } from 'lucide-react';
+import { Icon } from '../../ui/primitives';
 import { Role, ExclusivityScope } from '../../../utils/roleService';
 
 interface SortableRoleItemProps {
@@ -58,7 +58,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
+        <Icon name="grip" size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Role Name Column */}
@@ -191,7 +191,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Edit size={14} color="#64748B" />
+              <Icon name="edit" size={14} color="#64748B" />
             </button>
             <button
               onClick={onDeleteClick}
@@ -226,7 +226,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
                 }
               }}
             >
-              <Trash size={14} color={roleUsage[role.id] > 0 ? "#9CA3AF" : "#64748B"} />
+              <Icon name="trash" size={14} color={roleUsage[role.id] > 0 ? "#9CA3AF" : "#64748B"} />
             </button>
           </>
         )}

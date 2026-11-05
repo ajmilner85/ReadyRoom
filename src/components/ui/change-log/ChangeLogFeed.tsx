@@ -1,5 +1,5 @@
 import React, { useRef, useEffect, useState } from 'react';
-import { ChevronDown } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { ChangeLogPostWithStats } from '../../../types/ChangeLogTypes';
 import ChangeLogPost from './ChangeLogPost';
 import LoadingSpinner from '../LoadingSpinner';
@@ -188,7 +188,7 @@ const ChangeLogFeed: React.FC<ChangeLogFeedProps> = ({
         }}
         title="Scroll to newest posts"
       >
-        <ChevronDown size={16} />
+        <Icon name="chevronDown" size={16} />
       </button>
     </div>
   );

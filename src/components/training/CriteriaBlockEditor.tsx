@@ -8,7 +8,7 @@
  */
 
 import React from 'react';
-import { Plus, Trash2, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 
 // Types
 // 'squadron' rules store the squadron UUID (tail codes/designations are never
@@ -260,7 +260,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                     }}
                     title="Remove block"
                   >
-                    <X size={16} color="#64748B" />
+                    <Icon name="close" size={16} color="#64748B" />
                   </button>
                 ) : (
                 <div style={{
@@ -300,7 +300,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                     }}
                     title="Remove block"
                   >
-                    <X size={14} />
+                    <Icon name="close" size={14} />
                     Remove Block
                   </button>
                 </div>
@@ -506,7 +506,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                           }}
                           title="Remove criterion"
                         >
-                          <Trash2 size={16} />
+                          <Icon name="trash" size={16} />
                         </button>
                       </div>
                     </div>
@@ -535,7 +535,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                       e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
                     }}
                   >
-                    <Plus size={14} />
+                    <Icon name="plus" size={14} />
                     Add AND Criterion
                   </button>
                 </div>
@@ -568,7 +568,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
           e.currentTarget.style.backgroundColor = 'var(--rr-accent-weak)';
         }}
       >
-        <Plus size={16} />
+        <Icon name="plus" size={16} />
         {addBlockLabel}
       </button>
 

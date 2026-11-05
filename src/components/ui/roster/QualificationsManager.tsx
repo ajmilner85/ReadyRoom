@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Qualification } from '../../../utils/qualificationService';
 import QualificationBadge from '../QualificationBadge';
-import { X } from 'lucide-react';
+import { Icon } from '../primitives';
 
 interface QualificationsManagerProps {
   pilotQualifications: any[];
@@ -369,7 +369,7 @@ const QualificationsManager: React.FC<QualificationsManagerProps> = ({
                           }
                         }}
                       >
-                        <X size={10} />
+                        <Icon name="close" size={10} />
                       </button>
                     </div>
                   </div>

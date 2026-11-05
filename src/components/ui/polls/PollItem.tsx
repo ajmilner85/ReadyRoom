@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Check, Users } from 'lucide-react';
+import { Icon } from '../primitives';
 import type { PollWithResults } from '../../../types/PollTypes';
 
 interface PollItemProps {
@@ -175,7 +175,7 @@ const PollItem: React.FC<PollItemProps> = ({
                       backgroundColor: primaryColor,
                       color: '#FFFFFF',
                     }}>
-                      <Check size={10} />
+                      <Icon name="check" size={10} />
                     </div>
                   )}
                   {isVotingThis ? (
@@ -227,7 +227,7 @@ const PollItem: React.FC<PollItemProps> = ({
 
       {/* Total Votes */}
       <div style={statsStyle}>
-        <Users size={14} />
+        <Icon name="roster" size={14} />
         <span>{poll.totalVotes} vote{poll.totalVotes !== 1 ? 's' : ''}</span>
         {poll.totalVotes > 0 && (
           <>

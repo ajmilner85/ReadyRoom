@@ -1,5 +1,5 @@
 import React from 'react';
-import { AlertTriangle, Trash2, Archive } from 'lucide-react';
+import { Button, Dialog, Icon, IconName } from '../primitives';
 
 interface ConfirmationDialogProps {
   isOpen: boolean;
@@ -13,6 +13,19 @@ interface ConfirmationDialogProps {
   icon?: 'trash' | 'archive' | 'warning' | 'none';
 }
 
+const ICONS: Record<'trash' | 'archive' | 'warning', IconName> = {
+  trash: 'trash',
+  archive: 'archive',
+  warning: 'alertTriangle',
+};
+
+const TONE: Record<'danger' | 'warning' | 'info', { fg: string; bg: string }> = {
+  danger: { fg: 'var(--rr-bad)', bg: 'rgba(224,82,78,.14)' },
+  warning: { fg: 'var(--rr-warn)', bg: 'rgba(222,154,31,.14)' },
+  info: { fg: 'var(--rr-info)', bg: 'rgba(62,155,212,.14)' },
+};
+
+/** Confirmation dialog on the kit Dialog (same props as before). */
 export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   isOpen,
   onConfirm,
@@ -22,171 +35,43 @@ export const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   confirmText = 'Confirm',
   cancelText = 'Cancel',
   type = 'danger',
-  icon = 'warning'
+  icon = 'warning',
 }) => {
-  if (!isOpen) return null;
-
-  const getIconComponent = () => {
-    switch (icon) {
-      case 'trash':
-        return <Trash2 size={20} />;
-      case 'archive':
-        return <Archive size={20} />;
-      case 'warning':
-        return <AlertTriangle size={20} />;
-      case 'none':
-      default:
-        return null;
-    }
-  };
-
-  const getTypeColors = () => {
-    switch (type) {
-      case 'danger':
-        return {
-          iconColor: '#EF4444',
-          confirmBg: '#EF4444',
-          confirmBorder: '#EF4444'
-        };
-      case 'warning':
-        return {
-          iconColor: '#F59E0B',
-          confirmBg: '#F59E0B',
-          confirmBorder: '#F59E0B'
-        };
-      case 'info':
-      default:
-        return {
-          iconColor: '#3B82F6',
-          confirmBg: '#3B82F6',
-          confirmBorder: '#3B82F6'
-        };
-    }
-  };
-
-  const colors = getTypeColors();
-
-  const overlayStyle: React.CSSProperties = {
-    position: 'fixed',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 1002,
-    padding: '20px',
-  };
-
-  const dialogStyle: React.CSSProperties = {
-    backgroundColor: 'var(--rr-panel)',
-    borderRadius: '12px',
-    width: '100%',
-    maxWidth: '400px',
-    overflow: 'hidden',
-    boxShadow: 'var(--rr-shadow-lg)',
-  };
-
-  const headerStyle: React.CSSProperties = {
-    padding: '24px 24px 16px 24px',
-    textAlign: 'center',
-  };
-
-  const iconStyle: React.CSSProperties = {
-    color: colors.iconColor,
-    marginBottom: '16px',
-  };
-
-  const titleStyle: React.CSSProperties = {
-    fontSize: '18px',
-    fontWeight: 600,
-    color: 'var(--rr-text)',
-    margin: '0 0 12px 0',
-  };
-
-  const messageStyle: React.CSSProperties = {
-    fontSize: '14px',
-    color: 'var(--rr-text2)',
-    lineHeight: '1.5',
-    margin: 0,
-  };
-
-  const footerStyle: React.CSSProperties = {
-    display: 'flex',
-    gap: '12px',
-    padding: '16px 24px 24px 24px',
-  };
-
-  const buttonStyle: React.CSSProperties = {
-    flex: 1,
-    padding: '10px 16px',
-    borderRadius: '6px',
-    fontSize: '14px',
-    fontWeight: 500,
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    border: '1px solid',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  };
-
-  const cancelButtonStyle: React.CSSProperties = {
-    ...buttonStyle,
-    backgroundColor: 'var(--rr-panel)',
-    borderColor: 'var(--rr-border2)',
-    color: 'var(--rr-text)',
-  };
-
-  const confirmButtonStyle: React.CSSProperties = {
-    ...buttonStyle,
-    backgroundColor: colors.confirmBg,
-    borderColor: colors.confirmBorder,
-    color: '#FFFFFF',
-  };
-
+  const tone = TONE[type];
   return (
-    <div style={overlayStyle} onClick={onCancel}>
-      <div style={dialogStyle} onClick={e => e.stopPropagation()}>
-        <div style={headerStyle}>
-          {icon !== 'none' && (
-            <div style={iconStyle}>
-              {getIconComponent()}
-            </div>
+    <Dialog
+      open={isOpen}
+      onClose={onCancel}
+      width={440}
+      zIndex={1100}
+      title={title}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onCancel}>{cancelText}</Button>
+          {type === 'danger' ? (
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="inline-flex items-center justify-center gap-[7px] px-4 py-2 rounded-rr-ctl text-[13px] font-semibold text-white border-0 cursor-pointer bg-bad hover:brightness-110 active:scale-[.93] transition-[filter,transform]"
+            >
+              {confirmText}
+            </button>
+          ) : (
+            <Button variant="primary" onClick={onConfirm}>{confirmText}</Button>
           )}
-          <h2 style={titleStyle}>{title}</h2>
-          <p style={messageStyle}>{message}</p>
-        </div>
-
-        <div style={footerStyle}>
-          <button
-            onClick={onCancel}
-            style={cancelButtonStyle}
-            onMouseEnter={e => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
-            }}
-          >
-            {cancelText}
-          </button>
-          <button
-            onClick={onConfirm}
-            style={confirmButtonStyle}
-            onMouseEnter={e => {
-              e.currentTarget.style.opacity = '0.9';
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.opacity = '1';
-            }}
-          >
-            {confirmText}
-          </button>
-        </div>
+        </>
+      }
+    >
+      <div className="flex items-start gap-3">
+        {icon !== 'none' ? (
+          <span className="flex-none w-9 h-9 rounded-rr-lg flex items-center justify-center" style={{ background: tone.bg, color: tone.fg }}>
+            <Icon name={ICONS[icon]} size={18} />
+          </span>
+        ) : null}
+        <p className="m-0 text-[13px] leading-[1.55] text-text2 whitespace-pre-line">{message}</p>
       </div>
-    </div>
+    </Dialog>
   );
 };
+
+export default ConfirmationDialog;

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { GripVertical, Edit, Trash } from 'lucide-react';
+import { Icon } from '../../ui/primitives';
 import { Status } from '../../../utils/statusService';
 
 interface SortableStatusRowProps {
@@ -87,7 +87,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
         {...attributes}
         {...listeners}
       >
-        <GripVertical size={16} style={{ color: 'var(--rr-text2)' }} />
+        <Icon name="grip" size={16} style={{ color: 'var(--rr-text2)' }} />
       </div>
 
       {/* Status Name Column */}
@@ -153,7 +153,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Edit size={14} color="#64748B" />
+              <Icon name="edit" size={14} color="#64748B" />
             </button>
             <button
               onClick={onDeleteClick}
@@ -188,7 +188,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
                 }
               }}
             >
-              <Trash size={14} color={statusUsage[status.id] > 0 ? "#9CA3AF" : "#64748B"} />
+              <Icon name="trash" size={14} color={statusUsage[status.id] > 0 ? "#9CA3AF" : "#64748B"} />
             </button>
           </>
         )}

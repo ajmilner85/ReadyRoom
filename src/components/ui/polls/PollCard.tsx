@@ -1,5 +1,5 @@
 import React, { useEffect } from 'react';
-import { Plus, BarChart3, Settings } from 'lucide-react';
+import { Icon } from '../primitives';
 import { usePolls } from '../../../hooks/usePolls';
 import { usePermissions } from '../../../hooks/usePermissions';
 import { useAppSettings } from '../../../context/AppSettingsContext';
@@ -156,7 +156,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
                 }}
                 title="Manage Polls"
               >
-                <Settings size={16} />
+                <Icon name="settings" size={16} />
               </button>
             )}
             {onCreatePoll && (
@@ -171,7 +171,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
                 }}
                 title="Create Poll"
               >
-                <Plus size={16} />
+                <Icon name="plus" size={16} />
               </button>
             )}
           </div>
@@ -186,7 +186,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
           </div>
         ) : polls.length === 0 ? (
           <div style={emptyStateStyle}>
-            <BarChart3 size={48} color="#D1D5DB" style={{ marginBottom: '16px' }} />
+            <Icon name="reports" size={48} color="#D1D5DB" style={{ marginBottom: '16px' }} />
             <h3 style={{ margin: '0 0 8px 0', fontSize: '16px', fontWeight: 500 }}>
               No Active Polls
             </h3>

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import { Team } from '../../../types/TeamTypes';
-import { X } from 'lucide-react';
+import { Icon } from '../primitives';
 
 interface TeamsManagerProps {
   pilotTeams: any[];
@@ -279,7 +279,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                           }
                         }}
                       >
-                        <X size={10} />
+                        <Icon name="close" size={10} />
                       </button>
                     </div>
                   </div>

@@ -1,6 +1,6 @@
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { Plus, Minus, X, RotateCcw } from 'lucide-react';
+import { Icon } from '../primitives';
 import { ConfirmationDialog } from '../dialogs/ConfirmationDialog';
 import { ParticipantCriteriaBubbles } from './ParticipantBlocksEditor';
 import type { CycleActivity, EventActivityParticipantBlock } from '../../../types/EventTypes';
@@ -429,7 +429,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             cursor: (weekCount <= 1 || activities.some(a => a.endWeek >= weekCount)) ? 'default' : 'pointer'
           }}
         >
-          <Minus size={14} />
+          <Icon name="minus" size={14} />
         </button>
         <button
           type="button"
@@ -448,7 +448,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
             cursor: 'pointer'
           }}
         >
-          <Plus size={14} />
+          <Icon name="plus" size={14} />
         </button>
       </div>
 
@@ -537,7 +537,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                         zIndex: 1
                       }}
                     >
-                      <X size={14} color="#64748B" />
+                      <Icon name="close" size={14} color="#64748B" />
                     </button>
                   )}
                 </div>
@@ -748,7 +748,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                           justifyContent: 'center'
                                         }}
                                       >
-                                        <X size={11} color="#64748B" />
+                                        <Icon name="close" size={11} color="#64748B" />
                                       </button>
                                     )}
                                   </div>
@@ -818,7 +818,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                   justifyContent: 'center'
                                 }}
                               >
-                                <RotateCcw size={13} color="#64748B" />
+                                <Icon name="reset" size={13} color="#64748B" />
                               </button>
                             )}
                             <button
@@ -840,7 +840,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                 justifyContent: 'center'
                               }}
                             >
-                              <X size={14} color="#64748B" />
+                              <Icon name="close" size={14} color="#64748B" />
                             </button>
                           </div>
                         )}
@@ -889,7 +889,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                   gap: '4px'
                 }}
               >
-                <Plus size={12} />
+                <Icon name="plus" size={12} />
                 Add Participants
               </button>
             </div>

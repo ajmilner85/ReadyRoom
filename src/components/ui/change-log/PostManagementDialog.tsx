@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Eye, EyeOff, Trash2, Edit3, FileText } from 'lucide-react';
+import { Icon } from '../primitives';
 import { getAllPosts, updatePost, deletePost, archivePost, unarchivePost } from '../../../utils/changeLogService';
 import type { ChangeLogPostWithStats } from '../../../types/ChangeLogTypes';
 import { ConfirmationDialog } from '../dialogs/ConfirmationDialog';
@@ -381,7 +381,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
               e.currentTarget.style.backgroundColor = 'transparent';
             }}
           >
-            <X size={18} />
+            <Icon name="close" size={18} />
           </button>
         </div>
 
@@ -416,7 +416,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
             </div>
           ) : posts.length === 0 ? (
             <div style={emptyStateStyle}>
-              <FileText size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
+              <Icon name="dossier" size={48} style={{ color: 'var(--rr-text3)', margin: '0 auto 16px' }} />
               <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text2)', margin: '0 0 8px 0' }}>
                 No posts found
               </h3>
@@ -586,7 +586,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         }}
                         title="Edit post"
                       >
-                        <Edit3 size={16} style={{ color: 'var(--rr-accent-text)' }} />
+                        <Icon name="edit" size={16} style={{ color: 'var(--rr-accent-text)' }} />
                       </button>
 
                       <button
@@ -609,7 +609,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         }}
                         title={post.is_archived ? 'Unarchive post' : 'Archive post'}
                       >
-                        {post.is_archived ? <Eye size={16} style={{ color: 'var(--rr-warn)' }} /> : <EyeOff size={16} style={{ color: 'var(--rr-warn)' }} />}
+                        {post.is_archived ? <Icon name="eye" size={16} style={{ color: 'var(--rr-warn)' }} /> : <Icon name="eyeOff" size={16} style={{ color: 'var(--rr-warn)' }} />}
                       </button>
 
                       <button
@@ -632,7 +632,7 @@ const PostManagementDialog: React.FC<PostManagementDialogProps> = ({
                         }}
                         title="Delete post"
                       >
-                        <Trash2 size={16} style={{ color: 'var(--rr-bad)' }} />
+                        <Icon name="trash" size={16} style={{ color: 'var(--rr-bad)' }} />
                       </button>
                     </div>
                   </div>

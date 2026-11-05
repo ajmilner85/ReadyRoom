@@ -1,7 +1,6 @@
 // filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\mission prep\AvailablePilots.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import QualificationBadge from '../QualificationBadge';
-import { ArrowUpDown } from 'lucide-react';
 import { Icon, legibleColor } from '../primitives';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot } from '../../../utils/pilotTypes';
@@ -1021,7 +1020,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           transition: 'all 0.2s ease'
         }}
       >
-        <ArrowUpDown size={12} />
+        <Icon name="arrowUpDown" size={12} />
         Squadron
       </button>
       <button

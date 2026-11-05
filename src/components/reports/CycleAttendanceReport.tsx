@@ -11,7 +11,7 @@ import {
   Legend,
   ChartOptions
 } from 'chart.js';
-import { RefreshCw, Download, Filter, X } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import {
   fetchCycles,
@@ -1205,7 +1205,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               opacity: (refreshing || filterLoading) ? 0.6 : 1
             }}
           >
-            <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+            <Icon name="refresh" size={16} className={refreshing ? 'animate-spin' : ''} />
             Refresh
           </button>
         </div>
@@ -1233,7 +1233,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               opacity: filterLoading ? 0.6 : 1
             }}
           >
-            <Filter size={16} />
+            <Icon name="filter" size={16} />
             Filters
             {activeFilterCount > 0 && (
               <span style={{
@@ -1267,7 +1267,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               opacity: (reportData && !filterLoading) ? 1 : 0.5
             }}
           >
-            <Download size={16} />
+            <Icon name="download" size={16} />
             Export CSV
           </button>
         </div>
@@ -1329,7 +1329,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                 fontFamily: 'inherit'
               }}
             >
-              <X size={14} />
+              <Icon name="close" size={14} />
               Clear All
             </button>
           </div>

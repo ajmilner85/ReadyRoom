@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, CheckCircle, Users, Calendar, FileText, Layout, Settings, Lock, ArrowRight } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { useAuth } from '../../context/AuthContext';
 import { useSimplePermissions } from '../../hooks/usePermissions';
 
@@ -16,35 +16,35 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
   const features = [
     {
       id: 'roster',
-      icon: <Users size={24} />,
+      icon: <Icon name="roster" size={24} />,
       name: 'Squadron Roster',
       description: 'View and manage squadron member information',
       hasAccess: permissions.hasPermission('manage_roster')
     },
     {
       id: 'events',
-      icon: <Calendar size={24} />,
+      icon: <Icon name="events" size={24} />,
       name: 'Squadron Events',
       description: 'Create and manage squadron events and attendance',
       hasAccess: permissions.hasPermission('manage_events')
     },
     {
       id: 'mission-prep',
-      icon: <FileText size={24} />,
+      icon: <Icon name="dossier" size={24} />,
       name: 'Mission Preparation',
       description: 'Access mission briefings and preparation tools',
       hasAccess: permissions.canAccessMissionPrep
     },
     {
       id: 'flights',
-      icon: <Layout size={24} />,
+      icon: <Icon name="grid" size={24} />,
       name: 'Flight Management',
       description: 'Organize and manage flight assignments',
       hasAccess: permissions.hasPermission('edit_flight_assignments')
     },
     {
       id: 'settings',
-      icon: <Settings size={24} />,
+      icon: <Icon name="settings" size={24} />,
       name: 'Settings',
       description: 'Configure squadron and organization settings',
       hasAccess: permissions.canAccessSettings
@@ -115,7 +115,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
                 <div className={`mr-3 ${
                   feature.hasAccess ? 'text-good' : 'text-text3'
                 }`}>
-                  {feature.hasAccess ? feature.icon : <Lock size={24} />}
+                  {feature.hasAccess ? feature.icon : <Icon name="lock" size={24} />}
                 </div>
                 <div className="flex-1">
                   <div className="flex items-center gap-2 mb-1">
@@ -125,9 +125,9 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
                       {feature.name}
                     </h4>
                     {feature.hasAccess ? (
-                      <CheckCircle size={16} className="text-good" />
+                      <Icon name="checkCircle" size={16} className="text-good" />
                     ) : (
-                      <Lock size={16} className="text-text3" />
+                      <Icon name="lock" size={16} className="text-text3" />
                     )}
                   </div>
                   <p className={`text-sm ${
@@ -214,7 +214,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
             onClick={onClose}
             className="text-text3 hover:text-text transition-colors"
           >
-            <X size={24} />
+            <Icon name="close" size={24} />
           </button>
         </div>
 
@@ -250,7 +250,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:brightness-110 transition-colors flex items-center gap-2"
               >
                 Next
-                <ArrowRight size={16} />
+                <Icon name="arrowRight" size={16} />
               </button>
             ) : (
               <button
@@ -258,7 +258,7 @@ const OnboardingGuide: React.FC<OnboardingGuideProps> = ({ isOpen, onClose }) =>
                 className="px-4 py-2 bg-good text-white rounded-lg hover:bg-green-700 transition-colors flex items-center gap-2"
               >
                 Get Started
-                <CheckCircle size={16} />
+                <Icon name="checkCircle" size={16} />
               </button>
             )}
           </div>

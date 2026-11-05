@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React from 'react';
-import { CheckCircle2, MinusCircle } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import type { TrainingGrade } from '../../types/TrainingTypes';
 
 interface PTRCellTooltipProps {
@@ -187,9 +187,9 @@ const PTRCellTooltip: React.FC<PTRCellTooltipProps> = ({
           return (
             <div key={objective.id} style={{ marginBottom: '8px' }}>
               <div style={{ display: 'flex', alignItems: 'start', gap: '6px' }}>
-                {isSat && <CheckCircle2 size={14} style={{ color: 'var(--rr-good)', marginTop: '2px', flexShrink: 0 }} />}
-                {isUnsat && <MinusCircle size={14} style={{ color: 'var(--rr-text3)', marginTop: '2px', flexShrink: 0 }} />}
-                {!isSat && !isUnsat && <MinusCircle size={14} style={{ color: '#E5E7EB', marginTop: '2px', flexShrink: 0 }} />}
+                {isSat && <Icon name="checkCircle" size={14} style={{ color: 'var(--rr-good)', marginTop: '2px', flexShrink: 0 }} />}
+                {isUnsat && <Icon name="minusCircle" size={14} style={{ color: 'var(--rr-text3)', marginTop: '2px', flexShrink: 0 }} />}
+                {!isSat && !isUnsat && <Icon name="minusCircle" size={14} style={{ color: '#E5E7EB', marginTop: '2px', flexShrink: 0 }} />}
                 <div style={{ flex: 1 }}>
                   <div style={{ 
                     fontSize: '12px', 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Code, Server, CheckCircle, AlertCircle, Trash2, FlaskConical } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { getUserSettings, updateDeveloperSettings } from '../../utils/userSettingsService';
 import { UserSettings } from '../../types/UserSettings';
 import { permissionCache } from '../../utils/permissionCache';
@@ -191,7 +191,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
       <div style={{ padding: '40px 40px 0 40px', flexShrink: 0 }}>
         <div style={{ maxWidth: '800px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <Code size={28} style={{ color: '#7C3AED' }} />
+            <Icon name="code" size={28} style={{ color: '#7C3AED' }} />
             <h2 style={{ fontSize: '24px', fontWeight: 600, margin: 0, color: 'var(--rr-text)' }}>
               Developer Settings
             </h2>
@@ -208,7 +208,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
           {/* Discord Bot Token Selection */}
           <div style={firstSectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Server size={20} style={{ color: '#5865F2' }} />
+            <Icon name="server" size={20} style={{ color: '#5865F2' }} />
             <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Discord Bot Configuration
             </h3>
@@ -225,7 +225,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
                 fontSize: '12px',
                 fontWeight: 500
               }}>
-                <AlertCircle size={12} />
+                <Icon name="alertCircle" size={12} />
                 PRODUCTION MODE
               </div>
             )}
@@ -315,9 +315,9 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               border: `1px solid ${saveStatus === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)'}`
             }}>
               {saveStatus === 'success' ? (
-                <CheckCircle size={16} style={{ color: 'var(--rr-good)' }} />
+                <Icon name="checkCircle" size={16} style={{ color: 'var(--rr-good)' }} />
               ) : (
-                <AlertCircle size={16} style={{ color: 'var(--rr-bad)' }} />
+                <Icon name="alertCircle" size={16} style={{ color: 'var(--rr-bad)' }} />
               )}
               <span style={{
                 fontSize: '14px',
@@ -336,7 +336,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
         {/* Experimental Features Section */}
         <div style={sectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <FlaskConical size={20} style={{ color: '#7C3AED' }} />
+            <Icon name="flask" size={20} style={{ color: '#7C3AED' }} />
             <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Experimental Features
             </h3>
@@ -378,7 +378,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
         {/* Permission Cache Section */}
         <div style={sectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Trash2 size={20} style={{ color: 'var(--rr-bad)' }} />
+            <Icon name="trash" size={20} style={{ color: 'var(--rr-bad)' }} />
             <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Permission Cache
             </h3>
@@ -417,7 +417,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               }
             }}
           >
-            <Trash2 size={16} />
+            <Icon name="trash" size={16} />
             {clearingCache ? 'Clearing Cache...' : 'Clear Permission Cache'}
           </button>
 
@@ -434,9 +434,9 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               border: `1px solid ${cacheStatus === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)'}`
             }}>
               {cacheStatus === 'success' ? (
-                <CheckCircle size={16} style={{ color: 'var(--rr-good)' }} />
+                <Icon name="checkCircle" size={16} style={{ color: 'var(--rr-good)' }} />
               ) : (
-                <AlertCircle size={16} style={{ color: 'var(--rr-bad)' }} />
+                <Icon name="alertCircle" size={16} style={{ color: 'var(--rr-bad)' }} />
               )}
               <span style={{
                 fontSize: '14px',

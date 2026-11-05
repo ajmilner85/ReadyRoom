@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
-import { BookOpen } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import type { TrainingProgressSummary, TrainingRoadmapMission } from '../../types/TrainingTypes';
 
 const CARD_WIDTH = '550px';
@@ -275,7 +275,7 @@ const MyTraining: React.FC = () => {
 
               {syllabi.length === 0 && (
                 <div style={{ textAlign: 'center', color: 'var(--rr-text2)', padding: '40px 20px' }}>
-                  <BookOpen size={48} style={{ margin: '0 auto 16px', color: 'var(--rr-text3)' }} />
+                  <Icon name="bookOpen" size={48} style={{ margin: '0 auto 16px', color: 'var(--rr-text3)' }} />
                   <p>No training syllabi available</p>
                 </div>
               )}
