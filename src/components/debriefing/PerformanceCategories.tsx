@@ -82,7 +82,7 @@ const PerformanceCategories: React.FC<PerformanceCategoriesProps> = ({
                       height: '32px',
                       backgroundColor:
                         ratings[category.key] === true ? 'var(--rr-good)' : 'var(--rr-panel)',
-                      color: ratings[category.key] === true ? '#FFFFFF' : 'var(--rr-text2)',
+                      color: ratings[category.key] === true ? 'var(--rr-panel)' : 'var(--rr-text2)',
                       border: `1px solid ${
                         ratings[category.key] === true ? '#10B981' : '#CBD5E1'
                       }`,
