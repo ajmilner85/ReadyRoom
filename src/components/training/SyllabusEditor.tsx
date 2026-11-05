@@ -828,7 +828,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             disabled={saving}
             style={{
               padding: '10px 16px',
-              backgroundColor: saving ? '#9CA3AF' : 'var(--rr-accent)',
+              backgroundColor: saving ? 'var(--rr-text3)' : 'var(--rr-accent)',
               color: 'white',
               border: 'none',
               borderRadius: '6px',

@@ -1699,7 +1699,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                 disabled={saving || !canSave}
                 style={{
                   padding: '10px 20px',
-                  backgroundColor: canSave ? 'var(--rr-accent)' : '#9CA3AF',
+                  backgroundColor: canSave ? 'var(--rr-accent)' : 'var(--rr-text3)',
                   color: 'white',
                   border: 'none',
                   borderRadius: '6px',

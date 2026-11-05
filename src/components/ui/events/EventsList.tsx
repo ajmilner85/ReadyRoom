@@ -134,7 +134,7 @@ const EventsList: React.FC<EventsListProps> = ({
             onMouseEnter={() => setHoveredEvent(event.id)}
             onMouseLeave={() => setHoveredEvent(null)}
           >
-            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '2px' }}>
+            <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: '2px', paddingRight: onEditEvent || onDeleteEvent ? '68px' : 0, overflowWrap: 'anywhere' }}>
               {/* Show cycle name if event is part of a cycle */}
               {event.cycleId && (() => {
                 const cycle = cycles.find(c => c.id === event.cycleId);

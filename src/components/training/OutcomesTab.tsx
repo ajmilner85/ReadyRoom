@@ -220,7 +220,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
               style={{
                 border: `1px solid ${outcome.enabled ? 'var(--rr-accent)' : 'var(--rr-border)'}`,
                 borderRadius: '8px',
-                backgroundColor: outcome.enabled ? '#F0F7FF' : 'var(--rr-panel2)',
+                backgroundColor: outcome.enabled ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
                 transition: 'all 0.15s',
               }}
             >

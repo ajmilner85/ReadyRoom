@@ -393,7 +393,7 @@ const PilotList: React.FC<PilotListProps> = ({
   const total = filteredPilots.length;
 
   return (
-    <div ref={rosterListRef} className="flex-1 min-w-[560px] min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
+    <div ref={rosterListRef} style={{ containerType: 'inline-size' }} className="flex-1 min-w-[560px] min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
       {/* Toolbar */}
       <div className="flex-none flex items-center gap-[10px] px-[14px] py-[10px] border-b border-border flex-wrap">
         <span className="rr-pane-title whitespace-nowrap">Squadron Roster</span>
@@ -437,8 +437,8 @@ const PilotList: React.FC<PilotListProps> = ({
         {sortHeader('boardNumber', 'Board', ROSTER_COLS.board)}
         {sortHeader('callsign', 'Callsign', ROSTER_COLS.callsign)}
         <span className="flex-none font-mono text-[9.5px] tracking-[.1em] uppercase text-text2" style={{ width: ROSTER_COLS.status }}>Status</span>
-        {sortHeader('role', 'Billet', ROSTER_COLS.billet, 'max-[1100px]:hidden')}
-        <span className="flex-1 text-right font-mono text-[9.5px] tracking-[.1em] uppercase text-text2">Qualifications</span>
+        {sortHeader('role', 'Billet', ROSTER_COLS.billet, 'rr-col-billet')}
+        <span className="flex-1 min-w-0 truncate text-right font-mono text-[9.5px] tracking-[.1em] uppercase text-text2">Qualifications</span>
         <span className="flex-none w-4" />
       </div>
 

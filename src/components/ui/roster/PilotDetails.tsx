@@ -713,7 +713,8 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
   const inputFieldStyle = {
     ...pilotDetailsStyles.fieldValue,
-    width: '450px',
+    width: '100%',
+    maxWidth: '450px',
     minHeight: '35px',
     padding: '8px',
     boxSizing: 'border-box' as const,
@@ -858,7 +859,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         </div>
 
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '20px' }}>
           <div>
             <div style={{ ...sectionSpacingStyle }}>
               <StatusSelector
@@ -1000,7 +1001,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 }}
                 onMouseEnter={(e) => {
                   if ((selectedPilot as any)?.discord_id && !isLoadingDiscordMembers) {
-                    e.currentTarget.style.backgroundColor = '#FECACA';
+                    e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
                   }
                 }}
                 onMouseLeave={(e) => {
@@ -1092,7 +1093,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
               }}
               onMouseEnter={(e) => {
                 if (selectedDiscordId && !isLoadingDiscordMembers) {
-                  e.currentTarget.style.backgroundColor = '#FECACA';
+                  e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
                 }
               }}
               onMouseLeave={(e) => {
@@ -1462,7 +1463,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         </div>
 
 
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, minmax(0, 1fr))', gap: '24px', marginTop: '20px' }}>
           <div>
             <div style={{ ...sectionSpacingStyle }}>
               <StatusSelector
@@ -1608,7 +1609,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
         )}
 
         {!isNewPilot && (
-          <div style={{ display: 'grid', gap: '24px', marginTop: '24px' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', gap: '24px', marginTop: '24px' }}>
             <Card className="p-4">
               <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
                 Qualifications
@@ -1688,7 +1689,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 border: '1px solid var(--rr-bad)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#FECACA';
+                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
@@ -1901,7 +1902,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                     width: '45%',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#FECACA';
+                    e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';

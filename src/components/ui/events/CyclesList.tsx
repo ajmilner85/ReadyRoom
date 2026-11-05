@@ -122,8 +122,8 @@ const CyclesList: React.FC<CyclesListProps> = ({
             onMouseEnter={() => setHoveredCycle(cycle.id)}
             onMouseLeave={() => setHoveredCycle(null)}
           >
-            <div style={{ flex: 1 }}>
-              <span style={{ fontSize: '16px', fontWeight: 700, color: 'var(--rr-text)', marginBottom: '4px' }}>
+            <div style={{ flex: 1, minWidth: 0, paddingRight: onEditCycle || onDeleteCycle ? '68px' : 0, overflowWrap: 'anywhere' }}>
+              <span style={{ display: 'block', fontSize: '16px', fontWeight: 700, color: 'var(--rr-text)', marginBottom: '4px' }}>
                 {cycle.name}
               </span>
               <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px' }}>

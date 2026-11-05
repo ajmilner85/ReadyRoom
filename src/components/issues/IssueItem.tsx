@@ -76,7 +76,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
             height: '20px',
             borderRadius: '50%',
             border: `2px solid ${issue.status === 'open' ? '#047857' : 'var(--rr-border2)'}`,
-            backgroundColor: issue.status === 'closed' ? '#9CA3AF' : 'transparent',
+            backgroundColor: issue.status === 'closed' ? 'var(--rr-text3)' : 'transparent',
             cursor: isToggling ? 'wait' : 'pointer',
             display: 'flex',
             alignItems: 'center',

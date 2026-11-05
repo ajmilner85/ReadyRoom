@@ -22,12 +22,12 @@ const StandingSelector: React.FC<StandingSelectorProps> = ({
       <label style={pilotDetailsStyles.fieldLabel}>
         Standing
       </label>
-      <div style={{...pilotDetailsStyles.selectorContainer, width: '450px'}}>
+      <div style={{...pilotDetailsStyles.selectorContainer, width: '100%', maxWidth: '450px'}}>
         <select
           value={selectedStandingId || ''}
           onChange={(e) => handleStandingChange(e.target.value)}
           disabled={updatingStanding}
-          style={{...pilotDetailsStyles.selector, width: '450px', appearance: 'none' as const}}
+          style={{...pilotDetailsStyles.selector, width: '100%', appearance: 'none' as const}}
         >
           {!selectedStandingId && <option value="">{placeholder || '-- Select standing --'}</option>}
           {standings.sort((a, b) => a.order - b.order).map(standing => (

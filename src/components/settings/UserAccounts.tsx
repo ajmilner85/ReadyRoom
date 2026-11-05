@@ -241,7 +241,7 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
                   disabled={resetLoading}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: resetLoading ? '#9CA3AF' : 'var(--rr-accent)',
+                    backgroundColor: resetLoading ? 'var(--rr-text3)' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '4px',
@@ -365,9 +365,9 @@ const UserAccounts: React.FC<UserAccountsProps> = ({ }) => {
 
         <div style={{
           padding: '16px',
-          border: '1px solid #DDD6FE',
+          border: '1px solid color-mix(in srgb, var(--rr-purple) 35%, transparent)',
           borderRadius: '8px',
-          backgroundColor: '#F5F3FF'
+          backgroundColor: 'color-mix(in srgb, var(--rr-purple) 14%, transparent)'
         }}>
           {/* Kneeboard URL display */}
           <div style={{ marginBottom: '16px' }}>

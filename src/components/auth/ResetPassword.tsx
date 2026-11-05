@@ -94,7 +94,7 @@ const ResetPassword: React.FC = () => {
                 name="password"
                 type="password"
                 required
-                className="relative block w-full px-3 py-2 border border-border2 placeholder-gray-500 text-text rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="relative block w-full px-3 py-2 border border-border2 placeholder-gray-500 text-text rounded-md focus:outline-none focus:ring-indigo-500 focus:border-accent focus:z-10 sm:text-sm"
                 placeholder="New password (min 6 characters)"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -111,7 +111,7 @@ const ResetPassword: React.FC = () => {
                 name="confirmPassword"
                 type="password"
                 required
-                className="relative block w-full px-3 py-2 border border-border2 placeholder-gray-500 text-text rounded-md focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 focus:z-10 sm:text-sm"
+                className="relative block w-full px-3 py-2 border border-border2 placeholder-gray-500 text-text rounded-md focus:outline-none focus:ring-indigo-500 focus:border-accent focus:z-10 sm:text-sm"
                 placeholder="Confirm new password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}

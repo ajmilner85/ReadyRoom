@@ -96,7 +96,9 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
         <>
           {/* Teams Table and Add Button Container */}
           <div style={{
-            width: 'fit-content'
+            width: 'fit-content',
+          maxWidth: '100%',
+          overflowX: 'auto'
           }}>
             {/* Teams Table */}
             <div style={{
@@ -546,7 +548,7 @@ const TeamsManager: React.FC<TeamsManagerProps> = ({
                 disabled={!selectedTeam || isAddingTeam}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !selectedTeam || isAddingTeam ? '#9CA3AF' : 'var(--rr-accent)',
+                  backgroundColor: !selectedTeam || isAddingTeam ? 'var(--rr-text3)' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',

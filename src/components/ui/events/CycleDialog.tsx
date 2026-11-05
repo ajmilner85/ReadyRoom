@@ -2791,7 +2791,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                       disabled={!selectedRoleId || loadingRoles}
                       style={{
                         padding: '8px 16px',
-                        backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : 'var(--rr-accent)',
+                        backgroundColor: !selectedRoleId || loadingRoles ? 'var(--rr-text3)' : 'var(--rr-accent)',
                         color: '#FFFFFF',
                         border: 'none',
                         borderRadius: '4px',

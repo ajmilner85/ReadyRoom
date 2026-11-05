@@ -132,7 +132,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: loading ? '#9CA3AF' : 'var(--rr-bad)',
+              backgroundColor: loading ? 'var(--rr-text3)' : 'var(--rr-bad)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',
@@ -290,7 +290,7 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
             style={{
               width: '100%',
               padding: '12px',
-              backgroundColor: loading ? '#9CA3AF' : 'var(--rr-accent)',
+              backgroundColor: loading ? 'var(--rr-text3)' : 'var(--rr-accent)',
               color: '#FFFFFF',
               border: 'none',
               borderRadius: '4px',

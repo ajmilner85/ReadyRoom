@@ -577,7 +577,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                 border: '1px solid var(--rr-bad)',
               }}
               onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = '#FECACA';
+                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
               }}
               onMouseLeave={(e) => {
                 e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
@@ -621,7 +621,9 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
               border: '1px solid var(--rr-border)',
               borderRadius: '6px',
               backgroundColor: 'var(--rr-panel)',
-              width: 'fit-content'
+              width: 'fit-content',
+            maxWidth: '100%',
+            overflowX: 'auto'
             }}>
               {/* Table Header */}
               <div style={{
@@ -845,7 +847,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
           </h2>
 
           {/* Table and Button Container */}
-          <div style={{ width: 'fit-content' }}>
+          <div style={{ width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
             <div style={{ marginBottom: '16px' }}>
               <button
                 onClick={() => setShowAddEnrollmentDialog(true)}
@@ -1253,7 +1255,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
             border: '1px solid var(--rr-bad)',
           }}
           onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = '#FECACA';
+            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
           }}
           onMouseLeave={(e) => {
             e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
@@ -1554,7 +1556,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   disabled={!selectedTeam}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: !selectedTeam ? '#9CA3AF' : 'var(--rr-accent)',
+                    backgroundColor: !selectedTeam ? 'var(--rr-text3)' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',
@@ -1648,7 +1650,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   disabled={!selectedCycle}
                   style={{
                     padding: '8px 16px',
-                    backgroundColor: !selectedCycle ? '#9CA3AF' : 'var(--rr-accent)',
+                    backgroundColor: !selectedCycle ? 'var(--rr-text3)' : 'var(--rr-accent)',
                     color: '#FFFFFF',
                     border: 'none',
                     borderRadius: '6px',

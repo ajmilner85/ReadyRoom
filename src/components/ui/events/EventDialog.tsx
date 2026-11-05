@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Icon } from '../primitives';
+import { CloseButton, Icon } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase, getEventActivities, getCycleActivities } from '../../../utils/supabaseClient';
@@ -1716,7 +1716,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          backgroundColor: 'var(--rr-overlay)',
+          animation: 'rrFadeIn .15s ease',
           zIndex: 1000
         }}
         onClick={onCancel}
@@ -1726,12 +1727,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         top: '50%',
         left: '50%',
         transform: 'translate(-50%, -50%)',
-        width: '700px',
-        height: '1000px',
+        width: 'min(700px, calc(100vw - 16px))',
+        height: 'min(1000px, calc(100dvh - 48px))',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-        borderRadius: '10px',
+          border: '1px solid var(--rr-border2)',
+        borderRadius: '12px',
+        overflow: 'hidden',
         zIndex: 1001,
         display: 'flex',
         flexDirection: 'column'
@@ -1741,34 +1743,21 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           display: 'flex',
           justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '12px 24px',
+          padding: '16px 18px 16px 24px',
           borderBottom: '1px solid var(--rr-border)',
           flexShrink: 0
         }}>
           <h2 style={{
-            fontSize: '18px',
-            fontWeight: 600,
+            margin: 0,
+            fontSize: '16px',
+            fontWeight: 700,
             color: 'var(--rr-text)'
           }}>
             {isTrainingEvent
               ? (initialData ? 'Edit Training Event' : 'Create New Training Event')
               : (initialData ? 'Edit Event' : 'Create New Event')}
           </h2>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '4px',
-              cursor: 'pointer',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Icon name="close" size={20} color="#64748B" />
-          </button>
+          <CloseButton onClick={onCancel} />
         </div>
 
         {/* Progress Bar */}
@@ -2010,7 +1999,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                           padding: '12px',
                           textAlign: 'center',
                           cursor: 'pointer',
-                          backgroundColor: dragOverStates[index] ? 'rgba(59, 130, 246, 0.05)' : '#FAFAFA',
+                          backgroundColor: dragOverStates[index] ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
                           transition: 'all 0.2s ease',
                           minHeight: '100px',
                           display: 'flex',
@@ -2943,8 +2932,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                     disabled={!selectedRoleId || loadingRoles}
                     style={{
                       padding: '8px 16px',
-                      backgroundColor: !selectedRoleId || loadingRoles ? '#9CA3AF' : 'var(--rr-accent)',
-                      color: '#FFFFFF',
+                      backgroundColor: !selectedRoleId || loadingRoles ? 'var(--rr-panel3)' : 'var(--rr-accent)',
+                      color: !selectedRoleId || loadingRoles ? 'var(--rr-text3)' : '#FFFFFF',
                       border: 'none',
                       borderRadius: '4px',
                       cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',

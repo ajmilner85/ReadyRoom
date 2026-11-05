@@ -246,7 +246,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 disabled={!newStatusName.trim()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !newStatusName.trim() ? '#9CA3AF' : 'var(--rr-accent)',
+                  backgroundColor: !newStatusName.trim() ? 'var(--rr-text3)' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
@@ -329,7 +329,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
                 disabled={!editingStatusName.trim()}
                 style={{
                   padding: '8px 16px',
-                  backgroundColor: !editingStatusName.trim() ? '#9CA3AF' : 'var(--rr-accent)',
+                  backgroundColor: !editingStatusName.trim() ? 'var(--rr-text3)' : 'var(--rr-accent)',
                   color: '#FFFFFF',
                   border: 'none',
                   borderRadius: '6px',
