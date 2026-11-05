@@ -36,6 +36,10 @@ export interface UserPreferences {
   appearance?: {
     displayPilotsWithSquadronColors?: boolean;
     interfaceThemeUsesSquadronColors?: boolean;
+    theme?: 'dark' | 'light';
+    navLayout?: 'rail' | 'compact' | 'bar';
+    /** Personal accent override; null/undefined = squadron colour. */
+    accentColor?: string | null;
   };
 
   // Event defaults

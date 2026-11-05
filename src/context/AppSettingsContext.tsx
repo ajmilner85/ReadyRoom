@@ -2,9 +2,34 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { getUserSettings, updateUserSettings } from '../utils/userSettingsService';
 import type { SupportRoleRequirement } from '../utils/supabaseClient';
 
+export type ThemeMode = 'dark' | 'light';
+export type NavLayout = 'rail' | 'compact' | 'bar';
+
+const THEME_STORAGE_KEY = 'rr-theme';
+const NAV_STORAGE_KEY = 'rr-nav-layout';
+
+function readLocal<T extends string>(key: string, allowed: readonly T[], fallback: T): T {
+  try {
+    const v = localStorage.getItem(key);
+    return (allowed as readonly string[]).includes(v ?? '') ? (v as T) : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function writeLocal(key: string, value: string) {
+  try { localStorage.setItem(key, value); } catch { /* storage unavailable */ }
+}
+
 export interface AppSettings {
   displayPilotsWithSquadronColors: boolean;
   interfaceThemeUsesSquadronColors: boolean;
+  /** Per-user colour theme (stored in preferences.appearance.theme). */
+  theme: ThemeMode;
+  /** Per-user navigation layout (stored in preferences.appearance.navLayout). */
+  navLayout: NavLayout;
+  /** Personal accent override (hex); null = use squadron colour. */
+  accentColor: string | null;
   
   // Event Settings
   eventDefaults: {
@@ -82,6 +107,9 @@ interface AppSettingsContextType {
 const defaultSettings: AppSettings = {
   displayPilotsWithSquadronColors: true,
   interfaceThemeUsesSquadronColors: true,
+  theme: 'dark',
+  navLayout: 'rail',
+  accentColor: null,
 
   eventDefaults: {
     // Timing and Duration defaults
@@ -149,7 +177,22 @@ const defaultSettings: AppSettings = {
 const AppSettingsContext = createContext<AppSettingsContextType | undefined>(undefined);
 
 export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [settings, setSettings] = useState<AppSettings>(defaultSettings);
+  // Theme/nav are cached locally so the first paint matches the user's last choice;
+  // the database preference is authoritative once loaded.
+  const [settings, setSettings] = useState<AppSettings>(() => ({
+    ...defaultSettings,
+    theme: readLocal<ThemeMode>(THEME_STORAGE_KEY, ['dark', 'light'], defaultSettings.theme),
+    navLayout: readLocal<NavLayout>(NAV_STORAGE_KEY, ['rail', 'compact', 'bar'], defaultSettings.navLayout),
+  }));
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', settings.theme);
+    writeLocal(THEME_STORAGE_KEY, settings.theme);
+  }, [settings.theme]);
+
+  useEffect(() => {
+    writeLocal(NAV_STORAGE_KEY, settings.navLayout);
+  }, [settings.navLayout]);
 
   // Load settings from user preferences on initialization
   useEffect(() => {
@@ -165,6 +208,9 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
               prefs.appearance?.displayPilotsWithSquadronColors ?? prev.displayPilotsWithSquadronColors,
             interfaceThemeUsesSquadronColors:
               prefs.appearance?.interfaceThemeUsesSquadronColors ?? prev.interfaceThemeUsesSquadronColors,
+            theme: prefs.appearance?.theme ?? prev.theme,
+            navLayout: prefs.appearance?.navLayout ?? prev.navLayout,
+            accentColor: prefs.appearance?.accentColor ?? prev.accentColor,
             eventDefaults: {
               ...prev.eventDefaults,
               ...(prefs.eventDefaults || {})
@@ -187,7 +233,13 @@ export const AppSettingsProvider: React.FC<{ children: React.ReactNode }> = ({ c
     }));
 
     // Save to user preferences based on setting type
-    if (key === 'displayPilotsWithSquadronColors' || key === 'interfaceThemeUsesSquadronColors') {
+    if (
+      key === 'displayPilotsWithSquadronColors' ||
+      key === 'interfaceThemeUsesSquadronColors' ||
+      key === 'theme' ||
+      key === 'navLayout' ||
+      key === 'accentColor'
+    ) {
       try {
         await updateUserSettings({
           preferences: {

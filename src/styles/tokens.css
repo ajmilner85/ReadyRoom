@@ -1,0 +1,118 @@
+/* ReadyRoom design tokens — ported from design_handoff_readyroom/tokens.css.
+   data-theme="dark" | "light" is set on <html> by ThemeProvider.
+   Squadron branding overrides --rr-accent (and --rr-sq-*) at runtime; --rr-accent-weak
+   is derived from --rr-accent so only the accent needs overriding. */
+
+:root, [data-theme="dark"] {
+  /* surfaces */
+  --rr-bg: #0E1116;
+  --rr-panel: #151A21;
+  --rr-panel2: #1A212A;
+  --rr-panel3: #222C37;
+  --rr-border: #262F3A;
+  --rr-border2: #374250;
+  /* text */
+  --rr-text: #E6EDF3;
+  --rr-text2: #93A1B0;
+  --rr-text3: #5E6A78;
+  /* semantic */
+  --rr-good: #40A85B;
+  --rr-warn: #DE9A1F;
+  --rr-bad:  #E0524E;
+  --rr-info: #3E9BD4;
+  --rr-purple: #8B5CF6;
+  /* brand (defaults = VFA-161; overridden by squadron branding config) */
+  --rr-accent: #F15822;
+  --rr-accent-weak-alpha: 15%;
+  --rr-accent-weak: color-mix(in srgb, var(--rr-accent) var(--rr-accent-weak-alpha), transparent);
+  --rr-blue: #005774;
+  /* elevation */
+  --rr-shadow: 0 1px 2px rgba(0,0,0,.45);
+  --rr-shadow-lg: 0 8px 26px rgba(0,0,0,.5);
+  --rr-track: rgba(255,255,255,.04);
+  --rr-overlay: rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+
+[data-theme="light"] {
+  --rr-bg: #E6EBF0;
+  --rr-panel: #FFFFFF;
+  --rr-panel2: #F5F8FB;
+  --rr-panel3: #EAF0F5;
+  --rr-border: #DBE2EA;
+  --rr-border2: #C4CEDA;
+  --rr-text: #111A24;
+  --rr-text2: #55636F;
+  --rr-text3: #8A95A1;
+  --rr-good: #1E9A4B;
+  --rr-warn: #B9800E;
+  --rr-bad:  #CE3B3B;
+  --rr-info: #2586C2;
+  --rr-accent-weak-alpha: 10%;
+  --rr-shadow: 0 1px 2px rgba(16,32,48,.08);
+  --rr-shadow-lg: 0 8px 26px rgba(16,32,48,.14);
+  --rr-track: rgba(16,32,48,.05);
+  color-scheme: light;
+}
+
+:root {
+  --rr-font-ui: 'Saira', system-ui, sans-serif;
+  --rr-font-mono: 'IBM Plex Mono', ui-monospace, monospace;
+  --rr-r-sm: 4px;
+  --rr-r-md: 6px;
+  --rr-r-lg: 8px;
+  --rr-r-xl: 10px;
+  --rr-r-2xl: 12px;
+  --rr-ease-pop: cubic-bezier(.34,1.4,.5,1);
+}
+
+/* ---------- base ---------- */
+html, body, #root { height: 100%; }
+body {
+  margin: 0;
+  background: var(--rr-bg);
+  color: var(--rr-text);
+  font-family: var(--rr-font-ui);
+  font-size: 13px;
+  transition: background .25s ease, color .25s ease;
+}
+a { color: var(--rr-accent); text-decoration: none; }
+a:hover { opacity: .8; }
+
+::-webkit-scrollbar { width: 9px; height: 9px; }
+::-webkit-scrollbar-track { background: var(--rr-track); }
+::-webkit-scrollbar-thumb { background: var(--rr-border2); border-radius: 6px; border: 2px solid transparent; background-clip: padding-box; }
+::-webkit-scrollbar-thumb:hover { background: var(--rr-text3); background-clip: padding-box; }
+
+@keyframes rrPulse { 0%,100% { opacity: 1 } 50% { opacity: .35 } }
+@keyframes rrCaret { 0%,100% { opacity: 1 } 50% { opacity: 0 } }
+@keyframes rrFadeIn { from { opacity: 0 } to { opacity: 1 } }
+@keyframes rrPopIn { from { opacity: 0; transform: translateY(4px) scale(.98) } to { opacity: 1; transform: none } }
+@keyframes rrSlideInRight { from { transform: translateX(100%) } to { transform: none } }
+
+.rr-mono { font-family: var(--rr-font-mono); }
+/* Mono section label: 9.5–10px, letter-spacing .12–.16em */
+.rr-label { font-family: var(--rr-font-mono); font-size: 9.5px; letter-spacing: .12em; color: var(--rr-text3); text-transform: uppercase; }
+/* Pane title: 12/600 uppercase .14em */
+.rr-pane-title { font-size: 12px; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--rr-text2); }
+.rr-aircraft-mask {
+  -webkit-mask: var(--rr-aircraft-url) center/contain no-repeat;
+  mask: var(--rr-aircraft-url) center/contain no-repeat;
+  background: currentColor;
+}
+.rr-no-scrollbar { scrollbar-width: none; }
+.rr-no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ---------- responsive (< 760px) ---------- */
+@media (max-width: 760px) {
+  [data-m="rail"], [data-m="ctx-hide"], [data-m="m-hide"] { display: none !important; }
+  [data-m="mobnav"] { display: flex !important; }
+  [data-m="ctx"] { height: auto !important; min-height: 48px; padding: 8px 12px !important; gap: 8px !important; }
+  [data-m="tabs"] { overflow-x: auto; padding: 0 4px !important; scrollbar-width: none; }
+  [data-m="tabs"] > * { flex: none !important; white-space: nowrap; }
+  [data-m="row"] { flex-direction: column !important; overflow-y: auto !important; padding: 10px !important; gap: 10px !important; min-height: 0 !important; }
+  [data-m="row"] > * { flex: none !important; width: auto !important; min-width: 0 !important; max-width: none !important; min-height: min(72dvh, 600px); overflow-x: auto; }
+  [data-m="wide"] { min-width: 660px; }
+  [data-m="board"] { scroll-snap-type: x mandatory; padding: 8px !important; gap: 8px !important; }
+  [data-m="board"] > * { flex: 0 0 90vw !important; min-width: 0 !important; scroll-snap-align: center; }
+}

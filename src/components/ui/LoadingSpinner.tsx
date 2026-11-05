@@ -7,7 +7,7 @@ interface LoadingSpinnerProps {
 
 const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({ 
   size = 'small', 
-  color = '#4B5563' // Changed default color to dark grey
+  color = 'var(--rr-accent)'
 }) => {
   // Size mapping with reduced sizes
   const sizeMap = {
@@ -26,7 +26,7 @@ const LoadingSpinner: React.FC<LoadingSpinnerProps> = ({
     width: `${spinnerSize}px`,
     height: `${spinnerSize}px`,
     borderRadius: '50%',
-    border: `${borderWidth}px solid rgba(75, 85, 99, 0.2)`,
+    border: `${borderWidth}px solid var(--rr-border2)`,
     borderTopColor: color,
     animation: 'spinner 1s linear infinite',
   };

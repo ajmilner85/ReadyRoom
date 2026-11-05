@@ -166,61 +166,35 @@ const QualificationBadge: React.FC<QualificationBadgeProps> = ({ type, count, co
     backgroundColor = stringToColor(type);
   }
 
-  // Size-specific dimensions
-  const dimensions = size === 'small' 
-    ? { height: '16px', width: '24px', fontSize: '10px', borderRadius: '4px' }
-    : { height: '24px', width: '37px', fontSize: '12px', borderRadius: '8px' };
-
+  // ReadyRoom UI Kit qualification badge: mono 10/600, 5px radius, tinted background with the
+  // admin-configured qualification colour as foreground (readable in both themes).
+  const small = size === 'small';
   return (
-    <div 
-      style={{ 
+    <span
+      title={matchingQualification?.name || type}
+      style={{
         display: 'inline-flex',
         alignItems: 'center',
         justifyContent: 'center',
-        position: 'relative',
-        height: dimensions.height,
-        width: dimensions.width
+        gap: '3px',
+        minWidth: small ? '24px' : '30px',
+        height: small ? '16px' : '20px',
+        padding: small ? '0 5px' : '0 7px',
+        borderRadius: small ? '4px' : '5px',
+        fontFamily: 'var(--rr-font-mono)',
+        fontSize: small ? '9.5px' : '10px',
+        fontWeight: 600,
+        lineHeight: 1,
+        whiteSpace: 'nowrap',
+        background: `color-mix(in srgb, ${backgroundColor} 18%, transparent)`,
+        color: `color-mix(in oklab, ${backgroundColor} 62%, var(--rr-text))`,
+        boxShadow: `inset 0 0 0 1px color-mix(in srgb, ${backgroundColor} 30%, transparent)`,
+        flex: 'none',
       }}
     >
-      <div
-        style={{
-          backgroundColor: backgroundColor,
-          borderRadius: dimensions.borderRadius,
-          width: '100%',
-          height: '100%',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          color: '#F9FAFB',
-          fontSize: dimensions.fontSize,
-          fontWeight: 400,
-          lineHeight: size === 'small' ? '12px' : '15px',
-        }}
-      >
-        <span>{abbreviation}</span>
-      </div>
-      {count !== undefined && count > 1 && (
-        <div
-          style={{
-            backgroundColor: '#646F7E',
-            borderRadius: '8px',
-            width: '37px',
-            height: '24px',
-            position: 'absolute',
-            right: '-1px',
-            top: 0,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: '#F9FAFB',
-            fontSize: '12px',
-            fontWeight: 400,
-          }}
-        >
-          +{count}
-        </div>
-      )}
-    </div>
+      {abbreviation}
+      {count !== undefined && count > 1 ? <span style={{ opacity: 0.75 }}>+{count}</span> : null}
+    </span>
   );
 };
 

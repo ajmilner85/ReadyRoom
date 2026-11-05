@@ -13,7 +13,9 @@ import FlightCard from './components/ui/flight cards/FlightCard';
 import SingleFlightCard from './components/ui/flight cards/SingleFlightCard';
 import FuelStateDialog from './components/ui/dialogs/FuelStateDialog';
 import PositionReportDialog from './components/ui/dialogs/PositionReportDialog';
-import NavigationBar from './components/ui/NavigationBar';
+import AppShell from './components/shell/AppShell';
+import { ShellProvider } from './context/ShellContext';
+import { ToastProvider } from './components/ui/primitives/Overlay';
 import OnboardingGuide from './components/onboarding/OnboardingGuide';
 import { useAuth } from './context/AuthContext';
 import { initializeApp, cleanupApp } from './utils/appInitialization';
@@ -35,6 +37,7 @@ const MyTraining = React.lazy(() => import('./components/training/MyTraining'));
 const PilotDossier = React.lazy(() => import('./components/dossier/PilotDossier'));
 const TrainingManagement = React.lazy(() => import('./components/training/TrainingManagement'));
 const SyllabusEditor = React.lazy(() => import('./components/training/SyllabusEditor'));
+const UiKit = React.lazy(() => import('./components/ui/UiKit'));
 
 const App: React.FC = () => {
   const { user } = useAuth();
@@ -75,13 +78,6 @@ const App: React.FC = () => {
     if (path === '/settings') return 'admin';
     return 'home'; // default to home
   };
-  
-  const [activeButton, setActiveButton] = useState<string>(getCurrentView());
-  
-  // Update activeButton when URL changes
-  useEffect(() => {
-    setActiveButton(getCurrentView());
-  }, [location.pathname]);
   
   // Onboarding state
   const [showOnboarding, setShowOnboarding] = useState(false);
@@ -454,8 +450,9 @@ const App: React.FC = () => {
     <AppSettingsProvider>
       <PageLoadingProvider>
         <SectionProvider>
-          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr' }} className="min-h-screen">
-          <NavigationBar activeButton={activeButton} />
+         <ShellProvider>
+          <ToastProvider>
+          <AppShell>
           <AppContent>
             <Routes>
             {/* Emergency cache clear route - no permission required */}
@@ -549,6 +546,14 @@ const App: React.FC = () => {
               <PermissionGuardedRoute requiredPermission="access_training_management">
                 <Suspense fallback={<StandardPageLoader message="Loading syllabus editor..." />}>
                   <SyllabusEditor />
+                </Suspense>
+              </PermissionGuardedRoute>
+            } />
+
+            <Route path="/ui-kit" element={
+              <PermissionGuardedRoute requiredPermission="access_settings">
+                <Suspense fallback={<StandardPageLoader message="Loading UI kit..." />}>
+                  <UiKit />
                 </Suspense>
               </PermissionGuardedRoute>
             } />
@@ -665,7 +670,9 @@ const App: React.FC = () => {
             } />
             </Routes>
           </AppContent>
-        </div>
+          </AppShell>
+          </ToastProvider>
+         </ShellProvider>
         
         {/* Onboarding Guide */}
         <OnboardingGuide 

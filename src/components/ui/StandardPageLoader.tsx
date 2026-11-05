@@ -14,10 +14,13 @@ const StandardPageLoader: React.FC<StandardPageLoaderProps> = ({ message = "Load
       flexDirection: 'column',
       alignItems: 'center',
       justifyContent: 'center',
-      gap: '20px',
-      backgroundColor: '#F8FAFC'
+      gap: '14px',
+      flex: 1,
+      minHeight: 0,
+      color: 'var(--rr-text2)',
+      fontSize: '13px'
     }}>
-      <LoadingSpinner />
+      <LoadingSpinner size="medium" />
       <div>{message}</div>
     </div>
   );
