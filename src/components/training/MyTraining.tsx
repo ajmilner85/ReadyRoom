@@ -303,9 +303,9 @@ const MyTraining: React.FC = () => {
                     borderRadius: '8px',
                     marginBottom: '12px',
                     borderLeft: `4px solid ${
-                      mission.status === 'completed' ? '#10B981' :
-                      mission.status === 'in_progress' ? '#F59E0B' :
-                      '#9CA3AF'
+                      mission.status === 'completed' ? 'var(--rr-good)' :
+                      mission.status === 'in_progress' ? 'var(--rr-warn)' :
+                      'var(--rr-border2)'
                     }`
                   }}
                 >
@@ -330,12 +330,12 @@ const MyTraining: React.FC = () => {
                       fontWeight: 600,
                       backgroundColor:
                         mission.status === 'completed' ? 'rgba(64,168,91,.14)' :
-                        mission.status === 'in_progress' ? '#FEF3C7' :
-                        '#F3F4F6',
+                        mission.status === 'in_progress' ? 'rgba(222,154,31,.16)' :
+                        'var(--rr-panel3)',
                       color:
                         mission.status === 'completed' ? 'var(--rr-good)' :
-                        mission.status === 'in_progress' ? '#92400E' :
-                        '#374151'
+                        mission.status === 'in_progress' ? 'var(--rr-warn)' :
+                        'var(--rr-text2)'
                     }}>
                       {mission.status === 'completed' ? 'Complete' :
                        mission.status === 'in_progress' ? 'In Progress' :
