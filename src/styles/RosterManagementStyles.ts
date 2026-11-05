@@ -149,16 +149,19 @@ export const pilotListStyles = {
 
 export const pilotDetailsStyles = {
   container: {
-    width: '1326px', // baseWidth * 2
+    flex: '1 1 0',
+    minWidth: '480px',
+    maxWidth: '1180px',
     backgroundColor: 'var(--rr-panel)',
     boxShadow: 'var(--rr-shadow)',
-    borderRadius: '8px',
-    padding: '24px',
+    border: '1px solid var(--rr-border)',
+    borderRadius: '10px',
+    padding: '16px',
     display: 'flex',
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflowY: 'auto' as const,
-    height: 'calc(100vh - 40px)',
+    minHeight: 0,
     boxSizing: 'border-box' as const
   },
   emptyState: {

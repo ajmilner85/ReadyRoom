@@ -43,7 +43,6 @@ import {
 } from '../../utils/trainingEnrollmentService';
 import { fetchCycles } from '../../utils/supabaseClient';
 import { dateInputToLocalDate } from '../../utils/dateUtils';
-import { rosterStyles } from '../../styles/RosterManagementStyles';
 import PilotList from './roster/PilotList';
 import PilotDetails from './roster/PilotDetails';
 import BulkEditPilotDetails from './roster/BulkEditPilotDetails';
@@ -2979,7 +2978,7 @@ const RosterManagement: React.FC = () => {
   ), [selectedPilot, statuses, standings, roles, pilotRoles, squadrons, availableQualifications, pilotQualifications, availableTeams, pilotTeams, pilotEnrollments, availableTrainingCycles, loadingRoles, updatingRoles, updatingStatus, updatingStanding, updatingSquadron, loadingQualifications, loadingTeams, loadingEnrollments, updatingEnrollments, disabledRoles, selectedQualification, qualificationAchievedDate, selectedTeam, teamStartDate, isAddingQualification, isAddingTeam, updatingQualifications, updatingTeams, handleStatusChange, handleStandingChange, handleRoleChange, handleSquadronChange, handleAddQualification, handleRemoveQualification, handleAddTeam, handleRemoveTeam, handleAddEnrollment, handleRemoveEnrollment, handleDeletePilot, handleSavePilotChanges, handleQualificationAddedViaRepair, handleTeamAddedViaRepair]);
 
   return (
-    <div style={rosterStyles.container}>
+    <div className="flex-1 min-h-0 flex flex-col p-[14px] max-[760px]:p-2">
       {/* Discord import modal */}
       <DiscordPilotsDialog 
         isOpen={isDiscordImportOpen} 
@@ -3141,7 +3140,7 @@ const RosterManagement: React.FC = () => {
       {loading && !pilots.length ? (
         <StandardPageLoader message="Loading roster data..." />
       ) : (
-        <div style={rosterStyles.contentWrapper}>
+        <div className="flex-1 min-h-0 flex flex-col">
           {/* Sync message */}
           {syncMessage && (
             <div 
@@ -3172,7 +3171,7 @@ const RosterManagement: React.FC = () => {
             </div>
           )}
           
-          <div style={rosterStyles.columnsContainer}>
+          <div data-m="row" className="flex-1 min-h-0 flex gap-[14px]">
             {/* Left column - Squadron Roster List */}
             <PilotList
               pilots={pilots}
@@ -3201,6 +3200,11 @@ const RosterManagement: React.FC = () => {
               setQualificationFilters={setQualificationFilters}
               setFiltersEnabled={setFiltersEnabled}
               onAddPilot={handleAddPilot}
+              onSetSelection={(ps) => {
+                if (isAddingNewPilot) return;
+                setSelectedPilots(ps);
+                setSelectedPilot(ps.length ? ps[ps.length - 1] : null);
+              }}
               onSyncWithDiscord={() => setIsDiscordImportOpen(true)}
               isAddingNewPilot={isAddingNewPilot}
             />

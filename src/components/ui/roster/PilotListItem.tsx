@@ -1,9 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React from 'react';
 import type { Pilot } from '../../../utils/pilotTypes';
 import QualificationBadge from '../QualificationBadge';
-import PilotIDBadgeSm from '../PilotIDBadgeSm';
-import { pilotListStyles } from '../../../styles/RosterManagementStyles';
 import { useAppSettings } from '../../../context/AppSettingsContext';
+import { Checkbox, Icon, StatusChip, Tooltip, legibleColor } from '../primitives';
 
 interface PilotListItemProps {
   pilot: Pilot;
@@ -14,8 +13,18 @@ interface PilotListItemProps {
   onMouseLeave: () => void;
   pilotQualifications: any[];
   isDisabled?: boolean;
+  /** Toggle this row in the multi-selection (row checkbox). */
+  onToggleSelect?: () => void;
+  /** Multiple rows are selected (shows the checkbox state for all rows). */
+  multiSelect?: boolean;
 }
 
+/** Column widths shared with the PilotList header. */
+export const ROSTER_COLS = { check: 16, board: 52, callsign: 150, status: 104, billet: 190 };
+
+const MAX_VISIBLE_BADGES = 7;
+
+/** Roster table row: checkbox · board # · callsign · status · billet · qualifications · chevron. */
 const PilotListItem: React.FC<PilotListItemProps> = ({
   pilot,
   isSelected,
@@ -24,163 +33,78 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
   onMouseEnter,
   onMouseLeave,
   pilotQualifications,
-  isDisabled = false
+  isDisabled = false,
+  onToggleSelect,
 }) => {
   const { settings } = useAppSettings();
-  const [showTooltip, setShowTooltip] = useState(false);
-  const tooltipRef = useRef<HTMLDivElement>(null);
 
-  // Get squadron primary color for callsign styling
-  const getSquadronPrimaryColor = () => {
-    // When setting is disabled, use black for assigned pilots, dark gray for unassigned
-    if (!settings.displayPilotsWithSquadronColors) {
-      return pilot.currentSquadron ? '#000000' : '#374151';
-    }
-    // Use squadron primary color from color_palette.primary if available, otherwise dark gray
-    const squadronData = pilot.currentSquadron as any;
-    const colorPalette = squadronData?.color_palette as { primary?: string } | null;
-    return colorPalette?.primary || '#374151';
-  };
+  const squadronColor = settings.displayPilotsWithSquadronColors
+    ? legibleColor((pilot.currentSquadron as any)?.color_palette?.primary, 'var(--rr-text2)')
+    : 'var(--rr-text2)';
 
-  // Render qualification badges for the pilot
-  const renderQualificationBadges = () => {
-    if (!pilotQualifications || pilotQualifications.length === 0) {
-      return null;
-    }
+  // Deduplicate qualifications and sort by configured order
+  const qualMap = new Map<string, any>();
+  (pilotQualifications || []).forEach((pq: any) => {
+    if (pq?.qualification && !qualMap.has(pq.qualification.id)) qualMap.set(pq.qualification.id, pq);
+  });
+  const uniqueQuals = Array.from(qualMap.values()).sort((a, b) => (a.qualification.order ?? 0) - (b.qualification.order ?? 0));
+  const visible = uniqueQuals.length > MAX_VISIBLE_BADGES ? uniqueQuals.slice(0, MAX_VISIBLE_BADGES - 1) : uniqueQuals;
+  const overflow = uniqueQuals.length > MAX_VISIBLE_BADGES ? uniqueQuals.slice(MAX_VISIBLE_BADGES - 1) : [];
 
-    // Use a Map for efficient deduplication
-    const qualMap = new Map();
-    pilotQualifications.forEach((pq: any) => {
-      if (!qualMap.has(pq.qualification.id)) {
-        qualMap.set(pq.qualification.id, pq);
-      }
-    });
+  const billet = pilot.roles?.[0]?.role?.name || '';
 
-    // Convert map back to array and sort by qualification order
-    const uniqueQuals = Array.from(qualMap.values())
-      .sort((a, b) => a.qualification.order - b.qualification.order);
-
-    // Each badge is 37px wide with 4px gap = 41px per badge
-    // With the increased width, we can show up to 8 badges before overflow
-    const MAX_VISIBLE_BADGES = 8;
-
-    if (uniqueQuals.length <= MAX_VISIBLE_BADGES) {
-      // Show all badges normally
-      return uniqueQuals.map((pq: any) => (
-        <QualificationBadge
-          key={`${pilot.id}-${pq.qualification.id}`}
-          type={pq.qualification.name}
-          code={pq.qualification.code}
-          color={pq.qualification.color}
-        />
-      ));
-    }
-
-    // Show first (MAX_VISIBLE_BADGES - 1) badges plus overflow indicator
-    const visibleQuals = uniqueQuals.slice(0, MAX_VISIBLE_BADGES - 1);
-    const overflowQuals = uniqueQuals.slice(MAX_VISIBLE_BADGES - 1);
-
-    return (
-      <>
-        {visibleQuals.map((pq: any) => (
+  return (
+    <div
+      role="row"
+      aria-selected={isSelected}
+      className={`flex items-center gap-3 px-3 py-[8px] border-b border-border select-none transition-colors duration-150 ${isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'} ${isSelected ? 'bg-accent-weak' : isHovered ? 'bg-panel2' : ''}`}
+      style={isSelected ? { boxShadow: 'inset 3px 0 0 var(--rr-accent)' } : undefined}
+      onClick={isDisabled ? undefined : (e) => onSelect(e as React.MouseEvent)}
+      onMouseEnter={onMouseEnter}
+      onMouseLeave={onMouseLeave}
+    >
+      <span style={{ width: ROSTER_COLS.check }} className="flex-none flex" onClick={(e) => e.stopPropagation()}>
+        <Checkbox size={16} checked={isSelected} disabled={isDisabled} onChange={() => onToggleSelect?.()} />
+      </span>
+      <span className="flex-none font-mono text-[12.5px] font-semibold" style={{ width: ROSTER_COLS.board, color: squadronColor }}>
+        {pilot.boardNumber || '—'}
+      </span>
+      <span className="flex-none text-[13.5px] font-semibold truncate text-text" style={{ width: ROSTER_COLS.callsign }}>
+        {pilot.callsign}
+      </span>
+      <span className="flex-none" style={{ width: ROSTER_COLS.status }}>
+        {pilot.currentStatus ? <StatusChip status={pilot.currentStatus.name} /> : <span className="text-[11px] text-bad">No status</span>}
+      </span>
+      <span className="flex-none text-[12.5px] text-text2 truncate max-[1100px]:hidden" style={{ width: ROSTER_COLS.billet }} title={billet}>
+        {billet || <span className="text-text3">—</span>}
+      </span>
+      <span className="flex-1 min-w-0 flex items-center justify-end gap-[4px] overflow-hidden">
+        {visible.map((pq: any) => (
           <QualificationBadge
             key={`${pilot.id}-${pq.qualification.id}`}
             type={pq.qualification.name}
             code={pq.qualification.code}
             color={pq.qualification.color}
+            size="small"
           />
         ))}
-        <div
-          style={{ position: 'relative' }}
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-        >
-          <div
-            style={{
-              backgroundColor: '#9CA3AF',
-              borderRadius: '8px',
-              width: '37px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#F9FAFB',
-              fontSize: '12px',
-              fontWeight: 400,
-              cursor: 'pointer'
-            }}
+        {overflow.length ? (
+          <Tooltip
+            content={
+              <span className="flex flex-wrap gap-1">
+                {overflow.map((pq: any) => pq.qualification.code).join(' · ')}
+              </span>
+            }
           >
-            +{overflowQuals.length}
-          </div>
-          {showTooltip && (
-            <div
-              ref={tooltipRef}
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '4px',
-                backgroundColor: '#1F2937',
-                borderRadius: '10px',
-                padding: '8px',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '4px',
-                maxWidth: '200px',
-                zIndex: 1000,
-                boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)'
-              }}
-            >
-              {overflowQuals.map((pq: any) => (
-                <QualificationBadge
-                  key={`${pilot.id}-${pq.qualification.id}-tooltip`}
-                  type={pq.qualification.name}
-                  code={pq.qualification.code}
-                  color={pq.qualification.color}
-                />
-              ))}
-            </div>
-          )}
-        </div>
-      </>
-    );
-  };
-
-  return (
-    <div
-      style={{
-        ...pilotListStyles.pilotRow(isSelected, isHovered),
-        userSelect: 'none', // Prevent text selection during multi-select
-        WebkitUserSelect: 'none',
-        MozUserSelect: 'none',
-        msUserSelect: 'none'
-      }}
-      onClick={isDisabled ? undefined : (e) => onSelect(e as React.MouseEvent)}
-      onMouseEnter={onMouseEnter}
-      onMouseLeave={onMouseLeave}
-      className={isDisabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
-    >
-      <div style={{ marginLeft: '-20px' }}>
-        <PilotIDBadgeSm 
-          squadronTailCode={pilot.currentSquadron?.tail_code || undefined}
-          boardNumber={pilot.boardNumber ? String(pilot.boardNumber) : ''}
-          squadronInsigniaUrl={pilot.currentSquadron?.insignia_url || undefined}
-        />
-      </div>
-      <span style={{
-        ...pilotListStyles.callsign,
-        color: getSquadronPrimaryColor()
-      }}>
-        {pilot.callsign}
+            <span className="inline-flex items-center h-4 px-[5px] rounded-rr-sm bg-panel3 text-text2 font-mono text-[9.5px] font-semibold cursor-default">
+              +{overflow.length}
+            </span>
+          </Tooltip>
+        ) : null}
       </span>
-      <span style={pilotListStyles.role}>
-        {pilot.roles?.[0]?.role?.name || ''}
+      <span className="flex-none w-4 flex justify-center text-text3">
+        <Icon name="chevronRight" size={14} />
       </span>
-      
-      <div style={{...pilotListStyles.badgeContainer, marginRight: '-10px'}}>
-        {renderQualificationBadges()}
-      </div>
     </div>
   );
 };

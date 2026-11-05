@@ -5,10 +5,9 @@ import { Standing } from '../../../utils/standingService';
 import { Squadron } from '../../../utils/squadronService';
 import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
-import { pilotListStyles, rosterStyles } from '../../../styles/RosterManagementStyles';
 import FilterDrawer, { QualificationFilterMode } from './FilterDrawer';
-import PilotListItem from './PilotListItem';
-import { ArrowUpDown } from 'lucide-react';
+import PilotListItem, { ROSTER_COLS } from './PilotListItem';
+import { BulkBar, Button, Checkbox, EmptyState, Icon, SearchInput, SegmentedControl } from '../primitives';
 
 interface PilotListProps {
   pilots: Pilot[];
@@ -39,6 +38,8 @@ interface PilotListProps {
   onAddPilot: () => void;
   onSyncWithDiscord: () => void;
   isAddingNewPilot?: boolean;
+  /** Replace the multi-selection (group select-all / clear). */
+  onSetSelection?: (pilots: Pilot[]) => void;
 }
 
 const PilotList: React.FC<PilotListProps> = ({
@@ -69,17 +70,38 @@ const PilotList: React.FC<PilotListProps> = ({
   setFiltersEnabled,
   onAddPilot,
   onSyncWithDiscord,
-  isAddingNewPilot = false
+  isAddingNewPilot = false,
+  onSetSelection
 }) => {
   const rosterContentRef = useRef<HTMLDivElement>(null);
   const rosterListRef = useRef<HTMLDivElement>(null);
 
   // Sort state
   const [sortBy, setSortBy] = useState<'role' | 'boardNumber' | 'callsign'>('role');
-  const [sortBySquadron, setSortBySquadron] = useState<boolean>(true);
+  // Within standing groups pilots stay clustered by squadron (legacy default)
+  const sortBySquadron = true;
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc');
+  // Grouping: by standing/status (legacy) or by squadron (design: sticky insignia groups)
+  const [groupMode, setGroupMode] = useState<'standing' | 'squadron'>(() => {
+    try { return (localStorage.getItem('rr-roster-group') as 'standing' | 'squadron') || 'squadron'; } catch { return 'squadron'; }
+  });
+  const changeGroupMode = (m: 'standing' | 'squadron') => {
+    setGroupMode(m);
+    try { localStorage.setItem('rr-roster-group', m); } catch { /* storage unavailable */ }
+  };
+  const [search, setSearch] = useState('');
+  const searchedPilots = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return pilots;
+    return pilots.filter(p =>
+      (p.callsign || '').toLowerCase().includes(q) ||
+      String(p.boardNumber || '').includes(q) ||
+      String((p as any).discordUsername || (p as any).discord_username || '').toLowerCase().includes(q)
+    );
+  }, [pilots, search]);
 
   // Filter pilots by all selected filters (only when filters are enabled) - memoized for performance
-  const filteredPilots = useMemo(() => filtersEnabled ? pilots.filter(pilot => {
+  const filteredPilots = useMemo(() => filtersEnabled ? searchedPilots.filter(pilot => {
     // Squadron filter
     if (selectedSquadronIds.length > 0) {
       if (!pilot.currentSquadron?.id) {
@@ -133,7 +155,7 @@ const PilotList: React.FC<PilotListProps> = ({
     }
     
     return true;
-  }) : pilots, [filtersEnabled, pilots, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, qualificationFilters, allPilotQualifications]);
+  }) : searchedPilots, [filtersEnabled, searchedPilots, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, qualificationFilters, allPilotQualifications]);
 
   // Separate pilots into active, inactive, and needs attention groups - memoized for performance
   const pilotGroups = useMemo(() => {
@@ -183,7 +205,8 @@ const PilotList: React.FC<PilotListProps> = ({
 
   // Helper function to sort pilots by role order, then alphabetically by callsign
   const sortPilotsByRoleAndCallsign = useCallback((pilots: Pilot[]) => {
-    return [...pilots].sort((a, b) => {
+    const dir = sortDir === 'desc' ? -1 : 1;
+    return [...pilots].sort((a, b) => dir * (() => {
       // First sort by squadron ID if enabled
       if (sortBySquadron) {
         const squadronA = a.currentSquadron?.id || '';
@@ -220,8 +243,8 @@ const PilotList: React.FC<PilotListProps> = ({
         // If roles are the same (or both have no role), sort alphabetically by callsign
         return a.callsign.localeCompare(b.callsign);
       }
-    });
-  }, [sortBy, sortBySquadron]);
+    })());
+  }, [sortBy, sortBySquadron, sortDir]);
 
   // Build a flat array of all visible pilots in display order for multi-select
   const visiblePilotsInOrder = useMemo(() => {
@@ -281,409 +304,200 @@ const PilotList: React.FC<PilotListProps> = ({
     [inactivePilots]
   );
 
-  // Render sort controls
-  const renderSortControls = () => (
-    <div style={{
-      display: 'flex',
-      gap: '8px',
-      marginBottom: '16px',
-      justifyContent: 'flex-end',
-      paddingRight: '12px'
-    }}>
-      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', marginRight: '4px', alignSelf: 'center' }}>
-        Sort by:
-      </span>
+  // ---- Display groups ------------------------------------------------------------------
+  type Group = { key: string; title: React.ReactNode; tone?: 'muted' | 'bad'; insignia?: string | null; pilots: Pilot[] };
+  const groups: Group[] = useMemo(() => {
+    if (groupMode === 'squadron') {
+      // One group per squadron (keyed by squadron id, labelled by designation); unassigned last.
+      // Active pilots first within each group, then inactive, then needs-attention.
+      const bySq = new Map<string, Group>();
+      const rank = (p: Pilot) => (!p.currentStatus || !p.currentStanding ? 2 : p.currentStatus.isActive ? 0 : 1);
+      filteredPilots.forEach(p => {
+        const sq = p.currentSquadron;
+        const key = sq?.id || 'unassigned';
+        if (!bySq.has(key)) {
+          bySq.set(key, {
+            key,
+            title: sq ? (
+              <span className="flex items-baseline gap-2 min-w-0">
+                <span className="text-[12.5px] font-bold text-text">{sq.designation}</span>
+                <span className="font-mono text-[10px] text-text3 truncate">{sq.name}</span>
+              </span>
+            ) : <span className="text-[12.5px] font-bold text-text2">Unassigned</span>,
+            insignia: sq?.insignia_url,
+            pilots: [],
+          });
+        }
+        bySq.get(key)!.pilots.push(p);
+      });
+      return Array.from(bySq.values())
+        .sort((x, y) => (x.key === 'unassigned' ? 1 : y.key === 'unassigned' ? -1 : String((x.pilots[0].currentSquadron as any)?.designation).localeCompare(String((y.pilots[0].currentSquadron as any)?.designation))))
+        .map(g => ({ ...g, pilots: [...sortPilotsByRoleAndCallsign(g.pilots)].sort((a, b) => rank(a) - rank(b)) }));
+    }
+    const out: Group[] = [];
+    standingOrder.forEach(standing => {
+      const ps = groupedActivePilots[standing];
+      if (ps?.length) out.push({ key: `active-${standing}`, title: <span className="text-[12px] font-bold tracking-[.06em] uppercase text-text">{standing}</span>, pilots: sortPilotsByRoleAndCallsign(ps) });
+    });
+    inactiveStatusOrder.forEach(status => {
+      const ps = groupedInactivePilots[status];
+      if (ps?.length) out.push({ key: `inactive-${status}`, tone: 'muted', title: <span className="text-[12px] font-bold tracking-[.06em] uppercase text-text3">{status}</span>, pilots: sortPilotsByRoleAndCallsign(ps) });
+    });
+    if (needsAttentionPilots.length) {
+      out.push({ key: 'needs-attention', tone: 'bad', title: <span className="text-[12px] font-bold tracking-[.06em] uppercase text-bad">Needs Attention</span>, pilots: sortPilotsByRoleAndCallsign(needsAttentionPilots) });
+    }
+    return out;
+  }, [groupMode, filteredPilots, standingOrder, inactiveStatusOrder, groupedActivePilots, groupedInactivePilots, needsAttentionPilots, sortPilotsByRoleAndCallsign]);
+
+  // Display order for shift-range selection follows what is on screen
+  const displayOrder = useMemo(() => groups.flatMap(g => g.pilots), [groups]);
+  void visiblePilotsInOrder;
+
+  const selectedIds = useMemo(() => new Set(selectedPilots.map(p => p.id)), [selectedPilots]);
+  const toggleOne = (pilot: Pilot) => {
+    if (!onPilotSelection) return;
+    onPilotSelection(pilot, displayOrder, { ctrlKey: true, preventDefault() {} } as unknown as React.MouseEvent);
+  };
+  const setGroupSelected = (ps: Pilot[], on: boolean) => {
+    if (!onSetSelection) return;
+    if (on) {
+      const merged = [...selectedPilots];
+      ps.forEach(p => { if (!selectedIds.has(p.id)) merged.push(p); });
+      onSetSelection(merged);
+    } else {
+      const drop = new Set(ps.map(p => p.id));
+      onSetSelection(selectedPilots.filter(p => !drop.has(p.id)));
+    }
+  };
+
+  const sortHeader = (key: 'boardNumber' | 'callsign' | 'role', label: string, width?: number, extraClass = '') => {
+    const active = sortBy === key;
+    return (
       <button
         type="button"
-        onClick={() => setSortBySquadron(!sortBySquadron)}
-        style={{
-          padding: '4px 12px',
-          backgroundColor: sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel)',
-          color: sortBySquadron ? 'white' : 'var(--rr-text2)',
-          border: `1px solid ${sortBySquadron ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 500,
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          transition: 'all 0.2s ease'
+        onClick={() => {
+          if (active) setSortDir(d => (d === 'asc' ? 'desc' : 'asc'));
+          else { setSortBy(key); setSortDir('asc'); }
         }}
+        className={`flex-none flex items-center gap-1 bg-transparent border-0 p-0 cursor-pointer font-mono text-[9.5px] tracking-[.1em] uppercase hover:text-text ${active ? 'text-accent' : 'text-text2'} ${extraClass}`}
+        style={{ width }}
       >
-        <ArrowUpDown size={12} />
-        Squadron
+        {label}
+        <span className={`flex transition-transform duration-200 ${active ? '' : 'opacity-0'}`} style={{ transform: active && sortDir === 'desc' ? 'rotate(180deg)' : 'none' }}>
+          <Icon name="chevronUp" size={10} stroke={2.4} />
+        </span>
       </button>
-      <button
-        type="button"
-        onClick={() => setSortBy('role')}
-        style={{
-          padding: '4px 12px',
-          backgroundColor: sortBy === 'role' ? 'var(--rr-accent)' : 'var(--rr-panel)',
-          color: sortBy === 'role' ? 'white' : 'var(--rr-text2)',
-          border: `1px solid ${sortBy === 'role' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 500,
-          transition: 'all 0.2s ease'
-        }}
-      >
-        Role
-      </button>
-      <button
-        type="button"
-        onClick={() => setSortBy('boardNumber')}
-        style={{
-          padding: '4px 12px',
-          backgroundColor: sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-panel)',
-          color: sortBy === 'boardNumber' ? 'white' : 'var(--rr-text2)',
-          border: `1px solid ${sortBy === 'boardNumber' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 500,
-          transition: 'all 0.2s ease'
-        }}
-      >
-        Board Number
-      </button>
-      <button
-        type="button"
-        onClick={() => setSortBy('callsign')}
-        style={{
-          padding: '4px 12px',
-          backgroundColor: sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-panel)',
-          color: sortBy === 'callsign' ? 'white' : 'var(--rr-text2)',
-          border: `1px solid ${sortBy === 'callsign' ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
-          borderRadius: '4px',
-          cursor: 'pointer',
-          fontSize: '12px',
-          fontWeight: 500,
-          transition: 'all 0.2s ease'
-        }}
-      >
-        Callsign
-      </button>
-    </div>
-  );
+    );
+  };
+
+  const total = filteredPilots.length;
 
   return (
-    <div ref={rosterListRef} style={pilotListStyles.container}>
-      {/* Filter drawer */}
-      <FilterDrawer
-        squadrons={squadrons}
-        statuses={statuses}
-        standings={standings}
-        roles={roles}
-        qualifications={qualifications}
-        pilots={pilots}
-        allPilotQualifications={allPilotQualifications}
-        selectedSquadronIds={selectedSquadronIds}
-        selectedStatusIds={selectedStatusIds}
-        selectedStandingIds={selectedStandingIds}
-        selectedRoleIds={selectedRoleIds}
-        qualificationFilters={qualificationFilters}
-        filtersEnabled={filtersEnabled}
-        setSelectedSquadronIds={setSelectedSquadronIds}
-        setSelectedStatusIds={setSelectedStatusIds}
-        setSelectedStandingIds={setSelectedStandingIds}
-        setSelectedRoleIds={setSelectedRoleIds}
-        setQualificationFilters={setQualificationFilters}
-        setFiltersEnabled={setFiltersEnabled}
-      />
+    <div ref={rosterListRef} className="flex-1 min-w-[560px] min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
+      {/* Toolbar */}
+      <div className="flex-none flex items-center gap-[10px] px-[14px] py-[10px] border-b border-border flex-wrap">
+        <span className="rr-pane-title whitespace-nowrap">Squadron Roster</span>
+        <span className="font-mono text-[11px] text-text3">{total}</span>
+        <SearchInput value={search} onChange={setSearch} placeholder="Search callsign, board #, Discord…" className="flex-1 min-w-[180px] max-w-[420px]" />
+        <span className="flex-1" />
+        <SegmentedControl
+          size="sm"
+          value={groupMode}
+          onChange={changeGroupMode}
+          options={[{ value: 'squadron', label: 'SQUADRON' }, { value: 'standing', label: 'STANDING' }]}
+        />
+        <FilterDrawer
+          squadrons={squadrons}
+          statuses={statuses}
+          standings={standings}
+          roles={roles}
+          qualifications={qualifications}
+          pilots={pilots}
+          allPilotQualifications={allPilotQualifications}
+          selectedSquadronIds={selectedSquadronIds}
+          selectedStatusIds={selectedStatusIds}
+          selectedStandingIds={selectedStandingIds}
+          selectedRoleIds={selectedRoleIds}
+          qualificationFilters={qualificationFilters}
+          filtersEnabled={filtersEnabled}
+          setSelectedSquadronIds={setSelectedSquadronIds}
+          setSelectedStatusIds={setSelectedStatusIds}
+          setSelectedStandingIds={setSelectedStandingIds}
+          setSelectedRoleIds={setSelectedRoleIds}
+          setQualificationFilters={setQualificationFilters}
+          setFiltersEnabled={setFiltersEnabled}
+        />
+        <Button size="sm" variant="secondary" icon="discord" onClick={onSyncWithDiscord}>Sync Discord</Button>
+        <Button size="sm" variant="primary" icon="plus" onClick={onAddPilot} disabled={isAddingNewPilot}>Add Pilot</Button>
+      </div>
 
-      {/* Sort Controls */}
-      {renderSortControls()}
+      {/* Column header */}
+      <div className="flex-none flex items-center gap-3 px-3 py-2 bg-panel2 border-b border-border">
+        <span style={{ width: ROSTER_COLS.check }} className="flex-none" />
+        {sortHeader('boardNumber', 'Board', ROSTER_COLS.board)}
+        {sortHeader('callsign', 'Callsign', ROSTER_COLS.callsign)}
+        <span className="flex-none font-mono text-[9.5px] tracking-[.1em] uppercase text-text2" style={{ width: ROSTER_COLS.status }}>Status</span>
+        {sortHeader('role', 'Billet', ROSTER_COLS.billet, 'max-[1100px]:hidden')}
+        <span className="flex-1 text-right font-mono text-[9.5px] tracking-[.1em] uppercase text-text2">Qualifications</span>
+        <span className="flex-none w-4" />
+      </div>
 
-      <div 
-        ref={rosterContentRef}
-        style={pilotListStyles.content}
-      >
-        {/* Active Pilots Section */}
-        {activePilots.length > 0 && (
-          <div>
-            {standingOrder.map(standing => {
-              const standingPilots = groupedActivePilots[standing];
-              if (!standingPilots?.length) return null;
-
-              // Sort pilots within each standing by role order, then callsign
-              const sortedStandingPilots = sortPilotsByRoleAndCallsign(standingPilots);
-
-              return (
-                <div key={`active-${standing}`}>
-                  {/* Standing subgroup */}
-                  <div 
-                    style={{
-                      position: 'relative',
-                      textAlign: 'center',
-                      margin: '20px 0'
-                    }}
-                  >
-                    <div 
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        top: '50%',
-                        height: '1px',
-                        backgroundColor: 'var(--rr-panel3)'
-                      }}
-                    />
-                    <span 
-                      style={{
-                        position: 'relative',
-                        backgroundColor: 'var(--rr-panel)',
-                        padding: '0 16px',
-                        color: 'var(--rr-text2)',
-                        fontSize: '12px',
-                        fontFamily: 'inherit',
-                        fontWeight: 300,
-                        textTransform: 'uppercase'
-                      }}
-                    >
-                      {standing} ({standingPilots.length})
-                    </span>
-                  </div>
-
-                  {/* Pilot entries */}
-                  {sortedStandingPilots.map((pilot) => {
-                    const isSelected = selectedPilots.some(p => p.id === pilot.id);
-
-                    return (
-                      <PilotListItem
-                        key={pilot.id}
-                        pilot={pilot}
-                        isSelected={isSelected}
-                        isHovered={hoveredPilot === pilot.id}
-                        onSelect={(event) => {
-                          if (onPilotSelection) {
-                            onPilotSelection(pilot, visiblePilotsInOrder, event);
-                          } else if (setSelectedPilot) {
-                            setSelectedPilot(pilot);
-                          }
-                        }}
-                        onMouseEnter={() => setHoveredPilot(pilot.id)}
-                        onMouseLeave={() => setHoveredPilot(null)}
-                        pilotQualifications={allPilotQualifications[pilot.id] || []}
-                        isDisabled={isAddingNewPilot}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Inactive Pilots Section */}
-        {inactivePilots.length > 0 && (
-          <div>
-            {inactiveStatusOrder.map(status => {
-              const statusPilots = groupedInactivePilots[status];
-              if (!statusPilots?.length) return null;
-
-              // Sort pilots within each status by role order, then callsign
-              const sortedStatusPilots = sortPilotsByRoleAndCallsign(statusPilots);
-
-              return (
-                <div key={`inactive-${status}`}>
-                  {/* Status subgroup */}
-                  <div 
-                    style={{
-                      position: 'relative',
-                      textAlign: 'center',
-                      margin: '20px 0'
-                    }}
-                  >
-                    <div 
-                      style={{
-                        position: 'absolute',
-                        left: 0,
-                        right: 0,
-                        top: '50%',
-                        height: '1px',
-                        backgroundColor: 'var(--rr-panel3)'
-                      }}
-                    />
-                    <span 
-                      style={{
-                        position: 'relative',
-                        backgroundColor: 'var(--rr-panel)',
-                        padding: '0 16px',
-                        color: 'var(--rr-text3)',
-                        fontSize: '12px',
-                        fontFamily: 'inherit',
-                        fontWeight: 300,
-                        textTransform: 'uppercase'
-                      }}
-                    >
-                      {status} ({statusPilots.length})
-                    </span>
-                  </div>
-
-                  {/* Pilot entries */}
-                  {sortedStatusPilots.map((pilot) => {
-                    const isSelected = selectedPilots.some(p => p.id === pilot.id);
-
-                    return (
-                      <PilotListItem
-                        key={pilot.id}
-                        pilot={pilot}
-                        isSelected={isSelected}
-                        isHovered={hoveredPilot === pilot.id}
-                        onSelect={(event) => {
-                          if (onPilotSelection) {
-                            onPilotSelection(pilot, visiblePilotsInOrder, event);
-                          } else if (setSelectedPilot) {
-                            setSelectedPilot(pilot);
-                          }
-                        }}
-                        onMouseEnter={() => setHoveredPilot(pilot.id)}
-                        onMouseLeave={() => setHoveredPilot(null)}
-                        pilotQualifications={allPilotQualifications[pilot.id] || []}
-                        isDisabled={isAddingNewPilot}
-                      />
-                    );
-                  })}
-                </div>
-              );
-            })}
-          </div>
-        )}
-
-        {/* Needs Attention Pilots Section */}
-        {needsAttentionPilots.length > 0 && (
-          <div>
-            {/* Needs Attention section header */}
-            <div 
-              style={{
-                position: 'relative',
-                textAlign: 'center',
-                margin: '20px 0'
-              }}
-            >
-              <div 
-                style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  top: '50%',
-                  height: '1px',
-                  backgroundColor: 'var(--rr-panel3)'
-                }}
-              />
-              <span 
-                style={{
-                  position: 'relative',
-                  backgroundColor: 'var(--rr-panel)',
-                  padding: '0 16px',
-                  color: 'var(--rr-bad)',
-                  fontSize: '12px',
-                  fontFamily: 'inherit',
-                  fontWeight: 300,
-                  textTransform: 'uppercase'
-                }}
-              >
-                Needs Attention ({needsAttentionPilots.length})
-              </span>
-            </div>
-
-            {/* Pilot entries - sorted by role order, then callsign */}
-            {sortPilotsByRoleAndCallsign(needsAttentionPilots).map((pilot) => {
-              const isSelected = selectedPilots.some(p => p.id === pilot.id);
-
-              return (
+      <div ref={rosterContentRef} className="flex-1 min-h-0 overflow-y-auto">
+        {groups.map(g => {
+          const gAll = g.pilots.length > 0 && g.pilots.every(p => selectedIds.has(p.id));
+          const gSome = !gAll && g.pilots.some(p => selectedIds.has(p.id));
+          return (
+            <div key={g.key}>
+              <div className="sticky top-0 z-[2] flex items-center gap-3 px-3 py-[7px] bg-panel border-b border-border">
+                <span style={{ width: ROSTER_COLS.check }} className="flex-none flex">
+                  {onSetSelection ? (
+                    <Checkbox size={16} checked={gAll} indeterminate={gSome} disabled={isAddingNewPilot} onChange={(v) => setGroupSelected(g.pilots, v)} />
+                  ) : null}
+                </span>
+                {g.insignia ? <img src={g.insignia} alt="" className="w-5 h-5 object-contain flex-none" /> : null}
+                <div className="min-w-0 flex-1">{g.title}</div>
+                <span className="font-mono text-[10px] tracking-[.08em] text-text3">{g.pilots.length} PILOTS</span>
+              </div>
+              {g.pilots.map(pilot => (
                 <PilotListItem
                   key={pilot.id}
                   pilot={pilot}
-                  isSelected={isSelected}
+                  isSelected={selectedIds.has(pilot.id)}
                   isHovered={hoveredPilot === pilot.id}
                   onSelect={(event) => {
                     if (onPilotSelection) {
-                      onPilotSelection(pilot, visiblePilotsInOrder, event);
+                      onPilotSelection(pilot, displayOrder, event);
                     } else if (setSelectedPilot) {
                       setSelectedPilot(pilot);
                     }
                   }}
+                  onToggleSelect={() => toggleOne(pilot)}
                   onMouseEnter={() => setHoveredPilot(pilot.id)}
                   onMouseLeave={() => setHoveredPilot(null)}
                   pilotQualifications={allPilotQualifications[pilot.id] || []}
                   isDisabled={isAddingNewPilot}
                 />
-              );
-            })}
-          </div>
-        )}
+              ))}
+            </div>
+          );
+        })}
 
-        {filteredPilots.length === 0 && (
-          <div style={pilotListStyles.emptyList}>
-            No pilots found.
-          </div>
+        {total === 0 && (
+          <EmptyState
+            title="No pilots found"
+            message={search ? 'No pilots match your search.' : 'Adjust or clear the filters to see more pilots.'}
+          />
         )}
       </div>
 
-      {/* Footer with Add Pilot button (centered) and Sync with Discord (right) */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '18px',
-        position: 'relative',
-        zIndex: 5,
-        borderTop: '1px solid var(--rr-border)'
-      }}>
-        <button
-          onClick={onAddPilot}
-          disabled={isAddingNewPilot}
-          style={{
-            ...rosterStyles.addPilotButton,
-            opacity: isAddingNewPilot ? 0.5 : 1,
-            cursor: isAddingNewPilot ? 'not-allowed' : 'pointer'
-          }}
-          onMouseEnter={e => {
-            if (!isAddingNewPilot) {
-              e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-            }
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.boxShadow = 'none';
-          }}
-        >
-          +
-        </button>
-
-        <button
-          onClick={onSyncWithDiscord}
-          style={{
-            position: 'absolute',
-            right: '18px',
-            backgroundColor: '#7289da',
-            color: 'white',
-            border: 'none',
-            borderRadius: '4px',
-            padding: '8px 12px',
-            fontSize: '13px',
-            fontWeight: 500,
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            transition: 'background-color 0.2s'
-          }}
-          onMouseEnter={e => {
-            e.currentTarget.style.backgroundColor = '#5b6eae';
-          }}
-          onMouseLeave={e => {
-            e.currentTarget.style.backgroundColor = '#7289da';
-          }}
-        >
-          <svg viewBox="0 0 24 24" width="14" height="14" fill="currentColor">
-            <path d="M20.317 4.3698a19.7913 19.7913 0 00-4.8851-1.5152.0741.0741 0 00-.0785.0371c-.211.3753-.4447.8648-.6083 1.2495-1.8447-.2762-3.68-.2762-5.4868 0-.1636-.3933-.4058-.8742-.6177-1.2495a.077.077 0 00-.0785-.037 19.7363 19.7363 0 00-4.8852 1.515.0699.0699 0 00-.0321.0277C.5334 9.0458-.319 13.5799.0992 18.0578a.0824.0824 0 00.0312.0561c2.0528 1.5076 4.0413 2.4228 5.9929 3.0294a.0777.0777 0 00.0842-.0276c.4616-.6304.8731-1.2952 1.226-1.9942a.076.076 0 00-.0416-.1057c-.6528-.2476-1.2743-.5495-1.8722-.8923a.077.077 0 01-.0076-.1277c.1258-.0943.2517-.1923.3718-.2914a.0743.0743 0 01.0776-.0105c3.9278 1.7933 8.18 1.7933 12.0614 0a.0739.0739 0 01.0785.0095c.1202.099.246.1981.3728.2924a.077.077 0 01-.0066.1276 12.2986 12.2986 0 01-1.873.8914.0766.0766 0 00-.0407.1067c.3604.698.7719 1.3628 1.225 1.9932a.076.076 0 00.0842.0286c1.961-.6067 3.9495-1.5219 6.0023-3.0294a.077.077 0 00.0313-.0552c.5004-5.177-.8382-9.6739-3.5485-13.6604a.061.061 0 00-.0312-.0286zM8.02 15.3312c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9555-2.4189 2.157-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.9555 2.4189-2.1569 2.4189zm7.9748 0c-1.1825 0-2.1569-1.0857-2.1569-2.419 0-1.3332.9554-2.4189 2.1569-2.4189 1.2108 0 2.1757 1.0952 2.1568 2.419 0 1.3332-.946 2.4189-2.1568 2.4189Z"/>
-          </svg>
-          Sync with Discord
-        </button>
-      </div>
+      {/* Bulk selection footer */}
+      {selectedPilots.length > 1 ? (
+        <div className="flex-none px-3 py-2 border-t border-border">
+          <BulkBar count={selectedPilots.length} onClear={() => onSetSelection?.([])}>
+            <span className="text-[12px] text-text2">Edit the selection in the panel on the right. Shift-click selects a range, Ctrl-click toggles.</span>
+          </BulkBar>
+        </div>
+      ) : null}
     </div>
   );
 };
