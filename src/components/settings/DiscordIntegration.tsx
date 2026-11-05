@@ -170,7 +170,7 @@ const DiscordIntegration: React.FC<DiscordIntegrationProps> = ({ error: parentEr
 
   const containerStyle = {
     backgroundColor: 'var(--rr-panel)',
-    minHeight: '100vh',
+    minHeight: '100%',
     padding: '40px',
     boxSizing: 'border-box' as const
   };

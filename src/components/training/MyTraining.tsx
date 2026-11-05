@@ -187,7 +187,7 @@ const MyTraining: React.FC = () => {
 
   if (loading) {
     return (
-      <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100%', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
           border: '1px solid var(--rr-border)', borderRadius: '10px', padding: '40px 80px' }}>
           Loading training data...
@@ -198,7 +198,7 @@ const MyTraining: React.FC = () => {
 
   if (!userProfile?.pilot) {
     return (
-      <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+      <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100%', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
         <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
           border: '1px solid var(--rr-border)', borderRadius: '10px', padding: '40px', maxWidth: '600px' }}>
           <div style={{ backgroundColor: 'rgba(222,154,31,.14)', padding: '16px', borderRadius: '8px', border: '1px solid var(--rr-warn)' }}>
@@ -210,11 +210,11 @@ const MyTraining: React.FC = () => {
   }
 
   return (
-    <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '20px', overflow: 'visible' }}>
-      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', minHeight: 'calc(100vh - 40px)', position: 'relative', zIndex: 1, maxWidth: '2240px', width: 'min(100%, 2240px)', boxSizing: 'border-box', overflow: 'visible', padding: '15px', margin: '-15px' }}>
+    <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '20px', overflow: 'visible' }}>
+      <div style={{ display: 'flex', gap: '20px', justifyContent: 'center', minHeight: '100%', position: 'relative', zIndex: 1, maxWidth: '2240px', width: 'min(100%, 2240px)', boxSizing: 'border-box', overflow: 'visible', padding: '15px', margin: '-15px' }}>
 
         {/* Progress Summary Card */}
-        <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
+        <div style={{ width: CARD_WIDTH, minWidth: '350px', height: '100%', boxSizing: 'border-box', overflowY: 'visible' }}>
           <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
           border: '1px solid var(--rr-border)', borderRadius: '10px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px 8px' }}>
@@ -284,7 +284,7 @@ const MyTraining: React.FC = () => {
         </div>
 
         {/* Training Roadmap Card */}
-        <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
+        <div style={{ width: CARD_WIDTH, minWidth: '350px', height: '100%', boxSizing: 'border-box', overflowY: 'visible' }}>
           <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
           border: '1px solid var(--rr-border)', borderRadius: '10px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px 8px' }}>

@@ -308,14 +308,14 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
 
       {/* After Action Reports Section */}
       <h3 style={{
-        fontSize: '20px',
-        fontWeight: 300,
+        fontSize: '12px',
+        fontWeight: 600,
         color: 'var(--rr-text2)',
         fontFamily: 'inherit',
         textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        marginBottom: '16px',
-        textAlign: 'center'
+        letterSpacing: '.14em',
+        marginBottom: '12px',
+        textAlign: 'left'
       }}>
         After Action Reports
       </h3>

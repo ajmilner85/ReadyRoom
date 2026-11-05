@@ -3,7 +3,7 @@
 export const debriefingStyles = {
   container: {
     backgroundColor: 'var(--rr-panel2)',
-    height: '100vh',
+    height: '100%',
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
@@ -14,10 +14,9 @@ export const debriefingStyles = {
   contentWrapper: {
     display: 'flex',
     flexDirection: 'column' as const,
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     position: 'relative' as const,
     zIndex: 1,
-    maxWidth: '2009px', // baseWidth * 3 + 20
     margin: '0 auto',
     width: '100%'
   },
@@ -25,7 +24,7 @@ export const debriefingStyles = {
     display: 'flex',
     gap: '20px',
     flex: 1,
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     overflow: 'visible'
   }
 };
@@ -40,7 +39,7 @@ export const missionListStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflow: 'hidden',
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     boxSizing: 'border-box' as const
   },
   content: {
@@ -86,14 +85,14 @@ export const missionListStyles = {
     flexShrink: 0,
     backgroundColor:
       outcome === 'success' ? 'rgba(64,168,91,.14)' :
-      outcome === 'partial_success' ? '#FEF3C7' :
-      outcome === 'failure' ? '#FEE2E2' :
-      '#E5E7EB', // pending - grey
+      outcome === 'partial_success' ? 'rgba(222,154,31,.16)' :
+      outcome === 'failure' ? 'rgba(224,82,78,.16)' :
+      'var(--rr-panel3)', // pending
     color:
       outcome === 'success' ? 'var(--rr-good)' :
-      outcome === 'partial_success' ? '#854D0E' :
-      outcome === 'failure' ? '#991B1B' :
-      '#6B7280' // pending - darker grey
+      outcome === 'partial_success' ? 'var(--rr-warn)' :
+      outcome === 'failure' ? 'var(--rr-bad)' :
+      'var(--rr-text2)' // pending
   }),
   emptyList: {
     textAlign: 'center' as const,
@@ -114,7 +113,7 @@ export const missionDetailsStyles = {
     flexDirection: 'column' as const,
     position: 'relative' as const,
     overflowY: 'auto' as const,
-    height: 'calc(100vh - 40px)',
+    height: '100%',
     boxSizing: 'border-box' as const
   },
   emptyState: {
