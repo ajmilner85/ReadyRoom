@@ -116,7 +116,8 @@ const Reports: React.FC = () => {
           className="bg-panel rounded-lg shadow-rr overflow-hidden"
           style={{
             boxShadow: 'var(--rr-shadow)',
-            borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+            borderRadius: '10px',
             backgroundColor: 'var(--rr-panel)',
             height: 'calc(100vh - 40px)',
             display: 'flex',

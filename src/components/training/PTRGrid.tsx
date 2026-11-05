@@ -822,7 +822,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                             top: 'calc(100% + 30px)',
                             backgroundColor: 'var(--rr-panel)',
                             border: '1px solid var(--rr-border)',
-                            borderRadius: '8px',
+                            borderRadius: '10px',
                             boxShadow: 'var(--rr-shadow)',
                             padding: '12px',
                             minWidth: 'max-content',

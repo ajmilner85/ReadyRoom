@@ -195,7 +195,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
           width: width,
           backgroundColor: 'var(--rr-panel)',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           padding: '24px',
           marginBottom: '20px',
           display: 'flex',
@@ -205,8 +206,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
       >
         <div style={{
           width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
+          textAlign: 'left',
+          marginBottom: '12px'
         }}>
           <span style={styles.headerLabel}>Aircraft Groups</span>
         </div>
@@ -231,7 +232,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
         width: width,
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-        borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+        borderRadius: '10px',
         padding: '24px',
         marginBottom: '20px',
         display: 'flex',
@@ -241,8 +243,8 @@ const AircraftGroups: React.FC<AircraftGroupsProps> = ({
     >
       <div style={{
         width: '100%',
-        textAlign: 'center',
-        marginBottom: '16px'
+        textAlign: 'left',
+        marginBottom: '12px'
       }}>
         <span style={styles.headerLabel}>{cardTitle}</span>
       </div>

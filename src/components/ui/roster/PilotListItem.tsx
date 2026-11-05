@@ -121,14 +121,15 @@ const PilotListItem: React.FC<PilotListItemProps> = ({
                 right: 0,
                 marginTop: '4px',
                 backgroundColor: '#1F2937',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '8px',
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '4px',
                 maxWidth: '200px',
                 zIndex: 1000,
-                boxShadow: 'var(--rr-shadow)'
+                boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)'
               }}
             >
               {overflowQuals.map((pq: any) => (

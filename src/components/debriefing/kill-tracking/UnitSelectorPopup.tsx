@@ -72,7 +72,7 @@ const UnitSelectorPopup: React.FC<UnitSelectorPopupProps> = ({
         left: position.left,
         backgroundColor: 'var(--rr-panel)',
         border: friendlyMode ? '1px solid var(--rr-accent)' : '1px solid var(--rr-border)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         boxShadow: 'var(--rr-shadow)',
         zIndex: 1000,
         minWidth: '220px',

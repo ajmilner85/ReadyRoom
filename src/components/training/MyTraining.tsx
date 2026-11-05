@@ -188,7 +188,8 @@ const MyTraining: React.FC = () => {
   if (loading) {
     return (
       <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', padding: '40px 80px' }}>
+        <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)', borderRadius: '10px', padding: '40px 80px' }}>
           Loading training data...
         </div>
       </div>
@@ -198,7 +199,8 @@ const MyTraining: React.FC = () => {
   if (!userProfile?.pilot) {
     return (
       <div style={{ backgroundColor: 'var(--rr-panel2)', minHeight: '100vh', padding: '20px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-        <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', padding: '40px', maxWidth: '600px' }}>
+        <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)', borderRadius: '10px', padding: '40px', maxWidth: '600px' }}>
           <div style={{ backgroundColor: 'rgba(222,154,31,.14)', padding: '16px', borderRadius: '8px', border: '1px solid var(--rr-warn)' }}>
             You must be linked to a pilot record to access training.
           </div>
@@ -213,9 +215,10 @@ const MyTraining: React.FC = () => {
 
         {/* Progress Summary Card */}
         <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)', borderRadius: '10px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
+              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 600, fontSize: '12px', letterSpacing: '.14em', lineHeight: '16px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
                 PROGRESS SUMMARY
               </span>
             </div>
@@ -282,9 +285,10 @@ const MyTraining: React.FC = () => {
 
         {/* Training Roadmap Card */}
         <div style={{ width: CARD_WIDTH, minWidth: '350px', height: 'calc(100vh - 40px)', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)', borderRadius: '8px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)', borderRadius: '10px', height: '100%', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
             <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 300, fontSize: '20px', lineHeight: '24px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
+              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 600, fontSize: '12px', letterSpacing: '.14em', lineHeight: '16px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
                 TRAINING ROADMAP
               </span>
             </div>

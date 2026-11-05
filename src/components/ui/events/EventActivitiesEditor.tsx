@@ -521,7 +521,7 @@ const ActivityCard: React.FC<{
       style={{
         marginBottom: '16px',
         border: '1px solid var(--rr-border2)',
-        borderRadius: '8px',
+        borderRadius: '10px',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
         overflow: 'visible'

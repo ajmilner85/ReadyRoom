@@ -715,7 +715,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
           width: '600px',
           backgroundColor: 'var(--rr-panel)',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           zIndex: 1001,
           maxHeight: '90vh',
           overflow: 'hidden'
@@ -2104,8 +2105,9 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
             <div style={{
               backgroundColor: 'var(--rr-panel)',
               padding: '24px',
-              borderRadius: '8px',
+              borderRadius: '10px',
               boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
               maxWidth: '400px',
               width: '90%'
             }}>

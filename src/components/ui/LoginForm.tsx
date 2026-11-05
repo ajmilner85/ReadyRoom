@@ -88,7 +88,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
           width: '400px',
           backgroundColor: 'var(--rr-panel)',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           padding: '24px',
           textAlign: 'center'
         }}>
@@ -179,7 +180,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onLoginStateChange }) => {
         width: '400px',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-        borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+        borderRadius: '10px',
         padding: '24px'
       }}>
         {/* Header */}

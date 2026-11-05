@@ -153,13 +153,14 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
 
   const modalStyle: React.CSSProperties = {
     backgroundColor: 'var(--rr-panel)',
-    borderRadius: '8px',
+    borderRadius: '10px',
     padding: '16px 24px 24px 24px',
     maxWidth: '950px',
     width: '90%',
     maxHeight: '80vh',
     overflow: 'auto',
     boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
   };
 
   const headerStyle: React.CSSProperties = {
@@ -173,9 +174,10 @@ const BoardNumberModal: React.FC<BoardNumberModalProps> = ({ isOpen, onClose, on
   const titleStyle: React.CSSProperties = {
     fontFamily: 'inherit',
     fontStyle: 'normal',
-    fontWeight: 300,
-    fontSize: '20px',
-    lineHeight: '24px',
+    fontWeight: 600,
+    fontSize: '12px',
+    letterSpacing: '.14em',
+    lineHeight: '16px',
     color: 'var(--rr-text2)',
     textTransform: 'uppercase',
     textAlign: 'center',

@@ -383,8 +383,9 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
           display: 'flex',
           flexDirection: 'column',
           backgroundColor: 'var(--rr-panel)',
-          borderRadius: '8px',
+          borderRadius: '10px',
           boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
           overflow: 'hidden'
         }}
         onClick={(e) => e.stopPropagation()}
@@ -655,10 +656,11 @@ const FlightDebriefForm: React.FC<FlightDebriefFormProps> = ({
           <div
             style={{
               backgroundColor: 'var(--rr-panel)',
-              borderRadius: '8px',
+              borderRadius: '10px',
               padding: '24px',
               maxWidth: '400px',
-              boxShadow: 'var(--rr-shadow)'
+              boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)'
             }}
             onClick={(e) => e.stopPropagation()}
           >

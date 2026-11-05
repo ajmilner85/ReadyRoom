@@ -35,7 +35,7 @@ const PollCard: React.FC<PollCardProps> = ({ onCreatePoll, onManagePolls, refres
 
   const cardStyle: React.CSSProperties = {
     backgroundColor: 'var(--rr-panel)',
-    borderRadius: '8px',
+    borderRadius: '10px',
     border: '1px solid var(--rr-border)',
     height: 'calc(100vh - 48px)',
     maxHeight: 'calc(100vh - 48px)',

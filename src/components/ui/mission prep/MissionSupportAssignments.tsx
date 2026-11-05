@@ -882,7 +882,8 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           width: '100%',
           height: '100%',
           boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+          borderRadius: '10px',
           padding: '24px',
           display: 'flex',
           flexDirection: 'column',
@@ -895,15 +896,16 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
       >
         <div style={{
           width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
+          textAlign: 'left',
+          marginBottom: '12px'
         }}>
           <span style={{
             fontFamily: 'inherit',
             fontStyle: 'normal',
-            fontWeight: 300,
-            fontSize: '20px',
-            lineHeight: '24px',
+            fontWeight: 600,
+            fontSize: '12px',
+            letterSpacing: '.14em',
+            lineHeight: '16px',
             color: 'var(--rr-text2)',
             textTransform: 'uppercase'
           }}>
@@ -1062,10 +1064,11 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             left: '50%',
             transform: 'translate(-50%, -50%)',
             backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
+            borderRadius: '10px',
             padding: '24px',
             zIndex: 1001,
             boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
             width: '400px'
           }}>
             <div style={{

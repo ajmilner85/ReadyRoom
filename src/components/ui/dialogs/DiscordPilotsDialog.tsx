@@ -759,7 +759,8 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
         maxHeight: '90vh',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-        borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+        borderRadius: '10px',
         zIndex: 1001,
         display: 'flex',
         flexDirection: 'column'
@@ -1567,7 +1568,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
                                         left: 'calc(100% + 8px)',
                                         backgroundColor: 'var(--rr-panel)',
                                         border: '1px solid var(--rr-border)',
-                                        borderRadius: '8px',
+                                        borderRadius: '10px',
                                         boxShadow: 'var(--rr-shadow)',
                                         zIndex: 99999,
                                         padding: '12px',

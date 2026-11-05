@@ -1,7 +1,8 @@
 // filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\mission prep\AvailablePilots.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import QualificationBadge from '../QualificationBadge';
-import { ClipboardCheck, Settings, X, HelpCircle, MessageCircleOff, ArrowUpDown } from 'lucide-react';
+import { ArrowUpDown } from 'lucide-react';
+import { Icon, legibleColor } from '../primitives';
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot } from '../../../utils/pilotTypes';
 import type { Event } from '../../../types/EventTypes';
@@ -220,14 +221,15 @@ interface PilotEntryProps {
                 right: 0,
                 marginTop: '4px',
                 backgroundColor: '#1F2937',
-                borderRadius: '8px',
+                borderRadius: '10px',
                 padding: '8px',
                 display: 'flex',
                 flexWrap: 'wrap',
                 gap: '4px',
                 maxWidth: '200px',
                 zIndex: 1000,
-                boxShadow: 'var(--rr-shadow)'
+                boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)'
               }}
             >
               {overflowQuals.map((pq, index) => (
@@ -271,7 +273,7 @@ interface PilotEntryProps {
     const presentButtonStyle: React.CSSProperties = {
       ...baseButtonStyle,
       backgroundColor: isPresentActive ? 'var(--rr-good)' : 'var(--rr-panel)',
-      borderColor: isPresentActive ? '#22C55E' : 'var(--rr-border2)',
+      borderColor: isPresentActive ? 'var(--rr-good)' : 'var(--rr-border2)',
       color: isPresentActive ? 'white' : 'var(--rr-text2)',
     };
 
@@ -288,8 +290,8 @@ interface PilotEntryProps {
     const isTentativeActive = currentRollCallStatus === 'Tentative';
     const tentativeButtonStyle: React.CSSProperties = {
       ...baseButtonStyle,
-      backgroundColor: isTentativeActive ? '#5865F2' : 'var(--rr-panel)', // Blurple color
-      borderColor: isTentativeActive ? '#5865F2' : 'var(--rr-border2)',
+      backgroundColor: isTentativeActive ? 'var(--rr-warn)' : 'var(--rr-panel)',
+      borderColor: isTentativeActive ? 'var(--rr-warn)' : 'var(--rr-border2)',
       color: isTentativeActive ? 'white' : 'var(--rr-text2)',
     };
 
@@ -303,7 +305,7 @@ interface PilotEntryProps {
             if (onRollCallResponse) onRollCallResponse(pilotId, 'Present');
           }}
         >
-          ✓
+          <Icon name="check" size={13} stroke={2.4} />
         </button>
         
         {/* Absent button */}
@@ -314,7 +316,7 @@ interface PilotEntryProps {
             if (onRollCallResponse) onRollCallResponse(pilotId, 'Absent');
           }}
         >
-          ✗
+          <Icon name="close" size={12} stroke={2.4} />
         </button>
         
         {/* Tentative button */}
@@ -325,7 +327,7 @@ interface PilotEntryProps {
             if (onRollCallResponse) onRollCallResponse(pilotId, 'Tentative');
           }}
         >
-          ?
+          <Icon name="help" size={13} />
         </button>
       </div>
     );
@@ -340,87 +342,45 @@ interface PilotEntryProps {
       data-dragging={isDragging ? 'true' : 'false'}
       data-assigned={isAssigned ? 'true' : 'false'}
     >
-      <span style={{
-        width: '36px',
+      {(() => {
+        // Status dot: roll call response overrides Discord response
+        const rc = pilot.rollCallStatus;
+        const ds = pilot.attendanceStatus;
+        const overriding = rc === 'Present' || rc === 'Absent' || rc === 'Tentative';
+        const state = overriding
+          ? (rc === 'Present' ? 'accepted' : rc === 'Absent' ? 'declined' : 'tentative')
+          : (ds || 'none');
+        const dot = state === 'accepted' ? 'var(--rr-good)' : state === 'tentative' ? 'var(--rr-warn)' : state === 'declined' ? 'var(--rr-bad)' : 'var(--rr-border2)';
+        const label = state === 'accepted' ? (overriding ? 'Present (roll call)' : 'Accepted') : state === 'tentative' ? 'Tentative' : state === 'declined' ? (overriding ? 'Absent (roll call)' : 'Declined') : 'No response';
+        return (
+          <span
+            title={label}
+            style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', background: dot, boxShadow: state === 'none' ? 'inset 0 0 0 1.5px var(--rr-text3)' : undefined, backgroundClip: 'padding-box' }}
+          />
+        );
+      })()}
+      <span className="font-mono" style={{
+        width: '34px',
+        flex: 'none',
         textAlign: 'left',
-        fontSize: '16px',
-        fontWeight: 400,
-        color: 'var(--rr-text2)'
+        fontSize: '12px',
+        fontWeight: 600,
+        color: legibleColor(getSquadronPrimaryColor(), 'var(--rr-text2)')
       }}>
         {pilot.boardNumber}
       </span>
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        width: '120px',
-        gap: '4px'
+      <span style={{
+        width: '110px',
+        flex: 'none',
+        fontSize: '13px',
+        fontWeight: 600,
+        whiteSpace: 'nowrap',
+        overflow: 'hidden',
+        textOverflow: 'ellipsis',
+        color: 'var(--rr-text)'
       }}>
-        <span style={{
-          fontSize: '16px',
-          fontWeight: 700,
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          color: getSquadronPrimaryColor()
-        }}>
-          {pilot.callsign}
-        </span>        {/* Show tentative, declined, and no response badges - prioritizing roll call response over Discord response */}
-        {(() => {
-          // Calculate whether to show badges
-          const isTentativeRollCall = pilot.rollCallStatus === 'Tentative';
-          const isTentativeDiscord = pilot.attendanceStatus === 'tentative';
-          const isDeclinedDiscord = pilot.attendanceStatus === 'declined';
-          const isAbsentRollCall = pilot.rollCallStatus === 'Absent';
-          const isRollCallOverriding = pilot.rollCallStatus === 'Present' || pilot.rollCallStatus === 'Absent' || pilot.rollCallStatus === 'Tentative';
-
-          const shouldShowAbsentDeclinedBadge = isAbsentRollCall || (isDeclinedDiscord && !isRollCallOverriding);
-          const shouldShowTentativeBadge = isTentativeRollCall || (isTentativeDiscord && !isRollCallOverriding);
-
-          // Show "no response" badge if no Discord attendance and no roll call response
-          const hasNoResponse = !pilot.attendanceStatus && !pilot.rollCallStatus;
-
-          return (
-            <>
-              {shouldShowAbsentDeclinedBadge && (
-                <X
-                  key={`declined-badge-${pilot.id || pilot.boardNumber}`}
-                  size={14}
-                  strokeWidth={3}
-                  style={{
-                    color: 'var(--rr-bad)',
-                    flexShrink: 0,
-                    marginTop: '2px',
-                  }}
-                />
-              )}
-              {shouldShowTentativeBadge && (
-                <HelpCircle
-                  key={`tentative-badge-${pilot.id || pilot.boardNumber}`}
-                  size={14}
-                  strokeWidth={2.5}
-                  style={{
-                    color: '#5865F2',
-                    flexShrink: 0,
-                    marginTop: '2px',
-                  }}
-                />
-              )}
-              {hasNoResponse && (
-                <MessageCircleOff
-                  key={`no-response-badge-${pilot.id || pilot.boardNumber}`}
-                  size={14}
-                  strokeWidth={2}
-                  style={{
-                    color: 'var(--rr-text3)',
-                    flexShrink: 0,
-                    marginTop: '2px',
-                  }}
-                />
-              )}
-            </>
-          );
-        })()}
-      </div>
+        {pilot.callsign}
+      </span>
 
       {isRollCallMode ? renderRollCallButtons() : (
         <div style={{
@@ -1024,25 +984,6 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     };
   }, [selectedEvent?.id, selectedEvent?.discordEventId]);
 
-  // Define button style for Roll Call button
-  const rollCallButtonStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: '8px',
-    padding: '8px 16px',
-    backgroundColor: isRollCallMode ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
-    color: isRollCallMode ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-    borderRadius: '8px',
-    border: isRollCallMode ? '1px solid var(--rr-accent)' : '1px solid var(--rr-border2)',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
-    fontFamily: 'inherit',
-    fontSize: '14px',
-    fontWeight: 400,
-    flex: '0 0 25%'
-  };
-
   // Add a useEffect to update the pilot entries when roll call status changes
   useEffect(() => {
     // Force re-render of the entire list when roll call responses change
@@ -1127,7 +1068,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       flexShrink: 0,
       backgroundColor: 'var(--rr-panel)',
       boxShadow: 'var(--rr-shadow)',
-      borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+      borderRadius: '10px',
       padding: '24px',
       display: 'flex',
       flexDirection: 'column',
@@ -1138,15 +1080,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     }}>
         <div style={{
           width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
+          textAlign: 'left',
+          marginBottom: '12px'
         }}>
           <span style={{
             fontFamily: 'inherit',
             fontStyle: 'normal',
-            fontWeight: 300,
-            fontSize: '20px',
-            lineHeight: '24px',
+            fontWeight: 600,
+            fontSize: '12px',
+            letterSpacing: '.14em',
+            lineHeight: '16px',
             color: 'var(--rr-text2)',
             textTransform: 'uppercase'
           }}>
@@ -1278,13 +1221,16 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
         <div style={{
           display: 'flex',
-          justifyContent: 'space-between',
           alignItems: 'center',
-          padding: '18px 0 0 0',
+          gap: '8px',
+          padding: '12px 0 0 0',
           borderTop: '1px solid var(--rr-border)',
           marginTop: 'auto'
         }}>
             {/* Roll Call Button */}            <button
+              type="button"
+              aria-pressed={isRollCallMode}
+              title={isRollCallMode ? 'Exit roll call' : 'Roll call'}
               onClick={() => {
                 if (!isRollCallMode && selectedQualifications.length > 0) {
                   // Clear any qualification filters before entering roll call mode
@@ -1297,25 +1243,19 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                 // Toggle roll call mode
                 setIsRollCallMode(!isRollCallMode);
               }}
-              style={rollCallButtonStyle}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = isRollCallMode ? '#DBEAFE' : '#F8FAFC';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = isRollCallMode ? '#EFF6FF' : '#FFFFFF';
-              }}
+              className={`flex items-center gap-[6px] h-[34px] px-3 rounded-rr-ctl border text-[12.5px] font-semibold cursor-pointer transition-colors ${isRollCallMode ? 'bg-accent-weak border-accent text-accent' : 'bg-transparent border-border2 text-text2 hover:border-accent hover:text-accent'}`}
             >
-              <ClipboardCheck size={16} />
+              <Icon name="clipboardCheck" size={15} />
               Roll Call
             </button>
             
             {/* Split Auto Assign Button */}
             <div style={{
               display: 'flex',
-              flex: '0 0 calc(30% + 20px)',
-              borderRadius: '8px',
-              border: '1px solid var(--rr-border2)',
-              overflow: 'hidden'
+              flex: '1 1 auto',
+              borderRadius: '7px',
+              overflow: 'hidden',
+              height: '34px'
             }}>
               {/* Main Auto Assign Button */}
               <button
@@ -1389,33 +1329,24 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  gap: '8px',
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--rr-panel)',
-                  color: 'var(--rr-text2)',
+                  gap: '7px',
+                  padding: '0 12px',
+                  backgroundColor: 'var(--rr-accent)',
+                  color: '#fff',
                   border: 'none',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s ease',
                   fontFamily: 'inherit',
-                  fontSize: '14px',
-                  fontWeight: 400,
+                  fontSize: '12.5px',
+                  fontWeight: 700,
+                  letterSpacing: '.04em',
+                  textTransform: 'uppercase',
                   flex: 1,
-                  borderRight: '1px solid var(--rr-border2)'
+                  borderRight: '1px solid rgba(255,255,255,.25)'
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
-                }}
+                className="hover:brightness-110 active:scale-[.97] transition-[filter,transform]"
               >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-4" />
-                  <line x1="14" y1="15" x2="20" y2="9" />
-                  <path d="M9 15h4.5c.28 0 .5-.22.5-.5v-4c0-.28-.22-.5-.5-.5H9" />
-                  <line x1="5" y1="9" x2="5" y2="15" />
-                </svg>
-                Auto Assign
+                <Icon name="wand" size={15} />
+                Auto-Assign
               </button>
               
               {/* Settings Button */}
@@ -1425,57 +1356,29 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  padding: '8px',
-                  backgroundColor: 'var(--rr-panel)',
-                  color: 'var(--rr-text2)',
+                  padding: '0 9px',
+                  backgroundColor: 'var(--rr-accent)',
+                  color: '#fff',
                   border: 'none',
                   cursor: 'pointer',
-                  transition: 'background-color 0.2s ease',
-                  minWidth: '32px'
+                  minWidth: '34px'
                 }}
-                onMouseEnter={e => {
-                  e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-                }}
-                onMouseLeave={e => {
-                  e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
-                }}
+                className="hover:brightness-110 transition-[filter]"
                 title="Auto-assignment settings"
               >
-                <Settings size={16} />
+                <Icon name="sliders" size={15} />
               </button>
             </div>
             
             {/* Clear Assignments Button */}
             <button
               onClick={onClearAssignments}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '8px',
-                padding: '8px 16px',
-                backgroundColor: 'var(--rr-panel)',
-                color: 'var(--rr-text2)',
-                borderRadius: '8px',
-                border: '1px solid var(--rr-border2)',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                fontFamily: 'inherit',
-                fontSize: '14px',
-                fontWeight: 400,
-                flex: '0 0 30%'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.backgroundColor = 'var(--rr-panel)';
-              }}
+              type="button"
+              title="Unassign all pilots"
+              className="flex items-center gap-[6px] h-[34px] px-3 rounded-rr-ctl border border-border2 bg-transparent text-text2 text-[12.5px] font-semibold cursor-pointer hover:border-bad hover:text-bad transition-colors"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 6h18" />
-                <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-              </svg>              Unassign All
+              <Icon name="trash" size={14} />
+              Clear
             </button>
           </div>
     </div>

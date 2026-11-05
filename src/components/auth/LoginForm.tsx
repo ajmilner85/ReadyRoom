@@ -99,7 +99,8 @@ const LoginForm: React.FC<LoginFormProps> = ({ onSuccess }) => {
         width: '400px',
         backgroundColor: 'var(--rr-panel)',
         boxShadow: 'var(--rr-shadow)',
-        borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+        borderRadius: '10px',
         padding: '24px'
       }}>
         {/* Header */}

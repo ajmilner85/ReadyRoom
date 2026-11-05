@@ -499,8 +499,8 @@ const Communications: React.FC<CommunicationsProps> = ({
       <Card style={{...styles.cardBase, flex: '1 1 auto'}}>
         <div style={{
           width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
+          textAlign: 'left',
+          marginBottom: '12px'
         }}>
           <span style={styles.headerLabel}>Comms Plan</span>
           {!isEditing ? (
@@ -697,8 +697,9 @@ const Communications: React.FC<CommunicationsProps> = ({
             transform: 'translate(-50%, -50%)',
             backgroundColor: 'var(--rr-panel)',
             padding: '24px',
-            borderRadius: '8px',
+            borderRadius: '10px',
             boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
             width: '400px',
             zIndex: 1001
           }}>

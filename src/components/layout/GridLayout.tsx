@@ -206,8 +206,9 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
               flexDirection: 'column',
               position: 'relative',
               backgroundColor: 'var(--rr-panel)',
-              borderRadius: '8px',
+              borderRadius: '10px',
               boxShadow: 'var(--rr-shadow)',
+          border: '1px solid var(--rr-border)',
               padding: '24px',
               margin: '0 0 20px 0'
             }}
@@ -215,16 +216,17 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
             {/* Header with section label */}
             <div style={{
               width: '100%',
-              textAlign: 'center',
-              marginBottom: '16px',
+              textAlign: 'left',
+              marginBottom: '12px',
               position: 'relative'
             }}>
               <span style={{
                 fontFamily: 'inherit',
                 fontStyle: 'normal',
-                fontWeight: 300,
-                fontSize: '20px',
-                lineHeight: '24px',
+                fontWeight: 600,
+                fontSize: '12px',
+                letterSpacing: '.14em',
+                lineHeight: '16px',
                 color: 'var(--rr-text2)',
                 textTransform: 'uppercase'
               }}>

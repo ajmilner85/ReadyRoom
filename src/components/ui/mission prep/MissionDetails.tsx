@@ -1,7 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Card } from '../card';
-import { Edit2, Check, X, Upload } from 'lucide-react';
-import { styles } from '../../../styles/MissionPrepStyles';
+import { Avatar, Button, Field, Icon, IconButton, Pane, PopoverMenu, Select, TextInput, Textarea } from '../primitives';
 import type { Event, Cycle } from '../../../types/EventTypes';
 import { processMissionCoordinates } from '../../../utils/coordinateUtils';
 import { saveToLocalStorage, loadFromLocalStorage, STORAGE_KEYS } from '../../../utils/localStorageUtils';
@@ -468,7 +466,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     label: string,
     field: keyof MissionDetailsData,
     type: 'text' | 'datetime-local' | 'textarea' | 'select' = 'text',
-    options?: { label: string; value: string; data?: any }[]
+    options?: { label: string; value: string; data?: any }[],
+    opts: { mono?: boolean; block?: boolean } = {}
   ) => {
     const rawValue = isEditing ? editedDetails[field] : missionDetails[field];
     const timezone = settings.eventDefaults.referenceTimezone || 'America/New_York';
@@ -488,86 +487,52 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       }
     };
 
+    // Read-only display: datetime values render as "YYYY-MM-DD HH:MM"
+    const readValue = type === 'datetime-local' && displayValue
+      ? String(displayValue).replace('T', ' ')
+      : (displayValue as string);
+
     return (
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{
-          display: 'block',
-          marginBottom: '8px',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'var(--rr-text2)'
-        }}>
-          {label}
-        </label>
+      <div className="min-w-0">
+        <div className="rr-label mb-[5px]">{label}</div>
         {isEditing ? (
           type === 'textarea' ? (
-            <textarea
+            <Textarea
               value={displayValue as string}
               onChange={(e) => handleDetailChange(field, e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                fontSize: '14px',
-                minHeight: '120px',
-                resize: 'vertical',
-                boxSizing: 'border-box'
-              }}
               placeholder={`Enter ${label.toLowerCase()}`}
+              mono={opts.mono}
             />
           ) : type === 'select' && options ? (
-            <select
-              value={displayValue as string}
-              onChange={(e) => handleDetailChange(field, e.target.value)}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box'
-              }}
-            >
-              <option value="">Select {label}</option>
-              {options.map((option) => (
-                <option key={option.value} value={option.value}>
-                  {option.label}
-                </option>
-              ))}
-            </select>
+            <Select
+              value={(displayValue as string) || ''}
+              onChange={(v) => handleDetailChange(field, v)}
+              placeholder={`Select ${label}`}
+              options={options.map(o => ({ value: o.value, label: o.label }))}
+            />
           ) : (
-            <input
+            <TextInput
               type={type}
               value={displayValue as string}
               onChange={handleDateTimeChange}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box'
-              }}
               placeholder={`Enter ${label.toLowerCase()}`}
+              mono={opts.mono || type === 'datetime-local'}
             />
           )
+        ) : opts.block ? (
+          <div
+            className={`px-3 py-[10px] rounded-rr-lg bg-panel2 border border-border text-[13px] leading-[1.5] whitespace-pre-wrap ${opts.mono ? 'font-mono' : ''}`}
+            style={{ color: readValue ? 'var(--rr-text)' : 'var(--rr-text3)' }}
+          >
+            {readValue || '—'}
+          </div>
         ) : (
           <div
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              borderRadius: '4px',
-              fontSize: '14px',
-              backgroundColor: 'var(--rr-panel2)',
-              color: displayValue ? 'var(--rr-text)' : 'var(--rr-text3)',
-              minHeight: type === 'textarea' ? '120px' : 'auto',
-              display: 'flex',
-              alignItems: 'center',
-              boxSizing: 'border-box'
-            }}
+            className={`text-[13.5px] truncate ${opts.mono || type === 'datetime-local' ? 'font-mono font-medium' : 'font-semibold'}`}
+            style={{ color: readValue ? 'var(--rr-text)' : 'var(--rr-text3)' }}
+            title={readValue || undefined}
           >
-            {displayValue || '—'}
+            {readValue || '—'}
           </div>
         )}
       </div>
@@ -577,53 +542,70 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   const renderMissionCommanderDropdown = () => {
     const candidates = getMissionCommanderCandidates();
     const selectedValue = missionCommander ? missionCommander.boardNumber : '';
-    
+    const selectCommander = (selectedBoardNumber: string) => {
+      if (!selectedBoardNumber) {
+        setMissionCommander(null);
+      } else {
+        const selected = candidates.find(c => c.boardNumber === selectedBoardNumber);
+        if (selected) {
+          setMissionCommander({
+            boardNumber: selected.boardNumber,
+            callsign: selected.callsign,
+            flightId: selected.flightId,
+            flightCallsign: selected.flightCallsign,
+            flightNumber: selected.flightNumber
+          });
+        }
+      }
+    };
+
     return (
-      <div style={{ marginBottom: '16px' }}>
-        <label style={{
-          display: 'block',
-          marginBottom: '8px',
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'var(--rr-text2)'
-        }}>
-          Mission Commander
-        </label>
-        <select
-          value={selectedValue}
-          onChange={(e) => {
-            const selectedBoardNumber = e.target.value;
-            if (!selectedBoardNumber) {
-              setMissionCommander(null);
-            } else {
-              const selected = candidates.find(c => c.boardNumber === selectedBoardNumber);
-              if (selected) {
-                setMissionCommander({
-                  boardNumber: selected.boardNumber,
-                  callsign: selected.callsign,
-                  flightId: selected.flightId,
-                  flightCallsign: selected.flightCallsign,
-                  flightNumber: selected.flightNumber
-                });
-              }
-            }
-          }}
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            border: '1px solid var(--rr-border2)',
-            borderRadius: '4px',
-            fontSize: '14px',
-            boxSizing: 'border-box'
-          }}
-        >
-          <option value="">No Mission Commander</option>
-          {candidates.map((option) => (
-            <option key={option.boardNumber} value={option.boardNumber}>
-              {option.label}
-            </option>
-          ))}
-        </select>
+      <div>
+        <div className="rr-label mb-[6px]">Mission Commander</div>
+        {missionCommander ? (
+          <div
+            className="flex items-center gap-[10px] px-3 py-[10px] rounded-rr-lg border"
+            style={{ background: 'var(--rr-accent-weak)', borderColor: 'var(--rr-accent)' }}
+          >
+            <Avatar name={missionCommander.callsign} size={30} />
+            <div className="min-w-0 flex-1 leading-tight">
+              <div className="text-[13.5px] font-bold truncate">{missionCommander.callsign}</div>
+              <div className="font-mono text-[10.5px] text-text2 truncate">
+                {missionCommander.boardNumber} · {missionCommander.flightCallsign} {missionCommander.flightNumber}
+              </div>
+            </div>
+            <PopoverMenu
+              placement="bottom-end"
+              width={260}
+              items={[
+                ...candidates.map(c => ({
+                  label: c.label,
+                  icon: c.boardNumber === selectedValue ? ('check' as const) : undefined,
+                  onSelect: () => selectCommander(c.boardNumber),
+                })),
+                { label: 'No Mission Commander', icon: 'close' as const, divider: true, danger: true, onSelect: () => selectCommander('') },
+              ]}
+              trigger={({ ref, onClick }) => (
+                <button
+                  ref={ref as React.Ref<HTMLButtonElement>}
+                  type="button"
+                  onClick={onClick}
+                  className="text-[11px] font-bold tracking-[.08em] text-accent bg-transparent border-0 cursor-pointer hover:brightness-125"
+                >
+                  CHANGE
+                </button>
+              )}
+            />
+          </div>
+        ) : (
+          <Select
+            value={selectedValue}
+            onChange={selectCommander}
+            placeholder={candidates.length ? 'Assign mission commander' : 'Assign flights to choose a commander'}
+            options={candidates.map(c => ({ value: c.boardNumber, label: c.label }))}
+            disabled={candidates.length === 0}
+          />
+        )}
       </div>
     );
   };
@@ -994,325 +976,138 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     }
   };
 
+  const eventOptions = filteredAndSortedEvents.map(event => {
+    const eventDate = new Date(event.datetime);
+    const isValidDate = !isNaN(eventDate.getTime());
+    const formattedDate = isValidDate
+      ? eventDate.toLocaleString('en-US', {
+          year: 'numeric',
+          month: 'short',
+          day: 'numeric',
+          hour: '2-digit',
+          minute: '2-digit',
+          timeZoneName: 'short'
+        })
+      : 'Invalid Date';
+    return { value: event.id, label: event.title, description: formattedDate, searchText: `${event.title} ${formattedDate}` };
+  });
+
+  const editActions = !isEditing ? (
+    <IconButton icon="edit" variant="outline" label="Edit mission details" onClick={startEditing} />
+  ) : (
+    <>
+      <IconButton icon="close" variant="ghost" label="Cancel" onClick={cancelEditing} />
+      <IconButton icon="check" variant="filled" label="Save" onClick={saveChanges} />
+    </>
+  );
+
   return (
-    <div style={{
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '20px',
-      width,
-      minWidth: width,
-      flexShrink: 0,
-      height: '100%'
-    }}>
-      {/* Mission Details Card */}
-      <Card 
-        style={{
-          width: '100%',
-          backgroundColor: 'var(--rr-panel)',
-          boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          boxSizing: 'border-box',
-          height: 'auto',
-          overflow: 'visible'
-        }}
+    <div data-m="row" className="flex-1 min-h-0 min-w-0 flex gap-[14px]" data-width={width}>
+      {/* Hidden file input */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileInputChange}
+        accept=".miz"
+        style={{ display: 'none' }}
+      />
+
+      {/* Mission Brief */}
+      <Pane
+        title="Mission Brief"
+        className="flex-1 min-w-[320px]"
+        actions={
+          <>
+            <Button size="sm" variant="secondary" icon="upload" onClick={handleDropZoneClick} disabled={isProcessingFile}>
+              {isProcessingFile ? 'Processing…' : 'Import .miz'}
+            </Button>
+            {editActions}
+          </>
+        }
       >
-        <div style={{
-          width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px',
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          position: 'relative'
-        }}>
-          <span style={styles.headerLabel}>Mission Details</span>
-          {!isEditing ? (
-            <button
-              onClick={startEditing}
-              style={{
-                ...styles.editButton,
-                position: 'absolute',
-                right: 0,
-                top: '50%',
-                transform: 'translateY(-50%)'
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              }}
-            >
-              <Edit2 size={16} />
-            </button>
-          ) : (
-            <div style={{ 
-              position: 'absolute',
-              right: 0,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              display: 'flex',
-              gap: '8px'
-            }}>
-              <button
-                onClick={saveChanges}
-                style={{
-                  ...styles.editButton,
-                  marginLeft: '8px',
-                  zIndex: 1
+        <div className="flex flex-col gap-[14px]">
+          <div className="grid gap-3" style={{ gridTemplateColumns: 'minmax(0,1fr) minmax(0,1.6fr)' }}>
+            <Field label="Cycle">
+              <Select
+                value={selectedCycle?.id || 'standalone'}
+                onChange={(v) => {
+                  if (v === 'standalone') {
+                    setSelectedCycle(null);
+                  } else {
+                    const cycle = cycles.find(c => c.id === v);
+                    setSelectedCycle(cycle || null);
+                  }
                 }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
+                disabled={cyclesLoading}
+                options={[
+                  { value: 'standalone', label: 'Standalone Events' },
+                  ...cycles.map(cycle => ({ value: cycle.id, label: cycle.name })),
+                ]}
+              />
+            </Field>
+            <Field label="Event">
+              <Select
+                value={selectedEvent?.id || ''}
+                onChange={(v) => {
+                  const event = filteredAndSortedEvents.find(evt => evt.id === v);
+                  onEventSelect(event || null);
                 }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                }}
-              >
-                <Check size={16} color="#64748B" />
-              </button>
-              <button
-                onClick={cancelEditing}
-                style={{
-                  ...styles.editButton,
-                  marginLeft: '8px',
-                  zIndex: 1
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-                }}
-              >
-                <X size={16} color="#64748B" />
-              </button>
+                disabled={filteredAndSortedEvents.length === 0}
+                placeholder={filteredAndSortedEvents.length === 0 ? 'No events available' : 'Select an event'}
+                options={eventOptions}
+              />
+            </Field>
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div className="grid gap-x-4 gap-y-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
+            {renderDetailRow('Task Unit', 'taskUnit')}
+            {renderDetailRow('Mother', 'mother')}
+            {renderDetailRow('Mission Date/Time', 'missionDateTime', 'datetime-local')}
+            {renderDetailRow('Step Time', 'stepTime', 'datetime-local')}
+          </div>
+
+          <div className="h-px bg-border" />
+
+          <div>
+            <div className="rr-label mb-[6px]">Mission Objective</div>
+            <div className="text-[13px] leading-[1.55] text-text2 whitespace-pre-wrap">
+              {selectedEvent?.description || <span className="text-text3">No event selected.</span>}
             </div>
-          )}
-        </div>
-        <div style={{
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '16px'
-        }}>
-          <div style={{ marginBottom: '0' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: 500,
-              color: 'var(--rr-text2)'
-            }}>
-              Cycle
-            </label>
-            <select
-              className="w-full"
-              value={selectedCycle?.id || 'standalone'}
-              onChange={(e) => {
-                if (e.target.value === 'standalone') {
-                  setSelectedCycle(null);
-                } else {
-                  const cycle = cycles.find(c => c.id === e.target.value);
-                  setSelectedCycle(cycle || null);
-                }
-              }}
-              disabled={cyclesLoading}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                backgroundColor: cyclesLoading ? 'var(--rr-panel2)' : 'var(--rr-panel)',
-                cursor: cyclesLoading ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <option value="">Select a cycle</option>
-              <option value="standalone">Standalone Events</option>
-              {cycles.map(cycle => (
-                <option key={cycle.id} value={cycle.id}>
-                  {cycle.name}
-                </option>
-              ))}
-            </select>
           </div>
-
-          <div style={{ marginBottom: '0' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: 500,
-              color: 'var(--rr-text2)'
-            }}>
-              Event
-            </label>
-            <select
-              className="w-full"
-              value={selectedEvent?.id || ''}
-              onChange={(e) => {
-                const event = filteredAndSortedEvents.find(evt => evt.id === e.target.value);
-                onEventSelect(event || null);
-              }}
-              disabled={filteredAndSortedEvents.length === 0}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                backgroundColor: filteredAndSortedEvents.length === 0 ? 'var(--rr-panel2)' : 'var(--rr-panel)',
-                cursor: filteredAndSortedEvents.length === 0 ? 'not-allowed' : 'pointer'
-              }}
-            >
-              <option value="">
-                {filteredAndSortedEvents.length === 0 ? 'No events available' : 'Select an event'}
-              </option>
-              {filteredAndSortedEvents.map(event => {
-                const eventDate = new Date(event.datetime);
-                const isValidDate = !isNaN(eventDate.getTime());
-                const formattedDate = isValidDate
-                  ? eventDate.toLocaleString('en-US', {
-                      year: 'numeric',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: '2-digit',
-                      minute: '2-digit',
-                      timeZoneName: 'short'
-                    })
-                  : 'Invalid Date';
-
-                return (
-                  <option key={event.id} value={event.id}>
-                    {formattedDate} - {event.title}
-                  </option>
-                );
-              })}
-            </select>
-          </div>
-
-          <div style={{ marginBottom: '0' }}>
-            <label style={{
-              display: 'block',
-              marginBottom: '8px',
-              fontSize: '14px',
-              fontWeight: 500,
-              color: 'var(--rr-text2)'
-            }}>
-              Mission Objective
-            </label>
-            <textarea 
-              className="w-full" 
-              placeholder="Enter mission objective"
-              value={selectedEvent?.description || ''}
-              readOnly
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                fontSize: '14px',
-                minHeight: '120px',
-                resize: 'vertical',
-                boxSizing: 'border-box',
-                backgroundColor: 'var(--rr-panel2)'
-              }}
-            />
-          </div>
-          
-          {renderDetailRow('Task Unit', 'taskUnit')}
-          {renderDetailRow('Mother', 'mother')}
-          {renderDetailRow('Mission Date/Time', 'missionDateTime', 'datetime-local')}
-          {renderDetailRow('Step Time', 'stepTime', 'datetime-local')}
-          {renderMissionCommanderDropdown()}
-          {renderDetailRow('Bullseye Lat/Lon', 'bullseyeLatLon')}
-          {renderDetailRow('Weather', 'weather', 'textarea')}
         </div>
-      </Card>
+      </Pane>
 
-      {/* Import Card */}
-      <Card 
-        style={{
-          width: '100%',
-          backgroundColor: 'var(--rr-panel)',
-          boxShadow: 'var(--rr-shadow)',
-          borderRadius: '8px',
-          padding: '24px',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          boxSizing: 'border-box',
-          height: 'auto',
-          overflow: 'visible'
-        }}
-      >
-        <div style={{
-          width: '100%',
-          textAlign: 'center',
-          marginBottom: '16px'
-        }}>
-          <span style={styles.headerLabel}>Import</span>
-        </div>
-        <div className="flex-1" style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'center',
-          padding: '12px 20px'
-        }}>
-          {/* Hidden file input */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileInputChange}
-            accept=".miz"
-            style={{ display: 'none' }}
-          />
+      {/* Conditions & Command */}
+      <div className="flex-1 min-w-[300px] flex flex-col gap-[14px] min-h-0">
+        <Pane title="Conditions & Command" className="flex-1" actions={isEditing ? editActions : undefined}>
+          <div className="flex flex-col gap-[14px]">
+            {renderDetailRow('Weather · Brief', 'weather', 'textarea', undefined, { mono: true, block: true })}
+            {renderDetailRow('Bullseye', 'bullseyeLatLon', 'text', undefined, { mono: true, block: true })}
+            <div className="h-px bg-border" />
+            {renderMissionCommanderDropdown()}
+          </div>
+        </Pane>
 
-          {/* File drop zone with dashed border */}
+        {/* .miz import drop zone */}
+        <Pane title="Import" className="flex-none" scroll={false}>
           <div
-            style={{
-              width: '100%',
-              height: '60px',
-              border: '1px dashed var(--rr-border2)',
-              borderRadius: '4px',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              cursor: 'pointer',
-              color: 'var(--rr-text2)',
-              fontSize: '14px',
-              textAlign: 'center',
-              padding: '12px',
-              transition: 'background-color 0.2s ease'
-            }}
+            className="h-[64px] rounded-rr-lg border border-dashed border-border2 flex items-center justify-center gap-2 cursor-pointer text-[12.5px] text-text2 text-center px-3 transition-colors duration-150 hover:bg-panel2 hover:border-accent"
             onClick={handleDropZoneClick}
             onDragOver={handleDragOver}
             onDrop={handleDrop}
-            onMouseEnter={(e) => {
-              e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.backgroundColor = 'transparent';
-            }}
           >
             {isProcessingFile ? (
-              <span>Processing mission file...</span>
+              <span>Processing mission file…</span>
             ) : selectedFile ? (
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                <Upload size={16} />
-                {selectedFile.name}
-              </div>
+              <span className="flex items-center gap-2"><Icon name="upload" size={15} />{selectedFile.name}</span>
             ) : (
-              <span>Drag .miz file you wish to import here, or click to open file browser.</span>
+              <span>Drop a .miz file here, or click to browse.</span>
             )}
           </div>
-        </div>
-      </Card>
+        </Pane>
+      </div>
 
       {/* Aircraft Groups - Hidden but still processing data */}
       {parsedMission && (

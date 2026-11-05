@@ -1996,7 +1996,8 @@ const EventsManagement: React.FC = () => {
           <div style={{
             backgroundColor: 'var(--rr-panel)',
             boxShadow: 'var(--rr-shadow)',
-            borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+            borderRadius: '10px',
             padding: '40px 80px',
             display: 'flex',
             flexDirection: 'column',
@@ -2040,7 +2041,8 @@ const EventsManagement: React.FC = () => {
                 height: '100%',
                 backgroundColor: 'var(--rr-panel)',
                 boxShadow: 'var(--rr-shadow)',
-                borderRadius: '8px'
+          border: '1px solid var(--rr-border)',
+                borderRadius: '10px'
               }}>
                 <LoadingSpinner />
               </div>
@@ -2048,7 +2050,8 @@ const EventsManagement: React.FC = () => {
               <div style={{
                 backgroundColor: 'var(--rr-panel)',
                 boxShadow: 'var(--rr-shadow)',
-                borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+                borderRadius: '10px',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2061,9 +2064,10 @@ const EventsManagement: React.FC = () => {
                   <span style={{
                     fontFamily: 'inherit',
                     fontStyle: 'normal',
-                    fontWeight: 300,
-                    fontSize: '20px',
-                    lineHeight: '24px',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    letterSpacing: '.14em',
+                    lineHeight: '16px',
                     color: 'var(--rr-text2)',
                     textTransform: 'uppercase',
                     display: 'block',
@@ -2104,7 +2108,8 @@ const EventsManagement: React.FC = () => {
                 height: '100%',
                 backgroundColor: 'var(--rr-panel)',
                 boxShadow: 'var(--rr-shadow)',
-                borderRadius: '8px'
+          border: '1px solid var(--rr-border)',
+                borderRadius: '10px'
               }}>
                 <LoadingSpinner />
               </div>
@@ -2112,7 +2117,8 @@ const EventsManagement: React.FC = () => {
               <div style={{
                 backgroundColor: 'var(--rr-panel)',
                 boxShadow: 'var(--rr-shadow)',
-                borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+                borderRadius: '10px',
                 height: '100%',
                 display: 'flex',
                 flexDirection: 'column',
@@ -2125,9 +2131,10 @@ const EventsManagement: React.FC = () => {
                   <span style={{
                     fontFamily: 'inherit',
                     fontStyle: 'normal',
-                    fontWeight: 300,
-                    fontSize: '20px',
-                    lineHeight: '24px',
+                    fontWeight: 600,
+                    fontSize: '12px',
+                    letterSpacing: '.14em',
+                    lineHeight: '16px',
                     color: 'var(--rr-text2)',
                     textTransform: 'uppercase',
                     display: 'block',
@@ -2176,7 +2183,8 @@ const EventsManagement: React.FC = () => {
             <div style={{
               backgroundColor: 'var(--rr-panel)',
               boxShadow: 'var(--rr-shadow)',
-              borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+              borderRadius: '10px',
               height: '100%',
               display: 'flex',
               flexDirection: 'column',
@@ -2189,9 +2197,10 @@ const EventsManagement: React.FC = () => {
                 <span style={{
                   fontFamily: 'inherit',
                   fontStyle: 'normal',
-                  fontWeight: 300,
-                  fontSize: '20px',
-                  lineHeight: '24px',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  letterSpacing: '.14em',
+                  lineHeight: '16px',
                   color: 'var(--rr-text2)',
                   textTransform: 'uppercase',
                   display: 'block',
@@ -2223,7 +2232,8 @@ const EventsManagement: React.FC = () => {
             <div style={{
               backgroundColor: 'var(--rr-panel)',
               boxShadow: 'var(--rr-shadow)',
-              borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+              borderRadius: '10px',
               flex: 1,
               display: 'flex',
               flexDirection: 'column',
@@ -2240,9 +2250,10 @@ const EventsManagement: React.FC = () => {
                 <span style={{
                   fontFamily: 'inherit',
                   fontStyle: 'normal',
-                  fontWeight: 300,
-                  fontSize: '20px',
-                  lineHeight: '24px',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  letterSpacing: '.14em',
+                  lineHeight: '16px',
                   color: 'var(--rr-text2)',
                   textTransform: 'uppercase'
                 }}>{selectedEvent && new Date(selectedEvent.datetime) > new Date() ? 'Registration' : 'Attendance'}</span>
@@ -2278,7 +2289,8 @@ const EventsManagement: React.FC = () => {
             <div style={{
               backgroundColor: 'var(--rr-panel)',
               boxShadow: 'var(--rr-shadow)',
-              borderRadius: '8px',
+          border: '1px solid var(--rr-border)',
+              borderRadius: '10px',
               height: 'auto',
               display: 'flex',
               flexDirection: 'column',
@@ -2293,9 +2305,10 @@ const EventsManagement: React.FC = () => {
                 <span style={{
                   fontFamily: 'inherit',
                   fontStyle: 'normal',
-                  fontWeight: 300,
-                  fontSize: '20px',
-                  lineHeight: '24px',
+                  fontWeight: 600,
+                  fontSize: '12px',
+                  letterSpacing: '.14em',
+                  lineHeight: '16px',
                   color: 'var(--rr-text2)',
                   textTransform: 'uppercase'
                 }}>Mission</span>

@@ -1,7 +1,7 @@
 import React, { useState, memo } from 'react';
 import { useDroppable } from '@dnd-kit/core';
 import AircraftTile from './AircraftTile';
-import { Edit2, Trash2, Clock } from 'lucide-react';
+import { Icon, IconButton, legibleColor } from '../primitives';
 
 // Add mission commander interface
 interface MissionCommanderInfo {
@@ -33,6 +33,8 @@ interface FlightAssignmentCardProps {
   onEditFlight?: (id: string, callsign: string) => void;
   onStepTimeChange?: (id: string, stepTime: number) => void;
   missionCommander?: MissionCommanderInfo | null;
+  /** Owning squadron's primary colour (left bar). */
+  squadronColor?: string;
 }
 
 const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
@@ -46,7 +48,8 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   onDeleteFlight,
   onEditFlight,
   onStepTimeChange,
-  missionCommander
+  missionCommander,
+  squadronColor
 }) => {
   const [isEditingStepTime, setIsEditingStepTime] = useState(false);
   const [editedStepTime, setEditedStepTime] = useState(stepTime.toString());
@@ -119,58 +122,30 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
   const midsANum = parseInt(midsA) || 0;
   const secondSectionMidsA = midsANum > 0 ? (midsANum + 1).toString() : '';
 
+  const bar = legibleColor(squadronColor, 'var(--rr-accent)');
+
   return (
     <div
-      style={{
-        position: 'relative',
-        boxSizing: 'border-box',
-        width: 'calc(100% - 20px)', // Account for shadow space
-        padding: '10px 12px 2px 8px', // top: 10px (12-2), right: 12px, bottom: 2px (4-2), left: 8px
-        margin: '10px', // Add margin for drop shadow
-        backgroundColor: 'var(--rr-panel)',
-        borderRadius: '8px',
-        fontFamily: 'inherit',
-        userSelect: 'none',
-        boxShadow: 'var(--rr-shadow)',
-        transition: 'all 0.2s ease-in-out',
-        display: 'flex',
-        flexDirection: 'row', // Changed to row for horizontal layout
-        alignItems: 'stretch',
-        marginBottom: '10px' // Add consistent spacing between cards
-      }}
-      className="flight-assignment-card"
+      className="flight-assignment-card group bg-panel2 border border-border rounded-rr-lg select-none"
+      style={{ position: 'relative' }}
     >
-      {/* Step time indicator - bottom left corner of card */}
-      <div
-        style={{
-          position: 'absolute',
-          bottom: '3px',
-          left: '4px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '4px',
-          fontSize: '12px',
-          fontWeight: 500,
-          color: 'var(--rr-text2)',
-          padding: '2px 4px',
-          zIndex: 10
-        }}
-      >
-        <Clock size={13} style={{ flexShrink: 0, marginTop: '1px', marginLeft: '-1px' }} />
+      {/* Header: squadron bar · callsign · MIDS B · step time · actions */}
+      <div className="flex items-center gap-2 px-3 py-[7px] border-b border-border">
+        <span className="w-[3px] h-[14px] rounded-[2px] flex-none" style={{ background: bar }} />
+        <span className="text-[13px] font-bold tracking-[.02em] text-text whitespace-nowrap">{callsign} {flightNumber}</span>
+        {midsB ? (
+          <span className="font-mono text-[10px] px-[6px] py-[1px] rounded-rr-sm bg-panel3 text-text2" title="MIDS B (flight channel)">
+            B {midsB}
+          </span>
+        ) : null}
+        <span className="flex-1" />
         <div
           onDoubleClick={handleStepTimeDoubleClick}
-          style={{
-            cursor: 'pointer',
-            width: '32px',
-            height: '16px',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'flex-start',
-            flexShrink: 0,
-            marginLeft: '-3px'
-          }}
+          className="flex items-center gap-1 font-mono text-[10.5px] text-text2 cursor-pointer"
           title="Double-click to edit step time"
         >
+          <Icon name="clock" size={12} />
+          <span className="text-text3">STEP</span>
           {isEditingStepTime ? (
             <input
               type="text"
@@ -180,203 +155,66 @@ const FlightAssignmentCard: React.FC<FlightAssignmentCardProps> = ({
               onKeyDown={handleStepTimeKeyPress}
               onFocus={(e) => e.target.select()}
               autoFocus
-              style={{
-                width: '100%',
-                height: '100%',
-                padding: '0',
-                margin: '0',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '2px',
-                fontSize: '12px',
-                fontWeight: 500,
-                textAlign: 'left',
-                paddingLeft: '2px',
-                backgroundColor: 'var(--rr-panel)',
-                outline: 'none',
-                boxSizing: 'border-box'
-              }}
+              className="w-[38px] h-[18px] px-1 font-mono text-[10.5px] rounded-rr-sm bg-panel border border-accent text-text focus:outline-none"
             />
           ) : (
-            <span style={{ fontSize: '12px', fontWeight: 500 }}>{formatStepTime(stepTime)}</span>
+            <span className="text-text font-semibold">{formatStepTime(stepTime)}</span>
           )}
         </div>
-      </div>
-
-      {/* Edit and Delete buttons - top right corner of card */}
-      <div
-        className="flight-card-actions"
-        style={{
-          position: 'absolute',
-          top: '4px',
-          right: '4px',
-          display: 'none',
-          gap: '5px',
-          zIndex: 10
-        }}
-      >
-          {/* Edit button */}
-          <button
-            onClick={() => onEditFlight?.(id, callsign)}
-            style={{
-              padding: '4px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              background: 'var(--rr-panel)',
-              boxShadow: 'var(--rr-shadow)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.1s ease',
-              color: 'var(--rr-text2)',
-              width: '24px',
-              height: '24px'
-            }}
-            title="Edit flight"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              e.currentTarget.style.background = 'var(--rr-panel2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.currentTarget.style.background = 'var(--rr-panel)';
-            }}
-          >
-            <Edit2 size={14} color="#64748B" />
-          </button>
-
-          {/* Delete button */}
-          <button
-            onClick={() => onDeleteFlight?.(id)}
-            style={{
-              padding: '4px',
-              borderRadius: '4px',
-              cursor: 'pointer',
-              background: 'var(--rr-panel)',
-              boxShadow: 'var(--rr-shadow)',
-              border: 'none',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              transition: 'all 0.1s ease',
-              color: 'var(--rr-text2)',
-              width: '24px',
-              height: '24px'
-            }}
-            title="Delete flight"
-            onMouseEnter={(e) => {
-              e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.15)';
-              e.currentTarget.style.background = 'var(--rr-panel2)';
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = '0 2px 4px rgba(0,0,0,0.1)';
-              e.currentTarget.style.background = 'var(--rr-panel)';
-            }}
-          >
-            <Trash2 size={14} color="#64748B" />
-          </button>
-      </div>
-
-      {/* Left section - Vertical callsign */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-          marginRight: '8px',
-          minWidth: '30px'
-        }}
-      >
-        {/* Vertical callsign */}
-        <div
-          style={{
-            writingMode: 'vertical-rl',
-            transform: 'rotate(180deg)',
-            fontSize: '18px',
-            fontWeight: 600,
-            color: '#1E1E1E',
-            letterSpacing: '0.02em',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center'
-          }}
-        >
-          {callsign} {flightNumber}
+        <div className="flight-card-actions flex items-center gap-[2px] opacity-0 group-hover:opacity-100 transition-opacity duration-150">
+          <IconButton icon="edit" size={24} iconSize={13} label="Edit flight" onClick={() => onEditFlight?.(id, callsign)} />
+          <IconButton icon="trash" size={24} iconSize={13} label="Delete flight" className="hover:!text-bad" onClick={() => onDeleteFlight?.(id)} />
         </div>
       </div>
 
-      {/* Main content area - tiles */}
-      <div style={{
-        flex: 1,
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative'
-      }}>
-        {/* Aircraft Tiles Container */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'center',
-          alignItems: 'flex-start',
-          position: 'relative',
-          paddingRight: '12px', // 12px from right edge
-          paddingBottom: '12px' // 12px from bottom edge
-        }}>
-        {/* Wrap each tile with DroppableAircraftTile when empty */}
-        {/* 1-2 position - first section */}
+      {/* Finger-four: lead in front, -2 and -3 one step back, -4 two steps back */}
+      <div className="flex justify-center items-start gap-[6px] px-3 pt-[10px] pb-[14px]">
         <DroppableAircraftTile
           pilot={pilot2}
           flightId={id}
           dashNumber="2"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={midsA}  // First section MIDS A
+          midsA={midsA}
           midsB={midsB}
           isMissionCommander={isMissionCommander(pilot2.boardNumber)}
-          verticalOffset={10} // Apply the 10px offset for 1-2 position
+          verticalOffset={18}
         />
-
-        {/* 1-1 position - first section */}
         <DroppableAircraftTile
           pilot={pilot1}
           flightId={id}
           dashNumber="1"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={midsA}  // First section MIDS A
+          midsA={midsA}
           midsB={midsB}
           isFlightLead={true}
           isMissionCommander={isMissionCommander(pilot1.boardNumber)}
-          verticalOffset={0} // No offset for 1-1 (flight lead)
+          verticalOffset={0}
         />
-
-        {/* 1-3 position - second section */}
         <DroppableAircraftTile
           pilot={pilot3}
           flightId={id}
           dashNumber="3"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={secondSectionMidsA}  // Second section MIDS A
+          midsA={secondSectionMidsA}
           midsB={midsB}
           isWingPair={true}
           isMissionCommander={isMissionCommander(pilot3.boardNumber)}
-          verticalOffset={10} // Apply the 10px offset for 1-3 position
+          verticalOffset={18}
         />
-
-        {/* 1-4 position - second section */}
         <DroppableAircraftTile
           pilot={pilot4}
           flightId={id}
           dashNumber="4"
           flightNumber={flightNumber}
           flightCallsign={callsign}
-          midsA={secondSectionMidsA}  // Second section MIDS A
+          midsA={secondSectionMidsA}
           midsB={midsB}
           isMissionCommander={isMissionCommander(pilot4.boardNumber)}
-          verticalOffset={20} // Apply the 20px offset for 1-4 position
+          verticalOffset={36}
         />
-        </div>
       </div>
     </div>
   );
@@ -451,7 +289,6 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
       ref={setNodeRef} 
       style={{ 
         position: 'relative', 
-        marginRight: dashNumber !== "4" ? '15px' : '0',
         zIndex: isOver ? 10 : 1
       }}
       data-drop-id={dropId}
@@ -483,7 +320,8 @@ const DroppableAircraftTile: React.FC<DroppableAircraftTileProps> = ({
           left: 0,
           right: 0,
           bottom: 0,
-          backgroundColor: 'rgba(37, 99, 235, 0.1)',
+          backgroundColor: 'var(--rr-accent-weak)',
+          outline: '1.5px dashed var(--rr-accent)',
           borderRadius: '8px',
           pointerEvents: 'none'
         }} />
