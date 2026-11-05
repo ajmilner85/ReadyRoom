@@ -2,10 +2,20 @@ import React, { useState, useRef, useEffect } from 'react';
 
 interface FuelDisplayProps {
     fuel: number | undefined;
-    size?: 'small' | 'large';
+    /** 'strip' = Coordination strip chip: mono 11px, design thresholds (good ≥5.0, warn 4.0–4.9, bad <4.0). */
+    size?: 'small' | 'large' | 'strip';
+    bold?: boolean;
     onUpdateFuel?: (newFuel: number) => void;
     onEditStateChange?: (isEditing: boolean) => void;
 }
+
+/** Strip fuel colour (design): good ≥ 5.0, warn 4.0–4.9, bad < 4.0. */
+export const stripFuelColor = (fuel: number | undefined): string => {
+    if (fuel === undefined || fuel === null || Number.isNaN(fuel)) return 'var(--rr-text3)';
+    if (fuel >= 5.0) return 'var(--rr-good)';
+    if (fuel >= 4.0) return 'var(--rr-warn)';
+    return 'var(--rr-bad)';
+};
 
 const getFuelColor = (fuel: number | undefined): string => {
     if (fuel === undefined) return '#64748B';  // Default gray color for undefined
@@ -22,15 +32,19 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
     fuel, 
     size = 'small', 
     onUpdateFuel,
-    onEditStateChange
+    onEditStateChange,
+    bold
 }) => {
     const [isEditing, setIsEditing] = useState(false);
     const [editValue, setEditValue] = useState(fuel?.toFixed(1) || '');
     const inputRef = useRef<HTMLInputElement>(null);
 
-    const mainSize = size === 'large' ? '36px' : '14px';
-    const decimalSize = size === 'large' ? '32px' : '12px';
-    const fuelColor = getFuelColor(fuel);
+    const isStrip = size === 'strip';
+    const mainSize = size === 'large' ? '36px' : isStrip ? '11px' : '14px';
+    const decimalSize = size === 'large' ? '32px' : isStrip ? '11px' : '12px';
+    const fuelColor = isStrip ? stripFuelColor(fuel) : getFuelColor(fuel);
+    const weight = isStrip ? (bold ? 700 : 500) : 700;
+    const family = isStrip ? 'var(--rr-font-mono)' : undefined;
 
     const handleDoubleClick = (e: React.MouseEvent) => {
         if (!onUpdateFuel) return;
@@ -104,12 +118,14 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                     onClick={e => e.stopPropagation()}
                     onMouseDown={e => e.stopPropagation()}
                     style={{
-                        width: '50px',
+                        width: isStrip ? '38px' : '50px',
                         textAlign: 'center',
                         fontSize: mainSize,
+                        fontFamily: family,
                         color: fuelColor,
                         fontWeight: 700,
-                        border: '1px solid var(--rr-border2)',
+                        background: 'var(--rr-panel)',
+                        border: '1px solid var(--rr-accent)',
                         borderRadius: '4px',
                     }}
                 />
@@ -124,14 +140,15 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                     display: 'flex', 
                     alignItems: 'baseline',
                     color: fuelColor,
-                    fontWeight: 700,
+                    fontWeight: weight,
+                    fontFamily: family,
                     cursor: onUpdateFuel ? 'text' : 'default'
                 }}
                 onDoubleClick={handleDoubleClick}
                 onClick={e => e.stopPropagation()}
                 onMouseDown={e => e.stopPropagation()}
             >
-                <span style={{ fontSize: mainSize, lineHeight: mainSize }}>-.-</span>
+                <span style={{ fontSize: mainSize, lineHeight: mainSize }}>{isStrip ? '—' : '-.-'}</span>
             </div>
         );
     }
@@ -144,7 +161,8 @@ const FuelDisplay: React.FC<FuelDisplayProps> = ({
                 display: 'flex', 
                 alignItems: 'baseline',
                 color: fuelColor,
-                fontWeight: 700,
+                fontWeight: weight,
+                fontFamily: family,
                 cursor: onUpdateFuel ? 'text' : 'default'
             }}
             onDoubleClick={handleDoubleClick}

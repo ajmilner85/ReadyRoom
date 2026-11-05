@@ -2,21 +2,21 @@ import React, { useState } from 'react';
 import { useDraggable } from '@dnd-kit/core';
 import { CSS } from '@dnd-kit/utilities';
 import type { Flight, FlightMember } from '../../../types/FlightData';
-import FuelDisplay from './FuelDisplay';
-import { formatAltitude } from '../../../utils/positionUtils';
+import FuelDisplay, { stripFuelColor } from './FuelDisplay';
+import { legibleColor } from '../primitives/color';
 
 interface FlightCardProps extends Flight {
   isDragging?: boolean;
   onUpdateMemberFuel?: (dashNumber: string, newFuel: number) => void;
+  /** Squadron insignia for the greyscale backdrop behind the callsign block. */
+  insigniaUrl?: string | null;
 }
 
 const BINGO_FUEL = 3.0;
 
 // Format aircraft type for display (e.g., 'FA-18C_hornet' -> 'F/A-18C')
-const formatAircraftType = (type?: string): string => {
+export const formatAircraftType = (type?: string): string => {
   if (!type) return '---';
-  
-  // Map common DCS aircraft types to display names
   const typeMap: Record<string, string> = {
     'FA-18C_hornet': 'F/A-18C',
     'F-16C_50': 'F-16C',
@@ -28,10 +28,32 @@ const formatAircraftType = (type?: string): string => {
     'A-10C': 'A-10C',
     'A-10C_2': 'A-10C II',
   };
-  
   return typeMap[type] || type;
 };
 
+/** BRA readout "bearing/range/angels" (angels = altitude in thousands). */
+export const braOf = (pos?: { bearing: string; distance: string; altitude: string }) => {
+  if (!pos) return '';
+  const alt = parseInt(String(pos.altitude || '').replace(/[^0-9]/g, ''), 10);
+  const angels = Number.isNaN(alt) ? '' : alt >= 1000 ? String(Math.round(alt / 1000)) : String(alt);
+  return [pos.bearing, pos.distance, angels].filter(v => v !== '' && v !== undefined).join('/');
+};
+
+/** Index of the flight's low-state aircraft (lowest fuel); -1 when no fuel is known. */
+export const lowStateIndex = (members: FlightMember[]) => {
+  let idx = -1;
+  let low = Infinity;
+  members.forEach((m, i) => {
+    if (typeof m.fuel === 'number' && !Number.isNaN(m.fuel) && m.fuel < low) { low = m.fuel; idx = i; }
+  });
+  return idx;
+};
+
+/**
+ * Coordination strip (design D02.1): panel3 strip, 4px squadron bar, callsign · N× airframe ·
+ * right-aligned BRA; member chips (board + fuel, mono). Exactly one chip — the low state — is
+ * boxed in its fuel colour with bold fuel. Strips are drag sources; fuel edits on double-click.
+ */
 const FlightCard: React.FC<FlightCardProps> = ({
   id,
   flightNumber,
@@ -42,10 +64,12 @@ const FlightCard: React.FC<FlightCardProps> = ({
   isDragging,
   formation,
   aircraftType,
-  onUpdateMemberFuel
+  squadronColorPalette,
+  insigniaUrl,
+  onUpdateMemberFuel,
 }) => {
   const [isEditingFuel, setIsEditingFuel] = useState(false);
-  
+
   const { attributes, listeners, setNodeRef, transform } = useDraggable({
     id: id,
     data: {
@@ -55,186 +79,83 @@ const FlightCard: React.FC<FlightCardProps> = ({
     disabled: isEditingFuel
   });
 
-  const formatPosition = (pos?: { bearing: string; distance: string; altitude: string }) => {
-    if (!pos) return '';
-    return `${pos.bearing}/${pos.distance}`;
-  };
-
-  // Get all members for display (no special treatment for dash-1)
-  const allMembers = members;
-
-  // Determine display position - individual positions take precedence over group position
+  // Individual positions take precedence over group position
   const displayPosition = members[0]?.position || position;
-
-  const cardStyle: React.CSSProperties = {
-    position: 'relative',
-    boxSizing: 'border-box',
-    width: '442px',
-    height: '100px',
-    padding: '5px 4px 5px 5px',
-    backgroundColor: 'var(--rr-panel)',
-    borderRadius: '8px',
-    fontFamily: 'inherit',
-    cursor: isEditingFuel ? 'default' : 'grab',
-    userSelect: 'none',
-    ...(isDragging ? {
-      boxShadow: 'var(--rr-shadow-lg)',
-      opacity: 0.9,
-    } : {
-      boxShadow: 'var(--rr-shadow)',
-      opacity: 1,
-    }),
-    ...(transform ? {
-      transform: CSS.Translate.toString(transform)
-    } : {})
-  };
-
-  const handleUpdateMemberFuel = (member: FlightMember, newFuel: number) => {
-    if (onUpdateMemberFuel) {
-      onUpdateMemberFuel(member.dashNumber, newFuel);
-    }
-  };
+  const bra = braOf(displayPosition);
+  const lowIdx = members.length === 1 ? 0 : lowStateIndex(members);
+  const bar = legibleColor(squadronColorPalette?.primary, 'var(--rr-accent)');
+  const bingo = typeof lowState === 'number' && lowState < BINGO_FUEL;
 
   return (
-    <div 
+    <div
       ref={setNodeRef}
       {...(isEditingFuel ? {} : { ...attributes, ...listeners })}
-      style={cardStyle}
       data-flight-id={id}
+      className="relative w-full select-none rounded-rr-md overflow-hidden"
+      style={{
+        background: 'var(--rr-panel3)',
+        border: '1px solid var(--rr-border2)',
+        boxShadow: isDragging ? 'var(--rr-shadow-lg)' : 'var(--rr-shadow)',
+        opacity: isDragging ? 0.92 : 1,
+        cursor: isEditingFuel ? 'default' : 'grab',
+        transform: transform ? CSS.Translate.toString(transform) : undefined,
+      }}
     >
-      <div style={{
-        display: 'flex',
-        gap: '4px',
-        height: '90px',
-      }}>
-        {/* Flight Callsign */}
-        <div style={{
-          flex: '0 0 88px',
-          backgroundColor: 'var(--rr-panel2)',
-          borderRadius: '8px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'flex-start',
-          padding: '4px',
-          paddingTop: '6px',
-        }}>
-          <div style={{ fontSize: '16px', fontWeight: 700, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center', marginBottom: '3px' }}>
-            {callsign} {flightNumber}
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center' }}>
-            {members.length}x {formatAircraftType(aircraftType)}
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center' }}>
-            ---
-          </div>
-          <div style={{ fontSize: '12px', fontWeight: 400, lineHeight: '16px', color: 'var(--rr-text2)', textAlign: 'center' }}>
-            ---
-          </div>
-        </div>
+      {/* Squadron colour bar */}
+      <span className="absolute left-0 top-0 bottom-0 w-1" style={{ background: bar }} />
+      {/* Greyscale insignia backdrop, limited to the callsign block (never behind BRA) */}
+      {insigniaUrl ? (
+        <img
+          src={insigniaUrl}
+          alt=""
+          className="absolute pointer-events-none"
+          style={{ left: 8, top: 2, width: 88, height: 'calc(100% - 4px)', objectFit: 'contain', objectPosition: 'left center', filter: 'grayscale(1)', opacity: 0.14 }}
+        />
+      ) : null}
 
-        {/* All Flight Members (including dash-1) */}
-        <div style={{
-          flex: '0 0 78px',
-          backgroundColor: 'var(--rr-panel2)',
-          borderRadius: '8px',
-          padding: '4px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '4px',
-        }}>
-          {allMembers.map((member) => (
-            <div key={member.boardNumber}
-                 data-board-number={member.boardNumber}
-                 style={{
-                   display: 'flex',
-                   alignItems: 'baseline',
-                   height: '19px',
-                 }}>
-              <span style={{
-                fontSize: '10px',
-                fontWeight: 400,
-                color: 'var(--rr-text3)',
-                lineHeight: '16px',
-                width: '10px',
-                textAlign: 'left',
-                flexShrink: 0
-              }}>
-                {member.dashNumber}
-              </span>
-              <span style={{
-                fontFamily: 'USN Stencil',
-                fontSize: '16px',
-                fontWeight: 400,
-                color: 'var(--rr-text2)',
-                width: '26px',
-                lineHeight: '16px',
-                textAlign: 'left',
-                marginLeft: '2px',
-                flexShrink: 0
-              }}>
-                {member.boardNumber}
-              </span>
-              <div style={{ 
-                color: member.fuel < BINGO_FUEL ? '#FF3B30' : '#FF3B30',
-                animation: member.fuel < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none',
-                width: '34px',
-                lineHeight: '16px',
-                marginLeft: '12px',
-                flexShrink: 0
-              }}>
-                <FuelDisplay 
-                  fuel={member.fuel} 
-                  size="small" 
-                  onUpdateFuel={(newFuel) => handleUpdateMemberFuel(member, newFuel)}
-                  onEditStateChange={setIsEditingFuel}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Position */}
-        <div style={{
-          flex: '0 0 141px',
-          backgroundColor: 'var(--rr-panel2)',
-          borderRadius: '8px',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          {displayPosition ? (
-            <>
-              <div style={{ fontSize: '20px', fontWeight: 500, color: 'var(--rr-text)' }}>
-                {formatPosition(displayPosition)}
-              </div>
-              <div style={{ fontSize: '20px', fontWeight: 500, color: '#1E1E1E' }}>
-                {formatAltitude(displayPosition.altitude)}
-              </div>
-            </>
+      <div className="relative pl-[10px] pr-2 pt-[6px] pb-[6px]">
+        {/* Header line */}
+        <div className="flex items-baseline gap-2 min-w-0">
+          <span className="text-[13px] font-bold whitespace-nowrap text-text">{callsign} {flightNumber}</span>
+          <span className="text-[11px] text-text2 whitespace-nowrap">{members.length}× {formatAircraftType(aircraftType)}</span>
+          <span className="flex-1" />
+          {bra ? (
+            <span className="font-mono text-[11px] text-text2 truncate min-w-0" title={`BRA ${bra}`}>
+              BRA <span className="text-text font-semibold">{bra}</span>
+            </span>
           ) : (
-            <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>NO POS</div>
+            <span className="font-mono text-[10px] text-text3">NO POS</span>
           )}
         </div>
 
-        {/* Low State */}
-        <div style={{
-          flex: '0 0 92px',
-          backgroundColor: 'var(--rr-panel2)',
-          borderRadius: '8px',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}>
-          <div style={{
-            animation: lowState < BINGO_FUEL ? 'pulse-red 1.5s ease-in-out infinite' : 'none'
-          }}>
-            <FuelDisplay 
-              fuel={lowState} 
-              size="large"
-            />
-          </div>
+        {/* Member chips (left-aligned) */}
+        <div className="flex flex-wrap items-center gap-1 mt-[5px]">
+          {members.map((member, i) => {
+            const boxed = i === lowIdx;
+            const fc = stripFuelColor(member.fuel);
+            return (
+              <span
+                key={`${member.dashNumber}-${member.boardNumber}`}
+                data-board-number={member.boardNumber}
+                className="inline-flex items-baseline gap-[5px] px-[6px] py-[2px] rounded-rr-sm"
+                style={{
+                  background: 'var(--rr-panel2)',
+                  border: `1.5px solid ${boxed ? fc : 'var(--rr-border)'}`,
+                  animation: boxed && bingo ? 'pulse-red 1.5s ease-in-out infinite' : undefined,
+                }}
+                title={`${callsign} ${flightNumber}-${member.dashNumber} · ${member.pilotCallsign || ''}`}
+              >
+                <span className="font-mono text-[11px] font-semibold text-text">{member.boardNumber}</span>
+                <FuelDisplay
+                  fuel={member.fuel}
+                  size="strip"
+                  bold={boxed}
+                  onUpdateFuel={(newFuel) => onUpdateMemberFuel?.(member.dashNumber, newFuel)}
+                  onEditStateChange={setIsEditingFuel}
+                />
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>

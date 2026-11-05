@@ -11,6 +11,10 @@ import { getAllSquadrons, Squadron } from '../../utils/squadronService';
 import { getAllQualifications, Qualification } from '../../utils/qualificationService';
 import { getAllStatuses, Status } from '../../utils/statusService';
 import QualificationBadge from './QualificationBadge';
+import { DndContext } from '@dnd-kit/core';
+import FlightCard from './flight cards/FlightCard';
+import DroppableZone from '../layout/DroppableZone';
+import type { Flight } from '../../types/FlightData';
 
 /** Living reference for the shared UI Kit (mirrors the prototype's UI Kit page). */
 const Card: React.FC<{ title: string; children: React.ReactNode; wide?: boolean }> = ({ title, children, wide }) => (
@@ -26,6 +30,20 @@ const DEMO_ROWS: DemoRow[] = [
   { id: '2', board: '615', callsign: 'DAN', squadron: 'VFA-161', status: 'LOA' },
   { id: '3', board: '637', callsign: 'KNUCKLES', squadron: 'VFA-44', status: 'Active' },
   { id: '4', board: '527', callsign: 'PATCHES', squadron: 'VFA-44', status: 'Provisional' },
+];
+
+// Sample flights for the Coordination strip demo (UI Kit only; not real mission data)
+const demoFlight = (id: string, callsign: string, num: string, ac: string, members: [string, string, number][], color: string, pos?: [string, string, string]): Flight => ({
+  id, callsign, flightNumber: num, aircraftType: ac, formation: members.length === 1 ? 'single' : 'group',
+  members: members.map(([dash, board, fuel]) => ({ dashNumber: dash, boardNumber: board, fuel, pilotCallsign: '' })),
+  position: pos ? { bearing: pos[0], distance: pos[1], altitude: pos[2] } : undefined,
+  lowState: Math.min(...members.map(m => m[2])), currentSection: 'Recovery', currentDivision: 0,
+  squadronColorPalette: { primary: color },
+});
+const DEMO_STRIPS: Flight[] = [
+  demoFlight('demo-hawk2', 'HAWK', '2', 'FA-18C_hornet', [['1', '551', 4.1], ['2', '512', 4.4], ['3', '754', 3.8], ['4', '615', 4.2]], '#ff4715', ['015', '38', '18000']),
+  demoFlight('demo-chaos', 'CHAOS', '1', 'EA-18G', [['1', '637', 6.3], ['2', '642', 6.0]], '#005774', ['355', '61', '28000']),
+  demoFlight('demo-texaco', 'TEXACO', '1-1', 'S-3B', [['1', '700', 7.2]], '#ff4715', ['160', '10', '8000']),
 ];
 
 const UiKit: React.FC = () => {
@@ -293,6 +311,20 @@ const UiKit: React.FC = () => {
                 </div>
               </div>
             </div>
+          </Card>
+
+          <Card title="Coordination strips (D02.1) · division rows · sample data" wide>
+            <DndContext>
+              <div className="grid gap-3" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(360px, 1fr))' }}>
+                <div className="flex flex-col gap-1">
+                  {DEMO_STRIPS.map(f => <FlightCard key={f.id} {...f} />)}
+                </div>
+                <div className="border border-border rounded-rr-lg overflow-hidden">
+                  <DroppableZone id="recovery-6" label="Angels 6" flights={[DEMO_STRIPS[1]]} renderFlightCard={(f) => <FlightCard key={f.id} {...f} />} />
+                  <DroppableZone id="enroute-demo" label="CAP North" flights={[DEMO_STRIPS[0], DEMO_STRIPS[2]]} renderFlightCard={(f) => <FlightCard key={f.id} {...f} />} />
+                </div>
+              </div>
+            </DndContext>
           </Card>
 
           <Card title="Table · bulk select" wide>
