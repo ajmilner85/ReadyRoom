@@ -918,7 +918,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       legendDiv.style.flexWrap = 'wrap';
       legendDiv.style.gap = '20px';
       legendDiv.style.padding = '10px';
-      legendDiv.style.fontFamily = 'Inter';
+      legendDiv.style.fontFamily = 'var(--rr-font-ui)';
       legendDiv.style.fontSize = '11px';
 
       squadronGroups.forEach((metrics, squadronDesig) => {

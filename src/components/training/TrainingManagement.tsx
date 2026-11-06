@@ -53,7 +53,7 @@ const TrainingManagement: React.FC = () => {
         </div>
       ) : null}
       <div className="flex-1 min-h-0 p-[14px] flex flex-col">
-        <div className="flex-1 min-h-0 bg-panel border border-border rounded-rr-xl shadow-rr overflow-auto">
+        <div className="rr-page flex-initial min-h-0 bg-panel border border-border rounded-rr-xl shadow-rr overflow-auto">
           {activeTrainingPage === 'syllabi'
             ? <SyllabusManagement error={error} setError={setError} />
             : <PilotTrainingRecords error={error} setError={setError} />}

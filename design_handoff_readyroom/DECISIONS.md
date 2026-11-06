@@ -29,6 +29,9 @@ Record small design calls made during implementation so they can be folded back 
 | 2026-11-05 | Badges | PilotIDBadgeSm (used in 9 places) restyled in place: insignia + mono board #, fixed 72px width; tail code no longer rendered. | No |
 
 ## Page width (2026-11-05, user feedback)
-- Reading-heavy pages share `.rr-page` (tokens.css): centred, max 1440px. Applied to Home and Mission Prep › Mission Details. Board/table pages (Flight Assignments, Roster, Coordination) stay full width.
+- App-wide rule: page content sits in `.rr-page` (tokens.css): centred, max 1440px. Applied to Home, Mission Details, Comms, Roster, Events, Debrief (list 600 + details), Training (both tabs), My Training, Dossier, Reports, Settings.
+- Exceptions (drag-and-drop workspaces that genuinely use the width): Flight Assignments (columns 320–380px, centred), Mission Support, Kneeboard. Coordination is fullscreen; its four columns cap at 540px and centre.
+- Panes whose content is short (Mission Details, Comms, Training, Reports, My Training) end at their content instead of stretching to the window bottom; list/detail workspaces (Roster, Events, Debrief, Dossier) keep full-height panes because their lists scroll.
+- Tab bars stay full width (shared across full-width and capped tabs).
 - Mission Details panes size to their content (scroll inside only when taller than the window) instead of stretching to the bottom.
 - Home Polls / Change Log fill the remaining window height (min 480px) instead of a fixed 560px / 70vh.

@@ -36,7 +36,7 @@ const selectStyle: React.CSSProperties = {
   appearance: 'menulist',
   backgroundColor: 'var(--rr-panel)',
   color: 'var(--rr-text)',
-  fontFamily: "'Inter', sans-serif"
+  fontFamily: 'inherit'
 };
 
 const inputStyle: React.CSSProperties = {
@@ -46,7 +46,7 @@ const inputStyle: React.CSSProperties = {
   borderRadius: '4px',
   fontSize: '14px',
   boxSizing: 'border-box',
-  fontFamily: "'Inter', sans-serif"
+  fontFamily: 'inherit'
 };
 
 /**

@@ -18,7 +18,9 @@ export const dossierStyles = {
     minHeight: 0,
     position: 'relative' as const,
     zIndex: 1,
-    width: '100%'
+    width: '100%',
+    maxWidth: '1440px', // shared page width (.rr-page)
+    marginInline: 'auto',
   },
   columnsContainer: {
     display: 'flex',

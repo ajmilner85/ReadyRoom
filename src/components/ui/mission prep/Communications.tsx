@@ -463,10 +463,10 @@ const Communications: React.FC<CommunicationsProps> = ({
       };
     });
   return (
-    <div data-m="row" className="flex-1 min-h-0 flex gap-[14px]" data-width={width}>
+    <div data-m="row" className="rr-page flex-1 min-h-0 flex items-start gap-[14px]" data-width={width}>
       <Pane
         title="Comms Presets"
-        className="flex-1 min-w-0"
+        className="flex-1 min-w-0 max-h-full"
         flush
         actions={
           !isEditing ? (
@@ -523,10 +523,10 @@ const Communications: React.FC<CommunicationsProps> = ({
         </div>
       </Pane>
 
-      <div className="flex-none w-[360px] flex flex-col gap-[14px] min-h-0">
+      <div className="flex-none w-[360px] flex flex-col gap-[14px] min-h-0 max-h-full">
         <Pane
           title="MIDS Channels"
-          className="flex-1"
+          className="flex-initial"
           meta={<span className="font-mono text-[10px] text-text3">B = FLIGHT · A = SECTION</span>}
         >
           {midsRows.length === 0 ? (

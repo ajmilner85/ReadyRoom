@@ -3171,7 +3171,7 @@ const RosterManagement: React.FC = () => {
             </div>
           )}
           
-          <div data-m="row" className="flex-1 min-h-0 flex gap-[14px]">
+          <div data-m="row" className="rr-page flex-1 min-h-0 flex gap-[14px]">
             {/* Left column - Squadron Roster List */}
             <PilotList
               pilots={pilots}
