@@ -397,14 +397,29 @@ const Communications: React.FC<CommunicationsProps> = ({
         ? [{ f: 'name', align: 'left' }, { f: 'freq', w: '78px', align: 'right' }, { f: 'tacan', w: '52px', align: 'center' }, { f: 'ils', w: '38px', align: 'center' }, { f: 'kyFill', w: '34px', align: 'center' }]
         : [{ f: 'kyFill', w: '34px', align: 'center' }, { f: 'ils', w: '38px', align: 'center' }, { f: 'tacan', w: '52px', align: 'center' }, { f: 'freq', w: '78px', align: 'left' }, { f: 'name', align: 'right' }];
       return cells.map(c => (
-        <td key={`${radio}-${c.f}`} className="px-2 py-[5px] text-[12.5px] whitespace-nowrap" style={{ width: c.w, textAlign: c.align }}>
+        <td key={`${radio}-${c.f}`} className="px-2 py-[5px] text-[12.5px] whitespace-nowrap overflow-hidden text-ellipsis" style={{ textAlign: c.align }}>
           {on ? renderCommsCell(row, index, c.f, c.align) : <span className="text-text3">—</span>}
         </td>
       ));
     };
     const th = 'px-2 py-[6px] font-mono text-[9.5px] tracking-[.1em] text-text3 font-normal';
     return (
-      <table className="w-full border-collapse" style={{ tableLayout: 'auto' }}>
+      // Fixed layout + mirrored colgroup: both NAME columns take an equal share of what's left,
+      // so CH sits dead centre and PRI/AUX are symmetrical whatever their contents.
+      <table className="w-full border-collapse" style={{ tableLayout: 'fixed' }}>
+        <colgroup>
+          <col />
+          <col style={{ width: '78px' }} />
+          <col style={{ width: '52px' }} />
+          <col style={{ width: '38px' }} />
+          <col style={{ width: '34px' }} />
+          <col style={{ width: '44px' }} />
+          <col style={{ width: '34px' }} />
+          <col style={{ width: '38px' }} />
+          <col style={{ width: '52px' }} />
+          <col style={{ width: '78px' }} />
+          <col />
+        </colgroup>
         <thead className="sticky top-0 z-[1] bg-panel2">
           <tr className="border-b border-border">
             <th colSpan={5} className="py-[6px] font-mono text-[10px] tracking-[.14em] text-accent text-center font-semibold">PRIMARY · PRI</th>
@@ -547,7 +562,7 @@ const Communications: React.FC<CommunicationsProps> = ({
                   </div>
                   {r.sections.map(sec => (
                     <div key={sec.label} className="flex items-center gap-2 px-3 py-[4px] font-mono text-[11px] text-text2">
-                      <span>SECTION {sec.label}</span>
+                      <span>{sec.label}</span>
                       <span className="ml-auto text-[9.5px] tracking-[.1em] text-text3">MIDS A</span>
                       <span className="w-6 text-right text-[13px] font-bold text-accent">{sec.a || '—'}</span>
                     </div>
