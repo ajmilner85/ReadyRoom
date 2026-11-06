@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Sun, Moon, Menu, X, ChevronDown, ChevronLeft, ChevronRight, Home, LogOut } from 'lucide-react';
+import { Icon } from '../ui/primitives';
+import KneeboardPendingBanner from './KneeboardPendingBanner';
 import FlightAssignmentsKneeboard from './FlightAssignmentsKneeboard';
 import CommsPlanKneeboard from './CommsPlanKneeboard';
 import { useAuth } from '../../context/AuthContext';
@@ -313,38 +314,31 @@ const KneeboardLayout: React.FC = () => {
     return () => clearInterval(interval);
   }, [fetchCommsData]);
 
-  // Theme styles
-  const themeStyles = {
-    dark: {
-      background: '#1a1a2e',
-      backgroundSecondary: '#16213e',
-      text: '#e5e5e5',
-      textSecondary: '#a0a0a0',
-      border: '#2d2d44',
-      accent: '#7C3AED',
-      success: '#10B981',
-      warning: '#F59E0B',
-      error: '#EF4444'
-    },
-    light: {
-      background: '#f8f9fa',
-      backgroundSecondary: '#ffffff',
-      text: '#1a1a2e',
-      textSecondary: '#6b7280',
-      border: '#e5e7eb',
-      accent: '#7C3AED',
-      success: '#10B981',
-      warning: '#F59E0B',
-      error: '#EF4444'
-    }
+  // ReadyRoom tokens. The kneeboard root carries its own data-theme, so these resolve to the
+  // kneeboard's light/dark choice independently of the app theme.
+  const tokenColors = {
+    background: 'var(--rr-bg)',
+    backgroundSecondary: 'var(--rr-panel)',
+    text: 'var(--rr-text)',
+    textSecondary: 'var(--rr-text2)',
+    border: 'var(--rr-border2)',
+    accent: 'var(--rr-accent)',
+    success: 'var(--rr-good)',
+    warning: 'var(--rr-warn)',
+    error: 'var(--rr-bad)'
   };
 
-  const colors = themeStyles[theme];
+  const colors = tokenColors;
+
+  // Publication state of the selected mission (flight assignments posted to Discord).
+  // The comms plan has no separate publish step, so it follows the mission's publication.
+  const selectedMission: any = missions.find((m: any) => m.id === selectedMissionId);
+  const pendingPublication = !!selectedMission && selectedMission.flights_published === false;
 
   // Loading state
   if (authLoading) {
     return (
-      <div style={{
+      <div data-theme={theme} style={{
         width: '100vw',
         height: '100vh',
         backgroundColor: colors.background,
@@ -352,7 +346,7 @@ const KneeboardLayout: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         color: colors.text,
-        fontFamily: 'Inter, system-ui, sans-serif'
+        fontFamily: 'var(--rr-font-ui)'
       }}>
         <div style={{ textAlign: 'center' }}>
           <div style={{
@@ -377,7 +371,7 @@ const KneeboardLayout: React.FC = () => {
 
   // Main kneeboard view
   return (
-    <div style={{
+    <div data-theme={theme} style={{
       position: 'fixed',
       top: 0,
       left: 0,
@@ -385,7 +379,7 @@ const KneeboardLayout: React.FC = () => {
       height: isOpenKneeboard ? `${KNEEBOARD_HEIGHT}px` : '100vh',
       backgroundColor: colors.background,
       color: colors.text,
-      fontFamily: 'Inter, system-ui, sans-serif',
+      fontFamily: 'var(--rr-font-ui)',
       overflow: 'hidden',
       display: 'flex',
       flexDirection: 'column',
@@ -409,7 +403,7 @@ const KneeboardLayout: React.FC = () => {
             padding: '8px',
             backgroundColor: 'transparent',
             border: `1px solid ${colors.border}`,
-            borderRadius: '6px',
+            borderRadius: '8px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -418,7 +412,7 @@ const KneeboardLayout: React.FC = () => {
           }}
           title="Menu"
         >
-          <Menu size={20} />
+          <Icon name="menu" size={22} />
         </button>
 
         {/* Page Navigation - only show if not in OpenKneeboard (which has its own navigation) */}
@@ -435,7 +429,7 @@ const KneeboardLayout: React.FC = () => {
                 padding: '8px',
                 backgroundColor: getCurrentPageIndex() === 1 ? colors.background : 'transparent',
                 border: `1px solid ${colors.border}`,
-                borderRadius: '6px',
+                borderRadius: '8px',
                 cursor: getCurrentPageIndex() === 1 ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -445,7 +439,7 @@ const KneeboardLayout: React.FC = () => {
               }}
               title="Previous page"
             >
-              <ChevronLeft size={20} />
+              <Icon name="chevronLeft" size={22} />
             </button>
 
             <button
@@ -454,7 +448,7 @@ const KneeboardLayout: React.FC = () => {
                 padding: '8px',
                 backgroundColor: 'transparent',
                 border: `1px solid ${colors.border}`,
-                borderRadius: '6px',
+                borderRadius: '8px',
                 cursor: 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -463,13 +457,14 @@ const KneeboardLayout: React.FC = () => {
               }}
               title="Home (Page 1)"
             >
-              <Home size={20} />
+              <Icon name="home" size={22} />
             </button>
 
             <span style={{
               padding: '8px 12px',
-              fontSize: '14px',
-              fontWeight: 500,
+              fontSize: '16px',
+              fontWeight: 600,
+              fontFamily: 'var(--rr-font-mono)',
               color: colors.text
             }}>
               {getCurrentPageIndex()} / {pageGuids.length}
@@ -482,7 +477,7 @@ const KneeboardLayout: React.FC = () => {
                 padding: '8px',
                 backgroundColor: getCurrentPageIndex() === pageGuids.length ? colors.background : 'transparent',
                 border: `1px solid ${colors.border}`,
-                borderRadius: '6px',
+                borderRadius: '8px',
                 cursor: getCurrentPageIndex() === pageGuids.length ? 'not-allowed' : 'pointer',
                 display: 'flex',
                 alignItems: 'center',
@@ -492,7 +487,7 @@ const KneeboardLayout: React.FC = () => {
               }}
               title="Next page"
             >
-              <ChevronRight size={20} />
+              <Icon name="chevronRight" size={22} />
             </button>
           </div>
         )}
@@ -503,7 +498,7 @@ const KneeboardLayout: React.FC = () => {
             padding: '8px',
             backgroundColor: 'transparent',
             border: `1px solid ${colors.border}`,
-            borderRadius: '6px',
+            borderRadius: '8px',
             cursor: 'pointer',
             display: 'flex',
             alignItems: 'center',
@@ -512,7 +507,7 @@ const KneeboardLayout: React.FC = () => {
           }}
           title={theme === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'}
         >
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+          {theme === 'dark' ? <Icon name="sun" size={22} /> : <Icon name="moon" size={22} />}
         </button>
       </div>
 
@@ -528,7 +523,7 @@ const KneeboardLayout: React.FC = () => {
               left: 0,
               width: '100%',
               height: '100%',
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
+              backgroundColor: 'var(--rr-overlay)',
               zIndex: 99
             }}
           />
@@ -545,7 +540,7 @@ const KneeboardLayout: React.FC = () => {
             zIndex: 100,
             display: 'flex',
             flexDirection: 'column',
-            boxShadow: '4px 0 12px rgba(0, 0, 0, 0.3)'
+            boxShadow: 'var(--rr-shadow-lg)'
           }}>
             {/* Menu Header */}
             <div style={{
@@ -557,7 +552,9 @@ const KneeboardLayout: React.FC = () => {
             }}>
               <h2 style={{
                 fontSize: '18px',
-                fontWeight: 600,
+                fontWeight: 700,
+                letterSpacing: '.12em',
+                textTransform: 'uppercase',
                 margin: 0,
                 color: colors.text
               }}>
@@ -575,7 +572,7 @@ const KneeboardLayout: React.FC = () => {
                   color: colors.textSecondary
                 }}
               >
-                <X size={20} />
+                <Icon name="close" size={22} />
               </button>
             </div>
 
@@ -590,11 +587,12 @@ const KneeboardLayout: React.FC = () => {
                 <label style={{
                   display: 'block',
                   fontSize: '13px',
-                  fontWeight: 500,
+                  fontWeight: 600,
+                  fontFamily: 'var(--rr-font-mono)',
                   color: colors.textSecondary,
                   marginBottom: '8px',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
+                  letterSpacing: '.12em'
                 }}>
                   Cycle
                 </label>
@@ -627,7 +625,7 @@ const KneeboardLayout: React.FC = () => {
                         padding: '10px 12px',
                         backgroundColor: colors.background,
                         border: `1px solid ${colors.border}`,
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         color: colors.text,
                         fontSize: '14px',
                         cursor: 'pointer',
@@ -640,7 +638,7 @@ const KneeboardLayout: React.FC = () => {
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {cycles.find(c => c.id === selectedCycleId)?.name || 'Select cycle'}
                       </span>
-                      <ChevronDown size={16} style={{
+                      <Icon name="chevronDown" size={18} style={{
                         transform: showCycleDropdown ? 'rotate(180deg)' : 'rotate(0)',
                         transition: 'transform 0.2s',
                         flexShrink: 0,
@@ -657,11 +655,11 @@ const KneeboardLayout: React.FC = () => {
                         marginTop: '4px',
                         backgroundColor: colors.background,
                         border: `1px solid ${colors.border}`,
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         maxHeight: '300px',
                         overflowY: 'auto',
                         zIndex: 1000,
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                        boxShadow: 'var(--rr-shadow-lg)'
                       }}>
                         {cycles.map(cycle => (
                           <button
@@ -674,7 +672,7 @@ const KneeboardLayout: React.FC = () => {
                               width: '100%',
                               padding: '10px 12px',
                               backgroundColor: cycle.id === selectedCycleId
-                                ? (theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)')
+                                ? 'var(--rr-accent-weak)'
                                 : 'transparent',
                               border: 'none',
                               borderBottom: `1px solid ${colors.border}`,
@@ -698,11 +696,12 @@ const KneeboardLayout: React.FC = () => {
                 <label style={{
                   display: 'block',
                   fontSize: '13px',
-                  fontWeight: 500,
+                  fontWeight: 600,
+                  fontFamily: 'var(--rr-font-mono)',
                   color: colors.textSecondary,
                   marginBottom: '8px',
                   textTransform: 'uppercase',
-                  letterSpacing: '0.5px'
+                  letterSpacing: '.12em'
                 }}>
                   Mission
                 </label>
@@ -726,7 +725,7 @@ const KneeboardLayout: React.FC = () => {
                         padding: '10px 12px',
                         backgroundColor: colors.background,
                         border: `1px solid ${colors.border}`,
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         color: colors.text,
                         fontSize: '14px',
                         cursor: 'pointer',
@@ -739,7 +738,7 @@ const KneeboardLayout: React.FC = () => {
                       <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
                         {missions.find(m => m.id === selectedMissionId)?.event_name || 'Select mission'}
                       </span>
-                      <ChevronDown size={16} style={{
+                      <Icon name="chevronDown" size={18} style={{
                         transform: showMissionDropdown ? 'rotate(180deg)' : 'rotate(0)',
                         transition: 'transform 0.2s',
                         flexShrink: 0,
@@ -756,11 +755,11 @@ const KneeboardLayout: React.FC = () => {
                         marginTop: '4px',
                         backgroundColor: colors.background,
                         border: `1px solid ${colors.border}`,
-                        borderRadius: '6px',
+                        borderRadius: '8px',
                         maxHeight: '300px',
                         overflowY: 'auto',
                         zIndex: 1000,
-                        boxShadow: '0 4px 12px rgba(0, 0, 0, 0.3)'
+                        boxShadow: 'var(--rr-shadow-lg)'
                       }}>
                         {missions.map(mission => (
                           <button
@@ -773,7 +772,7 @@ const KneeboardLayout: React.FC = () => {
                               width: '100%',
                               padding: '10px 12px',
                               backgroundColor: mission.id === selectedMissionId
-                                ? (theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)')
+                                ? 'var(--rr-accent-weak)'
                                 : 'transparent',
                               border: 'none',
                               borderBottom: `1px solid ${colors.border}`,
@@ -804,7 +803,7 @@ const KneeboardLayout: React.FC = () => {
                     padding: '12px',
                     backgroundColor: 'transparent',
                     border: `1px solid ${colors.border}`,
-                    borderRadius: '6px',
+                    borderRadius: '8px',
                     color: colors.text,
                     fontSize: '14px',
                     fontWeight: 500,
@@ -816,13 +815,13 @@ const KneeboardLayout: React.FC = () => {
                     transition: 'background-color 0.2s'
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = theme === 'dark' ? 'rgba(255, 255, 255, 0.05)' : 'rgba(0, 0, 0, 0.05)';
+                    e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.backgroundColor = 'transparent';
                   }}
                 >
-                  <LogOut size={16} />
+                  <Icon name="logOut" size={18} />
                   <span>Sign Out</span>
                 </button>
               </div>
@@ -849,19 +848,25 @@ const KneeboardLayout: React.FC = () => {
             background: transparent;
           }
           .kneeboard-scroll::-webkit-scrollbar-thumb {
-            background-color: rgba(124, 58, 237, 0.5);
+            background-color: var(--rr-border2);
             border-radius: 6px;
             border: 2px solid transparent;
             background-clip: padding-box;
           }
           .kneeboard-scroll::-webkit-scrollbar-thumb:hover {
-            background-color: rgba(124, 58, 237, 0.85);
+            background-color: var(--rr-text3);
           }
           .kneeboard-scroll {
             scrollbar-width: thin;
-            scrollbar-color: rgba(124, 58, 237, 0.5) transparent;
+            scrollbar-color: var(--rr-border2) transparent;
           }
         `}</style>
+        {currentPageGuid === PAGE_1_GUID && pendingPublication && (
+          <KneeboardPendingBanner text="Flight assignments pending publication and are not final." />
+        )}
+        {currentPageGuid === PAGE_2_GUID && pendingPublication && (
+          <KneeboardPendingBanner text="Comms plan pending publication and is not final." />
+        )}
         {currentPageGuid === PAGE_1_GUID && (
           <FlightAssignmentsKneeboard
             pilotId={userProfile?.pilotId || null}

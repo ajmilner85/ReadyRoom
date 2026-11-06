@@ -1,5 +1,5 @@
 import React from 'react';
-import { Radio } from 'lucide-react';
+import { Icon } from '../ui/primitives';
 import { CommsPlanEntry } from '../../types/CommsTypes';
 
 interface ThemeColors {
@@ -18,7 +18,7 @@ interface CommsPlanKneeboardProps {
 }
 
 const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
-  theme,
+  theme: _theme,
   colors,
   commsData
 }) => {
@@ -29,7 +29,7 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
         textAlign: 'center',
         color: colors.textSecondary
       }}>
-        <Radio size={48} style={{ margin: '0 auto 16px auto', opacity: 0.3 }} />
+        <Icon name="radio" size={48} style={{ margin: '0 auto 16px auto', opacity: 0.4 }} />
         <p style={{ fontSize: '24px', margin: '0 0 8px 0' }}>No Comms Plan Available</p>
         <p style={{ fontSize: '18px', margin: 0 }}>The comms plan will appear here once configured in Mission Preparation.</p>
       </div>
@@ -50,7 +50,7 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
           fontWeight: 700,
           color: colors.text,
           textAlign: 'center',
-          letterSpacing: '2px',
+          letterSpacing: '.14em',
           textTransform: 'uppercase'
         }}>
           COMMS PLAN
@@ -58,25 +58,25 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
       </div>
 
       {/* Table */}
-      <div style={{ overflowX: 'auto' }}>
+      <div style={{ overflowX: 'auto', borderRadius: '10px', border: `1px solid ${colors.border}` }}>
         <table style={{
           width: '100%',
           borderCollapse: 'separate',
           borderSpacing: 0
         }}>
           <colgroup>
-            <col style={{ width: '60px' }} />
+            <col style={{ width: '84px' }} />
             <col />
-            <col style={{ width: '100px' }} />
-            <col style={{ width: '85px' }} />
-            <col style={{ width: '60px' }} />
-            <col style={{ width: '85px' }} />
+            <col style={{ width: '128px' }} />
+            <col style={{ width: '112px' }} />
+            <col style={{ width: '76px' }} />
+            <col style={{ width: '128px' }} />
           </colgroup>
           <thead>
             <tr>
               <th style={{
                 padding: '14px 8px',
-                backgroundColor: theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: 'var(--rr-panel3)',
                 border: `1px solid ${colors.border}`,
                 borderBottom: `2px solid ${colors.accent}`,
                 fontSize: '24px',
@@ -84,13 +84,15 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                 color: colors.text,
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '.02em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'var(--rr-font-mono)'
               }}>
                 Chan
               </th>
               <th style={{
                 padding: '14px 8px',
-                backgroundColor: theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: 'var(--rr-panel3)',
                 border: `1px solid ${colors.border}`,
                 borderBottom: `2px solid ${colors.accent}`,
                 borderLeft: 'none',
@@ -99,13 +101,15 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                 color: colors.text,
                 textAlign: 'left',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '.02em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'var(--rr-font-mono)'
               }}>
                 Name
               </th>
               <th style={{
                 padding: '14px 8px',
-                backgroundColor: theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: 'var(--rr-panel3)',
                 border: `1px solid ${colors.border}`,
                 borderBottom: `2px solid ${colors.accent}`,
                 borderLeft: 'none',
@@ -114,13 +118,15 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                 color: colors.text,
                 textAlign: 'left',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '.02em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'var(--rr-font-mono)'
               }}>
                 Freq
               </th>
               <th style={{
                 padding: '14px 8px',
-                backgroundColor: theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: 'var(--rr-panel3)',
                 border: `1px solid ${colors.border}`,
                 borderBottom: `2px solid ${colors.accent}`,
                 borderLeft: 'none',
@@ -129,13 +135,15 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                 color: colors.text,
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '.02em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'var(--rr-font-mono)'
               }}>
                 TACAN
               </th>
               <th style={{
                 padding: '14px 8px',
-                backgroundColor: theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: 'var(--rr-panel3)',
                 border: `1px solid ${colors.border}`,
                 borderBottom: `2px solid ${colors.accent}`,
                 borderLeft: 'none',
@@ -144,13 +152,15 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                 color: colors.text,
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '.02em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'var(--rr-font-mono)'
               }}>
                 ILS
               </th>
               <th style={{
                 padding: '14px 8px',
-                backgroundColor: theme === 'dark' ? 'rgba(124, 58, 237, 0.2)' : 'rgba(124, 58, 237, 0.1)',
+                backgroundColor: 'var(--rr-panel3)',
                 border: `1px solid ${colors.border}`,
                 borderBottom: `2px solid ${colors.accent}`,
                 borderLeft: 'none',
@@ -159,7 +169,9 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                 color: colors.text,
                 textAlign: 'center',
                 textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+                letterSpacing: '.02em',
+                whiteSpace: 'nowrap',
+                fontFamily: 'var(--rr-font-mono)'
               }}>
                 KY Fill
               </th>
@@ -184,7 +196,7 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                     fontWeight: 600,
                     color: colors.text,
                     textAlign: 'center',
-                    fontFamily: 'monospace'
+                    fontFamily: 'var(--rr-font-mono)'
                   }}>
                     {row.chan}
                   </td>
@@ -209,7 +221,7 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                     fontWeight: row.freq === '——' ? 400 : 600,
                     color: row.freq === '——' ? colors.textSecondary : colors.text,
                     textAlign: 'left',
-                    fontFamily: 'monospace'
+                    fontFamily: 'var(--rr-font-mono)'
                   }}>
                     {row.freq}
                   </td>
@@ -222,7 +234,7 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                     fontWeight: row.tacan === '——' ? 400 : 600,
                     color: row.tacan === '——' ? colors.textSecondary : colors.text,
                     textAlign: 'center',
-                    fontFamily: 'monospace'
+                    fontFamily: 'var(--rr-font-mono)'
                   }}>
                     {row.tacan}
                   </td>
@@ -235,7 +247,7 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                     fontWeight: row.ils === '——' ? 400 : 600,
                     color: row.ils === '——' ? colors.textSecondary : colors.text,
                     textAlign: 'center',
-                    fontFamily: 'monospace'
+                    fontFamily: 'var(--rr-font-mono)'
                   }}>
                     {row.ils}
                   </td>
@@ -245,10 +257,10 @@ const CommsPlanKneeboard: React.FC<CommsPlanKneeboardProps> = ({
                     borderTop: 'none',
                     borderLeft: 'none',
                     fontSize: '24px',
-                    fontWeight: row.kyFill === '——' ? 400 : 600,
-                    color: row.kyFill === '——' ? colors.textSecondary : colors.text,
+                    fontWeight: row.kyFill === '——' ? 400 : 700,
+                    color: row.kyFill === '——' ? colors.textSecondary : 'var(--rr-good)',
                     textAlign: 'center',
-                    fontFamily: 'monospace'
+                    fontFamily: 'var(--rr-font-mono)'
                   }}>
                     {row.kyFill}
                   </td>
