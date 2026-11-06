@@ -4,7 +4,7 @@ import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
-import { Button, CountBadge, Drawer, Icon, MultiSelect, OptionList, PickerOption, QualTag, SquadronMark, Swatch, Toggle } from '../primitives';
+import { Button, Drawer, Icon, MultiSelect, OptionList, PickerOption, QualTag, SquadronMark, Swatch, Toggle } from '../primitives';
 export type QualificationFilterMode = 'include' | 'exclude';
 /** Tri-state status filter (same semantics as the qualification filter). */
 export type StatusFilterMode = QualificationFilterMode;
@@ -157,22 +157,36 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   return (
     <>
-      {/* Trigger: FILTERS button with count badge, plus ON/OFF and clear when filters are active */}
-      <div className="flex items-center gap-[6px]">
+      {/* Trigger: one bordered control - [Filters (n)] | on/off | clear - so the pieces read as a unit */}
+      <div
+        className={`inline-flex items-stretch flex-none h-[30px] rounded-rr-ctl border overflow-hidden transition-colors ${hasActiveFilters && filtersEnabled ? 'border-accent' : 'border-border2'}`}
+      >
         <button
           type="button"
           onClick={() => setIsExpanded(true)}
-          className={`relative inline-flex items-center gap-[6px] h-[30px] px-[11px] rounded-rr-ctl border text-[11.5px] font-bold tracking-[.06em] uppercase cursor-pointer transition-colors ${hasActiveFilters && filtersEnabled ? 'border-accent text-accent bg-accent-weak' : 'border-border2 text-text2 bg-transparent hover:border-accent hover:text-accent'}`}
+          className={`inline-flex items-center gap-[7px] px-[11px] text-[11.5px] font-bold tracking-[.06em] uppercase border-0 cursor-pointer transition-colors ${hasActiveFilters && filtersEnabled ? 'text-accent bg-accent-weak' : 'text-text2 bg-transparent hover:text-accent'}`}
         >
           <Icon name="filter" size={13} />
           Filters
-          {hasActiveFilters ? <CountBadge count={activeCount} tone="accent" /> : null}
+          {hasActiveFilters ? (
+            <span className={`min-w-[18px] h-[18px] px-[5px] rounded-[9px] text-[10.5px] font-bold inline-flex items-center justify-center ${filtersEnabled ? 'bg-accent text-white' : 'bg-panel3 text-text2'}`}>{activeCount}</span>
+          ) : null}
         </button>
         {hasActiveFilters ? (
           <>
-            <Toggle size="sm" checked={filtersEnabled} onChange={setFiltersEnabled} />
-            <button type="button" onClick={clearAllFilters} className="text-[11.5px] font-semibold text-text2 hover:text-bad bg-transparent border-0 cursor-pointer px-1">
-              Clear
+            <span className="w-px bg-border2" aria-hidden />
+            <span className="inline-flex items-center px-[8px]" title={filtersEnabled ? 'Filters on (click to show all pilots)' : 'Filters off (click to apply)'}>
+              <Toggle size="sm" checked={filtersEnabled} onChange={setFiltersEnabled} />
+            </span>
+            <span className="w-px bg-border2" aria-hidden />
+            <button
+              type="button"
+              onClick={clearAllFilters}
+              aria-label="Clear filters"
+              title="Clear filters"
+              className="inline-flex items-center justify-center w-[30px] text-text3 hover:text-bad bg-transparent border-0 cursor-pointer"
+            >
+              <Icon name="close" size={14} />
             </button>
           </>
         ) : null}
