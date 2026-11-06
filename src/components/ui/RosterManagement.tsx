@@ -49,7 +49,7 @@ import PilotDetails from './roster/PilotDetails';
 import BulkEditPilotDetails from './roster/BulkEditPilotDetails';
 import { DiscordPilotsDialog } from './dialogs/DiscordPilotsDialog';
 import { v4 as uuidv4 } from 'uuid';
-import type { QualificationFilterMode } from './roster/FilterDrawer';
+import type { QualificationFilterMode, StatusFilterMode } from './roster/FilterDrawer';
 
 const RosterManagement: React.FC = () => {
   const { setPageLoading } = usePageLoading();
@@ -75,7 +75,7 @@ const RosterManagement: React.FC = () => {
   const [hoveredPilot, setHoveredPilot] = useState<string | null>(null);
   const [lastSelectedIndex, setLastSelectedIndex] = useState<number | null>(null); // For shift-select
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]); // empty means show all
-  const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<Record<string, StatusFilterMode>>({});
   const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [qualificationFilters, setQualificationFilters] = useState<Record<string, QualificationFilterMode>>({});
@@ -3187,7 +3187,7 @@ const RosterManagement: React.FC = () => {
               selectedPilots={selectedPilots}
               hoveredPilot={hoveredPilot}
               selectedSquadronIds={selectedSquadronIds}
-              selectedStatusIds={selectedStatusIds}
+              statusFilters={statusFilters}
               selectedStandingIds={selectedStandingIds}
               selectedRoleIds={selectedRoleIds}
               qualificationFilters={qualificationFilters}
@@ -3197,7 +3197,7 @@ const RosterManagement: React.FC = () => {
               onPilotSelection={!isAddingNewPilot ? handlePilotSelection : undefined}
               setHoveredPilot={setHoveredPilot}
               setSelectedSquadronIds={setSelectedSquadronIds}
-              setSelectedStatusIds={setSelectedStatusIds}
+              setStatusFilters={setStatusFilters}
               setSelectedStandingIds={setSelectedStandingIds}
               setSelectedRoleIds={setSelectedRoleIds}
               setQualificationFilters={setQualificationFilters}

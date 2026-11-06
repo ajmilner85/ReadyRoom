@@ -17,7 +17,7 @@ import {
   type EnrolledInstructor
 } from '../../../utils/instructorEnrollmentService';
 import PilotIDBadgeSm from '../PilotIDBadgeSm';
-import FilterDrawer, { QualificationFilterMode } from '../roster/FilterDrawer';
+import FilterDrawer, { QualificationFilterMode, StatusFilterMode, matchesStatusFilter } from '../roster/FilterDrawer';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Role } from '../../../utils/roleService';
@@ -239,7 +239,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
   // Filter state
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]);
-  const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<Record<string, StatusFilterMode>>({});
   const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [qualificationFilters, setQualificationFilters] = useState<Record<string, QualificationFilterMode>>({});
@@ -274,9 +274,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       }
 
       // Status filter
-      if (selectedStatusIds.length > 0 && pilot.currentStatus) {
-        if (!selectedStatusIds.includes(pilot.currentStatus.id)) return false;
-      }
+      if (pilot.currentStatus && !matchesStatusFilter(pilot.currentStatus.id, statusFilters)) return false;
 
       // Standing filter
       if (selectedStandingIds.length > 0 && pilot.currentStanding) {
@@ -3099,13 +3097,13 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                     pilots={[...enrolledPilots, ...suggestedPilots, ...allPilots] as any[]}
                     allPilotQualifications={enrolledPilotQualifications}
                     selectedSquadronIds={selectedSquadronIds}
-                    selectedStatusIds={selectedStatusIds}
+                    statusFilters={statusFilters}
                     selectedStandingIds={selectedStandingIds}
                     selectedRoleIds={selectedRoleIds}
                     qualificationFilters={qualificationFilters}
                     filtersEnabled={filtersEnabled}
                     setSelectedSquadronIds={setSelectedSquadronIds}
-                    setSelectedStatusIds={setSelectedStatusIds}
+                    setStatusFilters={setStatusFilters}
                     setSelectedStandingIds={setSelectedStandingIds}
                     setSelectedRoleIds={setSelectedRoleIds}
                     setQualificationFilters={setQualificationFilters}

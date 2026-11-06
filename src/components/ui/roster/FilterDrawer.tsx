@@ -6,6 +6,21 @@ import { Role } from '../../../utils/roleService';
 import { Qualification } from '../../../utils/qualificationService';
 import { Button, CountBadge, Drawer, Icon, MultiSelect, OptionList, PickerOption, QualTag, SquadronMark, Swatch, Toggle } from '../primitives';
 export type QualificationFilterMode = 'include' | 'exclude';
+/** Tri-state status filter (same semantics as the qualification filter). */
+export type StatusFilterMode = QualificationFilterMode;
+
+/**
+ * A pilot has a single status: it must be one of the required statuses (if any are required)
+ * and must not be an excluded one.
+ */
+export function matchesStatusFilter(statusId: string | null | undefined, filters: Record<string, StatusFilterMode>): boolean {
+  const entries = Object.entries(filters || {});
+  if (entries.length === 0) return true;
+  const required = entries.filter(([, m]) => m === 'include').map(([id]) => id);
+  if (required.length > 0 && (!statusId || !required.includes(statusId))) return false;
+  if (statusId && filters[statusId] === 'exclude') return false;
+  return true;
+}
 
 // Minimal structural shape the filter needs — works with both the roster
 // page's Pilot (utils/pilotTypes) and mission prep's legacy Pilot type
@@ -25,13 +40,13 @@ interface FilterDrawerProps {
   pilots: FilterablePilot[];
   allPilotQualifications: Record<string, any[]>;
   selectedSquadronIds: string[];
-  selectedStatusIds: string[];
+  statusFilters: Record<string, StatusFilterMode>;
   selectedStandingIds: string[];
   selectedRoleIds: string[];
   qualificationFilters: Record<string, QualificationFilterMode>;
   filtersEnabled: boolean;
   setSelectedSquadronIds: (ids: string[]) => void;
-  setSelectedStatusIds: (ids: string[]) => void;
+  setStatusFilters: (filters: Record<string, StatusFilterMode>) => void;
   setSelectedStandingIds: (ids: string[]) => void;
   setSelectedRoleIds: (ids: string[]) => void;
   setQualificationFilters: (filters: Record<string, QualificationFilterMode>) => void;
@@ -47,13 +62,13 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
   pilots,
   allPilotQualifications,
   selectedSquadronIds,
-  selectedStatusIds,
+  statusFilters,
   selectedStandingIds,
   selectedRoleIds,
   qualificationFilters,
   filtersEnabled,
   setSelectedSquadronIds,
-  setSelectedStatusIds,
+  setStatusFilters,
   setSelectedStandingIds,
   setSelectedRoleIds,
   setQualificationFilters,
@@ -103,13 +118,13 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
 
   const clearAllFilters = () => {
     setSelectedSquadronIds([]);
-    setSelectedStatusIds([]);
+    setStatusFilters({});
     setSelectedStandingIds([]);
     setSelectedRoleIds([]);
     setQualificationFilters({});
   };
 
-  const activeCount = selectedSquadronIds.length + selectedStatusIds.length + selectedStandingIds.length +
+  const activeCount = selectedSquadronIds.length + Object.keys(statusFilters).length + selectedStandingIds.length +
     selectedRoleIds.length + Object.keys(qualificationFilters).length;
   const hasActiveFilters = activeCount > 0;
 
@@ -188,7 +203,14 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
             onChange={setSelectedSquadronIds}
             maxHeight={260}
           />
-          <MultiSelect label="Status" options={statusOptions} selected={selectedStatusIds} onChange={setSelectedStatusIds} />
+          <OptionList
+            title="Status"
+            mode="tri"
+            options={statusOptions}
+            selected={statusFilters}
+            onChange={setStatusFilters}
+            maxHeight={220}
+          />
           <MultiSelect label="Standing" options={standingOptions} selected={selectedStandingIds} onChange={setSelectedStandingIds} />
           <MultiSelect label="Role" options={roleOptions} selected={selectedRoleIds} onChange={setSelectedRoleIds} />
           <div>
@@ -200,7 +222,7 @@ const FilterDrawer: React.FC<FilterDrawerProps> = ({
               onChange={setQualificationFilters}
               maxHeight={320}
             />
-            <div className="mt-[6px] text-[11px] text-text2">Click once to require, twice to exclude, again to clear.</div>
+            <div className="mt-[6px] text-[11px] text-text2">Status and qualification: click once to require, twice to exclude, again to clear.</div>
           </div>
         </div>
       </Drawer>
