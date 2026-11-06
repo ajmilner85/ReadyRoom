@@ -67,14 +67,16 @@ export const TextInput = React.forwardRef<HTMLInputElement, TextInputProps>(
 );
 TextInput.displayName = 'TextInput';
 
-export interface SearchInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange'> {
+export interface SearchInputProps extends Omit<React.InputHTMLAttributes<HTMLInputElement>, 'onChange' | 'size'> {
   value: string;
   onChange: (value: string) => void;
   onClear?: () => void;
+  /** 'sm' = 30px, to sit in a toolbar with sm buttons / segmented controls. */
+  size?: 'sm' | 'md';
 }
 
 /** Search input with leading icon and clear button. */
-export const SearchInput: React.FC<SearchInputProps> = ({ value, onChange, onClear, placeholder = 'Search', className, ...rest }) => (
+export const SearchInput: React.FC<SearchInputProps> = ({ value, onChange, onClear, placeholder = 'Search', className, size = 'md', ...rest }) => (
   <div className={clsx('relative flex items-center', className)}>
     <span className="absolute left-3 text-text3 pointer-events-none flex"><Icon name="search" size={15} /></span>
     <input
@@ -82,7 +84,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({ value, onChange, onCle
       value={value}
       placeholder={placeholder}
       onChange={e => onChange(e.target.value)}
-      className={clsx(controlClass, 'pl-[34px] pr-8 py-[8px] min-h-[36px] caret-accent')}
+      className={clsx(controlClass, 'pl-[34px] pr-8 caret-accent', size === 'sm' ? 'py-[5px] h-[30px] text-[12.5px]' : 'py-[8px] min-h-[36px]')}
       {...rest}
     />
     {value ? (
