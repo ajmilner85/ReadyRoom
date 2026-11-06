@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import type { Event, Cycle, EventActivity } from '../../../types/EventTypes';
 import QualificationBadge from '../QualificationBadge';
+import { EmptyState, SegmentedControl, Toast } from '../primitives';
 import { getPilotByDiscordId } from '../../../utils/pilotService';
 import type { Pilot } from '../../../utils/pilotTypes';
 import { supabase, fetchCycles, getEventActivities, getEventActivityParticipantsForEvent, setPilotActivityAssignment } from '../../../utils/supabaseClient';
@@ -586,677 +587,165 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
     return { attendeesWithPilots, attendeesWithoutPilots };
   };
 
-  // Render qualification group. countLabel overrides the "(n)" suffix and, when
-  // provided, the group renders even with no pilots (used for Mission Support roles).
-  const renderQualificationGroup = (pilots: AttendanceData[], groupName: string, index: number, countLabel?: string) => {
-    if (pilots.length === 0 && countLabel === undefined) return null;
+  const [statusView, setStatusView] = useState<'accepted' | 'tentative' | 'declined'>('accepted');
 
+  // ---- Presentation: one status at a time, groups as cards in a responsive multi-column grid ----
+  const renderPilotRow = (pilot: AttendanceData, key: string, showOverride: boolean) => {
+    const rec = pilot.pilotRecord as EnhancedPilot | undefined;
+    const quals = (rec?.qualifications || []).slice().sort((a: any, b: any) => {
+      const qa = qualificationConfigs.find(q => q.name === a.type);
+      const qb = qualificationConfigs.find(q => q.name === b.type);
+      return (qa?.order || 999) - (qb?.order || 999);
+    });
     return (
-      <div key={`${groupName}-${index}`} style={{ marginBottom: '16px' }}>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: 500,
-          color: 'var(--rr-text2)',
-          borderBottom: '1px solid var(--rr-border)',
-          paddingBottom: '4px',
-          marginBottom: '8px'
-        }}>
-          {groupName} ({countLabel ?? pilots.length})
+      <div key={key} className="flex items-center gap-[10px] px-3 py-[7px] hover:bg-panel2">
+        <span className="flex-none w-[34px] font-mono text-[12.5px] font-semibold text-text2">{rec?.boardNumber || '—'}</span>
+        <div className="flex-1 min-w-0">
+          <div className="text-[13.5px] font-semibold text-text truncate">{rec?.callsign || pilot.callsign}</div>
+          {rec?.displayRole ? <div className="text-[11px] text-text3 truncate">{rec.displayRole}</div> : null}
         </div>
-
-        {pilots.length === 0 && (
-          <div style={{ color: 'var(--rr-text3)', padding: '0 10px', fontSize: '14px' }}>
-            None
+        {qualificationConfigs.length > 0 && quals.length > 0 ? (
+          <div className="flex-none flex items-center gap-[3px] flex-wrap justify-end max-w-[55%]">
+            {quals.map((qual: any, qi: number) => (
+              <QualificationBadge key={`${qual.type}-${qi}`} type={qual.type as any} qualifications={qualificationConfigs} size="small" />
+            ))}
           </div>
-        )}
-
-        {pilots.map((pilot, pilotIndex) => (
-          <div
-            key={`${groupName}-${pilot.discord_id || pilotIndex}-${pilot.callsign}`}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              height: '24px',
-              marginBottom: '10px',
-              borderRadius: '8px',
-              padding: '0 10px',
-              backgroundColor: pilotIndex % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-            }}
+        ) : null}
+        {showOverride && activitiesEnabled && eventActivities.length > 0 && rec?.id ? (
+          <select
+            value={activityOverrides[rec.id] || ''}
+            onChange={(e) => handleAssignPilotToActivity(rec.id!, e.target.value)}
+            title="Assign this pilot to an activity (Auto = inferred from enrollment/qualifications)"
+            className="flex-none max-w-[110px] h-[26px] px-[6px] rounded-rr-md bg-panel2 border border-border2 text-[11.5px] text-text2"
           >
-            <span style={{
-              width: '62px',
-              textAlign: 'center',
-              fontSize: '16px',
-              fontWeight: 400,
-              color: 'var(--rr-text2)'
-            }}>
-              {pilot.pilotRecord?.boardNumber}
-            </span>
-            <span style={{
-              width: '120px',
-              fontSize: '16px',
-              fontWeight: 700
-            }}>
-              {pilot.pilotRecord?.callsign || pilot.callsign}
-            </span>
-            <span style={{
-              fontSize: '16px',
-              fontWeight: 300,
-              color: 'var(--rr-text2)'
-            }}>
-              {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-            </span>
-            
-            {/* Qualification badges */}
-            <div style={{
-              display: 'flex',
-              gap: '4px',
-              marginLeft: 'auto',
-              height: '24px'
-            }}>
-              {(() => {
-                const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
-                const hasConfigs = qualificationConfigs.length > 0;
-
-                // Only render badges if we have both pilot qualifications AND cached configs
-                return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
-                  ?.sort((a: any, b: any) => {
-                    const qualA = qualificationConfigs.find(q => q.name === a.type);
-                    const qualB = qualificationConfigs.find(q => q.name === b.type);
-                    return (qualA?.order || 999) - (qualB?.order || 999);
-                  })
-                  ?.map((qual: any, qualIndex: number) => {
-                  return (
-                    <QualificationBadge
-                      key={`${qual.type}-${qualIndex}`}
-                      type={qual.type as any}
-                      qualifications={qualificationConfigs}
-                    />
-                  );
-                });
-              })()}
-            </div>
-
-            {/* Event Activities: explicit assignment override (flag-gated).
-                Hidden on Mission Support groups (countLabel) which are
-                orthogonal to activities. */}
-            {activitiesEnabled && eventActivities.length > 0 && countLabel === undefined && pilot.pilotRecord?.id && (
-              <select
-                value={activityOverrides[pilot.pilotRecord.id] || ''}
-                onChange={(e) => handleAssignPilotToActivity(pilot.pilotRecord!.id, e.target.value)}
-                title="Assign this pilot to an activity (Auto = inferred from enrollment/qualifications)"
-                style={{
-                  marginLeft: '8px',
-                  maxWidth: '110px',
-                  padding: '2px 4px',
-                  border: '1px solid var(--rr-border)',
-                  borderRadius: '4px',
-                  fontSize: '12px',
-                  color: 'var(--rr-text2)',
-                  backgroundColor: 'var(--rr-panel)',
-                  fontFamily: 'inherit'
-                }}
-              >
-                <option value="">Auto</option>
-                {eventActivities.filter(a => a.id).map(activity => (
-                  <option key={activity.id} value={activity.id}>
-                    {getActivityDisplayName(activity)}
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-        ))}
+            <option value="">Auto</option>
+            {eventActivities.filter(a => a.id).map(activity => (
+              <option key={activity.id} value={activity.id}>{getActivityDisplayName(activity)}</option>
+            ))}
+          </select>
+        ) : null}
       </div>
     );
   };
 
-  // If no event is selected
+  const renderGroupCard = (
+    title: string,
+    pilots: AttendanceData[],
+    opts: { key: string; count?: string; showOverride?: boolean; tone?: string; plain?: boolean } = { key: title },
+  ) => (
+    <section key={opts.key} className="rounded-rr-lg border border-border bg-panel overflow-hidden flex flex-col min-w-0 self-start w-full">
+      <div className="flex items-center gap-2 px-3 min-h-[38px] border-b border-border bg-panel2">
+        {opts.tone ? <span className="flex-none w-2 h-2 rounded-full" style={{ background: opts.tone }} /> : null}
+        <span className="flex-1 min-w-0 text-[12.5px] font-semibold text-text truncate">{title}</span>
+        <span className="font-mono text-[11px] text-text3">{opts.count ?? pilots.length}</span>
+      </div>
+      {pilots.length === 0 ? (
+        <div className="px-3 py-[10px] text-[12px] text-text3">None</div>
+      ) : opts.plain ? (
+        <div className="divide-y divide-border">
+          {pilots.map((p, i) => <div key={`${opts.key}-${p.discord_id || i}`} className="px-3 py-[8px] text-[13px] font-medium">{p.callsign}</div>)}
+        </div>
+      ) : (
+        <div className="divide-y divide-border">
+          {pilots.map((p, i) => renderPilotRow(p, `${opts.key}-${p.discord_id || i}-${p.callsign}`, !!opts.showOverride))}
+        </div>
+      )}
+    </section>
+  );
+
   if (!event) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          overflowY: 'auto',
-          boxSizing: 'border-box'
-        }}
-      >
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--rr-text2)' }}>
-          Select an event to view attendance
-        </div>
+      <div className="h-full flex items-center justify-center p-6">
+        <EmptyState icon="roster" title="No event selected" message="Pick an event on the left to see who's coming." />
       </div>
     );
   }
 
+  const counts = {
+    accepted: attendance.filter(a => a.status === 'accepted').length,
+    tentative: attendance.filter(a => a.status === 'tentative').length,
+    declined: attendance.filter(a => a.status === 'declined').length,
+  };
+  const statusTone = { accepted: 'var(--rr-good)', tentative: 'var(--rr-warn)', declined: 'var(--rr-bad)' } as const;
+  const statusData = getAttendeesByStatus(statusView);
+
+  const groupCards: React.ReactNode[] = statusData.qualificationGroups
+    ? sortQualificationGroups(Object.entries(statusData.qualificationGroups))
+        .filter(([, pilots]) => pilots.length > 0)
+        .map(([groupName, pilots], i) => renderGroupCard(groupName, pilots, { key: `g-${groupName}-${i}`, showOverride: true }))
+    : statusData.attendeesWithPilots.length > 0
+      ? [renderGroupCard(statusView === 'accepted' ? 'Pilots' : statusView === 'tentative' ? 'Tentative' : 'Declined', statusData.attendeesWithPilots, { key: 'all', showOverride: true })]
+      : [];
+
+  // Mission Support roles (accepted pilots only, in the event's configured order)
+  const supportCards: React.ReactNode[] = (() => {
+    if (statusView !== 'accepted') return [];
+    const requirements = event?.eventSettings?.supportRoleRequirements || [];
+    if (requirements.length === 0) return [];
+    const acceptedWithPilots = attendance.filter(a => a.status === 'accepted' && a.pilotRecord);
+    return requirements.map((req, i) => {
+      const required = Math.max(0, req.required || 0);
+      // Match on qualification ID so renames don't break saved events; fall back to name
+      const pilots = acceptedWithPilots
+        .filter(a => a.pilotRecord?.qualifications?.some((q: any) => (q.id ? q.id === req.qualificationId : q.type === req.name)))
+        .sort((a, b) => Number(a.pilotRecord?.boardNumber || 0) - Number(b.pilotRecord?.boardNumber || 0));
+      const displayName = qualificationConfigs.find(c => c.id === req.qualificationId)?.name || req.name;
+      return renderGroupCard(displayName, pilots, {
+        key: `support-${req.qualificationId || req.name}-${i}`,
+        count: `${pilots.length}/${required}`,
+        tone: required > 0 && pilots.length < required ? 'var(--rr-warn)' : 'var(--rr-info)',
+      });
+    });
+  })();
+
+  const noRecord = statusData.attendeesWithoutPilots;
+
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        padding: '16px',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        overflowY: 'auto',
-        boxSizing: 'border-box'
-      }}
-    >
-      
-      {error && (
-        <div style={{ 
-          padding: '8px 12px',
-          backgroundColor: 'rgba(224,82,78,.12)',
-          color: 'var(--rr-bad)',
-          borderRadius: '4px',
-          fontSize: '14px',
-          marginBottom: '16px'
-        }}>
-          {error}
-        </div>
-      )}      {/* Accepted */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 15px',          backgroundColor: 'rgba(64,168,91,.14)',
-          borderLeft: '4px solid #57F287',
-          borderRadius: '4px',
-          marginBottom: '12px'
-        }}>          <span style={{ fontWeight: 600, color: '#57F287' }}>Accepted</span>
-          <span style={{ 
-            backgroundColor: '#57F287', 
-            color: 'white', 
-            borderRadius: '9999px',
-            padding: '2px 8px',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {attendance.filter(pilot => pilot.status === 'accepted').length}
+    <div className="h-full flex flex-col min-h-0">
+      {/* Summary + status switch */}
+      <div className="flex-none flex items-center gap-3 flex-wrap px-4 py-[10px] border-b border-border bg-panel2">
+        <SegmentedControl
+          size="sm"
+          value={statusView}
+          onChange={(v) => setStatusView(v as 'accepted' | 'tentative' | 'declined')}
+          options={(['accepted', 'tentative', 'declined'] as const).map(s => ({
+            value: s,
+            label: `${s === 'accepted' ? 'Accepted' : s === 'tentative' ? 'Tentative' : 'Declined'} · ${counts[s]}`,
+          }))}
+        />
+        <span className="flex-1" />
+        {(['accepted', 'tentative', 'declined'] as const).map(s => (
+          <span key={s} className="flex items-center gap-[6px] text-[12px] text-text2">
+            <span className="w-2 h-2 rounded-full" style={{ background: statusTone[s] }} />{counts[s]} {s === 'accepted' ? 'accepted' : s}
           </span>
-        </div>
-        
-        {/* Pilots with records - either grouped by qualification or standard list */}
-        {(() => {
-          const statusData = getAttendeesByStatus('accepted');
+        ))}
+      </div>
 
-          // If qualification groups exist, render them
-          if (statusData.qualificationGroups) {
-            const sortedGroups = sortQualificationGroups(Object.entries(statusData.qualificationGroups));
+      <div className="flex-1 min-h-0 overflow-y-auto p-4 flex flex-col gap-4">
+        {error ? <Toast tone="bad">{error}</Toast> : null}
 
-            return sortedGroups.map(([groupName, pilots], index) =>
-              renderQualificationGroup(pilots, groupName, index)
-            );
-          }
-          
-          // Otherwise render standard list
-          return statusData.attendeesWithPilots.map((pilot, index) => (
-            <div
-              key={`accepted-${pilot.discord_id || index}-${pilot.callsign}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: '24px',
-                marginBottom: '10px',
-                borderRadius: '8px',
-                padding: '0 10px',
-                backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-              }}
-            >
-              <span style={{
-                width: '62px',
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: 400,
-                color: 'var(--rr-text2)'
-              }}>
-                {pilot.pilotRecord?.boardNumber}
-              </span>
-              <span style={{
-                width: '120px',
-                fontSize: '16px',
-                fontWeight: 700
-              }}>
-                {pilot.pilotRecord?.callsign || pilot.callsign}
-              </span>
-              <span style={{
-                fontSize: '16px',
-                fontWeight: 300,
-                color: 'var(--rr-text2)'
-              }}>
-                {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-              </span>
-              
-              {/* Qualification badges */}
-              <div style={{
-                display: 'flex',
-                gap: '4px',
-                marginLeft: 'auto',
-                height: '24px'
-              }}>
-                {(() => {
-                  const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
-                  const hasConfigs = qualificationConfigs.length > 0;
-
-                  // Only render badges if we have both pilot qualifications AND cached configs
-                  return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
-                    ?.sort((a: any, b: any) => {
-                      const qualA = qualificationConfigs.find(q => q.name === a.type);
-                      const qualB = qualificationConfigs.find(q => q.name === b.type);
-                      return (qualA?.order || 999) - (qualB?.order || 999);
-                    })
-                    ?.map((qual: any, index: number) => {
-                    return (
-                      <QualificationBadge
-                        key={`${qual.type}-${index}`}
-                        type={qual.type as any}
-                        qualifications={qualificationConfigs}
-                      />
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          ));
-        })()}
-
-        {/* Mission Support roles (accepted pilots only, in the event's configured order) */}
-        {(() => {
-          const requirements = event?.eventSettings?.supportRoleRequirements || [];
-          if (requirements.length === 0) return null;
-
-          const acceptedWithPilots = attendance.filter(a => a.status === 'accepted' && a.pilotRecord);
-
-          let totalAvailable = 0;
-          let totalRequired = 0;
-          const roleGroups = requirements.map(req => {
-            const required = Math.max(0, req.required || 0);
-            // Match on qualification ID so renames don't break saved events;
-            // fall back to name for records without an ID
-            const pilots = acceptedWithPilots
-              .filter(a => a.pilotRecord?.qualifications?.some((q: any) =>
-                q.id ? q.id === req.qualificationId : q.type === req.name
-              ))
-              .sort((a, b) => Number(a.pilotRecord?.boardNumber || 0) - Number(b.pilotRecord?.boardNumber || 0));
-            // Show the qualification's current name, not the one saved on the event
-            const displayName = qualificationConfigs.find(c => c.id === req.qualificationId)?.name || req.name;
-            totalAvailable += pilots.length;
-            totalRequired += required;
-            return { req, required, pilots, displayName };
-          });
-
-          return (
-            <div style={{ marginTop: '16px' }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                padding: '10px 15px',
-                backgroundColor: 'var(--rr-accent-weak)',
-                borderLeft: '4px solid #0EA5E9',
-                borderRadius: '4px',
-                marginBottom: '12px'
-              }}>
-                <span style={{ fontWeight: 600, color: '#0EA5E9' }}>Mission Support</span>
-                <span style={{
-                  backgroundColor: '#0EA5E9',
-                  color: 'white',
-                  borderRadius: '9999px',
-                  padding: '2px 8px',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}>
-                  {totalAvailable}/{totalRequired}
-                </span>
-              </div>
-
-              {roleGroups.map(({ required, pilots, displayName }, index) =>
-                renderQualificationGroup(pilots, displayName, index, `${pilots.length}/${required}`)
-              )}
-            </div>
-          );
-        })()}
-
-        {/* No matching pilot record section */}
-        {getAttendeesByStatus('accepted').attendeesWithoutPilots.length > 0 && (
-          <div style={{ marginTop: '16px' }}>
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 500, 
-              color: 'var(--rr-text2)',
-              borderBottom: '1px solid var(--rr-border)',
-              paddingBottom: '4px',
-              marginBottom: '8px'
-            }}>
-              No Matching Pilot Record
-            </div>
-            
-            {getAttendeesByStatus('accepted').attendeesWithoutPilots.map((pilot, index) => (
-              <div
-                key={`accepted-no-record-${pilot.discord_id || index}-${pilot.callsign}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>
-                  {pilot.callsign}
-                </span>
-              </div>
-            ))}
+        {groupCards.length === 0 && noRecord.length === 0 ? (
+          <EmptyState
+            compact
+            icon="roster"
+            title={statusView === 'accepted' ? 'No attendees yet' : statusView === 'tentative' ? 'No tentative responses' : 'No declined responses'}
+          />
+        ) : (
+          <div className="grid gap-[14px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(300px, 100%), 1fr))' }}>
+            {groupCards}
+            {noRecord.length > 0 ? renderGroupCard('No matching pilot record', noRecord, { key: 'no-record', plain: true, tone: 'var(--rr-text3)' }) : null}
           </div>
         )}
 
-        {attendance.filter(pilot => pilot.status === 'accepted').length === 0 && (
-          <div style={{ color: 'var(--rr-text3)', padding: '8px' }}>No attendees yet</div>
-        )}
-      </div>
-
-      {/* Tentative */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 15px',          backgroundColor: '#EDEEFF',
-          borderLeft: '4px solid #5865F2',
-          borderRadius: '4px',
-          marginBottom: '12px'
-        }}>          <span style={{ fontWeight: 600, color: '#5865F2' }}>Tentative</span>
-          <span style={{ 
-            backgroundColor: '#5865F2', 
-            color: 'white', 
-            borderRadius: '9999px',
-            padding: '2px 8px',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {attendance.filter(pilot => pilot.status === 'tentative').length}
-          </span>
-        </div>
-        
-        {/* Pilots with records - either grouped by qualification or standard list */}
-        {(() => {
-          const statusData = getAttendeesByStatus('tentative');
-
-          // If qualification groups exist, render them
-          if (statusData.qualificationGroups) {
-            const sortedGroups = sortQualificationGroups(Object.entries(statusData.qualificationGroups));
-
-            return sortedGroups.map(([groupName, pilots], index) =>
-              renderQualificationGroup(pilots, groupName, index)
-            );
-          }
-          
-          // Otherwise render standard list
-          return statusData.attendeesWithPilots.map((pilot, index) => (
-            <div
-              key={`tentative-${pilot.discord_id || index}-${pilot.callsign}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: '24px',
-                marginBottom: '10px',
-                borderRadius: '8px',
-                padding: '0 10px',
-                backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-              }}
-            >
-              <span style={{
-                width: '62px',
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: 400,
-                color: 'var(--rr-text2)'
-              }}>
-                {pilot.pilotRecord?.boardNumber}
-              </span>
-              <span style={{
-                width: '120px',
-                fontSize: '16px',
-                fontWeight: 700
-              }}>
-                {pilot.pilotRecord?.callsign || pilot.callsign}
-              </span>
-              <span style={{
-                fontSize: '16px',
-                fontWeight: 300,
-                color: 'var(--rr-text2)'
-              }}>
-                {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-              </span>
-              
-              {/* Qualification badges */}
-              <div style={{
-                display: 'flex',
-                gap: '4px',
-                marginLeft: 'auto',
-                height: '24px'
-              }}>
-                {(() => {
-                  const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
-                  const hasConfigs = qualificationConfigs.length > 0;
-
-                  // Only render badges if we have both pilot qualifications AND cached configs
-                  return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
-                    ?.sort((a: any, b: any) => {
-                      const qualA = qualificationConfigs.find(q => q.name === a.type);
-                      const qualB = qualificationConfigs.find(q => q.name === b.type);
-                      return (qualA?.order || 999) - (qualB?.order || 999);
-                    })
-                    ?.map((qual: any, index: number) => {
-                    return (
-                      <QualificationBadge
-                        key={`${qual.type}-${index}`}
-                        type={qual.type as any}
-                        qualifications={qualificationConfigs}
-                      />
-                    );
-                  });
-                })()}
-              </div>
+        {supportCards.length > 0 ? (
+          <div>
+            <div className="rr-label mb-2">Mission Support</div>
+            <div className="grid gap-[14px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(240px, 100%), 1fr))' }}>
+              {supportCards}
             </div>
-          ));
-        })()}
-
-        {/* No matching pilot record section */}
-        {getAttendeesByStatus('tentative').attendeesWithoutPilots.length > 0 && (
-          <div style={{ marginTop: '16px' }}>
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 500, 
-              color: 'var(--rr-text2)',
-              borderBottom: '1px solid var(--rr-border)',
-              paddingBottom: '4px',
-              marginBottom: '8px'
-            }}>
-              No Matching Pilot Record
-            </div>
-            
-            {getAttendeesByStatus('tentative').attendeesWithoutPilots.map((pilot, index) => (
-              <div
-                key={`tentative-no-record-${pilot.discord_id || index}-${pilot.callsign}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>
-                  {pilot.callsign}
-                </span>
-              </div>
-            ))}
           </div>
-        )}
-
-        {attendance.filter(pilot => pilot.status === 'tentative').length === 0 && (
-          <div style={{ color: 'var(--rr-text3)', padding: '8px' }}>No tentative responses</div>
-        )}
+        ) : null}
       </div>
-
-      {/* Declined */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '10px 15px',          backgroundColor: 'rgba(224,82,78,.12)',
-          borderLeft: '4px solid #ED4245',
-          borderRadius: '4px',
-          marginBottom: '12px'
-        }}>          <span style={{ fontWeight: 600, color: '#ED4245' }}>Declined</span>
-          <span style={{ 
-            backgroundColor: '#ED4245', 
-            color: 'white', 
-            borderRadius: '9999px',
-            padding: '2px 8px',
-            fontSize: '14px',
-            fontWeight: '500'
-          }}>
-            {attendance.filter(pilot => pilot.status === 'declined').length}
-          </span>
-        </div>
-        
-        {/* Pilots with records - either grouped by qualification or standard list */}
-        {(() => {
-          const statusData = getAttendeesByStatus('declined');
-
-          // If qualification groups exist, render them
-          if (statusData.qualificationGroups) {
-            const sortedGroups = sortQualificationGroups(Object.entries(statusData.qualificationGroups));
-
-            return sortedGroups.map(([groupName, pilots], index) =>
-              renderQualificationGroup(pilots, groupName, index)
-            );
-          }
-          
-          // Otherwise render standard list
-          return statusData.attendeesWithPilots.map((pilot, index) => (
-            <div
-              key={`declined-${pilot.discord_id || index}-${pilot.callsign}`}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                height: '24px',
-                marginBottom: '10px',
-                borderRadius: '8px',
-                padding: '0 10px',
-                backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-              }}
-            >
-              <span style={{
-                width: '62px',
-                textAlign: 'center',
-                fontSize: '16px',
-                fontWeight: 400,
-                color: 'var(--rr-text2)'
-              }}>
-                {pilot.pilotRecord?.boardNumber}
-              </span>
-              <span style={{
-                width: '120px',
-                fontSize: '16px',
-                fontWeight: 700
-              }}>
-                {pilot.pilotRecord?.callsign || pilot.callsign}
-              </span>
-              <span style={{
-                fontSize: '16px',
-                fontWeight: 300,
-                color: 'var(--rr-text2)'
-              }}>
-                {(pilot.pilotRecord as EnhancedPilot)?.displayRole || ''}
-              </span>
-              
-              {/* Qualification badges */}
-              <div style={{
-                display: 'flex',
-                gap: '4px',
-                marginLeft: 'auto',
-                height: '24px'
-              }}>
-                {(() => {
-                  const hasQuals = pilot.pilotRecord?.qualifications && pilot.pilotRecord.qualifications.length > 0;
-                  const hasConfigs = qualificationConfigs.length > 0;
-
-                  // Only render badges if we have both pilot qualifications AND cached configs
-                  return hasQuals && hasConfigs && pilot.pilotRecord?.qualifications
-                    ?.sort((a: any, b: any) => {
-                      const qualA = qualificationConfigs.find(q => q.name === a.type);
-                      const qualB = qualificationConfigs.find(q => q.name === b.type);
-                      return (qualA?.order || 999) - (qualB?.order || 999);
-                    })
-                    ?.map((qual: any, index: number) => {
-                    return (
-                      <QualificationBadge
-                        key={`${qual.type}-${index}`}
-                        type={qual.type as any}
-                        qualifications={qualificationConfigs}
-                      />
-                    );
-                  });
-                })()}
-              </div>
-            </div>
-          ));
-        })()}
-
-        {/* No matching pilot record section */}
-        {getAttendeesByStatus('declined').attendeesWithoutPilots.length > 0 && (
-          <div style={{ marginTop: '16px' }}>
-            <div style={{ 
-              fontSize: '14px', 
-              fontWeight: 500, 
-              color: 'var(--rr-text2)',
-              borderBottom: '1px solid var(--rr-border)',
-              paddingBottom: '4px',
-              marginBottom: '8px'
-            }}>
-              No Matching Pilot Record
-            </div>
-            
-            {getAttendeesByStatus('declined').attendeesWithoutPilots.map((pilot, index) => (
-              <div
-                key={`declined-no-record-${pilot.discord_id || index}-${pilot.callsign}`}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  padding: '8px',
-                  borderRadius: '4px',
-                  backgroundColor: index % 2 === 0 ? 'var(--rr-panel2)' : 'transparent',
-                }}
-              >
-                <span style={{ fontWeight: 500 }}>
-                  {pilot.callsign}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {attendance.filter(pilot => pilot.status === 'declined').length === 0 && (
-          <div style={{ color: 'var(--rr-text3)', padding: '8px' }}>No declined responses</div>
-        )}
-      </div>
-      
-      {/* Add keyframes for loading spinner animation */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}} />
     </div>
   );
 };

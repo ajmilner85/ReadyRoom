@@ -35,3 +35,8 @@ Record small design calls made during implementation so they can be folded back 
 - Tab bars stay full width (shared across full-width and capped tabs).
 - Mission Details panes size to their content (scroll inside only when taller than the window) instead of stretching to the bottom.
 - Home Polls / Change Log fill the remaining window height (min 480px) instead of a fixed 560px / 70vh.
+
+## Events page (2026-11-06, user feedback)
+- Left pane is one accordion ("Cycles & Events"): pinned Standalone Events, cycles grouped Active / Upcoming / Completed; expanding a cycle selects it and lists its events (In progress / Upcoming / Previous) with publish dots (green published · blue scheduled · hollow draft) and dates; edit/delete appear inline on hover. Only the selected cycle is expanded (events load per cycle). CyclesList/EventsList are no longer used by the page.
+- Event Details follows the handoff: status/actions bar (publish status, target squadrons, Send Reminder or Publish/Publish Now, Edit Event), meta grid, then cards in an auto-fit grid: Description, Image, Activities at this event (tinted by kind: syllabus/standalone = info, advanced qualification = accent, exercise = good), Mission Support Roles (event-level, else aggregated from activities), Notifications (initial publication + two reminders with recipient chips), Reference Materials (event + activity refs, deduped). The full-width publish footer is gone.
+- Registration/Attendance: Accepted / Tentative / Declined switch with counts; groups (by activity / qualification) are cards in a responsive multi-column grid (min 300px); Mission Support roles as their own cards (filled/required, amber when short).
