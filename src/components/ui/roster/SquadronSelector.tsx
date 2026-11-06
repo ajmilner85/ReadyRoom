@@ -9,14 +9,20 @@ interface SquadronSelectorProps {
   updatingSquadron: boolean;
   handleSquadronChange: (squadronId: string) => void;
   placeholder?: string;
+  /** Bulk edit: the empty option means "no change", so offer an explicit unassign choice. */
+  showUnassignOption?: boolean;
 }
+
+/** Sentinel value for "remove squadron affiliation" in bulk edit (distinct from "" = no change). */
+export const UNASSIGN_SQUADRON = '__unassign__';
 
 const SquadronSelector: React.FC<SquadronSelectorProps> = ({
   squadrons,
   selectedSquadronId,
   updatingSquadron,
   handleSquadronChange,
-  placeholder
+  placeholder,
+  showUnassignOption = false
 }) => {
   return (
     <div style={{ marginBottom: '20px' }}>
@@ -31,6 +37,7 @@ const SquadronSelector: React.FC<SquadronSelectorProps> = ({
           style={{...pilotDetailsStyles.selector, width: '100%', appearance: 'none' as any}}
         >
           <option value="">{placeholder || '-- Unassigned --'}</option>
+          {showUnassignOption ? <option value={UNASSIGN_SQUADRON}>-- Unassigned (remove squadron) --</option> : null}
           {squadrons
             .filter(squadron => !squadron.deactivated_date) // Only show active squadrons
             .sort((a, b) => a.designation.localeCompare(b.designation))

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import { UNASSIGN_SQUADRON } from './roster/SquadronSelector';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import StandardPageLoader from './StandardPageLoader';
@@ -2095,8 +2096,10 @@ const RosterManagement: React.FC = () => {
     try {
       setUpdatingSquadron(true);
 
+      // UNASSIGN_SQUADRON = remove squadron affiliation (assign to null), same as the single-pilot "Unassigned"
+      const targetSquadronId = squadronId === UNASSIGN_SQUADRON ? null : squadronId;
       const results = await Promise.all(
-        selectedPilots.map(pilot => assignPilotToSquadron(pilot.id, squadronId))
+        selectedPilots.map(pilot => assignPilotToSquadron(pilot.id, targetSquadronId))
       );
 
       const failed = results.filter(r => !r.success);
