@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Check, Clock, HelpCircle, X, RefreshCw } from 'lucide-react';
+import { Icon, legibleColor } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
 
@@ -34,6 +34,8 @@ interface Mission {
   event_duration_minutes: number;
   flights: Flight[];
   pilot_assignments: Record<string, AssignedPilot[]>;
+  /** Flight assignments have been posted to Discord (events.discord_flight_assignments_posts has a latest post). */
+  flights_published: boolean;
 }
 
 interface Flight {
@@ -145,7 +147,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
             start_datetime,
             end_datetime,
             participants,
-            cycle_id
+            cycle_id,
+            discord_flight_assignments_posts
           )
         `)
         .order('created_at', { ascending: false })
@@ -239,7 +242,9 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
             event_start_time: mission.events!.start_datetime,
             event_duration_minutes: durationMinutes,
             flights: enrichedFlights,
-            pilot_assignments: (mission.pilot_assignments as Record<string, any[]>) || {}
+            pilot_assignments: (mission.pilot_assignments as Record<string, any[]>) || {},
+            flights_published: Array.isArray((mission.events as any)?.discord_flight_assignments_posts)
+              && (mission.events as any).discord_flight_assignments_posts.some((p: any) => p && p.isLatest === true)
           };
         })
         .sort((a, b) => new Date(b.event_start_time).getTime() - new Date(a.event_start_time).getTime());
@@ -426,43 +431,35 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
   const _getStatusIndicator = (pilot: AssignedPilot) => {
     // Roll call status takes precedence
     if (pilot.rollCallStatus === 'Present') {
-      return { icon: <Check size={16} />, color: colors.success, label: 'Present' };
+      return { icon: <Icon name="check" size={16} />, color: colors.success, label: 'Present' };
     }
     if (pilot.rollCallStatus === 'Absent') {
-      return { icon: <X size={16} />, color: colors.error, label: 'Absent' };
+      return { icon: <Icon name="close" size={16} />, color: colors.error, label: 'Absent' };
     }
     if (pilot.rollCallStatus === 'Tentative') {
-      return { icon: <HelpCircle size={16} />, color: colors.warning, label: 'Tentative' };
+      return { icon: <Icon name="help" size={16} />, color: colors.warning, label: 'Tentative' };
     }
 
     // Fall back to attendance status
     if (pilot.attendanceStatus === 'accepted') {
-      return { icon: <Check size={16} />, color: colors.success, label: 'Accepted' };
+      return { icon: <Icon name="check" size={16} />, color: colors.success, label: 'Accepted' };
     }
     if (pilot.attendanceStatus === 'tentative') {
-      return { icon: <Clock size={16} />, color: colors.warning, label: 'Tentative' };
+      return { icon: <Icon name="clock" size={16} />, color: colors.warning, label: 'Tentative' };
     }
     if (pilot.attendanceStatus === 'declined') {
-      return { icon: <X size={16} />, color: colors.error, label: 'Declined' };
+      return { icon: <Icon name="close" size={16} />, color: colors.error, label: 'Declined' };
     }
 
-    return { icon: <HelpCircle size={16} />, color: colors.textSecondary, label: 'Unknown' };
+    return { icon: <Icon name="help" size={16} />, color: colors.textSecondary, label: 'Unknown' };
   };
 
   // Render a flight card
   const renderFlightCard = (flight: Flight, pilots: AssignedPilot[], isUserFlight: boolean, accentColor: string = colors.accent) => {
     // Derive a semi-transparent version for the pilot row highlight
-    const highlightBg = (() => {
-      // Try to convert hex to rgba; fall back to opacity trick via a wrapper
-      const hex = accentColor.replace('#', '');
-      if (hex.length === 6) {
-        const r = parseInt(hex.slice(0, 2), 16);
-        const g = parseInt(hex.slice(2, 4), 16);
-        const b = parseInt(hex.slice(4, 6), 16);
-        return theme === 'dark' ? `rgba(${r},${g},${b},0.18)` : `rgba(${r},${g},${b},0.12)`;
-      }
-      return theme === 'dark' ? 'rgba(124, 58, 237, 0.15)' : 'rgba(124, 58, 237, 0.1)';
-    })();
+    const highlightBg = `color-mix(in srgb, ${accentColor} ${theme === 'dark' ? 20 : 13}%, transparent)`;
+    // Squadron colour as text: lifted when too dark to read on the panel
+    const accentText = legibleColor(accentColor.startsWith('#') ? accentColor : null, 'var(--rr-accent-text)');
 
     const sortedPilots = [...pilots].sort((a, b) => {
       // Handle both dashNumber (camelCase) and dash_number (snake_case from database)
@@ -477,14 +474,15 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         style={{
           backgroundColor: colors.backgroundSecondary,
           border: `2px solid ${isUserFlight ? accentColor : colors.border}`,
-          borderRadius: '8px',
+          borderRadius: '10px',
           overflow: 'hidden',
           marginBottom: '12px'
         }}
       >
         {/* Flight header - callsign starts at left edge */}
         <div style={{
-          backgroundColor: isUserFlight ? accentColor : colors.border,
+          backgroundColor: isUserFlight ? accentColor : 'var(--rr-panel3)',
+          borderBottom: isUserFlight ? 'none' : `1px solid ${colors.border}`,
           padding: '10px 20px',
           display: 'flex',
           alignItems: 'center'
@@ -508,6 +506,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
               <span style={{
                 fontSize: '20px',
                 fontWeight: 500,
+                fontFamily: 'var(--rr-font-mono)',
                 color: isUserFlight ? 'rgba(255,255,255,0.9)' : colors.textSecondary
               }}>
                 Step +{flight.stepTime}
@@ -520,6 +519,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
             width: '52px',
             fontSize: '20px',
             fontWeight: 600,
+            fontFamily: 'var(--rr-font-mono)',
             color: isUserFlight ? 'rgba(255,255,255,0.8)' : colors.textSecondary,
             textAlign: 'center'
           }}>
@@ -531,6 +531,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
             width: '52px',
             fontSize: '20px',
             fontWeight: 600,
+            fontFamily: 'var(--rr-font-mono)',
             color: isUserFlight ? 'rgba(255,255,255,0.8)' : colors.textSecondary,
             textAlign: 'center'
           }}>
@@ -583,8 +584,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                     width: '62px',
                     fontSize: '24px',
                     fontWeight: 800,
-                    color: accentColor,
-                    fontFamily: 'monospace'
+                    color: accentText,
+                    fontFamily: 'var(--rr-font-mono)'
                   }}>
                     {pilot.boardNumber || '---'}
                   </span>
@@ -607,7 +608,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                   <span style={{
                     width: '52px',
                     fontSize: '22px',
-                    fontWeight: 500,
+                    fontWeight: 600,
+                    fontFamily: 'var(--rr-font-mono)',
                     color: colors.textSecondary,
                     textAlign: 'center'
                   }}>
@@ -625,7 +627,8 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                   <span style={{
                     width: '52px',
                     fontSize: '22px',
-                    fontWeight: 500,
+                    fontWeight: 600,
+                    fontFamily: 'var(--rr-font-mono)',
                     color: colors.textSecondary,
                     textAlign: 'center'
                   }}>
@@ -651,7 +654,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
         color: colors.textSecondary,
         fontSize: '24px'
       }}>
-        <RefreshCw size={24} style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
+        <Icon name="refresh" size={24} style={{ animation: 'spin 1s linear infinite', marginRight: '12px' }} />
         Loading flight assignments...
         <style>{`
           @keyframes spin {
@@ -667,7 +670,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
     return (
       <div style={{
         padding: '24px',
-        backgroundColor: theme === 'dark' ? 'rgba(239, 68, 68, 0.1)' : '#FEF2F2',
+        backgroundColor: 'color-mix(in srgb, var(--rr-bad) 12%, transparent)',
         border: `1px solid ${colors.error}`,
         borderRadius: '8px',
         textAlign: 'center'
@@ -702,8 +705,9 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
               textAlign: 'center',
               color: colors.textSecondary,
               backgroundColor: colors.backgroundSecondary,
-              borderRadius: '8px',
-              border: `1px solid ${colors.border}`
+              borderRadius: '10px',
+              border: `1px solid ${colors.border}`,
+              fontSize: '24px'
             }}>
               No flights configured for this mission
             </div>
@@ -746,6 +750,7 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                 {sortedRoots.map(root => {
                   const sq = callsignToSquadron[root];
                   const accentColor = sq?.primaryColor || colors.accent;
+                  const accentText = legibleColor(sq?.primaryColor, 'var(--rr-accent-text)');
                   return (
                     <div key={root}>
                       {/* Squadron insignia header */}
@@ -774,21 +779,20 @@ const FlightAssignmentsKneeboard: React.FC<FlightAssignmentsKneeboardProps> = ({
                             width: '80px',
                             height: '80px',
                             borderRadius: '50%',
-                            backgroundColor: colors.border,
+                            backgroundColor: 'var(--rr-panel3)',
                             display: 'flex',
                             alignItems: 'center',
                             justifyContent: 'center',
-                            fontSize: '28px',
                             color: colors.textSecondary
                           }}>
-                            ✈
+                            <span style={{ fontSize: '28px' }}>✈</span>
                           </div>
                         )}
                         {sq && (
                           <div style={{
                             fontSize: '20px',
                             fontWeight: 700,
-                            color: accentColor,
+                            color: accentText,
                             textAlign: 'center',
                             letterSpacing: '1px'
                           }}>

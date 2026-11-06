@@ -11,6 +11,7 @@ import { getAllSquadrons, Squadron } from '../../utils/squadronService';
 import { getAllQualifications, Qualification } from '../../utils/qualificationService';
 import { getAllStatuses, Status } from '../../utils/statusService';
 import QualificationBadge from './QualificationBadge';
+import KneeboardPendingBanner from '../kneeboard/KneeboardPendingBanner';
 import { DndContext } from '@dnd-kit/core';
 import FlightCard from './flight cards/FlightCard';
 import DroppableZone from '../layout/DroppableZone';
@@ -207,6 +208,11 @@ const UiKit: React.FC = () => {
                 Filters <CountBadge inline count={facets.length} tone="accent" />
               </Button>
             </div>
+          </Card>
+
+          <Card title="Kneeboard · pending publication banner">
+            <div className="text-[11px] text-text3 mb-3">Kneeboard-only: sized for 1:1 OpenKneeboard rendering (22px), shown until the mission's flight assignments are posted.</div>
+            <KneeboardPendingBanner text="Flight assignments pending publication and are not final." />
           </Card>
 
           <Card title="Empty state">
