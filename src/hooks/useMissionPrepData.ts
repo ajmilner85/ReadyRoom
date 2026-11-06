@@ -210,6 +210,7 @@ export const useMissionPrepData = () => {
         name: squadron.name,
         designation: squadron.designation,
         insignia_url: squadron.insignia_url,
+        color_palette: (squadron as any).color_palette, // needed for squadron-coloured callsign tags
         callsigns: Array.isArray(squadron.callsigns) ? squadron.callsigns : []
       }));
 

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../primitives';
+import { Button, Dialog, Icon, IconButton, TextInput, legibleColor } from '../primitives';
+import { tagBase } from '../primitives/color';
 
 interface FlightEntry {
   callsign: string;
@@ -20,7 +21,8 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
   onSave,
   onCancel,
   existingCallsigns = [],
-  squadronCallsigns = []
+  squadronCallsigns = [],
+  title,
 }) => {
   const [squadronFlights, setSquadronFlights] = useState<Record<string, number>>({});
   const [otherCallsign, setOtherCallsign] = useState('');
@@ -159,444 +161,143 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
     onSave({ flights: allFlights });
   };
 
-  // Get squadron primary color from color_palette
-  const getSquadronColor = (squadron: any) => {
-    if (squadron.color_palette?.primary) {
-      return squadron.color_palette.primary;
-    }
-    // Fallback colors based on name
-    if (squadron.name?.toLowerCase().includes('sting')) return '#FB923C'; // Orange
-    if (squadron.name?.toLowerCase().includes('hawk')) return '#10B981'; // Green
-    return '#6B7280'; // Default gray
-  };
+  // Squadron for a callsign (matched by the squadron's callsign list; keyed by squadron id)
+  const squadronFor = (callsign: string) =>
+    participatingSquadrons.find(s => s.callsigns.some(c => c.toLowerCase() === callsign.toLowerCase()));
 
-  // Get flight pill color
-  const getFlightColor = (source: 'squadron' | 'other' | 'existing', callsign: string) => {
-    if (source === 'existing') return '#E5E7EB'; // Light gray for existing
-    
-    // Check if callsign belongs to a participating squadron
-    const squadron = participatingSquadrons.find(s => 
-      s.callsigns.some(c => c.toLowerCase() === callsign.toLowerCase())
-    );
-    
-    if (squadron) {
-      return getSquadronColor(squadron);
-    }
-    
-    return '#6B7280'; // Default gray for ad hoc flights
+  // Tag tint for a squadron colour: tinted fill, coloured border, legible text (same recipe as QualTag)
+  const tint = (raw?: string | null) => {
+    const base = raw ? tagBase(raw) : 'var(--rr-text3)';
+    return {
+      background: `color-mix(in srgb, ${base} 16%, transparent)`,
+      border: `1px solid color-mix(in srgb, ${base} 55%, transparent)`,
+      color: raw ? legibleColor(raw, 'var(--rr-text2)') : 'var(--rr-text2)',
+    };
   };
 
   const flightRows = getFlightRows();
-  
-  // Calculate dialog width based on number of participating squadrons
-  const getDialogWidth = () => {
-    const squadronCount = participatingSquadrons.length;
-    if (squadronCount === 0) return '480px'; // Base width for no squadrons
-    if (squadronCount <= 2) return '464px'; // 200px + 16px + 200px + 48px (padding) = exact fit
-    if (squadronCount === 3) return '720px'; // Width for 3 squadrons + padding
-    return '720px'; // Width for 4+ squadrons in grid layout
-  };
+  const pendingCount = Object.values(squadronFlights).reduce((a, b) => a + b, 0) + Object.values(otherFlights).reduce((a, b) => a + b, 0);
+  const pendingFor = (callsign: string) => (squadronFlights[callsign] || 0) + (otherFlights[callsign] || 0);
+  const cols = Math.min(Math.max(participatingSquadrons.length, 1), 3);
 
   return (
-    <div style={{
-      position: 'fixed',
-      top: '50%',
-      left: '50%',
-      transform: 'translate(-50%, -50%)',
-      backgroundColor: 'var(--rr-panel)',
-      borderRadius: '12px',
-      padding: '24px',
-      boxShadow: 'var(--rr-shadow-lg)',
-      zIndex: 1001,
-      width: getDialogWidth(),
-      maxHeight: '80vh',
-      overflowY: 'auto'
-    }}>
-      {/* Title */}
-      <div style={{
-        fontSize: '18px',
-        fontWeight: '600',
-        color: 'var(--rr-text)',
-        marginBottom: '24px',
-        textAlign: 'center'
-      }}>
-ADD FLIGHT
-      </div>
-
-      {/* Participating Squadrons */}
-      {participatingSquadrons.length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <div style={{
-            fontSize: '14px',
-            fontWeight: '500',
-            color: 'var(--rr-text2)',
-            marginBottom: '12px'
-          }}>
-            Participating Squadrons Callsigns
-          </div>
-        
-        <div style={{
-          display: participatingSquadrons.length <= 3 ? 'flex' : 'grid',
-          gridTemplateColumns: participatingSquadrons.length > 3 ? 'repeat(3, 1fr)' : 'none',
-          gap: '16px',
-          overflowX: participatingSquadrons.length <= 3 ? 'auto' : 'visible',
-          overflowY: participatingSquadrons.length > 6 ? 'auto' : 'visible',
-          maxHeight: participatingSquadrons.length > 6 ? '300px' : 'none',
-          paddingBottom: '8px',
-          minHeight: '120px'
-          // Remove width constraint to let tiles naturally size
-        }}>
-          {participatingSquadrons.length === 0 ? (
-            <div style={{
-              width: '100%',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'var(--rr-text3)',
-              fontSize: '14px',
-              fontStyle: 'italic'
-            }}>
-              No participating squadrons have been configured for this event
-            </div>
-          ) : (
-            participatingSquadrons.map((squadron) => (
-              <div
-                key={squadron.squadronId}
-                style={{
-                  width: participatingSquadrons.length <= 2 ? '200px' : participatingSquadrons.length === 3 ? '200px' : '220px',
-                  maxWidth: participatingSquadrons.length <= 3 ? '200px' : '220px',
-                  backgroundColor: 'var(--rr-panel2)',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  border: '1px solid var(--rr-border)'
-                }}
-              >
-              {/* Squadron header */}
-              <div style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginBottom: '12px'
-              }}>
-                {squadron.insignia_url ? (
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    backgroundImage: `url(${squadron.insignia_url})`,
-                    backgroundSize: 'contain',
-                    backgroundRepeat: 'no-repeat',
-                    backgroundPosition: 'center',
-                    borderRadius: '50%'
-                  }} />
-                ) : (
-                  <div style={{
-                    width: '24px',
-                    height: '24px',
-                    backgroundColor: getSquadronColor(squadron),
-                    borderRadius: '50%'
-                  }} />
-                )}
-                <div>
-                  <div style={{
-                    fontSize: '12px',
-                    fontWeight: '600',
-                    color: 'var(--rr-text)'
-                  }}>
-                    {squadron.designation}
-                  </div>
-                  <div style={{
-                    fontSize: '10px',
-                    color: 'var(--rr-text2)'
-                  }}>
-                    {squadron.name}
-                  </div>
-                </div>
-              </div>
-              
-              {/* Callsign buttons */}
-              <div style={{
-                display: 'flex',
-                flexDirection: 'column',
-                gap: '8px'
-              }}>
-                {squadron.callsigns.map((callsign) => (
-                  <div key={callsign} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <button
-                      onClick={() => addSquadronFlight(callsign)}
-                      style={{
-                        flex: 1,
-                        padding: '4px 12px',
-                        height: '24px',
-                        backgroundColor: getSquadronColor(squadron),
-                        color: 'white',
-                        border: 'none',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        cursor: 'pointer',
-                        textTransform: 'uppercase',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {callsign}
-                    </button>
-                    <button
-                      onClick={() => addSquadronFlight(callsign)}
-                      style={{
-                        width: '30px',
-                        height: '30px',
-                        background: 'var(--rr-panel)',
-                        borderRadius: '8px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'box-shadow 0.2s ease-in-out',
-                        fontFamily: 'inherit',
-                        fontSize: '20px',
-                        color: 'var(--rr-text2)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center'
-                      }}
-                      onMouseEnter={e => {
-                        e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                      }}
-                      onMouseLeave={e => {
-                        e.currentTarget.style.boxShadow = 'none';
-                      }}
-                    >
-                      +
-                    </button>
-                  </div>
-                ))}
-              </div>
-            </div>
-            ))
-          )}
-        </div>
-        </div>
-      )}
-
-      {/* Other Callsign */}
-      <div style={{ marginBottom: '32px' }}>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: '500',
-          color: 'var(--rr-text2)',
-          marginBottom: '8px'
-        }}>
-          {participatingSquadrons.length > 0 ? 'Other Callsign' : 'Callsign'}
-        </div>
-        
-        <div style={{ 
-          display: 'flex', 
-          gap: '8px',
-          minHeight: '40px',
-          alignItems: 'center',
-          width: '220px' // Match width of one squadron container
-        }}>
-          <input
-            type="text"
-            placeholder="Enter Callsign"
-            value={otherCallsign}
-            onChange={(e) => setOtherCallsign(e.target.value)}
-            onKeyDown={(e) => e.key === 'Enter' && addOtherFlight()}
-            style={{
-              flex: 1,
-              padding: '8px 12px',
-              height: '36px',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              fontSize: '14px',
-              outline: 'none',
-              transition: 'border-color 0.2s ease',
-              boxSizing: 'border-box'
-            }}
-            onFocus={(e) => e.currentTarget.style.borderColor = 'var(--rr-accent)'}
-            onBlur={(e) => e.currentTarget.style.borderColor = 'var(--rr-border2)'}
-          />
-          <button
-            onClick={addOtherFlight}
-            style={{
-              width: '30px',
-              height: '30px',
-              background: 'var(--rr-panel)',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: otherCallsign.trim() ? 'pointer' : 'not-allowed',
-              transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'inherit',
-              fontSize: '20px',
-              color: otherCallsign.trim() ? 'var(--rr-text2)' : 'var(--rr-text3)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-            onMouseEnter={e => {
-              if (otherCallsign.trim()) {
-                e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-              }
-            }}
-            onMouseLeave={e => {
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-            disabled={!otherCallsign.trim()}
-          >
-            +
-          </button>
-        </div>
-      </div>
-
-      {/* Flights to be added */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{
-          fontSize: '14px',
-          fontWeight: '500',
-          color: 'var(--rr-text2)',
-          marginBottom: '12px'
-        }}>
-          Flights to be added
-        </div>
-        
-        <div style={{
-          backgroundColor: 'var(--rr-panel2)',
-          borderRadius: '8px',
-          padding: '16px',
-          border: '1px solid var(--rr-border)',
-          minHeight: '120px'
-        }}>
-          {flightRows.length === 0 ? (
-            <div style={{
-              color: 'var(--rr-text3)',
-              fontSize: '14px',
-              textAlign: 'center',
-              fontStyle: 'italic'
-            }}>
-              No flights added yet
-            </div>
-          ) : (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {flightRows.map((row) => (
-                <div
-                  key={row.callsign}
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    position: 'relative'
-                  }}
-                  onMouseEnter={(e) => {
-                    const deleteButton = e.currentTarget.querySelector('.delete-button') as HTMLElement;
-                    if (deleteButton) deleteButton.style.opacity = '1';
-                  }}
-                  onMouseLeave={(e) => {
-                    const deleteButton = e.currentTarget.querySelector('.delete-button') as HTMLElement;
-                    if (deleteButton) deleteButton.style.opacity = '0';
-                  }}
-                >
-                  {row.flights.map((flight) => (
-                    <div
-                      key={`${flight.callsign}-${flight.number}`}
-                      style={{
-                        padding: '4px 12px',
-                        height: '24px',
-                        backgroundColor: getFlightColor(flight.source, flight.callsign),
-                        color: flight.source === 'existing' ? 'var(--rr-text2)' : 'white',
-                        borderRadius: '8px',
-                        fontSize: '12px',
-                        fontWeight: '500',
-                        opacity: flight.source === 'existing' ? 0.7 : 1,
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        boxSizing: 'border-box'
-                      }}
-                    >
-                      {flight.callsign} {flight.number}
+    <Dialog
+      open
+      onClose={onCancel}
+      title={title || 'Add Flights'}
+      width={cols >= 3 ? 720 : 560}
+      zIndex={1001}
+      footer={
+        <>
+          {error ? <span className="mr-auto text-[12.5px] text-bad">{error}</span> : null}
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant="primary" icon="plus" onClick={handleSave} disabled={pendingCount === 0}>
+            {pendingCount === 0 ? 'Add Flights' : `Add ${pendingCount} Flight${pendingCount === 1 ? '' : 's'}`}
+          </Button>
+        </>
+      }
+    >
+      <div className="flex flex-col gap-[18px]">
+        {/* Participating squadrons: click a callsign to queue another flight */}
+        {participatingSquadrons.length > 0 ? (
+          <div>
+            <div className="rr-label mb-2">Participating squadrons</div>
+            <div className="grid gap-[10px]" style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}>
+              {participatingSquadrons.map((squadron) => (
+                <div key={squadron.squadronId} className="rounded-rr-lg bg-panel2 border border-border p-3 flex flex-col gap-[10px]">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {squadron.insignia_url
+                      ? <img src={squadron.insignia_url} alt="" className="w-6 h-6 object-contain flex-none" />
+                      : <span className="w-6 h-6 rounded-full flex-none" style={{ background: tagBase(squadron.color_palette?.primary || '#646F7E') }} />}
+                    <div className="min-w-0 leading-tight">
+                      <div className="text-[12.5px] font-bold truncate">{squadron.designation}</div>
+                      <div className="text-[10.5px] text-text3 truncate">{squadron.name}</div>
                     </div>
-                  ))}
-                  
-                  {/* Delete button for this row */}
-                  {(squadronFlights[row.callsign] > 0 || otherFlights[row.callsign] > 0) && (
-                    <button
-                      onClick={() => removeLastFlight(row.callsign)}
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        color: 'var(--rr-bad)',
-                        opacity: '0',
-                        transition: 'opacity 0.2s ease'
-                      }}
-                      className="delete-button"
-                    >
-                      <Icon name="trash" size={14} />
-                    </button>
-                  )}
+                  </div>
+                  <div className="flex flex-col gap-[6px]">
+                    {squadron.callsigns.map((callsign) => {
+                      const n = pendingFor(callsign);
+                      return (
+                        <button
+                          key={callsign}
+                          type="button"
+                          onClick={() => addSquadronFlight(callsign)}
+                          title={`Add a ${callsign} flight`}
+                          className="h-8 px-3 rounded-rr-md flex items-center gap-2 font-mono text-[12px] font-semibold tracking-[.04em] uppercase cursor-pointer transition-[filter,transform] duration-150 hover:brightness-125 active:scale-[.97]"
+                          style={tint(squadron.color_palette?.primary)}
+                        >
+                          <span className="flex-1 text-left">{callsign}</span>
+                          {n ? <span className="text-[10.5px] opacity-80">+{n}</span> : null}
+                          <Icon name="plus" size={14} />
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               ))}
             </div>
-          )}
+          </div>
+        ) : null}
+
+        {/* Ad hoc callsign */}
+        <div>
+          <div className="rr-label mb-2">{participatingSquadrons.length > 0 ? 'Other callsign' : 'Callsign'}</div>
+          <div className="flex items-center gap-2 max-w-[320px]">
+            <TextInput
+              mono
+              placeholder="e.g. ENFIELD"
+              value={otherCallsign}
+              onChange={(e) => setOtherCallsign(e.target.value)}
+              onKeyDown={(e) => e.key === 'Enter' && addOtherFlight()}
+              className="uppercase"
+            />
+            <Button variant="secondary" icon="plus" onClick={addOtherFlight} disabled={!otherCallsign.trim()}>Add</Button>
+          </div>
+        </div>
+
+        {/* Preview: existing flights (outlined) + queued flights (filled), one row per callsign */}
+        <div>
+          <div className="flex items-baseline gap-2 mb-2">
+            <span className="rr-label">Flights</span>
+            <span className="text-[11px] text-text3">existing outlined · new filled</span>
+          </div>
+          <div className="rounded-rr-lg bg-panel2 border border-border p-3 min-h-[88px]">
+            {flightRows.length === 0 ? (
+              <div className="h-[62px] flex items-center justify-center text-[12.5px] text-text3">No flights yet. Click a callsign above to add one.</div>
+            ) : (
+              <div className="flex flex-col gap-[6px]">
+                {flightRows.map((row) => {
+                  const color = squadronFor(row.callsign)?.color_palette?.primary;
+                  const t = tint(color);
+                  return (
+                    <div key={row.callsign} className="flex items-center gap-[6px] flex-wrap">
+                      {row.flights.map((flight) => {
+                        const existing = flight.source === 'existing';
+                        return (
+                          <span
+                            key={`${flight.callsign}-${flight.number}`}
+                            className="inline-flex items-center h-6 px-[9px] rounded-[6px] font-mono text-[11px] font-semibold uppercase whitespace-nowrap"
+                            style={existing
+                              ? { border: t.border, color: t.color, background: 'transparent', opacity: 0.7 }
+                              : { ...t, background: `color-mix(in srgb, ${color ? tagBase(color) : 'var(--rr-text3)'} 30%, transparent)` }}
+                            title={existing ? 'Already on the board' : 'Will be added'}
+                          >
+                            {flight.callsign} {flight.number}
+                          </span>
+                        );
+                      })}
+                      {pendingFor(row.callsign) > 0 ? (
+                        <IconButton icon="minus" size={24} iconSize={13} variant="ghost" label={`Remove last ${row.callsign} flight`} onClick={() => removeLastFlight(row.callsign)} />
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </div>
       </div>
-
-      {/* Error message */}
-      {error && (
-        <div style={{
-          color: 'var(--rr-bad)',
-          fontSize: '14px',
-          marginBottom: '16px',
-          textAlign: 'center'
-        }}>
-          {error}
-        </div>
-      )}
-
-      {/* Buttons */}
-      <div style={{
-          display: 'flex',
-          justifyContent: 'flex-end',
-          gap: '12px'
-        }}>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              backgroundColor: 'var(--rr-panel)',
-              color: 'var(--rr-text2)',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSave}
-            style={{
-              padding: '8px 16px',
-              border: 'none',
-              borderRadius: '6px',
-              backgroundColor: 'var(--rr-accent)',
-              color: 'white',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: '500'
-            }}
-          >
-            Add Flights
-          </button>
-        </div>
-
-    </div>
+    </Dialog>
   );
 };
 
