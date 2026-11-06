@@ -108,7 +108,7 @@ const defaultSettings: AppSettings = {
   displayPilotsWithSquadronColors: true,
   interfaceThemeUsesSquadronColors: true,
   theme: 'dark',
-  navLayout: 'rail',
+  navLayout: 'bar', // command bar is the default layout
   accentColor: null,
 
   eventDefaults: {

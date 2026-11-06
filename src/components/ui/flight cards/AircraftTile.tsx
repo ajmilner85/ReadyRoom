@@ -98,7 +98,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
     }
   }, [attendanceStatus, rollCallStatus, isEmpty]);
 
-  // ---- UI Kit aircraft tile (62px): MIDS A/B bare numbers, masked aircraft tinted to the
+  // ---- UI Kit aircraft tile (74 x 87px): MIDS A/B bare numbers, masked aircraft tinted to the
   // pilot's squadron colour, board number in squadron colour, callsign. Click-free drag source.
   const tileColor = legibleColor(pilotSquadronColor, 'var(--rr-accent-text)');
   const isDeclinedDiscord = attendanceStatus === 'declined';
@@ -123,7 +123,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
       key={`tile-${boardNumber}-${callsign}-${attendanceStatus}-${rollCallStatus}-${renderKey}`}
       style={{
         position: 'relative',
-        width: iconType === 'personnel' ? '74px' : '62px',
+        width: '74px', // aircraft tiles were 62px; widened 20% (now same width as personnel tiles)
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -164,10 +164,10 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           width: '100%',
           padding: '6px 5px 7px',
           boxSizing: 'border-box',
-          // Aircraft tiles use playing-card proportions (2.5 x 3.5 in = 5:7); the spare height
-          // goes either side of the silhouette. Empty and filled tiles share the same box.
+          // Aircraft tiles: fixed 87px height (empty and filled share the same box); spare height
+          // goes either side of the silhouette.
           ...(iconType === 'aircraft'
-            ? { aspectRatio: '5 / 7', display: 'flex', flexDirection: 'column' as const, justifyContent: 'space-between' }
+            ? { height: '87px', display: 'flex', flexDirection: 'column' as const, justifyContent: 'space-between' }
             : {}),
           borderRadius: '8px',
           background: 'var(--rr-panel)',

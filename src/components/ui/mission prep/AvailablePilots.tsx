@@ -1,7 +1,20 @@
 // filepath: c:\Users\ajmil\OneDrive\Desktop\pri-fly\src\components\ui\mission prep\AvailablePilots.tsx
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import QualificationBadge from '../QualificationBadge';
-import { Icon, legibleColor } from '../primitives';
+import { Floating, Icon, legibleColor } from '../primitives';
+
+/** Approximate width of a md QualTag (mono 10px, 7px padding, 30px min) incl. 4px gap. */
+const qualBadgeW = (code: string) => Math.max(30, 14 + (code || '').length * 6.2) + 4;
+/** How many badges fit in `width`, leaving room for a "+N" chip when some don't. */
+function fitQualBadges(codes: string[], width: number): number {
+  if (!width) return codes.length;
+  const total = codes.reduce((t, c) => t + qualBadgeW(c), 0);
+  if (total <= width + 4) return codes.length;
+  let used = 38; // "+N" chip
+  let n = 0;
+  while (n < codes.length && used + qualBadgeW(codes[n]) <= width + 4) { used += qualBadgeW(codes[n]); n++; }
+  return n;
+}
 import { useDraggable } from '@dnd-kit/core';
 import type { Pilot } from '../../../utils/pilotTypes';
 import type { Event } from '../../../types/EventTypes';
@@ -75,7 +88,18 @@ interface PilotEntryProps {
   onRollCallResponse,
   displayWithSquadronColors = false
 }) => {
-  const [showTooltip, setShowTooltip] = useState(false);
+  const [showMore, setShowMore] = useState(false);
+  const [moreAnchor, setMoreAnchor] = useState<HTMLButtonElement | null>(null);
+  // Measure the qualification strip so badges never get clipped
+  const qualStripRef = useRef<HTMLDivElement>(null);
+  const [qualStripW, setQualStripW] = useState(0);
+  useEffect(() => {
+    const el = qualStripRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(entries => setQualStripW(Math.floor(entries[0].contentRect.width)));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // Get squadron primary color for callsign styling
   const getSquadronPrimaryColor = () => {
@@ -149,36 +173,15 @@ interface PilotEntryProps {
       return null; // Don't show qualification badges in roll call mode
     }
 
-    const dbQualifications = pilotQualifications || [];
-
-    if (!dbQualifications || dbQualifications.length === 0) {
-      return [];
-    }
-
-    // Sort qualifications by order
-    const sortedQuals = dbQualifications
+    const sortedQuals = (pilotQualifications || [])
       .filter(pq => pq.qualification)
       .sort((a, b) => (a.qualification?.order || 999) - (b.qualification?.order || 999));
+    if (sortedQuals.length === 0) return [];
 
-    // Each badge is 37px wide with 4px gap = 41px per badge
-    // With the available space, we can show up to 8 badges before overflow
-    const MAX_VISIBLE_BADGES = 8;
-
-    if (sortedQuals.length <= MAX_VISIBLE_BADGES) {
-      // Show all badges normally
-      return sortedQuals.map((pq, index) => (
-        <QualificationBadge
-          key={`db-${pq.qualification.id}-${index}`}
-          type={pq.qualification.name}
-          code={pq.qualification.code}
-          color={pq.qualification.color}
-        />
-      ));
-    }
-
-    // Show first (MAX_VISIBLE_BADGES - 1) badges plus overflow indicator
-    const visibleQuals = sortedQuals.slice(0, MAX_VISIBLE_BADGES - 1);
-    const overflowQuals = sortedQuals.slice(MAX_VISIBLE_BADGES - 1);
+    // Show as many badges as fit the measured strip; the rest go behind a "+N" popover.
+    const fit = fitQualBadges(sortedQuals.map(pq => pq.qualification.code || ''), qualStripW);
+    const visibleQuals = sortedQuals.slice(0, fit);
+    const overflowQuals = sortedQuals.slice(fit);
 
     return (
       <>
@@ -190,58 +193,35 @@ interface PilotEntryProps {
             color={pq.qualification.color}
           />
         ))}
-        <div
-          style={{ position: 'relative' }}
-          onMouseEnter={() => setShowTooltip(true)}
-          onMouseLeave={() => setShowTooltip(false)}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--rr-text3)',
-              borderRadius: '8px',
-              width: '37px',
-              height: '24px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#F9FAFB',
-              fontSize: '12px',
-              fontWeight: 400,
-              cursor: 'pointer'
-            }}
-          >
-            +{overflowQuals.length}
-          </div>
-          {showTooltip && (
-            <div
-              style={{
-                position: 'absolute',
-                top: '100%',
-                right: 0,
-                marginTop: '4px',
-                backgroundColor: '#1F2937',
-                borderRadius: '10px',
-                padding: '8px',
-                display: 'flex',
-                flexWrap: 'wrap',
-                gap: '4px',
-                maxWidth: '200px',
-                zIndex: 1000,
-                boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)'
-              }}
+        {overflowQuals.length ? (
+          <>
+            <button
+              type="button"
+              ref={setMoreAnchor}
+              title={`${overflowQuals.length} more qualification${overflowQuals.length === 1 ? '' : 's'}`}
+              onPointerDown={(e) => e.stopPropagation()} // don't start a drag
+              onClick={(e) => { e.stopPropagation(); setShowMore(v => !v); }}
+              className="flex-none inline-flex items-center justify-center h-5 min-w-[30px] px-[6px] rounded-[5px] bg-panel3 border border-border2 font-mono text-[10px] font-semibold text-text2 hover:text-text hover:border-accent cursor-pointer"
             >
-              {overflowQuals.map((pq, index) => (
-                <QualificationBadge
-                  key={`db-${pq.qualification.id}-${index}-tooltip`}
-                  type={pq.qualification.name}
-                  code={pq.qualification.code}
-                  color={pq.qualification.color}
-                />
-              ))}
-            </div>
-          )}
-        </div>
+              +{overflowQuals.length}
+            </button>
+            <Floating anchor={moreAnchor} open={showMore} onClose={() => setShowMore(false)} placement="bottom-end" zIndex={1200}>
+              <div
+                className="p-2 rounded-rr-lg bg-panel border border-border2 shadow-rr-lg flex flex-wrap gap-1 max-w-[260px]"
+                onPointerDown={(e) => e.stopPropagation()}
+              >
+                {overflowQuals.map((pq, index) => (
+                  <QualificationBadge
+                    key={`db-${pq.qualification.id}-${index}-more`}
+                    type={pq.qualification.name}
+                    code={pq.qualification.code}
+                    color={pq.qualification.color}
+                  />
+                ))}
+              </div>
+            </Floating>
+          </>
+        ) : null}
       </>
     );
   };
@@ -382,10 +362,15 @@ interface PilotEntryProps {
       </span>
 
       {isRollCallMode ? renderRollCallButtons() : (
-        <div style={{
+        <div ref={qualStripRef} style={{
           display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'flex-end',
           gap: '4px',
-          marginLeft: 'auto',
+          flex: 1,
+          minWidth: 0,
+          overflow: 'hidden',
+          marginLeft: '8px',
           height: '24px'
         }}>
           {renderQualificationBadges()}

@@ -592,6 +592,22 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   });
   usePagePresence(isConnected ? activeUsers.map(u => ({ id: u.user_id, name: u.user_name, active: !!u.editing_field })) : []);
 
+  // Width the flight board wants: one 420px column per owning squadron (grouped by squadron id
+  // via callsign, same as FlightAssignments) + 10px gaps + 50px pane chrome. The board keeps this
+  // as its flex basis so the pilot list only widens into genuinely spare space.
+  const boardIdealWidth = React.useMemo(() => {
+    const flights: any[] = (prepFlights as any[]) || [];
+    const sqs: any[] = (squadrons as any[]) || [];
+    const keys = new Set<string>();
+    flights.forEach(f => {
+      const cs = String(f?.callsign || '').toUpperCase();
+      const owner = sqs.find(sq => Array.isArray(sq?.callsigns) && sq.callsigns.some((c: string) => String(c).toUpperCase() === cs));
+      keys.add(owner?.id || 'other');
+    });
+    const cols = Math.max(1, keys.size);
+    return cols * 420 + (cols - 1) * 10 + 50;
+  }, [prepFlights, squadrons]);
+
   return (
     <DndContext
       onDragStart={handleDragStart}
@@ -647,7 +663,8 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
               className="absolute inset-0 p-[14px] gap-[14px] min-h-0 max-[760px]:static"
               style={{ display: activeTab === 'flights' || activeTab === 'support' ? 'flex' : 'none' }}
             >
-              <div className="flex-none w-[440px] min-h-0 flex flex-col max-[760px]:h-[70dvh]">
+              {/* Pilot list grows (440 -> 640px) only into space the boards don't need; see boardIdealWidth */}
+              <div className="min-h-0 flex flex-col max-[760px]:h-[70dvh]" style={{ flex: '1 0 440px', maxWidth: 640 }}>
                 <AvailablePilots
                   width="100%"
                   pilots={activePilots}
@@ -666,7 +683,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   qualifications={qualificationsData}
                 />
               </div>
-              <div className="flex-1 min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'flights' ? 'flex' : 'none' }}>
+              <div className="min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'flights' ? 'flex' : 'none', flex: `1 1 ${boardIdealWidth}px` }}>
                 <FlightAssignments
                   width="100%"
                   assignedPilots={assignedPilots}
@@ -683,7 +700,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   isLoading={isLoading}
                 />
               </div>
-              <div className="flex-1 min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'support' ? 'flex' : 'none' }}>
+              <div className="min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'support' ? 'flex' : 'none', flex: `1 1 ${boardIdealWidth}px` }}>
                 <MissionSupportAssignments
                   width="100%"
                   assignedPilots={assignedPilots}
