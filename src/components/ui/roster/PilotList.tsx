@@ -392,41 +392,45 @@ const PilotList: React.FC<PilotListProps> = ({
 
   return (
     <div ref={rosterListRef} style={{ containerType: 'inline-size' }} className="flex-1 min-w-[560px] min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
-      {/* Toolbar */}
-      <div className="flex-none flex items-center gap-[10px] px-[14px] py-[10px] border-b border-border flex-wrap">
-        <span className="rr-pane-title whitespace-nowrap">Squadron Roster</span>
-        <span className="font-mono text-[11px] text-text3">{total}</span>
-        <SearchInput value={search} onChange={setSearch} placeholder="Search callsign, board #, Discord…" className="flex-1 min-w-[180px] max-w-[420px]" />
-        <span className="flex-1" />
-        <SegmentedControl
-          size="sm"
-          value={groupMode}
-          onChange={changeGroupMode}
-          options={[{ value: 'squadron', label: 'SQUADRON' }, { value: 'standing', label: 'STANDING' }]}
-        />
-        <FilterDrawer
-          squadrons={squadrons}
-          statuses={statuses}
-          standings={standings}
-          roles={roles}
-          qualifications={qualifications}
-          pilots={pilots}
-          allPilotQualifications={allPilotQualifications}
-          selectedSquadronIds={selectedSquadronIds}
-          statusFilters={statusFilters}
-          selectedStandingIds={selectedStandingIds}
-          selectedRoleIds={selectedRoleIds}
-          qualificationFilters={qualificationFilters}
-          filtersEnabled={filtersEnabled}
-          setSelectedSquadronIds={setSelectedSquadronIds}
-          setStatusFilters={setStatusFilters}
-          setSelectedStandingIds={setSelectedStandingIds}
-          setSelectedRoleIds={setSelectedRoleIds}
-          setQualificationFilters={setQualificationFilters}
-          setFiltersEnabled={setFiltersEnabled}
-        />
-        <Button size="sm" variant="secondary" icon="discord" onClick={onSyncWithDiscord}>Sync Discord</Button>
-        <Button size="sm" variant="primary" icon="plus" onClick={onAddPilot} disabled={isAddingNewPilot}>Add Pilot</Button>
+      {/* Toolbar: header row (title + actions), then view controls (search, filters, grouping) */}
+      <div className="flex-none border-b border-border">
+        <div className="flex items-center gap-[10px] px-[14px] pt-[12px] pb-[8px]">
+          <span className="rr-pane-title whitespace-nowrap">Squadron Roster</span>
+          <span className="font-mono text-[11px] text-text3">{total}</span>
+          <span className="flex-1" />
+          <Button size="sm" variant="secondary" icon="discord" onClick={onSyncWithDiscord}>Sync Discord</Button>
+          <Button size="sm" variant="primary" icon="plus" onClick={onAddPilot} disabled={isAddingNewPilot}>Add Pilot</Button>
+        </div>
+        <div className="flex items-center gap-[10px] px-[14px] pb-[12px] flex-wrap">
+          <SearchInput size="sm" value={search} onChange={setSearch} placeholder="Search callsign, board #, Discord…" className="flex-1 min-w-[200px]" />
+          <FilterDrawer
+            squadrons={squadrons}
+            statuses={statuses}
+            standings={standings}
+            roles={roles}
+            qualifications={qualifications}
+            pilots={pilots}
+            allPilotQualifications={allPilotQualifications}
+            selectedSquadronIds={selectedSquadronIds}
+            statusFilters={statusFilters}
+            selectedStandingIds={selectedStandingIds}
+            selectedRoleIds={selectedRoleIds}
+            qualificationFilters={qualificationFilters}
+            filtersEnabled={filtersEnabled}
+            setSelectedSquadronIds={setSelectedSquadronIds}
+            setStatusFilters={setStatusFilters}
+            setSelectedStandingIds={setSelectedStandingIds}
+            setSelectedRoleIds={setSelectedRoleIds}
+            setQualificationFilters={setQualificationFilters}
+            setFiltersEnabled={setFiltersEnabled}
+          />
+          <SegmentedControl
+            size="sm"
+            value={groupMode}
+            onChange={changeGroupMode}
+            options={[{ value: 'squadron', label: 'SQUADRON' }, { value: 'standing', label: 'STANDING' }]}
+          />
+        </div>
       </div>
 
       {/* Column header */}
