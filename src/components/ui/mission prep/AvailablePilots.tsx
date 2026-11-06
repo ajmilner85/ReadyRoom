@@ -354,7 +354,7 @@ interface PilotEntryProps {
         return (
           <span
             title={label}
-            style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', background: dot, boxShadow: state === 'none' ? 'inset 0 0 0 1.5px var(--rr-text3)' : undefined, backgroundClip: 'padding-box' }}
+            style={{ width: 7, height: 7, borderRadius: '50%', flex: 'none', marginLeft: 4, marginRight: 8, background: dot, boxShadow: state === 'none' ? 'inset 0 0 0 1.5px var(--rr-text3)' : undefined, backgroundClip: 'padding-box' }}
           />
         );
       })()}

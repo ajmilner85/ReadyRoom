@@ -161,6 +161,12 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           position: 'relative',
           width: '100%',
           padding: '6px 5px 7px',
+          boxSizing: 'border-box',
+          // Aircraft tiles use playing-card proportions (2.5 x 3.5 in = 5:7); the spare height
+          // goes either side of the silhouette. Empty and filled tiles share the same box.
+          ...(iconType === 'aircraft'
+            ? { aspectRatio: '5 / 7', display: 'flex', flexDirection: 'column' as const, justifyContent: 'space-between' }
+            : {}),
           borderRadius: '8px',
           background: 'var(--rr-panel)',
           border: isEmpty
@@ -169,7 +175,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
               ? `1.5px solid ${tileColor}`
               : isMissionCommander
                 ? '1.5px solid var(--rr-accent)'
-                : '1px solid var(--rr-border2)',
+                : '1.5px solid var(--rr-border2)', // same width in every state so empty = filled size
           cursor: isEmpty ? 'default' : 'grab',
           lineHeight: 1,
           opacity: localDragging ? 0.4 : 1,
@@ -210,7 +216,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         {/* Board number (squadron colour) */}
         <div
           className="font-mono text-center"
-          style={{ fontSize: '11px', lineHeight: '14px', fontWeight: 700, color: isEmpty ? 'var(--rr-text3)' : tileColor }}
+          style={{ fontSize: '11px', lineHeight: '14px', height: '14px', fontWeight: 700, color: isEmpty ? 'var(--rr-text3)' : tileColor }}
         >
           {isEmpty ? '' : boardNumber}
         </div>
