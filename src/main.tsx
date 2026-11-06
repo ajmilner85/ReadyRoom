@@ -36,12 +36,13 @@ createRoot(document.getElementById('root')!).render(
                   <div style={{
                     width: '100vw',
                     height: '100vh',
-                    backgroundColor: '#1a1a2e',
+                    backgroundColor: 'var(--rr-bg)',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    color: '#e5e5e5',
-                    fontFamily: 'inherit'
+                    color: 'var(--rr-text2)',
+                    fontFamily: 'var(--rr-font-ui)',
+                    fontSize: '18px'
                   }}>
                     Loading kneeboard...
                   </div>

@@ -405,7 +405,8 @@ const FullscreenBar: React.FC<{ module?: NavModule }> = ({ module }) => {
   const title = shell?.header?.title ?? module?.title ?? '';
   const meta = shell?.header?.meta;
   return (
-    <div data-m="ctx" className="flex-none h-[52px] flex items-center gap-3 px-[14px] bg-panel border-b border-border">
+    // Same height as the command bar (h-14) so switching into Coordination doesn't jump
+    <div data-m="ctx" className="flex-none h-14 flex items-center gap-3 px-[14px] bg-panel border-b border-border">
       <button
         type="button"
         onClick={() => navigate('/')}
