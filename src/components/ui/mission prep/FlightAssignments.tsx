@@ -2076,7 +2076,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           ) : (
             <div className="flex gap-[10px] items-start min-w-min h-full" style={{ justifyContent: 'safe center' }}>
               {flightColumns.map(col => (
-                <div key={col.key} className="flex flex-col min-h-0 bg-panel border border-border rounded-rr-lg" style={{ flex: '0 1 380px', minWidth: 320 }}>
+                <div key={col.key} className="flex flex-col min-h-0 bg-panel border border-border rounded-rr-lg" style={{ flex: '0 1 420px', minWidth: 360 }}>
                   <div className="flex items-center gap-[9px] px-3 py-[8px] border-b border-border bg-panel2 rounded-t-rr-lg sticky top-0 z-[2]">
                     {col.insignia ? <img src={col.insignia} alt="" className="w-5 h-5 object-contain flex-none" /> : <Icon name="layers" size={16} className="text-text3" />}
                     <div className="min-w-0 leading-tight">
