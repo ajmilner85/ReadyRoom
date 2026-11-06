@@ -2161,13 +2161,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           </button>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '0 1 auto', minWidth: 0 }}>
           {onTransferToMission ? (
-            <Button variant="secondary" icon="send" onClick={handleTransferToMission} disabled={flights.length === 0}>Transfer to Mission</Button>
+            <Button variant="primary" icon="send" onClick={handleTransferToMission} disabled={flights.length === 0} style={{ height: '39px', fontSize: '14px' }}>Transfer to Mission</Button>
           ) : null}
           {/* Split Publish Button */}
           <div style={{
             display: 'flex',
             flex: '0 0 auto',
             minWidth: '180px',
+            height: '39px', // same height as Remove All / Transfer whether or not it has a border
+            boxSizing: 'border-box',
             borderRadius: '8px',
             border: isPublished ? 'none' : '1px solid var(--rr-border2)',
             overflow: 'hidden'
