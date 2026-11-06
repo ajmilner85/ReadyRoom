@@ -22,7 +22,7 @@ import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import { updateRollCallResponse, syncRollCallResponses } from '../../../utils/rollCallUtils';
 import { supabase } from '../../../utils/supabaseClient';
 import { useAppSettings } from '../../../context/AppSettingsContext';
-import FilterDrawer, { QualificationFilterMode } from '../roster/FilterDrawer';
+import FilterDrawer, { QualificationFilterMode, StatusFilterMode, matchesStatusFilter } from '../roster/FilterDrawer';
 import { Squadron } from '../../../utils/squadronService';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
@@ -415,7 +415,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
 
   // Filter state
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]);
-  const [selectedStatusIds, setSelectedStatusIds] = useState<string[]>([]);
+  const [statusFilters, setStatusFilters] = useState<Record<string, StatusFilterMode>>({});
   const [selectedStandingIds, setSelectedStandingIds] = useState<string[]>([]);
   const [selectedRoleIds, setSelectedRoleIds] = useState<string[]>([]);
   const [qualificationFilters, setQualificationFilters] = useState<Record<string, QualificationFilterMode>>({});
@@ -618,10 +618,8 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
       }
 
       // Status filter
-      if (selectedStatusIds.length > 0) {
-        filtered = filtered.filter(pilot => {
-          return pilot.currentStatus?.id && selectedStatusIds.includes(pilot.currentStatus.id);
-        });
+      if (Object.keys(statusFilters).length > 0) {
+        filtered = filtered.filter(pilot => matchesStatusFilter(pilot.currentStatus?.id, statusFilters));
       }
 
       // Standing filter
@@ -697,7 +695,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
         return (a.callsign || '').localeCompare(b.callsign || '');
       }
     });
-  }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData, sortBy, sortBySquadron, filtersEnabled, selectedSquadronIds, selectedStatusIds, selectedStandingIds, selectedRoleIds, qualificationFilters]);
+  }, [pilotsWithAttendanceStatus, selectedEvent, showOnlyAttending, selectedQualifications, pilotQualifications, hasDatabaseQualification, realtimeAttendanceData, sortBy, sortBySquadron, filtersEnabled, selectedSquadronIds, statusFilters, selectedStandingIds, selectedRoleIds, qualificationFilters]);
 
   // Check if a pilot is assigned to a flight
   const isPilotAssignedToFlight = (pilot: Pilot): { isAssigned: boolean; flightId?: string } => {
@@ -1091,13 +1089,13 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
           pilots={pilots}
           allPilotQualifications={pilotQualifications}
           selectedSquadronIds={selectedSquadronIds}
-          selectedStatusIds={selectedStatusIds}
+          statusFilters={statusFilters}
           selectedStandingIds={selectedStandingIds}
           selectedRoleIds={selectedRoleIds}
           qualificationFilters={qualificationFilters}
           filtersEnabled={filtersEnabled}
           setSelectedSquadronIds={setSelectedSquadronIds}
-          setSelectedStatusIds={setSelectedStatusIds}
+          setStatusFilters={setStatusFilters}
           setSelectedStandingIds={setSelectedStandingIds}
           setSelectedRoleIds={setSelectedRoleIds}
           setQualificationFilters={setQualificationFilters}
