@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { Icon } from '../ui/primitives';
+import { Icon, legibleColor } from '../ui/primitives';
+import { tagBase } from '../ui/primitives/color';
 import { supabase } from '../../utils/supabaseClient';
 import { uploadToR2, getAccessToken, deleteStorageFileByUrl } from '../../utils/r2StorageService';
 import SquadronDiscordSettings from './SquadronDiscordSettings';
@@ -16,6 +17,17 @@ import {
   NewSquadron
 } from '../../types/OrganizationTypes';
 import type { Team, NewTeam } from '../../types/TeamTypes';
+
+/** Tinted callsign pill (matches AddFlightDialog): squadron-colour fill, border and legible text. */
+const callsignTint = (raw?: string | null): React.CSSProperties => {
+  const base = raw ? tagBase(raw) : 'var(--rr-text3)';
+  return {
+    background: `color-mix(in srgb, ${base} 16%, transparent)`,
+    border: `1px solid color-mix(in srgb, ${base} 55%, transparent)`,
+    color: raw ? legibleColor(raw, 'var(--rr-text2)') : 'var(--rr-text2)',
+  };
+};
+
 
 interface OrgEntityModalProps {
   isOpen: boolean;
@@ -1707,16 +1719,19 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                     <div
                       key={index}
                       style={{
+                        // Same tinted callsign style as the Add Flights dialog (squadron primary colour)
                         display: 'flex',
                         alignItems: 'center',
-                        gap: '4px',
-                        padding: '0 8px',
-                        backgroundColor: formData.color_palette?.accent || 'var(--rr-accent)',
-                        color: 'white',
-                        borderRadius: '8px',
+                        gap: '6px',
+                        padding: '0 8px 0 10px',
+                        ...callsignTint(formData.color_palette?.primary),
+                        borderRadius: '6px',
+                        fontFamily: 'var(--rr-font-mono)',
                         fontSize: '12px',
-                        fontWeight: 400,
-                        height: '24px'
+                        fontWeight: 600,
+                        letterSpacing: '.04em',
+                        textTransform: 'uppercase',
+                        height: '28px'
                       }}
                     >
                       <span>{callsign}</span>
@@ -1726,7 +1741,8 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                         style={{
                           background: 'none',
                           border: 'none',
-                          color: 'white',
+                          color: 'inherit',
+                          opacity: 0.8,
                           cursor: 'pointer',
                           fontSize: '14px',
                           lineHeight: 1,
