@@ -121,6 +121,8 @@ export const updateFlightPosition = (
 
 export const splitFlight = (flight: Flight): Flight[] => {
   return flight.members.map((member) => ({
+    // Inherit the parent's identity (aircraft type, squadron, colours, step time…); override only what differs
+    ...flight,
     id: `${flight.id}-split-${member.dashNumber}`,
     flightNumber: flight.flightNumber,
     callsign: flight.callsign,
@@ -145,6 +147,8 @@ export const divideFlight = (flight: Flight): Flight[] => {
     // Add the lead section (2-ship)
     if (leadSection.length > 0) {
       result.push({
+        // Inherit the parent's identity (aircraft type, squadron, colours, step time…); override only what differs
+        ...flight,
         id: `${flight.id}-section-1`,
         flightNumber: flight.flightNumber,
         callsign: flight.callsign,
@@ -161,6 +165,8 @@ export const divideFlight = (flight: Flight): Flight[] => {
     // Add the third aircraft as a single
     if (thirdMember) {
       result.push({
+        // Inherit the parent's identity (aircraft type, squadron, colours, step time…); override only what differs
+        ...flight,
         id: `${flight.id}-single-3`,
         flightNumber: flight.flightNumber,
         callsign: flight.callsign,
@@ -186,6 +192,8 @@ export const divideFlight = (flight: Flight): Flight[] => {
   if (trailSection.length > 0) pairs.push(trailSection);
 
   return pairs.map((memberPair, index) => ({
+    // Inherit the parent's identity (aircraft type, squadron, colours, step time…); override only what differs
+    ...flight,
     id: `${flight.id}-section-${index + 1}`,
     flightNumber: flight.flightNumber,
     callsign: flight.callsign,
