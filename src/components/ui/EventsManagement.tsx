@@ -1,12 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
+import EventsNavigator from './events/EventsNavigator';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { useAppSettings } from '../../context/AppSettingsContext';
 import StandardPageLoader from './StandardPageLoader';
-import EventsList from './events/EventsList';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
 import EventDialog from './events/EventDialog';
-import CyclesList from './events/CyclesList';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType, ReferenceMaterial, CycleActivity, CycleSettings, EventActivity } from '../../types/EventTypes';
@@ -15,8 +14,7 @@ import { supabase, fetchCycles, createCycle, updateCycle, deleteCycle, softDelet
          saveCycleActivities } from '../../utils/supabaseClient';
 import { deleteMultiChannelEvent, updateMultiChannelEvent } from '../../utils/discordService';
 import { uploadMultipleEventImages, deleteEventImageFiles } from '../../utils/eventImageService';
-import LoadingSpinner from './LoadingSpinner';
-import { Button, EmptyState, Icon, Pane, SegmentedControl, StatTile, Toast } from './primitives';
+import { Button, EmptyState, Icon, SegmentedControl, StatTile, Toast } from './primitives';
 import { useWebSocket } from '../../context/WebSocketContext';
 import { getAllSquadrons } from '../../utils/organizationService';
 import { Squadron } from '../../types/OrganizationTypes';
@@ -1968,66 +1966,24 @@ const EventsManagement: React.FC = () => {
         <StandardPageLoader message="Loading events data..." />
       ) : (
         <div data-m="row" className="rr-page flex-1 min-h-0 flex gap-[14px] p-[14px]">
-          {/* ---- Left pane: cycles, then the selected cycle's events ---- */}
-          <div className="flex-none w-[340px] min-h-0 flex flex-col gap-[14px]">
-            <Pane title="Cycles" className="flex-[0_1_42%] min-h-[200px]" flush scroll={false} bodyClassName="flex flex-col min-h-0">
-              {loading.cycles ? (
-                <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div>
-              ) : (
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <CyclesList
-                    cycles={cycles}
-                    selectedCycle={selectedCycle}
-                    onCycleSelect={handleCycleSelect}
-                    onNewCycle={() => {
-                      setEditingCycle(null);
-                      setShowCycleDialog(true);
-                    }}
-                    onEditCycle={handleEditCycleClick}
-                    onDeleteCycle={handleDeleteCycle}
-                  />
-                </div>
-              )}
-            </Pane>
-            <Pane
-              title="Events"
-              meta={<span className="truncate max-w-[180px]">
-                {selectedCycle
-                  ? selectedCycle.name
-                  : filteredEvents.length === 0
-                    ? ''
-                    : filteredEvents.every(e => !e.cycleId)
-                      ? 'Standalone'
-                      : 'All'}
-              </span>}
-              className="flex-1 min-h-[220px]"
-              flush
-              scroll={false}
-              bodyClassName="flex flex-col min-h-0"
-            >
-              {loading.events ? (
-                <div className="flex-1 flex items-center justify-center"><LoadingSpinner /></div>
-              ) : (
-                <div className="flex-1 min-h-0 overflow-hidden">
-                  <EventsList
-                    events={filteredEvents}
-                    cycles={cycles}
-                    selectedEvent={selectedEvent}
-                    onEventSelect={setSelectedEvent}
-                    onNewEvent={() => {
-                      setEditingEvent(null);
-                      setShowEventDialog(true);
-                    }}
-                    onEditEvent={handleEditEventClick}
-                    onDeleteEvent={handleDeleteEvent}
-                    onRemoveAll={() => setShowDeleteAllEventsDialog(true)}
-                    showRemoveAll={selectedCycle !== null && filteredEvents.length > 0}
-                    showCycleIndicator={selectedCycle === null}
-                  />
-                </div>
-              )}
-            </Pane>
-          </div>
+          {/* ---- Left pane: cycle accordion; the expanded cycle lists its events ---- */}
+          <EventsNavigator
+            cycles={cycles}
+            events={filteredEvents}
+            selectedCycle={selectedCycle}
+            selectedEvent={selectedEvent}
+            loadingCycles={loading.cycles}
+            loadingEvents={loading.events}
+            onCycleSelect={handleCycleSelect}
+            onEventSelect={setSelectedEvent}
+            onNewCycle={() => { setEditingCycle(null); setShowCycleDialog(true); }}
+            onNewEvent={() => { setEditingEvent(null); setShowEventDialog(true); }}
+            onEditCycle={handleEditCycleClick}
+            onDeleteCycle={handleDeleteCycle}
+            onEditEvent={handleEditEventClick}
+            onDeleteEvent={handleDeleteEvent}
+            onRemoveAllEvents={() => setShowDeleteAllEventsDialog(true)}
+          />
 
           {/* ---- Main pane: Event Details / Attendance / Cycle Builder ---- */}
           <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
@@ -2076,11 +2032,14 @@ const EventsManagement: React.FC = () => {
                   <EventDetails
                     event={selectedEvent}
                     onEventUpdated={() => loadEvents(selectedCycle?.id)}
+                    onEdit={handleEditEventClick}
+                    cycleName={selectedEvent?.cycleId ? cycles.find(c => c.id === selectedEvent.cycleId)?.name : undefined}
                   />
                 </div>
               </div>
               <div className="absolute inset-0 flex flex-col min-h-0" style={{ display: mainTab === 'attendance' ? 'flex' : 'none' }}>
-                <div className="flex-none flex items-center justify-end px-4 pt-2 h-6">
+                {/* Refresh spinner (toggled by EventAttendance) floats in the summary bar instead of taking a row */}
+                <div className="absolute top-[16px] left-1/2 z-[2] pointer-events-none">
                   <div
                     id="attendance-loading-spinner"
                     style={{

@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Card } from '../card';
-import { Icon } from '../primitives';
+import { Button, Chip, EmptyState, Icon, Toast } from '../primitives';
 import type { Event, EventActivity, EventActivityParticipantBlock, ReferenceMaterial } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase, getEventActivities } from '../../../utils/supabaseClient';
@@ -36,6 +35,10 @@ async function checkServerAvailability(): Promise<boolean> {
 interface EventDetailsProps {
   event: Event | null;
   onEventUpdated?: () => void;
+  /** Opens the Edit Event dialog (owned by the Events page). */
+  onEdit?: (event: Event) => void;
+  /** Name of the event's cycle, for the meta grid. */
+  cycleName?: string;
 }
 
 // A fully-resolved activity ready for display: lesson names, objectives and
@@ -51,19 +54,6 @@ interface ActivityDisplay {
   participantBlocks: EventActivityParticipantBlock[];
   requiresAar: boolean;
 }
-
-// Shared small-caps section label used by every card in this pane
-const sectionLabelStyle: React.CSSProperties = {
-  fontSize: '12px',
-  fontWeight: 500,
-  color: 'var(--rr-text2)',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  display: 'flex',
-  alignItems: 'center',
-  gap: '6px',
-  marginBottom: '10px'
-};
 
 const dedupeRefs = (refs: ReferenceMaterial[]): ReferenceMaterial[] =>
   refs.filter((ref, i, self) => i === self.findIndex(r => r.url === ref.url));
@@ -88,15 +78,33 @@ interface ObjectiveRow {
   syllabus_mission_id: string;
 }
 
+/** Card used by every section of the details grid (pane-title header, optional count/action/footer). */
+const Section: React.FC<{ title: string; count?: number; action?: React.ReactNode; children: React.ReactNode; className?: string; footer?: React.ReactNode }> = ({ title, count, action, children, className = '', footer }) => (
+  <section className={`rounded-rr-lg border border-border bg-panel overflow-hidden flex flex-col ${className}`}>
+    <div className="flex items-center gap-2 px-[14px] min-h-[42px] border-b border-border">
+      <span className="rr-pane-title">{title}</span>
+      {count != null ? <span className="font-mono text-[11px] text-text3">{count}</span> : null}
+      <span className="flex-1" />
+      {action}
+    </div>
+    <div className="flex-1">{children}</div>
+    {footer ? <div className="px-[14px] py-[8px] text-[11px] text-text3 border-t border-border">{footer}</div> : null}
+  </section>
+);
+
+
 const EventDetails: React.FC<EventDetailsProps> = ({
   event,
-  onEventUpdated
+  onEventUpdated,
+  onEdit,
+  cycleName
 }) => {
   const [publishing, setPublishing] = useState(false);
   const [publishMessage, setPublishMessage] = useState<{type: 'success' | 'error', text: string} | null>(null);
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [imageFailed, setImageFailed] = useState(false); // hide the card when the URL doesn't load
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
@@ -117,6 +125,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   useEffect(() => {
     const eventObj = event as any; // Cast to access non-standard properties
 
+    setImageFailed(false);
     if (event?.imageUrl) {
       setImagePreview(event.imageUrl);
     } else if (eventObj?.image_url) {
@@ -655,12 +664,23 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     }
   };
 
-  // Discord icon component
-  const DiscordIcon = ({ size = 18, className = '' }) => (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" className={className}>
-      <path d="M20.317 4.492c-1.53-.69-3.17-1.2-4.885-1.49a.075.075 0 0 0-.079.036c-.21.369-.444.85-.608 1.23a18.566 18.566 0 0 0-5.487 0 12.36 12.36 0 0 0-.617-1.23A.077.077 0 0 0 8.562 3c-1.714.29-3.354.8-4.885 1.491a.07.07 0 0 0-.032.027C.533 9.093-.32 13.555.099 17.961a.08.08 0 0 0 .031.055 20.03 20.03 0 0 0 5.993 2.98.078.078 0 0 0 .084-.026 13.83 13.83 0 0 0 1.226-1.963.074.074 0 0 0-.041-.104 13.201 13.201 0 0 1-1.872-.878.075.075 0 0 1-.008-.125c.126-.093.252-.19.372-.287a.075.075 0 0 1 .078-.01c3.927 1.764 8.18 1.764 12.061 0a.075.075 0 0 1 .079.009c.12.098.246.195.373.288a.075.075 0 0 1-.006.125c-.598.344-1.22.635-1.873.877a.075.075 0 0 0-.041.105c.36.687.772 1.341 1.225 1.962a.077.077 0 0 0 .084.028 19.963 19.963 0 0 0 6.002-2.981.076.076 0 0 0 .032-.054c.5-5.094-.838-9.52-3.549-13.438a.06.06 0 0 0-.031-.028zM8.02 15.278c-1.182 0-2.157-1.069-2.157-2.38 0-1.312.956-2.38 2.157-2.38 1.201 0 2.176 1.068 2.157 2.38 0 1.311-.956 2.38-2.157 2.38zm7.975 0c-1.183 0-2.157-1.069-2.157-2.38 0-1.312.955-2.38 2.157-2.38 1.201 0 2.176 1.068 2.157 2.38 0 1.311-.956 2.38-2.157 2.38z"/>
-    </svg>
-  );
+  // Scheduled events: publish immediately, then remove the pending scheduled publication
+  const publishNow = async () => {
+    if (publishing || !event) return;
+    try {
+      await handlePublishToDiscord();
+      if (scheduledPublication) {
+        const { error: deleteError } = await supabase.from('scheduled_event_publications').delete().eq('event_id', event.id);
+        if (deleteError) console.error('Failed to delete scheduled publication:', deleteError);
+        else setScheduledPublication(null);
+      }
+    } catch (error) {
+      console.error('Failed to publish now:', error);
+    }
+  };
+
+  const formatScheduledTime = (isoString: string) =>
+    new Date(isoString).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
 
   // Handle manual reminder send - opens dialog
   const handleSendReminder = () => {
@@ -707,776 +727,282 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
   if (!event) {
     return (
-      <div
-        style={{
-          width: '100%',
-          height: '100%',
-          padding: '16px',
-          display: 'flex',
-          flexDirection: 'column',
-          position: 'relative',
-          overflowY: 'auto',
-          boxSizing: 'border-box'
-        }}
-      >
-        <div style={{ display: 'flex', height: '100%', alignItems: 'center', justifyContent: 'center', color: 'var(--rr-text2)' }}>
-          Select an event to view details
-        </div>
+      <div className="h-full flex items-center justify-center p-6">
+        <EmptyState icon="events" title="No event selected" message="Expand a cycle on the left and pick an event." />
       </div>
     );
   }
 
-  // Check which Discord ID field is actually populated
   const isPublished = Boolean(event.discordEventId) || Boolean(event.discord_event_id);
   const isScheduled = !isPublished && scheduledPublication !== null;
   const publishedChannelCount = Array.isArray(event.discord_event_id) ? event.discord_event_id.length : 0;
 
-  // Format scheduled publication time
-  const formatScheduledTime = (isoString: string) => {
-    const date = new Date(isoString);
-    return date.toLocaleString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const formatDatePart = (isoString: string) =>
-    new Date(isoString).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
-  const formatTimePart = (isoString: string) =>
-    new Date(isoString).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+  const fmtDateTime = (iso: string) => new Date(iso).toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' });
+  const fmtDate = (iso: string) => new Date(iso).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  const fmtTime = (iso: string) => new Date(iso).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
 
   const participatingSquadrons = (event.participants || [])
     .map(id => squadrons.find(s => s.id === id))
     .filter(Boolean) as Squadron[];
 
   const duration = formatDuration(event.datetime, event.endDatetime || undefined);
+  const settings = event.eventSettings;
 
-  const reminderSummary = (
-    enabled?: boolean,
-    time?: { value: number; unit: string }
-  ) => (enabled && time ? `${time.value} ${time.unit} before start` : 'Disabled');
+  // Activity kind -> tint (handoff: syllabus = info, qualification = accent, exercise = good)
+  const kindTone = (label: string) =>
+    label === 'Advanced Qualification' ? 'var(--rr-accent-text)' : label === 'Exercise' ? 'var(--rr-good)' : 'var(--rr-info)';
 
-  // One column of the Start / End / Duration strip
-  const scheduleStat = (label: string, primary: string, secondary?: string) => (
-    <div style={{ flex: 1, minWidth: 0 }}>
-      <div style={{
-        fontSize: '11px',
-        fontWeight: 500,
-        color: 'var(--rr-text3)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        marginBottom: '2px'
-      }}>{label}</div>
-      <div style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', lineHeight: 1.3 }}>{primary}</div>
-      {secondary && (
-        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: 1.3 }}>{secondary}</div>
-      )}
-    </div>
-  );
+  // Mission support roles: event-level requirements, else aggregated from the activities
+  const supportRoles: SupportRoleRequirement[] = (() => {
+    const own = (settings?.supportRoleRequirements || []) as SupportRoleRequirement[];
+    if (own.length) return own;
+    const merged = new Map<string, SupportRoleRequirement>();
+    activityDisplays.forEach(a => a.supportRoles.forEach(r => {
+      const key = (r as any).id || r.name;
+      const prev = merged.get(key);
+      merged.set(key, prev ? { ...prev, required: Math.max(prev.required, r.required) } : r);
+    }));
+    return [...merged.values()];
+  })();
 
-  const renderObjectives = (objectives: Array<{ id: string; text: string }>) => (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-      {objectives.map(objective => (
-        <div key={objective.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-          <Icon name="checkCircle" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }} />
-          <span style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: 1.5 }}>{objective.text}</span>
-        </div>
+  // Reference materials: event-level plus every activity's (deduped by URL)
+  const references = dedupeRefs([...(event.referenceMaterials || []), ...activityDisplays.flatMap(a => a.references)]);
+
+  const before = (t: { value: number; unit: string }) => `${t.value} ${t.value === 1 ? t.unit.replace(/s$/, '') : t.unit} before`;
+
+  const recipientChips = (r?: { accepted: boolean; tentative: boolean; declined: boolean; noResponse: boolean }) => {
+    if (!r) return [];
+    return [
+      r.accepted && { t: 'Accepted', c: 'var(--rr-good)' },
+      r.tentative && { t: 'Tentative', c: 'var(--rr-warn)' },
+      r.declined && { t: 'Declined', c: 'var(--rr-bad)' },
+      r.noResponse && { t: 'No response', c: 'var(--rr-text3)' },
+    ].filter(Boolean) as Array<{ t: string; c: string }>;
+  };
+
+  const notifications: Array<{ label: string; when: string; chips: Array<{ t: string; c: string }>; off?: boolean }> = [
+    {
+      label: 'Initial publication',
+      when: isPublished ? 'Sent' : isScheduled ? formatScheduledTime(scheduledPublication!.scheduled_time) : 'Not published',
+      chips: (settings?.initialNotificationRoles || []).map(r => ({ t: `@${r.name}`, c: 'var(--rr-purple)' })),
+    },
+    {
+      label: 'First reminder',
+      when: settings?.firstReminderEnabled && settings.firstReminderTime ? before(settings.firstReminderTime) : 'Off',
+      chips: settings?.firstReminderEnabled ? recipientChips(settings.firstReminderRecipients) : [],
+      off: !settings?.firstReminderEnabled,
+    },
+    {
+      label: 'Second reminder',
+      when: settings?.secondReminderEnabled && settings.secondReminderTime ? before(settings.secondReminderTime) : 'Off',
+      chips: settings?.secondReminderEnabled ? recipientChips(settings.secondReminderRecipients) : [],
+      off: !settings?.secondReminderEnabled,
+    },
+  ];
+
+  const creator = event.creator && (event.creator.callsign || event.creator.boardNumber)
+    ? `${event.creator.boardNumber ? `${event.creator.boardNumber} ` : ''}${event.creator.callsign || 'Unknown'}`
+    : event.creator ? 'Unknown user' : 'System';
+
+  const meta: Array<{ k: string; v: React.ReactNode; sub?: React.ReactNode; mono?: boolean }> = [
+    { k: 'Start', v: fmtDate(event.datetime), sub: fmtTime(event.datetime) },
+    ...(event.endDatetime ? [{ k: 'End', v: fmtDate(event.endDatetime), sub: fmtTime(event.endDatetime) }] : []),
+    ...(duration ? [{ k: 'Duration', v: duration, mono: true }] : []),
+    ...(settings?.timezone ? [{ k: 'Time zone', v: settings.timezone.replace(/_/g, ' '), sub: (getTimezoneDisplay(settings.timezone) || '').replace(settings.timezone, '').trim() || undefined }] : []),
+    { k: 'Cycle', v: cycleName || 'Standalone' },
+    { k: 'Created by', v: creator, sub: event.creator?.billet || undefined },
+  ];
+
+  const objectivesList = (objectives: Array<{ id: string; text: string }>) => (
+    <ul className="m-0 p-0 list-none flex flex-col gap-[3px]">
+      {objectives.map(o => (
+        <li key={o.id} className="flex items-start gap-[6px] text-[12.5px] leading-[1.45] text-text2">
+          <Icon name="checkCircle" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: 3 }} />
+          <span>{o.text}</span>
+        </li>
       ))}
-    </div>
+    </ul>
   );
 
   return (
-    <div
-      style={{
-        width: '100%',
-        height: '100%',
-        display: 'flex',
-        flexDirection: 'column',
-        position: 'relative',
-        boxSizing: 'border-box'
-      }}
-    >
-      {/* Scrollable content area */}
-      <div
-        style={{
-          flex: 1,
-          overflowY: 'auto',
-          padding: '0 16px 0 16px'
-        }}
-      >
-      {/* Title + creator */}
-      {/* The event title is shown in the Events page header; keep the creator line here */}
-      <div style={{ margin: '12px 0 10px' }}>
-        <div style={{ fontSize: '12.5px', color: 'var(--rr-text2)' }}>
-          Created by{' '}
-          <span style={{ fontWeight: 500, color: 'var(--rr-text2)' }}>
-            {event.creator && (event.creator.callsign || event.creator.boardNumber)
-              ? `${event.creator.boardNumber ? `${event.creator.boardNumber} ` : ''}${event.creator.callsign || 'Unknown'}`
-              : event.creator ? 'Unknown User' : 'System'}
+    <div className="h-full flex flex-col min-h-0">
+      {/* Status + actions bar */}
+      <div className="flex-none flex items-center gap-[10px] flex-wrap px-4 py-[10px] border-b border-border bg-panel2">
+        {isPublished ? (
+          <Chip tone="good" size="sm"><span className="inline-block w-[6px] h-[6px] rounded-full bg-good mr-[2px]" />Published to Discord{publishedChannelCount > 1 ? ` · ${publishedChannelCount}` : ''}</Chip>
+        ) : isScheduled ? (
+          <Chip tone="info" size="sm"><Icon name="clock" size={11} />Scheduled · {formatScheduledTime(scheduledPublication!.scheduled_time)}</Chip>
+        ) : (
+          <Chip tone="neutral" size="sm">Not published</Chip>
+        )}
+        {participatingSquadrons.length > 0 ? (
+          <span className="flex items-center gap-[6px] min-w-0 flex-wrap">
+            <span className="text-[11.5px] text-text3">to</span>
+            {participatingSquadrons.map(sq => (
+              <span key={sq.id} title={sq.name} className="inline-flex items-center gap-[5px] h-[22px] pl-[3px] pr-[8px] rounded-full bg-panel border border-border text-[11px] font-semibold text-text2">
+                {sq.insignia_url ? <img src={sq.insignia_url} alt="" className="w-4 h-4 object-contain" /> : null}
+                {sq.designation || sq.name}
+              </span>
+            ))}
           </span>
-          {event.creator?.billet && <span> · {event.creator.billet}</span>}
-        </div>
+        ) : null}
+        <span className="flex-1" />
+        {isPublished ? (
+          <Button size="sm" variant="secondary" icon="bell" onClick={handleSendReminder} loading={sendingReminder}>Send Reminder</Button>
+        ) : (
+          <Button size="sm" variant="secondary" icon="send" onClick={isScheduled ? publishNow : handlePublishToDiscord} loading={publishing}>
+            {isScheduled ? 'Publish Now' : 'Publish to Discord'}
+          </Button>
+        )}
+        {onEdit ? <Button size="sm" variant="secondary" icon="edit" onClick={() => onEdit(event)}>Edit Event</Button> : null}
       </div>
 
-      {/* Schedule: compact Start / End / Duration strip */}
-      <Card className="p-4" style={{ marginBottom: '10px' }}>
-        <div style={{ display: 'flex', gap: '12px' }}>
-          {scheduleStat('Start', formatDatePart(event.datetime), formatTimePart(event.datetime))}
-          {event.endDatetime && scheduleStat('End', formatDatePart(event.endDatetime), formatTimePart(event.endDatetime))}
-          {duration && scheduleStat('Duration', duration)}
+      {publishMessage ? (
+        <div className="flex-none px-4 pt-3">
+          <Toast tone={publishMessage.type === 'success' ? 'good' : 'bad'} onDismiss={() => setPublishMessage(null)}>{publishMessage.text}</Toast>
         </div>
-        {event.eventSettings?.timezone && (
-          <div style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '6px',
-            marginTop: '10px',
-            paddingTop: '10px',
-            borderTop: '1px solid var(--rr-border)',
-            fontSize: '12px',
-            color: 'var(--rr-text2)',
-            fontFamily: 'monospace'
-          }}>
-            <Icon name="clock" size={12} />
-            <span>{getTimezoneDisplay(event.eventSettings.timezone)}</span>
-          </div>
-        )}
-        {event.restrictedTo && event.restrictedTo.length > 0 && (
-          <div style={{ marginTop: '10px' }}>
-            <span style={{
-              fontSize: '12px',
-              fontWeight: 500,
-              color: 'var(--rr-warn)',
-              backgroundColor: 'rgba(222,154,31,.14)',
-              padding: '3px 8px',
-              borderRadius: '4px'
-            }}>
-              Restricted: {event.restrictedTo.join(', ')}
-            </span>
-          </div>
-        )}
-      </Card>
+      ) : null}
 
-      {/* Description */}
-      {event.description && (
-        <Card className="p-4" style={{ marginBottom: '10px' }}>
-          <div style={sectionLabelStyle}>
-            <Icon name="clipboard" size={14} />
-            Description
-          </div>
-          <div style={{
-            fontSize: '13px',
-            color: 'var(--rr-text)',
-            whiteSpace: 'pre-wrap',
-            lineHeight: '1.5'
-          }}>
-            {event.description}
-          </div>
-        </Card>
-      )}
-
-      {/* Activities: what's happening at this event, who each activity is for,
-          and its objectives / support roles / references */}
-      {activityDisplays.length > 0 && (
-        <Card className="p-4" style={{ marginBottom: '10px' }}>
-          <div style={sectionLabelStyle}>
-            <Icon name="layers" size={14} />
-            Activities
-            <span style={{ fontWeight: 400, color: 'var(--rr-text3)', textTransform: 'none', letterSpacing: 0 }}>
-              ({activityDisplays.length})
-            </span>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-            {activityDisplays.map((display, index) => (
-              <div
-                key={display.key}
-                style={{
-                  border: '1px solid var(--rr-border)',
-                  borderRadius: '8px',
-                  overflow: 'hidden'
-                }}
-              >
-                {/* Activity header: number, name, source context, kind chip */}
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px',
-                  padding: '8px 10px',
-                  backgroundColor: 'var(--rr-panel2)',
-                  borderBottom: '1px solid var(--rr-border)'
-                }}>
-                  <div style={{
-                    width: '20px',
-                    height: '20px',
-                    borderRadius: '50%',
-                    backgroundColor: '#64748B',
-                    color: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: '11px',
-                    fontWeight: 600,
-                    flexShrink: 0
-                  }}>
-                    {index + 1}
-                  </div>
-                  <div style={{ flex: 1, minWidth: 0 }}>
-                    <div style={{
-                      fontSize: '13px',
-                      fontWeight: 600,
-                      color: 'var(--rr-text)',
-                      lineHeight: 1.3,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap'
-                    }}>
-                      {display.name}
-                    </div>
-                    {display.context && (
-                      <div style={{
-                        fontSize: '11px',
-                        color: 'var(--rr-text2)',
-                        lineHeight: 1.3,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap'
-                      }}>
-                        {display.context}
-                      </div>
-                    )}
-                  </div>
-                  <span style={{
-                    fontSize: '10px',
-                    fontWeight: 600,
-                    color: 'var(--rr-text2)',
-                    backgroundColor: 'var(--rr-panel3)',
-                    padding: '2px 8px',
-                    borderRadius: '9999px',
-                    whiteSpace: 'nowrap',
-                    flexShrink: 0
-                  }}>
-                    {display.kindLabel}
-                  </span>
-                </div>
-
-                <div style={{ padding: '8px 10px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {/* Who this activity is for */}
-                  <ParticipantCriteriaBubbles blocks={display.participantBlocks} squadrons={squadrons} />
-
-                  {display.objectives.length > 0 && renderObjectives(display.objectives)}
-
-                  {display.supportRoles.length > 0 && (
-                    <div style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}>
-                      <Icon name="roster" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '2px' }} />
-                      <span style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: 1.5 }}>
-                        Support:{' '}
-                        {display.supportRoles
-                          .map(role => `${role.name}${role.required > 0 ? ` ×${role.required}` : ' (optional)'}`)
-                          .join(', ')}
-                      </span>
-                    </div>
-                  )}
-
-                  {display.references.length > 0 && (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-                      {display.references.map((ref, refIndex) => (
-                        <a
-                          key={`${ref.url}-${refIndex}`}
-                          href={ref.url}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            fontSize: '11px',
-                            fontWeight: 500,
-                            color: 'var(--rr-accent-text)',
-                            backgroundColor: 'var(--rr-accent-weak)',
-                            border: '1px solid var(--rr-accent)',
-                            borderRadius: '9999px',
-                            padding: '2px 8px',
-                            textDecoration: 'none',
-                            maxWidth: '220px'
-                          }}
-                        >
-                          <Icon name="link" size={10} style={{ flexShrink: 0 }} />
-                          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {ref.name || ref.url}
-                          </span>
-                        </a>
-                      ))}
-                    </div>
-                  )}
-
-                  {display.requiresAar && (
-                    <div>
-                      <span style={{
-                        fontSize: '10px',
-                        fontWeight: 600,
-                        color: 'var(--rr-warn)',
-                        backgroundColor: 'rgba(222,154,31,.14)',
-                        padding: '2px 8px',
-                        borderRadius: '9999px'
-                      }}>
-                        AAR required
-                      </span>
-                    </div>
-                  )}
-                </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="grid gap-[14px] content-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(360px, 100%), 1fr))' }}>
+          {/* Meta grid */}
+          <div className="col-span-full grid gap-x-5 gap-y-[14px] p-[14px] rounded-rr-lg border border-border bg-panel2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
+            {meta.map(m => (
+              <div key={m.k} className="min-w-0">
+                <div className="rr-label mb-[4px]">{m.k}</div>
+                <div className={`text-[13.5px] font-semibold text-text leading-[1.3] ${m.mono ? 'font-mono text-[12.5px]' : ''}`} style={{ overflowWrap: 'anywhere' }}>{m.v}</div>
+                {m.sub ? <div className="text-[12px] text-text2 leading-[1.3]">{m.sub}</div> : null}
               </div>
             ))}
-          </div>
-        </Card>
-      )}
-
-      {/* Legacy fallback: events without activity rows show the event-level
-          syllabus mission's objectives (pre-Activities behavior) */}
-      {activityDisplays.length === 0 && trainingObjectives.length > 0 && (
-        <Card className="p-4" style={{ marginBottom: '10px' }}>
-          <div style={sectionLabelStyle}>
-            <Icon name="checkCircle" size={14} />
-            Training Objectives (DLOs)
-          </div>
-          {renderObjectives(trainingObjectives.map(o => ({ id: o.id, text: o.objective_text })))}
-        </Card>
-      )}
-
-      {/* Discord & Reminders: publication status, publish targets, reminder plan */}
-      <Card className="p-4" style={{ marginBottom: '10px' }}>
-        <div style={sectionLabelStyle}>
-          <DiscordIcon size={14} className="text-indigo-500" />
-          Discord & Reminders
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-          {/* Publication status */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            {isScheduled ? (
-              <Icon name="clock" size={14} style={{ color: '#5865F2', flexShrink: 0 }} />
-            ) : (
-              <div style={{
-                width: '8px',
-                height: '8px',
-                borderRadius: '50%',
-                backgroundColor: isPublished ? 'var(--rr-good)' : 'var(--rr-panel3)',
-                flexShrink: 0
-              }} />
-            )}
-            <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)' }}>
-              {isScheduled
-                ? `Scheduled for publication on ${formatScheduledTime(scheduledPublication!.scheduled_time)}`
-                : isPublished
-                  ? `Published to Discord${publishedChannelCount > 1 ? ` (${publishedChannelCount} squadrons)` : ''}`
-                  : 'Not yet published'}
-            </span>
+            {event.restrictedTo && event.restrictedTo.length > 0 ? (
+              <div className="col-span-full"><Chip tone="warn" size="sm">Restricted: {event.restrictedTo.join(', ')}</Chip></div>
+            ) : null}
           </div>
 
-          {/* Publish targets (participating squadrons) */}
-          {participatingSquadrons.length > 0 && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Publishes to:</span>
-              {participatingSquadrons.map(squadron => (
-                <span
-                  key={squadron.id}
-                  title={squadron.name}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '4px',
-                    backgroundColor: 'var(--rr-panel2)',
-                    border: '1px solid var(--rr-border)',
-                    borderRadius: '9999px',
-                    padding: '2px 8px 2px 4px'
-                  }}
-                >
-                  {squadron.insignia_url && (
-                    <span style={{
-                      width: '18px',
-                      height: '18px',
-                      backgroundImage: `url(${squadron.insignia_url})`,
-                      backgroundSize: 'contain',
-                      backgroundRepeat: 'no-repeat',
-                      backgroundPosition: 'center',
-                      flexShrink: 0
-                    }} />
-                  )}
-                  <span style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-text2)' }}>
-                    {squadron.designation || squadron.name}
-                  </span>
-                </span>
+          {/* Briefing text + image */}
+          {event.description ? (
+            <Section title="Description" className={imagePreview && !imageFailed ? '' : 'col-span-full'}>
+              <div className="px-[14px] py-3 text-[13.5px] leading-[1.6] text-text whitespace-pre-wrap" style={{ maxWidth: '75ch' }}>{event.description}</div>
+            </Section>
+          ) : null}
+          {(imagePreview && !imageFailed) || imageLoading ? (
+            <Section title="Image">
+              <div className="p-3">
+                {imageLoading ? <div className="text-[12.5px] text-text2 py-4 text-center">Processing image…</div> : null}
+                {imageError ? <Toast tone="bad" onDismiss={() => setImageError(null)}>{imageError}</Toast> : null}
+                {imagePreview ? (
+                  <img src={imagePreview} alt="Event" onError={() => setImageFailed(true)} className="block w-full max-h-[320px] object-cover rounded-rr-md" />
+                ) : null}
+                <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
+              </div>
+            </Section>
+          ) : null}
+
+          {/* Activities at this event */}
+          {activityDisplays.length > 0 ? (
+            <Section title="Activities at this event" count={activityDisplays.length} className="col-span-full">
+              <div className="divide-y divide-border">
+                {activityDisplays.map(a => {
+                  const tone = kindTone(a.kindLabel);
+                  return (
+                    <div key={a.key} className="flex gap-3 px-[14px] py-3">
+                      <span className="flex-none w-[3px] self-stretch rounded-full" style={{ background: tone }} />
+                      <div className="flex-1 min-w-0 flex flex-col gap-[8px]">
+                        <div className="flex items-start gap-3">
+                          <div className="flex-1 min-w-0">
+                            <div className="text-[14px] font-semibold leading-[1.3]">{a.name}</div>
+                            {a.context ? <div className="text-[12px] text-text2 mt-[1px]">{a.context}</div> : null}
+                          </div>
+                          <span className="flex-none font-mono text-[10px] font-semibold tracking-[.06em] uppercase px-2 py-[2px] rounded-[5px] border" style={{ color: tone, borderColor: `color-mix(in srgb, ${tone} 55%, transparent)` }}>
+                            {a.kindLabel}
+                          </span>
+                          {a.requiresAar ? <Chip tone="warn" size="sm">AAR</Chip> : null}
+                        </div>
+                        <ParticipantCriteriaBubbles blocks={a.participantBlocks} squadrons={squadrons} />
+                        {a.objectives.length > 0 ? objectivesList(a.objectives) : null}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </Section>
+          ) : trainingObjectives.length > 0 ? (
+            <Section title="Training objectives" count={trainingObjectives.length} className="col-span-full">
+              <div className="px-[14px] py-3">{objectivesList(trainingObjectives.map(o => ({ id: o.id, text: o.objective_text })))}</div>
+            </Section>
+          ) : null}
+
+          {/* Mission support roles */}
+          {supportRoles.length > 0 ? (
+            <Section title="Mission Support Roles" count={supportRoles.length} footer="0 required = optional. Order matches the Discord post and attendance.">
+              <div className="divide-y divide-border">
+                {supportRoles.map((r, i) => (
+                  <div key={`${r.name}-${i}`} className="flex items-center gap-3 px-[14px] py-[9px]">
+                    <span className="w-4 font-mono text-[11px] text-text3">{i + 1}</span>
+                    <span className="flex-1 min-w-0 text-[13.5px] font-medium truncate">{r.name}</span>
+                    <span className={`font-mono text-[12px] font-semibold ${r.required > 0 ? 'text-text' : 'text-text3'}`}>{r.required > 0 ? `×${r.required}` : 'optional'}</span>
+                  </div>
+                ))}
+              </div>
+            </Section>
+          ) : null}
+
+          {/* Notifications */}
+          <Section
+            title="Notifications"
+            footer={scheduledReminders.length > 0 ? `Next reminder ${fmtDateTime(scheduledReminders[0].scheduled_time)}` : undefined}
+          >
+            <div className="divide-y divide-border">
+              {notifications.map(n => (
+                <div key={n.label} className="px-[14px] py-[10px]">
+                  <div className="flex items-baseline gap-2">
+                    <span className={`flex-1 text-[13.5px] font-semibold ${n.off ? 'text-text3' : 'text-text'}`}>{n.label}</span>
+                    <span className="font-mono text-[11.5px] text-text2">{n.when}</span>
+                  </div>
+                  {n.chips.length > 0 ? (
+                    <div className="flex flex-wrap gap-[5px] mt-[6px]">
+                      {n.chips.map(c => (
+                        <span key={c.t} className="inline-flex items-center gap-[5px] h-[20px] px-2 rounded-[5px] bg-panel2 border border-border2 text-[11px] text-text2">
+                          <span className="w-[6px] h-[6px] rounded-full" style={{ background: c.c }} />{c.t}
+                        </span>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
               ))}
             </div>
-          )}
+          </Section>
 
-          {/* Reminder plan */}
-          {event.eventSettings && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon name="bell" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
-                  First reminder · {reminderSummary(event.eventSettings.firstReminderEnabled, event.eventSettings.firstReminderTime)}
-                </span>
+          {/* Reference materials */}
+          {references.length > 0 ? (
+            <Section title="Reference Materials" count={references.length}>
+              <div className="divide-y divide-border">
+                {references.map((ref, i) => (
+                  <a key={`${ref.url}-${i}`} href={ref.url} target="_blank" rel="noopener noreferrer"
+                     className="flex items-center gap-[10px] px-[14px] py-[9px] no-underline hover:bg-panel2">
+                    <Icon name="link" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                    <span className="flex-1 min-w-0 text-[13.5px] font-medium text-accent truncate">{ref.name || ref.url}</span>
+                    <span className="flex-none font-mono text-[10.5px] text-text3 truncate max-w-[40%]">{(() => { try { return new URL(ref.url).hostname; } catch { return ''; } })()}</span>
+                  </a>
+                ))}
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                <Icon name="bell" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
-                  Second reminder · {reminderSummary(event.eventSettings.secondReminderEnabled, event.eventSettings.secondReminderTime)}
-                </span>
-              </div>
-            </div>
-          )}
+            </Section>
+          ) : null}
 
-          {/* Next scheduled reminder + manual send */}
-          {scheduledReminders.length > 0 && (
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '8px',
-              backgroundColor: 'var(--rr-panel2)',
-              border: '1px solid var(--rr-border)',
-              borderRadius: '6px',
-              padding: '6px 10px'
-            }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', minWidth: 0 }}>
-                <Icon name="clock" size={12} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
-                <span style={{ fontSize: '12px', color: 'var(--rr-text2)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  Next reminder: {new Date(scheduledReminders[0].scheduled_time).toLocaleString('en-US', {
-                    weekday: 'short',
-                    month: 'short',
-                    day: 'numeric',
-                    hour: 'numeric',
-                    minute: '2-digit',
-                    hour12: true
-                  })}
-                </span>
-              </div>
-              <button
-                onClick={handleSendReminder}
-                disabled={sendingReminder}
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '4px 10px',
-                  backgroundColor: 'var(--rr-accent)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  cursor: sendingReminder ? 'not-allowed' : 'pointer',
-                  opacity: sendingReminder ? 0.6 : 1,
-                  transition: 'all 0.2s ease',
-                  flexShrink: 0
-                }}
-                onMouseEnter={(e) => {
-                  if (!sendingReminder) {
-                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (!sendingReminder) {
-                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-                  }
-                }}
-              >
-                {sendingReminder ? (
-                  <>
-                    <div className="w-3 h-3 border-2 border-t-transparent rounded-full animate-spin"
-                         style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
-                    <span>Sending...</span>
-                  </>
-                ) : (
-                  <>
-                    <Icon name="bell" size={12} />
-                    <span>Send Now</span>
-                  </>
-                )}
-              </button>
-            </div>
-          )}
+          {/* Record */}
+          <div className="col-span-full flex gap-4 flex-wrap text-[11px] text-text3 px-1">
+            {(event as any).created_at ? <span>Created {fmtDateTime((event as any).created_at)}</span> : null}
+            {(event as any).updated_at ? <span>Updated {fmtDateTime((event as any).updated_at)}</span> : null}
+          </div>
         </div>
-      </Card>
-
-      {/* Event Image Section */}
-      {(imagePreview || imageLoading) && (
-        <Card className="p-4" style={{ marginBottom: '10px' }}>
-          {imageLoading && (
-            <div className="text-sm text-text2 flex items-center justify-center mb-3">
-              <div className="w-4 h-4 mr-2 border-2 border-t-transparent border-slate-500 rounded-full animate-spin" />
-              Processing image...
-            </div>
-          )}
-
-          {imageError && (
-            <div className="p-2 mb-3 bg-red-50 text-bad text-sm rounded-md">
-              {imageError}
-              <button
-                className="ml-2 text-bad hover:text-red-700"
-                onClick={() => setImageError(null)}
-              >
-                Dismiss
-              </button>
-            </div>
-          )}
-
-          {imagePreview && (
-            <div className="relative">
-              <div className="relative rounded-lg overflow-hidden bg-panel2" style={{
-                maxWidth: '100%',
-                maxHeight: '300px',
-                display: 'flex',
-                justifyContent: 'center',
-                alignItems: 'center',
-                padding: '10px'
-              }}>
-                <img
-                  src={imagePreview}
-                  alt="Event image"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '300px',
-                    width: 'auto',
-                    height: 'auto',
-                    objectFit: 'contain',
-                    borderRadius: '8px'
-                  }}
-                />
-
-              </div>
-            </div>
-          )}
-
-          {/* Hidden file input for image replacement */}
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleImageUpload}
-            accept="image/*"
-            className="hidden"
-          />
-        </Card>
-      )}
       </div>
 
-      {/* Fixed Publish to Discord Button Footer */}
-      <div
-        style={{
-          display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          alignItems: 'center',
-          borderTop: '1px solid var(--rr-border)',
-          padding: '12px',
-          backgroundColor: 'var(--rr-panel)',
-          borderRadius: '0 0 8px 8px',
-          position: 'relative',
-          zIndex: 5,
-          maxHeight: '103px'
-        }}
-      >
-        {/* Created and Updated timestamps */}
-        <div style={{
-          fontSize: '11px',
-          color: 'var(--rr-text3)',
-          display: 'flex',
-          gap: '16px',
-          flexWrap: 'wrap'
-        }}>
-          {(event as any).created_at && (
-            <span>
-              Created: {new Date((event as any).created_at).toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>
-          )}
-          {(event as any).updated_at && (
-            <span>
-              Updated: {new Date((event as any).updated_at).toLocaleString('en-US', {
-                year: 'numeric',
-                month: 'short',
-                day: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-              })}
-            </span>
-          )}
-        </div>
-
-        {publishMessage && (
-          <div
-            className={`p-3 mb-4 rounded-md ${publishMessage.type === 'success' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'}`}
-          >
-            {publishMessage.text}
-          </div>
-        )}
-
-{isScheduled ? (
-          <div style={{
-            display: 'flex',
-            width: '100%',
-            borderRadius: '8px',
-            overflow: 'hidden'
-          }}>
-            {/* Left side - Scheduled status */}
-            <div style={{
-              flex: 1,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 24px',
-              backgroundColor: '#5865F2',
-              color: 'white',
-              fontFamily: 'inherit',
-              fontSize: '14px',
-              fontWeight: 500,
-              justifyContent: 'center',
-              opacity: 0.7
-            }}>
-              <Icon name="clock" size={18} />
-              <span>Scheduled for Publication</span>
-            </div>
-
-            {/* Right side - Publish Now button */}
-            <button
-              onClick={async () => {
-                if (publishing || !event) return;
-
-                setPublishing(true);
-                try {
-                  // First, publish the event
-                  await handlePublishToDiscord();
-
-                  // Then delete the scheduled publication record
-                  if (scheduledPublication) {
-                    const { error: deleteError } = await supabase
-                      .from('scheduled_event_publications')
-                      .delete()
-                      .eq('event_id', event.id);
-
-                    if (deleteError) {
-                      console.error('Failed to delete scheduled publication:', deleteError);
-                    } else {
-                      setScheduledPublication(null);
-                    }
-                  }
-                } catch (error) {
-                  console.error('Failed to publish now:', error);
-                } finally {
-                  setPublishing(false);
-                }
-              }}
-              disabled={publishing}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '6px',
-                padding: '12px 16px',
-                backgroundColor: '#4C51BF',
-                color: 'white',
-                border: 'none',
-                borderLeft: '1px solid rgba(255, 255, 255, 0.2)',
-                cursor: publishing ? 'not-allowed' : 'pointer',
-                fontFamily: 'inherit',
-                fontSize: '13px',
-                fontWeight: 500,
-                whiteSpace: 'nowrap',
-                transition: 'background-color 0.2s ease'
-              }}
-              onMouseEnter={(e) => {
-                if (!publishing) {
-                  e.currentTarget.style.backgroundColor = '#4338CA';
-                }
-              }}
-              onMouseLeave={(e) => {
-                if (!publishing) {
-                  e.currentTarget.style.backgroundColor = '#4C51BF';
-                }
-              }}
-            >
-              {publishing ? (
-                <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-                     style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
-              ) : (
-                <>
-                  <Icon name="send" size={16} />
-                  <span>Publish Now</span>
-                </>
-              )}
-            </button>
-          </div>
-        ) : (
-          <button
-            onClick={handlePublishToDiscord}
-            disabled={publishing || isPublished}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '12px 24px',
-              backgroundColor: isPublished ? 'var(--rr-good)' : 'var(--rr-accent)',
-              color: 'white',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: isPublished ? 'not-allowed' : 'pointer',
-              transition: 'all 0.2s ease',
-              fontFamily: 'inherit',
-              fontSize: '14px',
-              fontWeight: 500,
-              width: '100%',
-              justifyContent: 'center',
-              opacity: isPublished ? 0.7 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!isPublished && !publishing) {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!isPublished && !publishing) {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }
-            }}
-          >
-            {publishing ? (
-              <>
-                <div className="w-4 h-4 border-2 border-t-transparent rounded-full animate-spin"
-                     style={{ borderColor: 'var(--rr-panel)', borderTopColor: 'transparent' }} />
-                <span>Publishing...</span>
-              </>
-            ) : isPublished ? (
-              <>
-                <Icon name="check" size={18} />
-                <span>Published to Discord</span>
-              </>
-            ) : (
-              <>
-                <Icon name="send" size={18} />
-                <span>Publish to Discord</span>
-              </>
-            )}
-          </button>
-        )}
-      </div>
-
-      {/* Send Reminder Dialog */}
-      {event && (
-        <SendReminderDialog
-          open={showReminderDialog}
-          onClose={() => setShowReminderDialog(false)}
-          event={{ id: event.id, name: event.title }}
-          onSend={handleConfirmSendReminder}
-        />
-      )}
+      <SendReminderDialog
+        open={showReminderDialog}
+        onClose={() => setShowReminderDialog(false)}
+        event={{ id: event.id, name: event.title }}
+        onSend={handleConfirmSendReminder}
+      />
     </div>
   );
 };
