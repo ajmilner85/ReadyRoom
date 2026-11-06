@@ -2038,10 +2038,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
       minWidth: width,
       flexShrink: 0,
       position: 'relative',
-      padding: '10px',
-      margin: '-10px',
-      paddingBottom: '20px',
-      height: '100%', // Added to ensure full height same as Available Pilots
+      height: '100%', // fills its slot exactly so it lines up with Available Pilots (no padding/negative-margin offset)
     }}>
       <Card 
         style={{
@@ -2050,7 +2047,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           boxShadow: 'var(--rr-shadow)',
           border: '1px solid var(--rr-border)',
           borderRadius: '10px',
-          padding: '24px',
+          padding: '16px',
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',

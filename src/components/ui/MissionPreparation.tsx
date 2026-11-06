@@ -593,7 +593,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
   usePagePresence(isConnected ? activeUsers.map(u => ({ id: u.user_id, name: u.user_name, active: !!u.editing_field })) : []);
 
   // Width the flight board wants: one 420px column per owning squadron (grouped by squadron id
-  // via callsign, same as FlightAssignments) + 10px gaps + 50px pane chrome. The board keeps this
+  // via callsign, same as FlightAssignments) + 10px gaps + 34px pane chrome. The board keeps this
   // as its flex basis so the pilot list only widens into genuinely spare space.
   const boardIdealWidth = React.useMemo(() => {
     const flights: any[] = (prepFlights as any[]) || [];
@@ -605,7 +605,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
       keys.add(owner?.id || 'other');
     });
     const cols = Math.max(1, keys.size);
-    return cols * 420 + (cols - 1) * 10 + 50;
+    return cols * 420 + (cols - 1) * 10 + 34;
   }, [prepFlights, squadrons]);
 
   return (
