@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Button, Dialog, Icon, TextInput, legibleColor } from '../primitives';
+import { Button, Dialog, Icon, IconButton, TextInput, legibleColor } from '../primitives';
 import { tagBase } from '../primitives/color';
 
 interface FlightEntry {
@@ -287,17 +287,8 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
                         );
                       })}
                       {pendingFor(row.callsign) > 0 ? (
-                        // Mirrors the "+" callsign buttons: same squadron tint, so the undo reads as an action
-                        <button
-                          type="button"
-                          aria-label={`Remove last ${row.callsign} flight`}
-                          title={`Remove last ${row.callsign} flight`}
-                          onClick={() => removeLastFlight(row.callsign)}
-                          className="h-6 w-6 rounded-[6px] flex items-center justify-center cursor-pointer transition-[filter,transform] duration-150 hover:brightness-125 active:scale-90"
-                          style={t}
-                        >
-                          <Icon name="minus" size={13} />
-                        </button>
+                        // Kit danger icon button: removing a queued flight is a destructive action
+                        <IconButton icon="minus" variant="danger" size={24} iconSize={13} label={`Remove last ${row.callsign} flight`} onClick={() => removeLastFlight(row.callsign)} />
                       ) : null}
                     </div>
                   );
