@@ -130,7 +130,7 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         isolation: 'isolate',
       }}
     >
-      {/* Position label above the tile; the lead gets an accent dot (or MC star) */}
+      {/* Position label above the tile; the lead (1-1) is bold/bright, the MC gets a star */}
       <div
         className="aircraft-tile-label font-mono"
         style={{
@@ -143,12 +143,12 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
-          color: isFlightLead || isMissionCommander ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-          fontWeight: isFlightLead ? 600 : 400,
+          color: isMissionCommander ? 'var(--rr-accent-text)' : isFlightLead ? 'var(--rr-text)' : 'var(--rr-text2)',
+          fontWeight: isFlightLead || isMissionCommander ? 700 : 400,
         }}
         title={isFlightLead ? `${flightCallsign} ${flightNumber}-${dashNumber}` : undefined}
       >
-        {isMissionCommander ? <span title="Mission Commander">★ </span> : isFlightLead ? '• ' : ''}
+        {isMissionCommander ? <span title="Mission Commander">★ </span> : null}
         {positionLabel}
       </div>
 
@@ -180,8 +180,16 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         onMouseLeave={(e) => { e.currentTarget.style.transform = 'none'; }}
       >
         {/* MIDS A (top-left) / MIDS B (top-right) */}
-        <div className="flex items-center justify-between font-mono text-[8px] leading-[10px] h-[10px] px-[1px] text-text3">
+        {/* Attendance indicator sits centred in this row so the callsign never shifts */}
+        <div className="relative flex items-center justify-between font-mono text-[8px] leading-[10px] h-[10px] px-[1px] text-text3">
           <span>{!isEmpty && !hideMidsBackground ? midsA : (isEmpty ? midsA : '')}</span>
+          {statusTitle ? (
+            <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 flex" title={statusTitle}>
+              {showAbsent ? <Icon name="close" size={10} stroke={3} style={{ color: 'var(--rr-bad)' }} /> : null}
+              {showTentative ? <Icon name="help" size={10} stroke={2.4} style={{ color: 'var(--rr-info)' }} /> : null}
+              {showNoResponse ? <Icon name="messageOff" size={10} stroke={2} style={{ color: 'var(--rr-text3)' }} /> : null}
+            </span>
+          ) : null}
           <span>{!isEmpty && !hideMidsBackground ? midsB : (isEmpty ? midsB : '')}</span>
         </div>
 
@@ -207,14 +215,11 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
           {isEmpty ? '' : boardNumber}
         </div>
 
-        {/* Callsign with attendance badge */}
+        {/* Callsign */}
         <div
-          className="flex items-center justify-center gap-[2px] text-center"
+          className="flex items-center justify-center text-center"
           style={{ fontSize: '10px', lineHeight: '15px', height: '15px', fontWeight: 600, color: 'var(--rr-text)' }}
         >
-          {!isEmpty && showAbsent ? <Icon name="close" size={10} stroke={3} style={{ color: 'var(--rr-bad)' }} /> : null}
-          {!isEmpty && showTentative ? <Icon name="help" size={10} stroke={2.4} style={{ color: 'var(--rr-info)' }} /> : null}
-          {!isEmpty && showNoResponse ? <Icon name="messageOff" size={10} stroke={2} style={{ color: 'var(--rr-text3)' }} /> : null}
           <span className="truncate" style={{ maxWidth: '100%' }}>{isEmpty ? '' : callsign}</span>
         </div>
 
