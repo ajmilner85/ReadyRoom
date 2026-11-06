@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { Button, EmptyState, Pane, ToolbarButton, ToolbarGroup } from '../primitives';
+import { Button, EmptyState, Pane, ToolbarButton, ToolbarGroup, legibleColor } from '../primitives';
 import { 
   isValidFrequency, 
   isValidTACAN, 
@@ -452,9 +452,13 @@ const Communications: React.FC<CommunicationsProps> = ({
     .sort((a: any, b: any) => (a.callsign === b.callsign ? parseInt(a.flightNumber) - parseInt(b.flightNumber) : String(a.callsign).localeCompare(String(b.callsign))))
     .map((f: any) => {
       const a1 = parseInt(f.midsA) || 0;
+      // Owning squadron = the one whose callsign list contains this flight's callsign (keyed by id, never tail code)
+      const cs = String(f.callsign || '').toUpperCase();
+      const owner = squadrons.find(sq => Array.isArray(sq.callsigns) && sq.callsigns.some(c => String(c).toUpperCase() === cs));
       return {
         id: f.id,
         name: `${f.callsign} ${f.flightNumber}`,
+        color: legibleColor(owner?.color_palette?.primary, 'var(--rr-text3)'),
         b: f.midsB,
         sections: [
           { label: `${f.flightNumber}-1 / ${f.flightNumber}-2`, a: f.midsA },
@@ -536,7 +540,7 @@ const Communications: React.FC<CommunicationsProps> = ({
               {midsRows.map(r => (
                 <div key={r.id} className="rounded-rr-lg bg-panel2 border border-border">
                   <div className="flex items-center gap-2 px-3 py-[7px] border-b border-border">
-                    <span className="w-[3px] h-[13px] rounded-[2px] bg-accent" />
+                    <span className="w-[3px] h-[13px] rounded-[2px]" style={{ background: r.color }} />
                     <span className="text-[12.5px] font-bold">{r.name}</span>
                     <span className="ml-auto font-mono text-[9.5px] tracking-[.1em] text-text3">MIDS B</span>
                     <span className="font-mono text-[15px] font-bold text-text">{r.b || '—'}</span>
