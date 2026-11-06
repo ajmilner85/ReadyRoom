@@ -161,10 +161,6 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
     onSave({ flights: allFlights });
   };
 
-  // Squadron for a callsign (matched by the squadron's callsign list; keyed by squadron id)
-  const squadronFor = (callsign: string) =>
-    participatingSquadrons.find(s => s.callsigns.some(c => c.toLowerCase() === callsign.toLowerCase()));
-
   // Tag tint for a squadron colour: tinted fill, coloured border, legible text (same recipe as QualTag)
   const tint = (raw?: string | null) => {
     const base = raw ? tagBase(raw) : 'var(--rr-text3)';
@@ -259,7 +255,7 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
         <div>
           <div className="flex items-baseline gap-2 mb-2">
             <span className="rr-label">Flights</span>
-            <span className="text-[11px] text-text3">existing outlined · new filled</span>
+            <span className="text-[11px] text-text3">existing dimmed · new highlighted</span>
           </div>
           <div className="rounded-rr-lg bg-panel2 border border-border p-3 min-h-[88px]">
             {flightRows.length === 0 ? (
@@ -267,8 +263,6 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
             ) : (
               <div className="flex flex-col gap-[6px]">
                 {flightRows.map((row) => {
-                  const color = squadronFor(row.callsign)?.color_palette?.primary;
-                  const t = tint(color);
                   return (
                     <div key={row.callsign} className="flex items-center gap-[6px] flex-wrap">
                       {row.flights.map((flight) => {
@@ -277,9 +271,10 @@ export const AddFlightDialog: React.FC<AddFlightDialogProps> = ({
                           <span
                             key={`${flight.callsign}-${flight.number}`}
                             className="inline-flex items-center h-6 px-[9px] rounded-[6px] font-mono text-[11px] font-semibold uppercase whitespace-nowrap"
+                            // Neutral pills (a red squadron tint would read as the danger style): existing dim, new bright
                             style={existing
-                              ? { border: t.border, color: t.color, background: 'transparent', opacity: 0.7 }
-                              : { ...t, background: `color-mix(in srgb, ${color ? tagBase(color) : 'var(--rr-text3)'} 30%, transparent)` }}
+                              ? { background: 'var(--rr-panel3)', border: '1px solid transparent', color: 'var(--rr-text3)' }
+                              : { background: 'var(--rr-panel3)', border: '1px solid var(--rr-border2)', color: 'var(--rr-text)' }}
                             title={existing ? 'Already on the board' : 'Will be added'}
                           >
                             {flight.callsign} {flight.number}
