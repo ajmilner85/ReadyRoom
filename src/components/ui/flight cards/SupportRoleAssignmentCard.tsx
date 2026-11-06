@@ -416,19 +416,8 @@ const DroppableAircraftTile = ({
         iconType="personnel"
         pilot={isEmpty ? undefined : pilot} // Pass the full pilot object for drag operations
         hideMidsBackground={true} // Hide MIDS backgrounds for Mission Support tiles
+        isDropTarget={isOver}
       />
-      {isOver && (
-        <div style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(37, 99, 235, 0.1)',
-          borderRadius: '8px',
-          pointerEvents: 'none'
-        }} />
-      )}
     </div>
   );
 };

@@ -24,6 +24,7 @@ interface AircraftTileProps {
   pilot?: any; // Add full pilot object for drag operations
   pilotSquadronColor?: string; // Pilot's squadron primary color
   hideMidsBackground?: boolean; // Hide MIDS channel white backgrounds (for Mission Support tiles)
+  isDropTarget?: boolean; // A dragged pilot is over this slot - highlight the tile only (not the label)
 }
 
 const AircraftTile: React.FC<AircraftTileProps> = ({
@@ -45,7 +46,8 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
   iconType = 'aircraft',
   pilot,
   pilotSquadronColor,
-  hideMidsBackground = false
+  hideMidsBackground = false,
+  isDropTarget = false
 }) => {
   // Track local drag state
   const [localDragging, setLocalDragging] = useState(false);
@@ -228,6 +230,17 @@ const AircraftTile: React.FC<AircraftTileProps> = ({
         >
           <span className="truncate" style={{ maxWidth: '100%' }}>{isEmpty ? '' : callsign}</span>
         </div>
+
+        {/* Drop-target highlight, confined to the tile itself */}
+        {isDropTarget ? (
+          <span
+            aria-hidden
+            style={{
+              position: 'absolute', inset: '-1.5px', borderRadius: '8px', pointerEvents: 'none',
+              background: 'var(--rr-accent-weak)', outline: '1.5px dashed var(--rr-accent)', outlineOffset: '-1.5px',
+            }}
+          />
+        ) : null}
 
         {/* Lead (1-1) / section lead (1-3) bar */}
         {(isFlightLead || isWingPair) && !isEmpty ? (
