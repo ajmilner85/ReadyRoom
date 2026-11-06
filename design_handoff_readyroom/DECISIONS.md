@@ -27,3 +27,8 @@ Record small design calls made during implementation so they can be folded back 
 | 2026-11-05 | Home | Next Event shows the user's existing Discord RSVP (read-only) — RSVP buttons need a backend endpoint that doesn't exist yet. Pending Tasks currently lists unanswered RSVPs (published events in the next 14 days) and qualifications expiring within 30 days; PTR-to-grade and AAR-due tasks need workflow rules not encoded in data yet. Last Mission prefers the latest debrief with a recorded outcome. | No |
 | 2026-11-05 | Coordination | Strips follow D02.1. Fuel colours use the design thresholds (good ≥ 5.0, warn 4.0–4.9, bad < 4.0) instead of the old 5.0/3.0 split; the bingo (< 3.0) pulse remains on the low-state chip. Division label column is 78px (64px wrapped COMMENCE/PLATFORM mid-word). The Inactive drawer stays a full-width bottom drawer rather than living inside the Launch column. Case I/II/III is a compact selector in the Recovery header. | No |
 | 2026-11-05 | Badges | PilotIDBadgeSm (used in 9 places) restyled in place: insignia + mono board #, fixed 72px width; tail code no longer rendered. | No |
+
+## Page width (2026-11-05, user feedback)
+- Reading-heavy pages share `.rr-page` (tokens.css): centred, max 1440px. Applied to Home and Mission Prep › Mission Details. Board/table pages (Flight Assignments, Roster, Coordination) stay full width.
+- Mission Details panes size to their content (scroll inside only when taller than the window) instead of stretching to the bottom.
+- Home Polls / Change Log fill the remaining window height (min 480px) instead of a fixed 560px / 70vh.
