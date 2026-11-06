@@ -169,7 +169,7 @@ const Settings: React.FC = () => {
   );
 
   return (
-    <div data-m="row" className="flex-1 min-h-0 flex gap-[14px] p-[14px]">
+    <div data-m="row" className="rr-page flex-1 min-h-0 flex gap-[14px] p-[14px]">
       {error ? (
         <div className="fixed top-16 right-5 z-[1000] max-w-[420px]">
           <Toast tone="bad" onDismiss={() => setError(null)}>{error}</Toast>

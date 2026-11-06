@@ -1967,7 +1967,7 @@ const EventsManagement: React.FC = () => {
       {loading.initial ? (
         <StandardPageLoader message="Loading events data..." />
       ) : (
-        <div data-m="row" className="flex-1 min-h-0 flex gap-[14px] p-[14px]">
+        <div data-m="row" className="rr-page flex-1 min-h-0 flex gap-[14px] p-[14px]">
           {/* ---- Left pane: cycles, then the selected cycle's events ---- */}
           <div className="flex-none w-[340px] min-h-0 flex flex-col gap-[14px]">
             <Pane title="Cycles" className="flex-[0_1_42%] min-h-[200px]" flush scroll={false} bodyClassName="flex flex-col min-h-0">

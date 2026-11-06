@@ -2,12 +2,11 @@
 
 export const debriefingStyles = {
   container: {
-    backgroundColor: 'var(--rr-panel2)',
     height: '100%',
     display: 'flex',
     flexDirection: 'column' as const,
     alignItems: 'center',
-    padding: '20px 20px 20px 20px',
+    padding: '14px',
     boxSizing: 'border-box' as const,
     overflowY: 'hidden' as const
   },
@@ -18,11 +17,12 @@ export const debriefingStyles = {
     position: 'relative' as const,
     zIndex: 1,
     margin: '0 auto',
-    width: '100%'
+    width: '100%',
+    maxWidth: '1440px', // shared page width (.rr-page)
   },
   columnsContainer: {
     display: 'flex',
-    gap: '20px',
+    gap: '14px',
     flex: 1,
     height: '100%',
     overflow: 'visible'
@@ -31,7 +31,8 @@ export const debriefingStyles = {
 
 export const missionListStyles = {
   container: {
-    width: '663px',
+    width: '600px', // fits the two-column filter panel
+    flex: 'none',
     backgroundColor: 'var(--rr-panel)',
     boxShadow: 'var(--rr-shadow)',
     borderRadius: '8px',
@@ -104,7 +105,8 @@ export const missionListStyles = {
 
 export const missionDetailsStyles = {
   container: {
-    width: '1326px', // baseWidth * 2
+    flex: 1,
+    minWidth: 0,
     backgroundColor: 'var(--rr-panel)',
     boxShadow: 'var(--rr-shadow)',
     borderRadius: '8px',

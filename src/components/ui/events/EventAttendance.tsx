@@ -694,7 +694,7 @@ const EventAttendance: React.FC<EventAttendanceProps> = ({ event }) => {
                   fontSize: '12px',
                   color: 'var(--rr-text2)',
                   backgroundColor: 'var(--rr-panel)',
-                  fontFamily: "'Inter', sans-serif"
+                  fontFamily: 'inherit'
                 }}
               >
                 <option value="">Auto</option>

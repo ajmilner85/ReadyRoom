@@ -189,12 +189,12 @@ const GridLayout: React.FC<GridLayoutProps> = ({ flights = [], onUpdateMemberFue
   return (
     <div className="flex-1 min-h-0 flex flex-col w-full">
       {/* 4-column strip board; columns swipe on mobile (scroll-snap) */}
-      <div data-m="board" className="flex-1 min-h-0 flex gap-[10px] p-[10px] overflow-x-auto">
+      <div data-m="board" className="flex-1 min-h-0 flex gap-[10px] p-[10px] overflow-x-auto" style={{ justifyContent: 'safe center' }}>
         {sections.map((section, index) => (
           <div
             key={section.title}
             ref={(el: HTMLDivElement | null) => { sectionRefs.current[index] = el }}
-            className="flex-1 min-w-[320px] flex flex-col min-h-0 relative bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden"
+            className="flex-1 min-w-[320px] max-w-[540px] flex flex-col min-h-0 relative bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden"
           >
             {/* Column header (Recovery carries the compact Case I/II/III toggle) */}
             <div className="flex-none flex items-center gap-2 px-3 h-[42px] border-b border-border">

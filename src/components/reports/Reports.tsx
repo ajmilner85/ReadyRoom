@@ -50,7 +50,7 @@ const Reports: React.FC = () => {
         </div>
       ) : null}
       <div className="flex-1 min-h-0 p-[14px] flex flex-col">
-        <div className="flex-1 min-h-0 bg-panel border border-border rounded-rr-xl shadow-rr overflow-auto p-4">
+        <div className="rr-page flex-initial min-h-0 bg-panel border border-border rounded-rr-xl shadow-rr overflow-auto p-4">
           {activeReport === 'cycle-attendance'
             ? <CycleAttendanceReport error={error} setError={setError} />
             : <DiscordRoleVerificationReport error={error} setError={setError} />}

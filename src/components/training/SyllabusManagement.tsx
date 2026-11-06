@@ -137,7 +137,7 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
   // Otherwise, show the syllabus list
   return (
     <div style={{ padding: '40px 32px', height: '100%', overflow: 'auto' }}>
-      <div style={{ maxWidth: '800px' }}>
+      <div>
         {/* Header */}
         <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div>
