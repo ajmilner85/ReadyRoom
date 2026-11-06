@@ -6,6 +6,8 @@ import FlightPostOptionsDialog from '../dialogs/FlightPostOptionsDialog';
 import type { AssignedPilot } from '../../../types/MissionPrepTypes';
 import type { Mission } from '../../../types/MissionTypes';
 import { Button, EmptyState, Icon } from '../primitives';
+import ConfirmationDialog from '../dialogs/ConfirmationDialog';
+import { buildTransferFlights } from '../../../utils/transferToMission';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import type { Squadron } from '../../../types/OrganizationTypes';
 import { authFetch } from '../../../utils/authFetch';
@@ -124,6 +126,8 @@ interface FlightAssignmentsProps {
   squadrons?: Squadron[];
   participatingSquadrons?: any[];
   isLoading?: boolean;
+  /** Send the assigned flights to Mission Coordination as flight strips. */
+  onTransferToMission?: (flights: any[]) => void;
 }
 
 const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
@@ -139,7 +143,8 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   selectedEvent: selectedEventProp,
   squadrons = [],
   participatingSquadrons = [],
-  isLoading = false
+  isLoading = false,
+  onTransferToMission,
 }) => {
   // Debug logging for assignedPilots data
   // React.useEffect(() => {
@@ -157,6 +162,18 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
   const [existingPosts, setExistingPosts] = useState<any[]>([]);
   const [showPublicationSettings, setShowPublicationSettings] = useState(false);
   const [isPublished, setIsPublished] = useState(false);
+  const [showTransferConfirm, setShowTransferConfirm] = useState(false);
+
+  // Transfer to Mission: convert assignments to Coordination strips (replaces existing cards there)
+  const doTransferToMission = () => {
+    if (!onTransferToMission) return;
+    onTransferToMission(buildTransferFlights(flights, assignedPilots, squadrons as any[], extractedFlights as any[]));
+    setShowTransferConfirm(false);
+  };
+  const handleTransferToMission = () => {
+    if (!onTransferToMission) return;
+    if (flights.length > 0) setShowTransferConfirm(true); else doTransferToMission();
+  };
 
   // Track the last initialFlights reference to detect actual changes
   const lastInitialFlightsRef = useRef<Flight[]>(initialFlights);
@@ -2142,10 +2159,15 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
             <Icon name="trash" size={16} />
             Remove All
           </button>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '0 1 auto', minWidth: 0 }}>
+          {onTransferToMission ? (
+            <Button variant="secondary" icon="send" onClick={handleTransferToMission} disabled={flights.length === 0}>Transfer to Mission</Button>
+          ) : null}
           {/* Split Publish Button */}
           <div style={{
             display: 'flex',
-            flex: '0 0 30%',
+            flex: '0 0 auto',
+            minWidth: '180px',
             borderRadius: '8px',
             border: isPublished ? 'none' : '1px solid var(--rr-border2)',
             overflow: 'hidden'
@@ -2225,6 +2247,7 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               <Icon name="settings" size={16} style={{ color: isPublished ? '#FFFFFF' : 'var(--rr-text2)' }} />
             </button>
           </div>
+          </div>
         </div>
       </Card>
 
@@ -2243,6 +2266,17 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
           />
         </>
       )}
+
+      <ConfirmationDialog
+        isOpen={showTransferConfirm}
+        onConfirm={doTransferToMission}
+        onCancel={() => setShowTransferConfirm(false)}
+        title="Transfer to Mission"
+        message="This replaces all existing flight cards on the Mission Coordination page. Continue?"
+        confirmText="Transfer"
+        type="warning"
+        icon="warning"
+      />
 
       {/* Remove All Confirmation Dialog */}
       {showRemoveAllDialog && (

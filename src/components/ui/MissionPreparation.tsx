@@ -698,6 +698,7 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
                   squadrons={squadrons}
                   participatingSquadrons={participatingSquadrons}
                   isLoading={isLoading}
+                  onTransferToMission={onTransferToMission}
                 />
               </div>
               <div className="min-w-0 min-h-0 flex-col max-[760px]:h-[80dvh]" style={{ display: activeTab === 'support' ? 'flex' : 'none', flex: `1 1 ${boardIdealWidth}px` }}>
@@ -719,7 +720,6 @@ const MissionPreparation: React.FC<MissionPreparationProps> = ({
               <Communications
                 width="100%"
                 assignedPilots={assignedPilots}
-                onTransferToMission={onTransferToMission}
                 flights={prepFlights}
                 extractedFlights={extractedFlights}
                 squadrons={squadrons as any}

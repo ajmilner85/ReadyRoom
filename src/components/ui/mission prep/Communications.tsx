@@ -12,7 +12,6 @@ import {
   generateInitialCommsData,
   normalizeCommsEntries
 } from '../../../types/CommsTypes';
-import { Flight, FlightMember } from '../../../types/FlightData';
 import { resolveNewMissionCommsPlan } from '../../../utils/commsTemplateService';
 import { usePermissions } from '../../../hooks/usePermissions';
 import CopyCommsPopover from './CopyCommsPopover';
@@ -21,7 +20,6 @@ import SaveCommsTemplatePopover from './SaveCommsTemplatePopover';
 interface CommunicationsProps {
   width: string;
   assignedPilots?: Record<string, any> | null;
-  onTransferToMission?: (flights: Flight[]) => void;
   flights?: any[];
   extractedFlights?: Array<{
     name: string;
@@ -45,10 +43,7 @@ interface CommunicationsProps {
 
 const Communications: React.FC<CommunicationsProps> = ({
   width,
-  assignedPilots = {},
-  onTransferToMission,
   flights = [],
-  extractedFlights = [],
   squadrons = [],
   updateMissionSettings,
   mission
@@ -67,7 +62,6 @@ const Communications: React.FC<CommunicationsProps> = ({
   const [isEditing, setIsEditing] = useState(false);
   const [editedData, setEditedData] = useState<CommsPlanEntry[]>([]);
   const [hoveredRow, setHoveredRow] = useState<number | null>(null);
-  const [showConfirmDialog, setShowConfirmDialog] = useState(false);
   const [openPopover, setOpenPopover] = useState<'copy' | 'save' | null>(null);
   const copyButtonRef = useRef<HTMLButtonElement>(null);
   const saveTemplateButtonRef = useRef<HTMLButtonElement>(null);
@@ -197,162 +191,6 @@ const Communications: React.FC<CommunicationsProps> = ({
         setEditedData(newData);
       }
     }
-  };
-
-  // Function to calculate total fuel including external tanks
-  const calculateTotalFuel = (unit: any) => {
-    let totalFuel = unit.fuel || 4900; // Default to standard F/A-18C internal fuel if not specified
-
-    try {
-      if (unit.payload?.pylons) {
-        // Handle both array and object pylon structures
-        const pylonValues = Array.isArray(unit.payload.pylons) 
-          ? unit.payload.pylons
-          : Object.values(unit.payload.pylons);
-
-        pylonValues.forEach((pylon: { CLSID: string }) => {
-          if (!pylon || typeof pylon !== 'object') return;
-          
-          const clsid = pylon.CLSID;
-          if (!clsid) return;
-
-          // Only count FPU-8A tanks for F/A-18C
-          if (clsid === '{FPU_8A_FUEL_TANK}' && unit.type === 'FA-18C_hornet') {
-            totalFuel += 2200;
-          }
-        });
-      }
-    } catch (error) {
-      console.error('Error calculating fuel:', error);
-    }
-
-    return totalFuel;
-  };
-
-  // Parse a group name into callsign and flight number
-  const parseGroupName = (name: string): { callsign: string; flightNumber: string } => {
-    // Split on last space to handle callsigns with spaces
-    const lastSpaceIndex = name.lastIndexOf(' ');
-    if (lastSpaceIndex === -1) {
-      return { callsign: name, flightNumber: "1" };
-    }
-    
-    const callsign = name.substring(0, lastSpaceIndex);
-    const flightNumber = name.substring(lastSpaceIndex + 1);
-    
-    // Validate that flight number is actually a number
-    if (!/^\d+$/.test(flightNumber)) {
-      return { callsign: name, flightNumber: "1" };
-    }
-    
-    return { callsign, flightNumber };
-  };
-
-  const handleTransferToMission = () => {
-    if (onTransferToMission && flights.length > 0) {
-      // If there are already flights in the mission execution page, show confirmation dialog
-      setShowConfirmDialog(true);
-    } else {
-      // Otherwise, transfer flights immediately
-      transferFlights();
-    }
-  };
-
-  const transferFlights = () => {
-    if (!onTransferToMission) return;
-    
-    // Convert flight assignments to Flight objects
-    const transferFlights: Flight[] = flights.map(flight => {
-      const assigned = assignedPilots?.[flight.id] || [];
-      
-      // Find which squadron owns this callsign
-      const owningSquadron = squadrons.find(sq => 
-        sq.callsigns && Array.isArray(sq.callsigns) && 
-        sq.callsigns.some((cs: string) => cs.toUpperCase() === flight.callsign.toUpperCase())
-      );
-      
-      // Find matching extracted flight directly from extractedFlights by callsign and flight number
-      const matchingExtractedFlight = extractedFlights.find(ef => {
-        const { callsign, flightNumber } = parseGroupName(ef.name);
-        return callsign.toUpperCase() === flight.callsign && 
-               flightNumber === flight.flightNumber;
-      });
-      
-      // Create a FlightMember for each assigned pilot
-      const members = flight.pilots.map((pilot: any) => {
-        const assignedPilot = assigned.find((p: any) => p.dashNumber === pilot.dashNumber);
-        
-        // Default fuel value - will use this if we can't find a match
-        let fuelValue = 5.0;
-        
-        // Try to get fuel directly from matching extracted flight
-        if (matchingExtractedFlight && matchingExtractedFlight.units) {
-          // Get the dash number (1-based) and convert to 0-based index
-          const dashPosition = parseInt(pilot.dashNumber) - 1;
-          
-          // Check if we have that unit position in the extracted flight
-          if (dashPosition >= 0 && dashPosition < matchingExtractedFlight.units.length) {
-            const unit = matchingExtractedFlight.units[dashPosition];
-            
-            // Use our calculateTotalFuel function to get the proper total fuel value including external tanks
-            if (unit) {
-              // Calculate total fuel in pounds including external tanks
-              const totalFuelPounds = calculateTotalFuel(unit);
-              
-              // Convert from pounds to 1000s of pounds (divide by 1000)
-              fuelValue = totalFuelPounds / 1000;
-            }
-          }
-        }
-        
-        return {
-          dashNumber: pilot.dashNumber,
-          boardNumber: assignedPilot?.boardNumber || "",
-          fuel: fuelValue,
-          pilotCallsign: assignedPilot?.callsign || ""
-        };
-      }).filter((member: any) => member.boardNumber !== ""); // Only include members with assigned board numbers
-      
-      // Only include flights that have at least one assigned pilot
-      if (members.length === 0) return null;
-      
-      // Calculate the low state as the minimum fuel among all members
-      const lowState = Math.min(...members.map((m: FlightMember) => m.fuel));
-      
-      // Determine aircraft type from squadron's airframe (preferred) or DCS mission data (fallback)
-      let aircraftType: string | undefined;
-      
-      // First priority: Use squadron's airframe if available
-      if (owningSquadron && (owningSquadron as any).airframe) {
-        aircraftType = (owningSquadron as any).airframe.designation;
-      } 
-      // Fallback: Extract from DCS mission file
-      else if (matchingExtractedFlight && matchingExtractedFlight.units && matchingExtractedFlight.units.length > 0) {
-        aircraftType = matchingExtractedFlight.units[0].type;
-      }
-      
-      const flightData = {
-        id: `transferred-${flight.id}-${Date.now()}`,
-        flightNumber: flight.flightNumber,
-        callsign: flight.callsign,
-        members,
-        lowState, // Use calculated low state instead of hardcoded value
-        currentSection: "", // Empty string for unassigned flights - will be set to Launch in App.tsx
-        currentDivision: 0, // Will be updated based on stepTime in App.tsx
-        formation: members.length > 1 ? "group" : "single",
-        squadronId: owningSquadron?.id,
-        squadronColorPalette: owningSquadron?.color_palette ? {
-          primary: owningSquadron.color_palette.primary,
-          accent: owningSquadron.color_palette.accent
-        } : undefined,
-        aircraftType,
-        stepTime: flight.stepTime ?? 0 // Transfer step time from flight assignments
-      };
-
-      return flightData;
-    }).filter(Boolean) as Flight[];
-      onTransferToMission(transferFlights);
-    setShowConfirmDialog(false);
   };
 
   // ---- Channel table: CH 1–20 in the centre, PRI preset fields to the left, AUX to the right.
@@ -537,9 +375,7 @@ const Communications: React.FC<CommunicationsProps> = ({
         }
       >
         <div className="min-w-[760px]">{renderCommsPlanTable()}</div>
-        <div className="px-3 py-2 text-[11px] text-text2 border-t border-border">
-          KY = cypher number (green); unencrypted shows —. Channels are assigned to PRI or AUX in Settings › Mission Preparation templates.
-        </div>
+        
       </Pane>
 
       <div className="flex-none w-[360px] flex flex-col gap-[14px] min-h-0 max-h-full">
@@ -573,96 +409,9 @@ const Communications: React.FC<CommunicationsProps> = ({
           )}
         </Pane>
 
-        <Pane title="Export" className="flex-none" scroll={false}>
-          <div className="flex flex-col gap-2">
-            <Button variant="secondary" icon="fileDown" block>Export Kneeboards</Button>
-            <Button variant="primary" icon="send" block onClick={handleTransferToMission}>Transfer to Mission</Button>
-          </div>
-        </Pane>
+        
       </div>
 
-      {/* Confirmation Dialog */}
-      {showConfirmDialog && (
-        <>
-          {/* Semi-transparent overlay */}
-          <div style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            zIndex: 1000,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center'
-          }} onClick={() => setShowConfirmDialog(false)} />
-          
-          {/* Dialog */}
-          <div style={{
-            position: 'fixed',
-            top: '50%',
-            left: '50%',
-            transform: 'translate(-50%, -50%)',
-            backgroundColor: 'var(--rr-panel)',
-            padding: '24px',
-            borderRadius: '10px',
-            boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-            width: '400px',
-            zIndex: 1001
-          }}>
-            <h3 style={{
-              fontSize: '18px',
-              fontWeight: 600,
-              marginBottom: '16px',
-              textAlign: 'center'
-            }}>
-              Replace Mission Cards
-            </h3>
-            <p style={{
-              fontSize: '14px',
-              marginBottom: '24px',
-              textAlign: 'center'
-            }}>
-              This will replace all existing cards in the Mission Execution page. Are you sure you want to continue?
-            </p>
-            <div style={{
-              display: 'flex',
-              justifyContent: 'space-between'
-            }}>
-              <button
-                onClick={() => setShowConfirmDialog(false)}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-panel2)',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={transferFlights}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: '#F24607',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontWeight: 500,
-                  color: 'white'
-                }}
-              >
-                Confirm
-              </button>
-            </div>
-          </div>
-        </>
-      )}
     </div>
   );
 };
