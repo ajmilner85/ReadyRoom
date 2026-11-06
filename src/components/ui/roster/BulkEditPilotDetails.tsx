@@ -551,6 +551,7 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
                   updatingSquadron={false}
                   handleSquadronChange={handleSquadronChange}
                   placeholder="Change Squadron..."
+                  showUnassignOption
                 />
               </div>
             </div>
