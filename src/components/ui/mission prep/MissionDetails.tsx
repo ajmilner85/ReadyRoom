@@ -1002,7 +1002,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   );
 
   return (
-    <div data-m="row" className="flex-1 min-h-0 min-w-0 flex gap-[14px]" data-width={width}>
+    <div data-m="row" className="rr-page flex-1 min-h-0 min-w-0 flex items-start gap-[14px]" data-width={width}>
       {/* Hidden file input */}
       <input
         type="file"
@@ -1015,7 +1015,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       {/* Mission Brief */}
       <Pane
         title="Mission Brief"
-        className="flex-1 min-w-[320px]"
+        className="flex-1 min-w-[320px] max-h-full"
         actions={
           <>
             <Button size="sm" variant="secondary" icon="upload" onClick={handleDropZoneClick} disabled={isProcessingFile}>
@@ -1061,7 +1061,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
 
           <div className="h-px bg-border" />
 
-          <div className="grid gap-x-4 gap-y-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(170px, 1fr))' }}>
+          <div className="grid gap-x-4 gap-y-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))' }}>
             {renderDetailRow('Task Unit', 'taskUnit')}
             {renderDetailRow('Mother', 'mother')}
             {renderDetailRow('Mission Date/Time', 'missionDateTime', 'datetime-local')}
@@ -1080,8 +1080,8 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
       </Pane>
 
       {/* Conditions & Command */}
-      <div className="flex-1 min-w-[300px] flex flex-col gap-[14px] min-h-0">
-        <Pane title="Conditions & Command" className="flex-1" actions={isEditing ? editActions : undefined}>
+      <div className="flex-1 min-w-[300px] flex flex-col gap-[14px] min-h-0 max-h-full">
+        <Pane title="Conditions & Command" className="flex-initial" actions={isEditing ? editActions : undefined}>
           <div className="flex flex-col gap-[14px]">
             {renderDetailRow('Weather · Brief', 'weather', 'textarea', undefined, { mono: true, block: true })}
             {renderDetailRow('Bullseye', 'bullseyeLatLon', 'text', undefined, { mono: true, block: true })}

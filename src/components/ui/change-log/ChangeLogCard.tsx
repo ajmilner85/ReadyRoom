@@ -30,8 +30,8 @@ const ChangeLogCard: React.FC<ChangeLogCardProps> = () => {
     backgroundColor: 'var(--rr-panel)',
     borderRadius: '10px',
     border: '1px solid var(--rr-border)',
-    height: '560px',
-    maxHeight: '70vh',
+    // Fill what's left of the window below the summary cards, never shorter than 480px
+    height: 'max(480px, calc(100dvh - 470px))',
     display: 'flex',
     flexDirection: 'column',
     boxShadow: 'var(--rr-shadow)',

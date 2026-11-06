@@ -112,7 +112,7 @@ const Home: React.FC = () => {
 
   return (
     <div className="flex-1 min-h-0 overflow-y-auto p-[14px]">
-      <div className="max-w-[1120px] mx-auto flex flex-col gap-[14px]">
+      <div className="rr-page flex flex-col gap-[14px]">
         <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
           {/* Next Event */}
           <Card className="md:col-span-1" >
