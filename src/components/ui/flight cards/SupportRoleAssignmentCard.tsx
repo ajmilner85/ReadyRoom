@@ -262,7 +262,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               transform: 'translateX(-50%) translateY(-50%) rotate(-90deg)',
               fontSize: '16px',
               fontWeight: 600,
-              color: '#1E1E1E',
+              color: 'var(--rr-text)',
               letterSpacing: '0.5px',
               whiteSpace: 'nowrap'
             }}>
