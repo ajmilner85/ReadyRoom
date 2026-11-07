@@ -414,38 +414,6 @@ async function processIndividualReminder(reminder) {
     console.log(`[REMINDER-${reminder.id}] Filtered to ${attendanceData.length} active pilots (from ${originalCount} total)`);
   }
 
-  // DEBUGGING: Inject 744 Nubs as a test member for VX-14 Testing Squadron
-  // This allows testing reminder notifications without spamming real squadron members
-  // This runs on ALL instances (dev and production) since VX-14 is explicitly a testing squadron
-  const TESTING_SQUADRON_ID = 'fd56a33c-5b26-46f5-9332-7acf83f45e77';
-  const TEST_PILOT_DISCORD_ID = '118942689508065280';
-  const TEST_PILOT_CALLSIGN = '744 Nubs';
-
-  // Check if event includes testing squadron
-  const isTestingEvent = eventData.participants &&
-    Array.isArray(eventData.participants) &&
-    eventData.participants.includes(TESTING_SQUADRON_ID);
-
-  if (isTestingEvent) {
-    console.log(`[REMINDER-DEBUG] 🧪 VX-14 Testing Squadron event detected, injecting test pilot ${TEST_PILOT_CALLSIGN}`);
-
-    // Check if test pilot is already in attendanceData (from actual responses)
-    const hasTestPilot = attendanceData.some(a => a.discord_id === TEST_PILOT_DISCORD_ID);
-
-    if (!hasTestPilot) {
-      // Inject test pilot with appropriate response status
-      // Default to 'no_response' so they get included in both first and second reminders
-      attendanceData.push({
-        discord_id: TEST_PILOT_DISCORD_ID,
-        discord_username: TEST_PILOT_CALLSIGN,
-        user_response: 'no_response'
-      });
-      console.log(`[REMINDER-DEBUG] 🧪 Injected test pilot ${TEST_PILOT_CALLSIGN} into reminder recipients`);
-    } else {
-      console.log(`[REMINDER-DEBUG] 🧪 Test pilot already has a response, using actual response data`);
-    }
-  }
-
   if (!attendanceData || attendanceData.length === 0) {
     console.log(`No eligible recipients for reminder ${reminder.id}, marking as sent`);
     await markReminderAsSent(reminder.id);
