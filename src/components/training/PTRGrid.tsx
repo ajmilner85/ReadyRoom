@@ -1042,7 +1042,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     top: 0,
                     zIndex: 10,
                   }}>
-                    <Icon name="training" size={16} style={{ color: 'var(--rr-text2)' }} />
+                    <Icon name="training" size={16} style={{ color: 'var(--rr-text2)', display: 'block', margin: '0 auto' }} />
                   </th>
                 )}
                 {/* Post-graduation squadron column header */}
@@ -1050,7 +1050,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                   title="Squadron assigned at graduation"
                   style={{
                     padding: '12px 12px 2px',
-                    textAlign: 'left',
+                    textAlign: 'center',
                     fontSize: '12px',
                     fontWeight: 500,
                     color: 'var(--rr-text2)',
@@ -1324,7 +1324,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                   <td
                     style={{
                       padding: '6px 12px',
-                      textAlign: 'left',
+                      textAlign: 'center',
                       borderBottom: '1px solid var(--rr-border)',
                       whiteSpace: 'nowrap',
                       backgroundColor: hoveredRow === row.student.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
@@ -1333,7 +1333,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     title={row.student.graduated_to ? `Graduated to ${row.student.graduated_to.designation} ${row.student.graduated_to.name}` : undefined}
                   >
                     {row.student.enrollment_status === 'graduated' && row.student.graduated_to ? (
-                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                      <span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                         {row.student.graduated_to.insignia_url ? (
                           <img src={row.student.graduated_to.insignia_url} alt={row.student.graduated_to.designation} style={{ width: '30px', height: '30px', objectFit: 'contain', display: 'block' }} />
                         ) : (
