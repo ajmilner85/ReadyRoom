@@ -31,8 +31,9 @@ export const debriefingStyles = {
 
 export const missionListStyles = {
   container: {
-    width: '600px', // fits the two-column filter panel
+    width: '440px', // compact toolbar filters + single-line mission rows
     flex: 'none',
+    border: '1px solid var(--rr-border)',
     backgroundColor: 'var(--rr-panel)',
     boxShadow: 'var(--rr-shadow)',
     borderRadius: '8px',
@@ -46,8 +47,7 @@ export const missionListStyles = {
   content: {
     flex: 1,
     overflowY: 'auto' as const,
-    padding: '2px 10px 0 10px',
-    paddingRight: '20px',
+    padding: 0,
   },
   missionRow: (isSelected: boolean, isHovered: boolean) => ({
     display: 'flex',

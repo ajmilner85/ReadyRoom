@@ -161,8 +161,8 @@ const ChangeLogPost: React.FC<ChangeLogPostProps> = ({
         <MarkdownRenderer 
           content={post.content} 
           primaryColor={primaryColor}
-          headingColor="#1F2937"
-          textColor="#6B7280"
+          headingColor="var(--rr-text)"
+          textColor="var(--rr-text2)"
         />
       </div>
 

@@ -44,6 +44,13 @@ interface MissionListProps {
   setFiltersEnabled: (enabled: boolean) => void;
 }
 
+const OUTCOME_TONE: Record<string, { fg: string; bg: string }> = {
+  pending: { fg: 'var(--rr-text2)', bg: 'var(--rr-panel3)' },
+  success: { fg: 'var(--rr-good)', bg: 'color-mix(in srgb, var(--rr-good) 15%, transparent)' },
+  partial_success: { fg: 'var(--rr-warn)', bg: 'color-mix(in srgb, var(--rr-warn) 15%, transparent)' },
+  failure: { fg: 'var(--rr-bad)', bg: 'color-mix(in srgb, var(--rr-bad) 15%, transparent)' },
+};
+
 const MissionList: React.FC<MissionListProps> = ({
   missions,
   allMissions,
@@ -133,6 +140,7 @@ const MissionList: React.FC<MissionListProps> = ({
         setStartDate={setStartDate}
         setEndDate={setEndDate}
         setFiltersEnabled={setFiltersEnabled}
+        shownCount={loading ? undefined : filteredMissions.length}
       />
 
       {/* Mission List */}
@@ -144,42 +152,47 @@ const MissionList: React.FC<MissionListProps> = ({
           </div>
         ) : filteredMissions.length === 0 ? (
           <div style={missionListStyles.emptyList}>
-            No missions found
+            No missions match these filters
           </div>
         ) : (
           filteredMissions.map((mission) => {
             const isSelected = selectedMission?.id === mission.id;
-            const isHovered = hoveredMission === mission.id;
-            // Get mission outcome from debriefing, default to 'pending'
+            // Outcome from the debriefing; no debriefing yet = pending
             const debriefing = Array.isArray(mission.mission_debriefings)
               ? mission.mission_debriefings[0]
               : mission.mission_debriefings;
             const missionOutcome = debriefing?.mission_outcome || 'pending';
+            const tone = OUTCOME_TONE[missionOutcome] || OUTCOME_TONE.pending;
+            // Mission names are generated as "<event name> Mission"; the suffix is noise in this list
+            const displayName = mission.name.replace(/\s+Mission$/i, '');
 
             return (
               <div
                 key={mission.id}
-                style={missionListStyles.missionRow(isSelected, isHovered)}
+                role="button"
+                tabIndex={0}
+                title={mission.name}
                 onClick={() => onSelectMission(mission)}
+                onKeyDown={(e) => { if (e.key === 'Enter') onSelectMission(mission); }}
                 onMouseEnter={() => setHoveredMission(mission.id)}
                 onMouseLeave={() => setHoveredMission(null)}
+                className={`flex items-center gap-[10px] pl-[14px] pr-[12px] py-[9px] cursor-pointer border-b border-border transition-colors ${isSelected ? 'bg-accent-weak' : hoveredMission === mission.id ? 'bg-panel2' : ''}`}
+                style={isSelected ? { boxShadow: 'inset 3px 0 0 var(--rr-accent)' } : undefined}
               >
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '4px' }}>
-                  <span style={missionListStyles.missionName}>
-                    {mission.name}
-                  </span>
-                  <span style={missionListStyles.outcomeBadge(missionOutcome)}>
-                    {missionOutcome === 'partial_success' ? 'PARTIAL SUCCESS' : missionOutcome.toUpperCase()}
-                  </span>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-[13.5px] leading-[1.3] truncate ${isSelected ? 'font-semibold text-text' : 'font-medium text-text'}`}>{displayName}</div>
+                  <div className="font-mono text-[11px] text-text3 mt-[2px]">
+                    {new Date(mission.scheduled_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}
+                    {' · '}
+                    {new Date(mission.scheduled_time).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                  </div>
                 </div>
-                <span style={missionListStyles.missionTime}>
-                  {new Date(mission.scheduled_time).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric',
-                    hour: '2-digit',
-                    minute: '2-digit'
-                  })}
+                <span
+                  className="flex-none inline-flex items-center gap-[5px] h-[20px] px-[7px] rounded-[5px] font-mono text-[10px] font-semibold tracking-[.05em] uppercase"
+                  style={{ color: tone.fg, background: tone.bg }}
+                >
+                  <span className="w-[6px] h-[6px] rounded-full" style={{ background: tone.fg }} />
+                  {missionOutcome === 'partial_success' ? 'Partial' : missionOutcome}
                 </span>
               </div>
             );

@@ -147,3 +147,7 @@ svg.lucide { stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
    two comfortable columns, narrow enough that text lines and sparse panes don't sprawl on
    1440p/4K. Centred; full width below the cap. */
 .rr-page { width: 100%; max-width: 1440px; margin-inline: auto; }
+
+/* Six stat tiles: 3+3 in narrow cards, one row of six when there's room */
+.rr-stat-grid-6 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+@container (min-width: 640px) { .rr-stat-grid-6 { grid-template-columns: repeat(6, minmax(0, 1fr)); } }

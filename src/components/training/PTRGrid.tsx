@@ -1096,7 +1096,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         opacity: row.student.is_active === false ? 0.5 : 1
                       }}
                     >
-                      <div style={{ marginLeft: '-20px' }}>
+                      <div style={{ flexShrink: 0 }}>
                         <PilotIDBadgeSm
                           squadronTailCode={row.student.squadron?.tail_code}
                           boardNumber={row.student.board_number}

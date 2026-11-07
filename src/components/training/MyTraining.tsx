@@ -2,7 +2,7 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
-import { Icon } from '../ui/primitives';
+import { EmptyState, Field, Icon, ProgressBar, Select } from '../ui/primitives';
 import type { TrainingProgressSummary, TrainingRoadmapMission } from '../../types/TrainingTypes';
 
 
@@ -208,150 +208,127 @@ const MyTraining: React.FC = () => {
     );
   }
 
+  // Unnumbered lessons (e.g. an introduction) lead the roadmap, then by mission number
+  const orderedMissions = [...roadmapMissions].sort((a, b) => {
+    const an = a.missionNumber ?? -Infinity;
+    const bn = b.missionNumber ?? -Infinity;
+    return an === bn ? 0 : an < bn ? -1 : 1;
+  });
+  const STATUS = {
+    completed: { label: 'Complete', fg: 'var(--rr-good)', bg: 'color-mix(in srgb, var(--rr-good) 15%, transparent)' },
+    in_progress: { label: 'In progress', fg: 'var(--rr-warn)', bg: 'color-mix(in srgb, var(--rr-warn) 15%, transparent)' },
+    not_started: { label: 'Not started', fg: 'var(--rr-text2)', bg: 'var(--rr-panel3)' },
+  } as const;
+  const doneCount = orderedMissions.filter(m => m.status === 'completed').length;
+
   return (
-    <div style={{ minHeight: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', boxSizing: 'border-box', padding: '14px', overflow: 'visible' }}>
-      <div className="rr-page" style={{ display: 'flex', gap: '14px', justifyContent: 'center', alignItems: 'flex-start', position: 'relative', zIndex: 1, boxSizing: 'border-box', overflow: 'visible' }}>
+    <div className="min-h-full box-border p-[14px] flex flex-col items-center">
+      <div className="rr-page flex gap-[14px] items-start max-[900px]:flex-col">
 
-        {/* Progress Summary Card */}
-        <div style={{ flex: '1 1 0', minWidth: '350px', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)', borderRadius: '10px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 600, fontSize: '12px', letterSpacing: '.14em', lineHeight: '16px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
-                PROGRESS SUMMARY
-              </span>
-            </div>
-            <div style={{ padding: '24px', flex: 1 }}>
-              {syllabi.length > 0 && (
-                <div style={{ marginBottom: '24px' }}>
-                  <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                    Training Syllabus
-                  </label>
-                  <select
-                    value={selectedSyllabusId || ''}
-                    onChange={(e) => setSelectedSyllabusId(e.target.value)}
-                    style={{
-                      padding: '8px 12px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '6px',
-                      fontSize: '14px',
-                      width: '100%'
-                    }}
-                  >
-                    {syllabi.map(syllabus => (
-                      <option key={syllabus.id} value={syllabus.id}>
-                        {syllabus.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {progressSummary && (
-                <div>
-                  <div style={{ marginBottom: '24px', padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '48px', fontWeight: 700, color: 'var(--rr-accent-text)', marginBottom: '8px', textAlign: 'center' }}>
-                      {Math.round(progressSummary.percentComplete)}%
-                    </div>
-                    <div style={{ fontSize: '14px', color: 'var(--rr-text2)', textAlign: 'center' }}>
-                      {progressSummary.completedObjectives} of {progressSummary.totalObjectives} objectives completed
-                    </div>
-                  </div>
-
-                  <div style={{ padding: '20px', backgroundColor: 'var(--rr-panel2)', borderRadius: '8px' }}>
-                    <div style={{ fontSize: '36px', fontWeight: 700, color: 'var(--rr-good)', marginBottom: '8px', textAlign: 'center' }}>
-                      {Math.round(progressSummary.percentSatisfactory)}%
-                    </div>
-                    <div style={{ fontSize: '14px', color: 'var(--rr-text2)', textAlign: 'center' }}>
-                      Satisfactory Rate
-                    </div>
-                    <div style={{ fontSize: '13px', color: 'var(--rr-text3)', textAlign: 'center', marginTop: '4px' }}>
-                      {progressSummary.satisfactoryObjectives} SAT, {progressSummary.unsatisfactoryObjectives} UNSAT
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {syllabi.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--rr-text2)', padding: '40px 20px' }}>
-                  <Icon name="bookOpen" size={48} style={{ margin: '0 auto 16px', color: 'var(--rr-text3)' }} />
-                  <p>No training syllabi available</p>
-                </div>
-              )}
-            </div>
+        {/* Progress */}
+        <section className="flex-none w-[360px] max-[900px]:w-full rounded-rr-xl border border-border bg-panel shadow-rr overflow-hidden">
+          <div className="flex items-center px-[16px] min-h-[46px] border-b border-border">
+            <span className="rr-pane-title">Progress</span>
           </div>
-        </div>
+          <div className="p-[16px] flex flex-col gap-[14px]">
+            {syllabi.length > 0 ? (
+              <Field label="Training syllabus">
+                <Select
+                  value={selectedSyllabusId || ''}
+                  onChange={(v) => setSelectedSyllabusId(v)}
+                  options={syllabi.map(s => ({ value: s.id, label: s.name }))}
+                />
+              </Field>
+            ) : (
+              <EmptyState icon="bookOpen" title="No training syllabi" message="You aren't enrolled in a syllabus yet." />
+            )}
 
-        {/* Training Roadmap Card */}
-        <div style={{ flex: '1 1 0', minWidth: '350px', boxSizing: 'border-box', overflowY: 'visible' }}>
-          <div style={{ backgroundColor: 'var(--rr-panel)', boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)', borderRadius: '10px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ padding: '16px 24px 8px' }}>
-              <span style={{ fontFamily: 'inherit', fontStyle: 'normal', fontWeight: 600, fontSize: '12px', letterSpacing: '.14em', lineHeight: '16px', color: 'var(--rr-text2)', textTransform: 'uppercase', display: 'block', textAlign: 'center' }}>
-                TRAINING ROADMAP
-              </span>
-            </div>
-            <div style={{ padding: '16px', flex: 1, overflowY: 'auto' }}>
-              {roadmapMissions.map((mission) => (
-                <div
-                  key={mission.missionId}
-                  style={{
-                    padding: '16px',
-                    backgroundColor: 'var(--rr-panel2)',
-                    border: '1px solid var(--rr-border)',
-                    borderRadius: '8px',
-                    marginBottom: '12px',
-                    borderLeft: `4px solid ${
-                      mission.status === 'completed' ? 'var(--rr-good)' :
-                      mission.status === 'in_progress' ? 'var(--rr-warn)' :
-                      'var(--rr-border2)'
-                    }`
-                  }}
-                >
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '8px' }}>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px' }}>
-                        {mission.missionNumber}: {mission.missionName}
-                      </div>
-                      {mission.description && (
-                        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '8px' }}>
-                          {mission.description}
+            {syllabi.length > 0 && progressSummary ? (
+              <>
+                <div className="rounded-rr-lg bg-panel2 border border-border p-[14px]">
+                  <div className="flex items-baseline gap-[8px] mb-[8px]">
+                    <span className="font-mono text-[30px] font-semibold leading-none" style={{ color: "var(--rr-accent-text)" }}>{Math.round(progressSummary.percentComplete)}%</span>
+                    <span className="text-[12px] text-text2">complete</span>
+                  </div>
+                  <ProgressBar value={progressSummary.completedObjectives} max={progressSummary.totalObjectives || 1} showValue={false} />
+                  <div className="mt-[8px] text-[12px] text-text2">
+                    {progressSummary.totalObjectives > 0
+                      ? `${progressSummary.completedObjectives} of ${progressSummary.totalObjectives} objectives graded`
+                      : 'This syllabus has no graded objectives yet.'}
+                  </div>
+                </div>
+                <div className="grid grid-cols-3 gap-[8px]">
+                  {[
+                    { k: 'SAT rate', v: progressSummary.completedObjectives ? `${Math.round(progressSummary.percentSatisfactory)}%` : '—', c: 'var(--rr-good)' },
+                    { k: 'SAT', v: String(progressSummary.satisfactoryObjectives), c: 'var(--rr-text)' },
+                    { k: 'UNSAT', v: String(progressSummary.unsatisfactoryObjectives), c: progressSummary.unsatisfactoryObjectives ? 'var(--rr-bad)' : 'var(--rr-text)' },
+                  ].map(t => (
+                    <div key={t.k} className="rounded-rr-md bg-panel2 border border-border px-[10px] py-[9px]">
+                      <div className="font-mono text-[17px] font-semibold leading-[1.2]" style={{ color: t.c }}>{t.v}</div>
+                      <div className="rr-label mt-[3px]">{t.k}</div>
+                    </div>
+                  ))}
+                </div>
+                <div className="text-[12px] text-text2">
+                  <span className="font-semibold text-text">{doneCount}</span> of {orderedMissions.length} lessons complete
+                </div>
+              </>
+            ) : null}
+          </div>
+        </section>
+
+        {/* Roadmap */}
+        <section className="flex-1 min-w-0 max-[900px]:w-full rounded-rr-xl border border-border bg-panel shadow-rr overflow-hidden">
+          <div className="flex items-center gap-2 px-[16px] min-h-[46px] border-b border-border">
+            <span className="rr-pane-title">Roadmap</span>
+            <span className="font-mono text-[11px] text-text3">{orderedMissions.length}</span>
+          </div>
+          {orderedMissions.length === 0 ? (
+            <div className="p-[16px]"><EmptyState compact icon="training" title="No lessons in this syllabus" /></div>
+          ) : (
+            <ol className="m-0 list-none p-[16px] flex flex-col">
+              {orderedMissions.map((mission, i) => {
+                const st = STATUS[mission.status];
+                const last = i === orderedMissions.length - 1;
+                return (
+                  <li key={mission.missionId} className="relative flex gap-[14px]">
+                    {/* Marker + connector */}
+                    <div className="flex-none flex flex-col items-center">
+                      <span
+                        className="w-[30px] h-[30px] rounded-full flex items-center justify-center font-mono text-[12px] font-semibold border-2"
+                        style={mission.status === 'completed'
+                          ? { background: 'var(--rr-good)', borderColor: 'var(--rr-good)', color: '#fff' }
+                          : mission.status === 'in_progress'
+                            ? { background: 'var(--rr-panel)', borderColor: 'var(--rr-warn)', color: 'var(--rr-warn)' }
+                            : { background: 'var(--rr-panel2)', borderColor: 'var(--rr-border2)', color: 'var(--rr-text2)' }}
+                      >
+                        {mission.status === 'completed' ? <Icon name="check" size={14} /> : (mission.missionNumber ?? '•')}
+                      </span>
+                      {!last ? <span className="flex-1 w-[2px] my-[4px] rounded-full" style={{ background: mission.status === 'completed' ? 'var(--rr-good)' : 'var(--rr-border)' }} /> : null}
+                    </div>
+                    <div className={`flex-1 min-w-0 ${last ? '' : 'pb-[16px]'}`}>
+                      <div className="flex items-start gap-[10px]">
+                        <div className="flex-1 min-w-0 pt-[4px]">
+                          <div className="text-[14px] font-semibold text-text leading-[1.3]">{mission.missionName}</div>
+                          {mission.description ? <div className="text-[12.5px] text-text2 leading-[1.45] mt-[3px]">{mission.description}</div> : null}
                         </div>
-                      )}
-                      <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
-                        {mission.completedObjectives} of {mission.totalObjectives} objectives
+                        <span className="flex-none mt-[4px] inline-flex items-center h-[22px] px-[8px] rounded-[5px] text-[11px] font-semibold" style={{ color: st.fg, background: st.bg }}>{st.label}</span>
                       </div>
+                      {mission.totalObjectives > 0 ? (
+                        <div className="mt-[8px] flex items-center gap-[10px] max-w-[420px]">
+                          <ProgressBar className="flex-1" value={mission.completedObjectives} max={mission.totalObjectives} showValue={false} height={5} color={mission.status === 'completed' ? 'var(--rr-good)' : 'var(--rr-accent)'} />
+                          <span className="font-mono text-[11px] text-text3 whitespace-nowrap">{mission.completedObjectives}/{mission.totalObjectives} objectives</span>
+                        </div>
+                      ) : (
+                        <div className="mt-[6px] text-[11.5px] text-text3">No graded objectives</div>
+                      )}
                     </div>
-                    <div style={{
-                      padding: '4px 8px',
-                      borderRadius: '4px',
-                      fontSize: '11px',
-                      fontWeight: 600,
-                      backgroundColor:
-                        mission.status === 'completed' ? 'rgba(64,168,91,.14)' :
-                        mission.status === 'in_progress' ? 'rgba(222,154,31,.16)' :
-                        'var(--rr-panel3)',
-                      color:
-                        mission.status === 'completed' ? 'var(--rr-good)' :
-                        mission.status === 'in_progress' ? 'var(--rr-warn)' :
-                        'var(--rr-text2)'
-                    }}>
-                      {mission.status === 'completed' ? 'Complete' :
-                       mission.status === 'in_progress' ? 'In Progress' :
-                       'Not Started'}
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {roadmapMissions.length === 0 && (
-                <div style={{ textAlign: 'center', color: 'var(--rr-text2)', padding: '40px 20px' }}>
-                  No missions in this syllabus
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
 
       </div>
     </div>

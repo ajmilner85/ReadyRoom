@@ -17,7 +17,7 @@ interface DossierScopeCardProps {
 const selectWrapperStyle: React.CSSProperties = {
   position: 'relative',
   flex: 1,
-  minWidth: '200px',
+  minWidth: '170px',
   maxWidth: '360px'
 };
 
@@ -46,7 +46,7 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
 }) => {
   return (
     <div style={{ ...dossierStyles.card, flexShrink: 0 }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '16px 24px' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px 12px', padding: '14px 18px', flexWrap: 'wrap' }}>
         <span style={{
           fontFamily: 'inherit',
           fontStyle: 'normal',

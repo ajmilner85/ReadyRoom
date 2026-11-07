@@ -127,7 +127,7 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
   const eventColors = useMemo(() => buildEventColors(squadronPalette), [squadronPalette]);
 
   return (
-    <div style={{ ...dossierStyles.card, width: '420px', flexShrink: 0, height: '100%' }}>
+    <div style={{ ...dossierStyles.card, flex: '0 1 380px', minWidth: '300px', height: '100%' }}>
       <div style={{ ...dossierStyles.cardHeader, position: 'relative' }}>
         <span style={dossierStyles.cardHeaderText}>Timeline</span>
         {canEdit && (

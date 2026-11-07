@@ -13,8 +13,8 @@ export const TONE: Record<Tone, { bg: string; fg: string }> = {
   warn: { bg: 'rgba(222,154,31,.16)', fg: 'var(--rr-warn)' },
   bad: { bg: 'rgba(224,82,78,.16)', fg: 'var(--rr-bad)' },
   info: { bg: 'rgba(62,155,212,.16)', fg: 'var(--rr-info)' },
-  accent: { bg: 'var(--rr-accent-weak)', fg: 'var(--rr-accent)' },
-  purple: { bg: 'rgba(139,92,246,.16)', fg: '#8B5CF6' },
+  accent: { bg: 'var(--rr-accent-weak)', fg: 'var(--rr-accent-text)' },
+  purple: { bg: 'rgba(139,92,246,.16)', fg: 'var(--rr-purple)' },
   neutral: { bg: 'var(--rr-panel3)', fg: 'var(--rr-text2)' },
   muted: { bg: 'var(--rr-panel3)', fg: 'var(--rr-text3)' },
 };
