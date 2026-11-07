@@ -10,7 +10,7 @@ import { AddSupportRoleDialogData } from '../../../types/DialogTypes';
 import { fetchCarriers } from '../../../utils/supabaseClient';
 import { SupportRole, ensureSupportRolesInAssignedPilots } from '../../../utils/supportRoleUtils';
 import type { Mission, SupportRoleAssignment } from '../../../types/MissionTypes';
-import { Icon } from '../primitives';
+import { Button, EmptyState, Icon } from '../primitives';
 
 // Interface for fetched carrier data
 interface CarrierData {
@@ -884,7 +884,7 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           boxShadow: 'var(--rr-shadow)',
           border: '1px solid var(--rr-border)',
           borderRadius: '10px',
-          padding: '24px',
+          padding: '16px', // same as Flight Assignments so the header/footer don't shift between tabs
           display: 'flex',
           flexDirection: 'column',
           position: 'relative',
@@ -894,30 +894,25 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
           backgroundColor: 'var(--rr-panel)'
         }}
       >
-        <div style={{
-          width: '100%',
-          textAlign: 'left',
-          marginBottom: '12px'
-        }}>
-          <span style={{
-            fontFamily: 'inherit',
-            fontStyle: 'normal',
-            fontWeight: 600,
-            fontSize: '12px',
-            letterSpacing: '.14em',
-            lineHeight: '16px',
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase'
-          }}>
-            Mission Support Assignments
-          </span>
+        {/* Header mirrors Flight Assignments (title, count, add action on the right) */}
+        <div className="flex items-center gap-3 mb-3">
+          <span className="rr-pane-title">Mission Support</span>
+          <span className="font-mono text-[11px] text-text3">{supportRoles.length}</span>
+          <span className="flex-1" />
+          <Button size="sm" variant="secondary" icon="plus" disabled={carriersLoading} onClick={() => { setEditRoleId(null); setShowAddDialog(true); }}>Add Role</Button>
         </div>
         <div className="flex-1" style={{ 
           overflowY: 'auto',
           flexGrow: 1 // Ensure it takes available space
         }}>
           {carriersLoading ? (
-             <p>Loading support assignments...</p> // Show loading indicator
+             <p className="text-[13px] text-text2">Loading support assignments…</p>
+          ) : supportRoles.length === 0 ? (
+            <EmptyState
+              title="No support roles yet"
+              message="Add roles such as the carrier, tanker or AWACS for this mission."
+              action={{ label: 'Add Role', onClick: () => { setEditRoleId(null); setShowAddDialog(true); } }}
+            />
           ) : (
             <div className="space-y-4">
               {supportRoles.map(role => {
@@ -968,7 +963,9 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
               fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 400,
-              flex: '0 0 30%'
+              flex: '0 0 30%',
+              height: '39px', // footer row is the same height on every Mission Prep tab
+              boxSizing: 'border-box'
             }}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
@@ -981,40 +978,6 @@ const MissionSupportAssignments: React.FC<MissionSupportAssignmentsProps> = ({
             <Icon name="trash" size={16} />
             Remove All
           </button>
-          <div style={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
-            <button
-              onClick={() => { setEditRoleId(null); setShowAddDialog(true); }}
-              style={{
-                width: '119px',
-                height: '30px',
-                background: 'var(--rr-panel)',
-                borderRadius: '8px',
-                border: 'none',
-                cursor: 'pointer',
-                transition: 'box-shadow 0.2s ease-in-out',
-                fontFamily: 'inherit',
-                fontStyle: 'normal',
-                fontWeight: 400,
-                fontSize: '20px',
-                lineHeight: '24px',
-                color: 'var(--rr-text2)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center'
-              }}
-              onMouseEnter={e => {
-                e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-              }}
-              onMouseLeave={e => {
-                e.currentTarget.style.boxShadow = 'none';
-              }}
-              disabled={carriersLoading} // Disable add button while loading carriers
-            >
-              +
-            </button>
-          </div>
-          {/* Invisible spacer to match Remove All button width and keep Add button centered */}
-          <div style={{ flex: '0 0 30%' }} />
         </div>
       </Card>
 
