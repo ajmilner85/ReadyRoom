@@ -432,7 +432,7 @@ const PilotDossier: React.FC = () => {
       <div style={dossierStyles.contentWrapper}>
         <div style={dossierStyles.columnsContainer}>
           {/* Left column: pilot details */}
-          <div style={{ width: '620px', flexShrink: 0, display: 'flex', flexDirection: 'column', height: '100%' }}>
+          <div style={{ flex: '0 1 400px', minWidth: '320px', display: 'flex', flexDirection: 'column', height: '100%' }}>
             <DossierDetailsCard
               callsign={callsign}
               boardNumber={boardNumber}
@@ -450,8 +450,9 @@ const PilotDossier: React.FC = () => {
               (attendance / kills / trap sheet) filling the height between
               them and scrolling internally */}
           <div style={{
-            flex: 1,
-            minWidth: 0,
+            // Centre column gets the space: stats, attendance and awards need it most
+            flex: '1 1 520px',
+            minWidth: '440px',
             display: 'flex',
             flexDirection: 'column',
             gap: '20px',

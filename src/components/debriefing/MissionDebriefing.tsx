@@ -53,6 +53,7 @@ const MissionDebriefing: React.FC = () => {
 
   // Filter state
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
+  const missionsRequestRef = React.useRef(0);
   const [selectedSquadronIds, setSelectedSquadronIds] = useState<string[]>([]);
   const [selectedStatus, setSelectedStatus] = useState<string>('');
   const [startDate, setStartDate] = useState<string>('');
@@ -136,6 +137,9 @@ const MissionDebriefing: React.FC = () => {
   };
 
   const loadMissions = async () => {
+    // Several loads can overlap (initial load + the default-cycle selection); only the newest may
+    // write state, otherwise a slower "all cycles" response overwrites the cycle-filtered list.
+    const requestId = ++missionsRequestRef.current;
     try {
       setLoading(true);
       setError(null);
@@ -144,11 +148,13 @@ const MissionDebriefing: React.FC = () => {
 
       // Always load all missions for accurate filter counts
       const allMissionsData = await debriefingService.getDebriefableMissions(wingId, undefined);
+      if (requestId !== missionsRequestRef.current) return;
       setAllMissions(allMissionsData || []);
 
       // Handle standalone events filter
       const cycleId = selectedCycleId === 'standalone' ? null : (selectedCycleId || undefined);
       const missions = await debriefingService.getDebriefableMissions(wingId, cycleId ?? undefined);
+      if (requestId !== missionsRequestRef.current) return;
 
       setMissions(missions || []);
 
@@ -160,10 +166,11 @@ const MissionDebriefing: React.FC = () => {
         }
       }
     } catch (err: any) {
+      if (requestId !== missionsRequestRef.current) return;
       console.error('Failed to load missions:', err);
       setError(err.message || 'Failed to load missions');
     } finally {
-      setLoading(false);
+      if (requestId === missionsRequestRef.current) setLoading(false);
     }
   };
 

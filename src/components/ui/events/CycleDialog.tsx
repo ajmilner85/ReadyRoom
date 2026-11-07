@@ -1021,7 +1021,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
           onMouseEnter={() => setHoveredPilotId(hoverKey)}
           onMouseLeave={() => setHoveredPilotId(null)}
         >
-          <div style={{ marginLeft: '-20px', flexShrink: 0 }}>
+          <div style={{ flexShrink: 0 }}>
             <PilotIDBadgeSm
               squadronTailCode={pilot.squadron?.tail_code}
               boardNumber={pilot.board_number ?? undefined}
@@ -2389,7 +2389,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             onMouseEnter={() => setHoveredPilotId(pilot.pilot_id)}
                             onMouseLeave={() => setHoveredPilotId(null)}
                           >
-                            <div style={{ marginLeft: '-20px' }}>
+                            <div style={{ flexShrink: 0 }}>
                               <PilotIDBadgeSm
                                 squadronTailCode={pilot.squadron?.tail_code}
                                 boardNumber={pilot.board_number ?? undefined}
@@ -2474,7 +2474,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                             onMouseLeave={() => setHoveredPilotId(null)}
                             onClick={() => handleEnrollPilot(pilot.pilot_id)}
                           >
-                            <div style={{ marginLeft: '-20px' }}>
+                            <div style={{ flexShrink: 0 }}>
                               <PilotIDBadgeSm
                                 squadronTailCode={pilot.squadron?.tail_code}
                                 boardNumber={pilot.board_number ?? undefined}
@@ -2543,7 +2543,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               onMouseLeave={() => setHoveredPilotId(null)}
                               onClick={() => handleEnrollPilot(pilot.pilot_id)}
                             >
-                              <div style={{ marginLeft: '-20px' }}>
+                              <div style={{ flexShrink: 0 }}>
                                 <PilotIDBadgeSm
                                   squadronTailCode={pilot.squadron?.tail_code}
                                   boardNumber={pilot.board_number}
@@ -2616,7 +2616,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               onMouseLeave={() => setHoveredPilotId(null)}
                               onClick={() => handleEnrollPilot(pilot.pilot_id)}
                             >
-                              <div style={{ marginLeft: '-20px' }}>
+                              <div style={{ flexShrink: 0 }}>
                                 <PilotIDBadgeSm
                                   squadronTailCode={pilot.squadron?.tail_code}
                                   boardNumber={pilot.board_number}
@@ -2753,7 +2753,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               onMouseEnter={() => setHoveredInstructorId(instructor.pilot_id)}
                               onMouseLeave={() => setHoveredInstructorId(null)}
                             >
-                              <div style={{ marginLeft: '-20px' }}>
+                              <div style={{ flexShrink: 0 }}>
                                 <PilotIDBadgeSm
                                   squadronTailCode={instructor.squadron?.tail_code}
                                   boardNumber={instructor.board_number ?? undefined}
@@ -2838,7 +2838,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               onMouseLeave={() => setHoveredInstructorId(null)}
                               onClick={() => handleEnrollInstructor(instructor.pilot_id)}
                             >
-                              <div style={{ marginLeft: '-20px' }}>
+                              <div style={{ flexShrink: 0 }}>
                                 <PilotIDBadgeSm
                                   squadronTailCode={instructor.squadron?.tail_code}
                                   boardNumber={instructor.board_number ?? undefined}
@@ -2904,7 +2904,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
                               onMouseLeave={() => setHoveredInstructorId(null)}
                               onClick={() => handleEnrollInstructor(pilot.pilot_id)}
                             >
-                              <div style={{ marginLeft: '-20px' }}>
+                              <div style={{ flexShrink: 0 }}>
                                 <PilotIDBadgeSm
                                   squadronTailCode={pilot.squadron?.tail_code}
                                   boardNumber={pilot.board_number ?? undefined}

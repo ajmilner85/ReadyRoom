@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Icon } from '../ui/primitives';
+import { Chip, EmptyState, Icon, Select } from '../ui/primitives';
 import PTRGrid from './PTRGrid';
 import GradingDialog from './GradingDialog';
 import GraduationDialog from './GraduationDialog';
@@ -235,105 +235,42 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
   }
 
   return (
-    <div style={{ padding: '40px 32px', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '24px' }}>
-        <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px', margin: 0 }}>
-          Pilot Training Records
-        </h2>
-        <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0, marginTop: '4px' }}>
-          View and grade pilot training progress
-        </p>
-      </div>
-
+    <div style={{ padding: '16px 18px', height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* No Access Message */}
       {cycles.length === 0 ? (
-        <div style={{ 
-          display: 'flex', 
-          flexDirection: 'column', 
-          alignItems: 'center', 
-          justifyContent: 'center', 
-          height: '100%', 
-          textAlign: 'center', 
-          color: 'var(--rr-text2)', 
-          backgroundColor: 'var(--rr-panel)', 
-          border: '1px solid var(--rr-border)', 
-          borderRadius: '8px', 
-          padding: '60px' 
-        }}>
-          <Icon name="userCheck" size={48} style={{ marginBottom: '16px', color: 'var(--rr-text3)' }} />
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '8px', margin: 0 }}>
-            No Training Cycles Available
-          </h3>
-          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: 0, maxWidth: '400px' }}>
-            {ptrScope === 'none'
+        <div className="flex-1 flex items-center justify-center">
+          <EmptyState
+            icon="userCheck"
+            title="No training cycles available"
+            message={ptrScope === 'none'
               ? 'You do not have permission to view pilot training records. Contact your training officer for access.'
               : 'You are not enrolled as an instructor for any training cycles. Contact your training officer to be added as an instructor.'}
-          </p>
+          />
         </div>
       ) : (
         <>
-          {/* Cycle Selector */}
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <label style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
-                Training Cycle
-              </label>
-              {selectedCycleId && (
-                <div style={{ display: 'flex', gap: '8px' }}>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    backgroundColor: 'var(--rr-accent-weak)',
-                    border: '1px solid var(--rr-accent)',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    color: 'var(--rr-accent-text)',
-                    fontWeight: 500
-                  }}>
-                    <Icon name="roster" size={14} />
-                    {enrollmentCounts[selectedCycleId] ?? 0} students
-                  </div>
-                  <div style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 10px',
-                    backgroundColor: 'rgba(64,168,91,.14)',
-                    border: '1px solid var(--rr-good)',
-                    borderRadius: '12px',
-                    fontSize: '13px',
-                    color: 'var(--rr-good)',
-                    fontWeight: 500
-                  }}>
-                    <Icon name="userCheck" size={14} />
-                    {instructorCounts[selectedCycleId] ?? 0} instructors
-                  </div>
-                </div>
-              )}
-            </div>
-            <select
+          {/* Toolbar: cycle picker + enrollment counts (the page header already names the view) */}
+          <div className="flex items-center gap-[10px] flex-wrap mb-[14px]">
+            <div className="w-[420px] max-w-full">
+            <Select
               value={selectedCycleId || ''}
-              onChange={(e) => setSelectedCycleId(e.target.value)}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                width: '100%',
-                maxWidth: '400px',
-                backgroundColor: 'var(--rr-panel)'
-              }}
-            >
-              <option value="">Select a training cycle</option>
-              {cycles.map(cycle => (
-                <option key={cycle.id} value={cycle.id}>
-                  {cycle.name} ({new Date(cycle.start_date).toLocaleDateString('en-US', { timeZone: 'UTC' })})
-                </option>
-              ))}
-            </select>
+              onChange={(v) => setSelectedCycleId(v)}
+              placeholder="Select a training cycle"
+              options={cycles.map(cycle => ({
+                value: cycle.id,
+                label: cycle.name,
+                searchText: cycle.name,
+                description: `Starts ${new Date(cycle.start_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })}`,
+              }))}
+            />
+            </div>
+            <span className="flex-1" />
+            {selectedCycleId ? (
+              <>
+                <Chip tone="info" size="sm"><Icon name="roster" size={12} />{enrollmentCounts[selectedCycleId] ?? 0} students</Chip>
+                <Chip tone="good" size="sm"><Icon name="userCheck" size={12} />{instructorCounts[selectedCycleId] ?? 0} instructors</Chip>
+              </>
+            ) : null}
           </div>
 
           {/* PTR Grid Content */}
@@ -349,13 +286,9 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
                 ownStudentsPilotId={ptrScope === 'own_students' ? userProfile?.pilotId : undefined}
               />
             ) : selectedCycleId ? (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '40px' }}>
-                This training cycle has no syllabus assigned.
-              </div>
+              <EmptyState icon="bookOpen" title="No syllabus assigned" message="Assign a syllabus to this training cycle to grade it here." />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', textAlign: 'center', color: 'var(--rr-text2)', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', padding: '40px' }}>
-                Select a training cycle to view the PTR Grid
-              </div>
+              <EmptyState icon="training" title="Pick a training cycle" message="Choose a cycle above to see its training records." />
             )}
           </div>
 

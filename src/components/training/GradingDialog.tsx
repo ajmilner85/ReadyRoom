@@ -1889,7 +1889,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
                           gap: '12px'
                         }}
                       >
-                        <div style={{ marginLeft: '-20px' }}>
+                        <div style={{ flexShrink: 0 }}>
                           <PilotIDBadgeSm
                             boardNumber={String(instructor.boardNumber)}
                             squadronTailCode={instructor.squadronTailCode}

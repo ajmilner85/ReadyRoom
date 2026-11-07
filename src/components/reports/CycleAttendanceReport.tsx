@@ -11,7 +11,8 @@ import {
   Legend,
   ChartOptions
 } from 'chart.js';
-import { Icon } from '../ui/primitives';
+import { Icon, Select } from '../ui/primitives';
+import { legibleHex } from '../ui/primitives/color';
 import LoadingSpinner from '../ui/LoadingSpinner';
 import {
   fetchCycles,
@@ -161,8 +162,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
   }, [selectedCycleId, loadReportData]);
 
   // Handle cycle selection change
-  const handleCycleChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
-    setSelectedCycleId(e.target.value);
+  const handleCycleChange = (cycleId: string) => {
+    setSelectedCycleId(cycleId);
     // Reset squadron selection to allow auto-selection for new cycle
     setFilters(prev => ({ ...prev, squadronIds: [] }));
   };
@@ -353,6 +354,31 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
     return result;
   };
 
+  // Cycle totals per squadron for the summary strip above the chart
+  const squadronSummary = useMemo(() => {
+    if (!reportData) return [];
+    const selected = filters.squadronIds.length > 0
+      ? reportData.squadrons.filter(sq => filters.squadronIds.includes(sq.id))
+      : reportData.squadrons;
+    return selected.map(sq => {
+      const rows = reportData.eventSquadronMetrics
+        .map(ev => ev.squadronMetrics.find(m => m.squadronId === sq.id))
+        .filter((m): m is NonNullable<typeof m> => Boolean(m));
+      const n = rows.length || 1;
+      return {
+        id: sq.id,
+        designation: sq.designation,
+        name: sq.name,
+        insignia: sq.insignia_url || null,
+        color: legibleHex(sq.color_palette?.primary),
+        avgPct: Math.round(rows.reduce((a, m) => a + (m.attendancePercentage || 0), 0) / n),
+        avgCount: rows.reduce((a, m) => a + (m.attendanceCount || 0), 0) / n,
+        noShows: rows.reduce((a, m) => a + (m.noShowCount || 0), 0),
+        snivels: rows.reduce((a, m) => a + (m.totalSnivelsCount || 0), 0),
+      };
+    });
+  }, [reportData, filters.squadronIds]);
+
   // Memoize chart data generation to prevent expensive recalculations
   const chartData = useMemo(() => {
     if (!reportData) return null;
@@ -369,7 +395,8 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
       : reportData.squadrons;
 
     selectedSquadrons.forEach(squadron => {
-      const color = squadron.color_palette?.primary || '#6B7280';
+      // Canvas needs a real hex: lift near-black / near-white squadron colours for the theme
+      const color = legibleHex(squadron.color_palette?.primary);
 
       // Attendance Percent
       if (filters.showAttendancePercent) {
@@ -1163,29 +1190,14 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         marginBottom: '24px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <select
-            value={selectedCycleId || ''}
-            onChange={handleCycleChange}
-            disabled={filterLoading}
-            style={{
-              fontFamily: 'inherit',
-              fontSize: '14px',
-              padding: '8px 12px',
-              borderRadius: '6px',
-              border: '1px solid var(--rr-border)',
-              backgroundColor: 'var(--rr-panel)',
-              color: 'var(--rr-text)',
-              cursor: filterLoading ? 'not-allowed' : 'pointer',
-              opacity: filterLoading ? 0.6 : 1,
-              minWidth: '400px'
-            }}
-          >
-            {cycles.map(cycle => (
-              <option key={cycle.id} value={cycle.id}>
-                {cycle.name}
-              </option>
-            ))}
-          </select>
+          <div className="w-[400px] max-w-full">
+            <Select
+              value={selectedCycleId || ''}
+              onChange={(v) => handleCycleChange(v)}
+              disabled={filterLoading}
+              options={cycles.map(cycle => ({ value: cycle.id, label: cycle.name }))}
+            />
+          </div>
 
           <button
             onClick={handleRefresh}
@@ -1547,6 +1559,34 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
         </div>
       )}
 
+      {/* Per-squadron summary for the cycle (same squadron filter as the chart) */}
+      {squadronSummary.length > 0 ? (
+        <div className="grid gap-[10px] mb-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+          {squadronSummary.map(sq => (
+            <div key={sq.id} className="rounded-rr-lg border border-border bg-panel2 p-[12px] flex flex-col gap-[10px]" style={{ boxShadow: `inset 3px 0 0 ${sq.color}` }}>
+              <div className="flex items-center gap-[8px] min-w-0">
+                {sq.insignia ? <img src={sq.insignia} alt="" className="w-[22px] h-[22px] object-contain" /> : null}
+                <span className="text-[13.5px] font-bold" style={{ color: sq.color }}>{sq.designation}</span>
+                <span className="text-[11.5px] text-text3 truncate">{sq.name}</span>
+              </div>
+              <div className="grid grid-cols-4 gap-[6px]">
+                {[
+                  { k: 'Avg att.', v: `${sq.avgPct}%` },
+                  { k: 'Per event', v: sq.avgCount.toFixed(1) },
+                  { k: 'No shows', v: String(sq.noShows) },
+                  { k: 'Snivels', v: String(sq.snivels) },
+                ].map(m => (
+                  <div key={m.k} className="min-w-0">
+                    <div className="font-mono text-[15px] font-semibold text-text leading-[1.2]">{m.v}</div>
+                    <div className="text-[10.5px] text-text3 uppercase tracking-[.05em] truncate">{m.k}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
       {/* Chart */}
       {chartData && chartData.datasets.length > 0 ? (
         <div style={{
@@ -1563,14 +1603,14 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
               left: 0,
               right: 0,
               bottom: 0,
-              backgroundColor: 'rgba(255, 255, 255, 0.8)',
+              backgroundColor: 'color-mix(in srgb, var(--rr-panel) 78%, transparent)',
               display: 'flex',
               justifyContent: 'center',
               alignItems: 'center',
               borderRadius: '8px',
               zIndex: 10
             }}>
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#82728C]"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-accent"></div>
             </div>
           )}
 

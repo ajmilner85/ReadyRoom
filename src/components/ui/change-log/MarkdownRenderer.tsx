@@ -10,8 +10,8 @@ interface MarkdownRendererProps {
 const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({ 
   content, 
   primaryColor, 
-  headingColor = '#1F2937', 
-  textColor = '#6B7280' 
+  headingColor = 'var(--rr-text)', 
+  textColor = 'var(--rr-text2)' 
 }) => {
   // Basic markdown rendering - for production, consider using a library like marked or remark
   const renderMarkdown = (text: string): string => {
@@ -40,7 +40,7 @@ const MarkdownRenderer: React.FC<MarkdownRendererProps> = ({
       .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="md-link">$1</a>')
       
       // Lists (basic implementation)
-      .replace(/^\* (.+)$/gm, '<li class="md-li">$1</li>')
+      .replace(/^[*-] (.+)$/gm, '<li class="md-li">$1</li>')
       .replace(/^(\d+)\. (.+)$/gm, '<li class="md-li-ordered">$2</li>')
       
       // Blockquotes

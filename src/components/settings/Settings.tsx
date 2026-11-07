@@ -100,7 +100,8 @@ const Settings: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
   const ALL_PAGES = settingsNavSections.flatMap(sec => sec.items);
   const sectionParam = searchParams.get('section') as SettingsPage | null;
-  const activeSettingsPage: SettingsPage | null = ALL_PAGES.some(i => i.id === sectionParam) ? sectionParam : null;
+  // No (or unknown) ?section= opens Appearance, which every user can see, instead of an empty pane
+  const activeSettingsPage: SettingsPage | null = ALL_PAGES.some(i => i.id === sectionParam) ? sectionParam : 'appearance';
   const activeItem = ALL_PAGES.find(i => i.id === activeSettingsPage);
   usePageHeader({ code: 'ADMIN', title: 'Settings', meta: activeItem ? `· ${activeItem.label}` : undefined });
   const [error, setError] = useState<string | null>(null);

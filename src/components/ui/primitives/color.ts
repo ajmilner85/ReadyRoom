@@ -40,3 +40,26 @@ export function tagBase(color: string): string {
   if (L !== null && L < 0.08) return `color-mix(in oklab, ${color} 65%, var(--rr-text))`;
   return color;
 }
+
+/**
+ * legibleColor() for canvases (Chart.js can't resolve CSS variables or color-mix): returns a hex,
+ * mixing very dark / very light admin colours toward the current theme's --rr-text.
+ */
+export function legibleHex(color?: string | null, fallback = '#6B7280'): string {
+  const base = color && /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(color) ? color : fallback;
+  const L = hexLuminance(base);
+  if (L === null || (L >= 0.12 && L <= 0.6)) return base;
+  const textVar = typeof document !== 'undefined'
+    ? getComputedStyle(document.documentElement).getPropertyValue('--rr-text').trim()
+    : '';
+  const text = /^#([0-9a-f]{3}|[0-9a-f]{6})$/i.test(textVar) ? textVar : '#e6edf3';
+  const rgb = (h: string) => {
+    const x = h.replace('#', '');
+    const f = x.length === 3 ? x.split('').map(c => c + c).join('') : x;
+    const n = parseInt(f, 16);
+    return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+  };
+  const keep = L < 0.12 ? 0.58 : 0.55;
+  const [a, b] = [rgb(base), rgb(text)];
+  return '#' + a.map((c, i) => Math.round(c * keep + b[i] * (1 - keep)).toString(16).padStart(2, '0')).join('');
+}
