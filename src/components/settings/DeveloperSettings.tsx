@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Icon } from '../ui/primitives';
+import { DlgCard, SettingRow } from '../ui/events/dialogParts';
 import { getUserSettings, updateDeveloperSettings } from '../../utils/userSettingsService';
 import { UserSettings } from '../../types/UserSettings';
 import { permissionCache } from '../../utils/permissionCache';
@@ -190,12 +191,9 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
       {/* Fixed Header */}
       <div style={{ padding: 0, flexShrink: 0 }}>
         <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '8px' }}>
-            <Icon name="code" size={28} style={{ color: '#7C3AED' }} />
-            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
-              Developer Settings
-            </h2>
-          </div>
+          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
+            Developer Settings
+          </h2>
           <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
             Advanced settings for development and testing. These settings only affect your account.
           </p>
@@ -242,7 +240,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               alignItems: 'center',
               gap: '12px',
               padding: '16px',
-              border: settings?.developer?.discordBotToken === 'development' ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
+              border: settings?.developer?.discordBotToken === 'development' ? '1px solid var(--rr-accent)' : '1px solid var(--rr-border)',
               borderRadius: '8px',
               backgroundColor: settings?.developer?.discordBotToken === 'development' ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
               cursor: 'pointer',
@@ -273,7 +271,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
               alignItems: 'center',
               gap: '12px',
               padding: '16px',
-              border: settings?.developer?.discordBotToken === 'production' ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
+              border: settings?.developer?.discordBotToken === 'production' ? '1px solid var(--rr-accent)' : '1px solid var(--rr-border)',
               borderRadius: '8px',
               backgroundColor: settings?.developer?.discordBotToken === 'production' ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
               cursor: 'pointer',
@@ -296,7 +294,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
                   Uses Squadron Duty Officer bot - connects to squadron Discord server with real data
                 </div>
                 <div style={{ fontSize: '12px', color: 'var(--rr-bad)', marginTop: '4px', fontWeight: 500 }}>
-                  ⚠️ Use with caution - can affect real squadron data
+                  Use with caution - can affect real squadron data
                 </div>
               </div>
             </label>
@@ -336,7 +334,7 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
         {/* Experimental Features Section */}
         <div style={sectionStyle}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px' }}>
-            <Icon name="flask" size={20} style={{ color: '#7C3AED' }} />
+            <Icon name="flask" size={20} style={{ color: 'var(--rr-text3)' }} />
             <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
               Experimental Features
             </h3>
@@ -346,33 +344,15 @@ const DeveloperSettings: React.FC<DeveloperSettingsProps> = ({ setError }) => {
             Feature flags for in-development functionality. These only affect your account; other users see the current production behavior.
           </p>
 
-          <label style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '12px',
-            padding: '16px',
-            border: settings?.developer?.enableEventActivities ? '2px solid var(--rr-accent)' : '1px solid var(--rr-border)',
-            borderRadius: '8px',
-            backgroundColor: settings?.developer?.enableEventActivities ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
-            cursor: 'pointer',
-            transition: 'all 0.2s ease'
-          }}>
-            <input
-              type="checkbox"
+          <DlgCard flush>
+            <SettingRow
+              label="Event Activities"
+              description="Per-event parallel activities (syllabus lessons, ad-hoc objectives, qualification pursuits) replacing the single Training mission step. Only test against new, unpublished events."
               checked={settings?.developer?.enableEventActivities || false}
-              onChange={(e) => handleEventActivitiesToggle(e.target.checked)}
+              onChange={(v) => handleEventActivitiesToggle(v)}
               disabled={saving}
-              style={{ marginRight: '4px' }}
             />
-            <div>
-              <div style={{ fontWeight: 500, color: 'var(--rr-text)', fontSize: '14px' }}>
-                Event Activities
-              </div>
-              <div style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '2px' }}>
-                Per-event parallel activities (syllabus lessons, ad-hoc objectives, qualification pursuits) replacing the single Training mission step. Only test against new, unpublished events.
-              </div>
-            </div>
-          </label>
+          </DlgCard>
         </div>
 
         {/* Permission Cache Section */}

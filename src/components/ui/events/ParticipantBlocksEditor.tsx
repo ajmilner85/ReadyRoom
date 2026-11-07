@@ -327,7 +327,7 @@ const ParticipantBlocksEditor: React.FC<ParticipantBlocksEditorProps> = ({
                     zIndex: 1
                   }}
                 >
-                  <Icon name="close" size={16} color="#64748B" />
+                  <Icon name="close" size={16} color={'var(--rr-text2)'} />
                 </button>
               )}
               {/* Status is deliberately absent - On Leave/Retired/AWOL/Removed

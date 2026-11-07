@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
 import { Save } from 'lucide-react';
-import { Icon } from '../ui/primitives';
+import { Icon, Toggle } from '../ui/primitives';
 import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
 import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
@@ -1042,34 +1042,7 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
             {syllabus.kind === 'linear' && (
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Starts at:</span>
-              <button
-                onClick={() => {
-                  setSyllabus({ ...syllabus, starts_at_week_zero: !syllabus.starts_at_week_zero });
-                  setHasUnsavedChanges(true);
-                }}
-                style={{
-                  position: 'relative',
-                  width: '44px',
-                  height: '24px',
-                  backgroundColor: syllabus.starts_at_week_zero ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                  borderRadius: '12px',
-                  border: 'none',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s',
-                  padding: 0
-                }}
-              >
-                <div style={{
-                  position: 'absolute',
-                  top: '2px',
-                  left: syllabus.starts_at_week_zero ? '22px' : '2px',
-                  width: '20px',
-                  height: '20px',
-                  backgroundColor: 'var(--rr-panel)',
-                  borderRadius: '50%',
-                  transition: 'left 0.2s'
-                }} />
-              </button>
+              <Toggle checked={Boolean(syllabus.starts_at_week_zero)} onChange={() => { setSyllabus({ ...syllabus, starts_at_week_zero: !syllabus.starts_at_week_zero }); setHasUnsavedChanges(true); }} />
               <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '50px' }}>
                 Week {syllabus.starts_at_week_zero ? '0' : '1'}
               </span>

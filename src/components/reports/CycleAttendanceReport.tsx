@@ -1561,7 +1561,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
 
       {/* Per-squadron summary for the cycle (same squadron filter as the chart) */}
       {squadronSummary.length > 0 ? (
-        <div className="grid gap-[10px] mb-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))' }}>
+        <div className="grid gap-[10px] mb-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))' }}>
           {squadronSummary.map(sq => (
             <div key={sq.id} className="rounded-rr-lg border border-border bg-panel2 p-[12px] flex flex-col gap-[10px]" style={{ boxShadow: `inset 3px 0 0 ${sq.color}` }}>
               <div className="flex items-center gap-[8px] min-w-0">
@@ -1569,7 +1569,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                 <span className="text-[13.5px] font-bold" style={{ color: sq.color }}>{sq.designation}</span>
                 <span className="text-[11.5px] text-text3 truncate">{sq.name}</span>
               </div>
-              <div className="grid grid-cols-4 gap-[6px]">
+              <div className="grid gap-x-[10px] gap-y-[8px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(68px, 1fr))' }}>
                 {[
                   { k: 'Avg att.', v: `${sq.avgPct}%` },
                   { k: 'Per event', v: sq.avgCount.toFixed(1) },
@@ -1578,7 +1578,7 @@ const CycleAttendanceReport: React.FC<CycleAttendanceReportProps> = ({ error, se
                 ].map(m => (
                   <div key={m.k} className="min-w-0">
                     <div className="font-mono text-[15px] font-semibold text-text leading-[1.2]">{m.v}</div>
-                    <div className="text-[10.5px] text-text3 uppercase tracking-[.05em] truncate">{m.k}</div>
+                    <div className="text-[10.5px] text-text3 uppercase tracking-[.05em] whitespace-nowrap">{m.k}</div>
                   </div>
                 ))}
               </div>

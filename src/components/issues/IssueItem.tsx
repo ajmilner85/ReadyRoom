@@ -145,7 +145,7 @@ export const IssueItem: React.FC<IssueItemProps> = ({
         height="16"
         viewBox="0 0 24 24"
         fill="none"
-        stroke="#9CA3AF"
+        stroke={'var(--rr-text3)'}
         strokeWidth="2"
         style={{ flexShrink: 0, marginTop: '4px' }}
       >

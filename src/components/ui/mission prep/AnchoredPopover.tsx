@@ -29,7 +29,7 @@ const AnchoredPopover: React.FC<AnchoredPopoverProps> = ({ anchorRef, onClose, w
       const target = e.target as HTMLElement;
       if (popoverRef.current?.contains(target)) return;
       if (anchorRef.current?.contains(target)) return; // anchor toggles itself
-      if (target.closest?.('[data-styled-select-list]')) return;
+      if (target.closest?.('[data-styled-select-list], [data-rr-floating]')) return;
       onClose();
     };
     const handleKey = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };

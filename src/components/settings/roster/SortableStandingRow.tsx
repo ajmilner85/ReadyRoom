@@ -61,7 +61,8 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
 
       {/* Standing Name Column */}
       <div style={{
-        flex: '0 0 400px',
+        flex: '1 1 0',
+        minWidth: 0,
         padding: '5px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -111,7 +112,7 @@ export const SortableStandingRow: React.FC<SortableStandingRowProps> = ({
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Icon name="edit" size={14} color="#64748B" />
+              <Icon name="edit" size={14} color={'var(--rr-text2)'} />
             </button>
             <button
               onClick={onDeleteClick}

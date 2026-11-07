@@ -77,7 +77,7 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
             ))}
           </select>
           <div style={chevronStyle}>
-            <Icon name="chevronDown" size={16} color="#64748B" />
+            <Icon name="chevronDown" size={16} color={'var(--rr-text2)'} />
           </div>
         </div>
 
@@ -110,7 +110,7 @@ const DossierScopeCard: React.FC<DossierScopeCardProps> = ({
             ))}
           </select>
           <div style={chevronStyle}>
-            <Icon name="chevronDown" size={16} color="#64748B" />
+            <Icon name="chevronDown" size={16} color={'var(--rr-text2)'} />
           </div>
         </div>
 

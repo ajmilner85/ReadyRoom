@@ -152,7 +152,7 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <div style={{ width: '18px', height: '18px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#374151" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={'var(--rr-text)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                 <polygon points="22,3 2,3 10,12.46 10,19 14,21 14,12.46"></polygon>
               </svg>
             </div>
@@ -210,7 +210,7 @@ const AwardFilterDrawer: React.FC<AwardFilterDrawerProps> = ({
             transform: isExpanded ? 'rotate(180deg)' : 'rotate(0deg)',
             transition: 'transform 0.2s ease'
           }}>
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke={'var(--rr-text2)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <polyline points="6,9 12,15 18,9"></polyline>
             </svg>
           </div>

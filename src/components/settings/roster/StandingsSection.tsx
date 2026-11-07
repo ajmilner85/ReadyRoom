@@ -1,3 +1,4 @@
+import { Button } from '../../ui/primitives';
 import React from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -70,7 +71,7 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
 
         {/* Standings Table and Add Button Container */}
         <div style={{
-          width: 'fit-content'
+          width: '100%'
         }}>
           {/* Standings Table */}
           <div style={{
@@ -102,7 +103,8 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
               fontWeight: 500,
               color: 'var(--rr-text2)',
               textTransform: 'uppercase',
-              width: '400px',
+              flex: 1,
+              minWidth: 0,
               borderRight: '1px solid var(--rr-border)'
             }}>
               Standing Name
@@ -162,41 +164,7 @@ export const StandingsSection: React.FC<StandingsSectionProps> = ({
             alignItems: 'center',
             padding: '4px 0'
           }}>
-          <button
-            onClick={() => setIsAddingStanding(true)}
-            disabled={loading}
-            style={{
-              width: '119px',
-              height: '30px',
-              background: 'var(--rr-panel)',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'inherit',
-              fontStyle: 'normal',
-              fontWeight: 400,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: 'var(--rr-text2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: loading ? 0.5 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
-          >
-            +
-          </button>
+          <Button size="sm" variant="ghost" icon="plus" onClick={() => setIsAddingStanding(true)} disabled={loading}>Add standing</Button>
           </div>
         </div>
       </div>

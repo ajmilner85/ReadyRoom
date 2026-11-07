@@ -111,8 +111,8 @@ const Home: React.FC = () => {
   const outcome = lastMission?.outcome ? OUTCOME[lastMission.outcome] : undefined;
 
   return (
-    <div className="flex-1 min-h-0 overflow-y-auto p-[14px]">
-      <div className="rr-page flex flex-col gap-[14px]">
+    <div className="flex-1 min-h-0 overflow-y-auto p-[14px] flex flex-col">
+      <div className="rr-page flex-1 min-h-0 flex flex-col gap-[14px]">
         <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
           {/* Next Event */}
           <Card className="md:col-span-1" >
@@ -193,7 +193,8 @@ const Home: React.FC = () => {
         </Card>
 
         {/* Polls + changelog (secondary) */}
-        <div className="grid gap-[14px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))' }}>
+        {/* Fills the rest of the viewport; each card scrolls internally (min 360px so small screens scroll the page) */}
+        <div className="flex-1 min-h-0 grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gridAutoRows: 'minmax(360px, 1fr)' }}>
           <PollCard
             onCreatePoll={() => setShowCreatePollDialog(true)}
             onManagePolls={() => setShowManagePollsDialog(true)}

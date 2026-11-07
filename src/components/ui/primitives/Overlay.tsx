@@ -148,7 +148,7 @@ export const Tooltip: React.FC<{
       <span ref={setAnchor} onMouseEnter={show} onMouseLeave={hide} onFocus={show} onBlur={hide} className="inline-flex max-w-full">
         {children}
       </span>
-      <Floating anchor={anchor} open={open} placement={placement} offset={8} zIndex={120} dismissOnOutside={false} style={{ pointerEvents: 'none' }}>
+      <Floating anchor={anchor} open={open} placement={placement} offset={8} zIndex={2600} dismissOnOutside={false} style={{ pointerEvents: 'none' }}>
         <div className="max-w-[280px] text-[11px] font-medium px-[9px] py-[5px] rounded-rr-md shadow-rr-lg" style={{ background: 'var(--rr-text)', color: 'var(--rr-bg)' }}>
           {content}
         </div>

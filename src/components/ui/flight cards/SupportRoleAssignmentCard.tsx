@@ -197,7 +197,7 @@ const SupportRoleAssignmentCard: React.FC<SupportRoleAssignmentCardProps> = ({
               e.currentTarget.style.background = 'var(--rr-panel)';
             }}
           >
-            <Icon name="edit" size={14} color="#64748B" />          </button>
+            <Icon name="edit" size={14} color={'var(--rr-text2)'} />          </button>
           
           {/* Delete button - Only show when explicitly approved by parent component with onDeleteRole */}
           {onDeleteRole && (

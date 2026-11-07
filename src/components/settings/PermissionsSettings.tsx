@@ -84,8 +84,8 @@ const PermissionsSettings: React.FC = () => {
   if (loading && !permissions) {
     return (
       <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
-        <div style={{ padding: '40px 40px 24px 40px', borderBottom: '1px solid var(--rr-border)' }}>
-          <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
+          <div>
             <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
               Permissions Management
             </h2>
@@ -96,8 +96,6 @@ const PermissionsSettings: React.FC = () => {
         </div>
         <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
           <div style={{
-            maxWidth: '1200px',
-            margin: '0 auto',
             textAlign: 'center',
             color: 'var(--rr-text2)',
             display: 'flex',
@@ -118,7 +116,7 @@ const PermissionsSettings: React.FC = () => {
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: 0, flexShrink: 0 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
@@ -136,7 +134,7 @@ const PermissionsSettings: React.FC = () => {
 
       {/* Content - scrolling happens inside the matrix so its headers stay frozen */}
       <div style={{ flex: 1, minHeight: 0, overflow: 'hidden', padding: '20px', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
+        <div style={{ width: '100%', flex: 1, minHeight: 0, display: 'flex', flexDirection: 'column' }}>
           <PermissionMatrix
             permissions={permissions}
             rules={rules}

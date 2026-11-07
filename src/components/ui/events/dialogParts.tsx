@@ -1,6 +1,6 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
-import { Button, Icon, Select, Toggle } from '../primitives';
+import { Button, Icon, NumberStepper, SegmentedControl, Select, Toggle } from '../primitives';
 
 /**
  * Building blocks shared by the Event and Cycle dialogs: modal shell, section cards,
@@ -179,3 +179,75 @@ export const RolePicker: React.FC<{
     )}
   </>
 );
+
+export type RecipientKey = 'accepted' | 'tentative' | 'declined' | 'noResponse';
+export const RECIPIENTS: Array<{ key: RecipientKey; label: string; color: string }> = [
+  { key: 'accepted', label: 'Accepted', color: 'var(--rr-good)' },
+  { key: 'tentative', label: 'Tentative', color: 'var(--rr-warn)' },
+  { key: 'declined', label: 'Declined', color: 'var(--rr-bad)' },
+  { key: 'noResponse', label: 'No response', color: 'var(--rr-text3)' },
+];
+
+/** Reminder: switch + summary header; when on, a value/unit row and coloured recipient pills. */
+export const ReminderCard: React.FC<{
+  title: string;
+  enabled: boolean;
+  onEnabled: (v: boolean) => void;
+  value: number;
+  onValue: (v: number) => void;
+  unit: ReminderUnit;
+  onUnit: (u: ReminderUnit) => void;
+  recipients: Record<RecipientKey, boolean>;
+  onRecipient: (k: RecipientKey, v: boolean) => void;
+  /** Optional label under the title when off (default 'Off'). */
+  offText?: string;
+}> = ({ title, enabled, onEnabled, value, onValue, unit, onUnit, recipients, onRecipient, offText = 'Off' }) => {
+  const unitLabel = unitWord(value, unit);
+  const chosen = RECIPIENTS.filter(r => recipients[r.key]);
+  return (
+    <section className={`rounded-rr-lg border bg-panel overflow-hidden transition-colors ${enabled ? 'border-border2' : 'border-border'}`}>
+      <div className="flex items-center gap-3 px-[14px] py-[12px] cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) onEnabled(!enabled); }}>
+        <Toggle checked={enabled} onChange={onEnabled} />
+        <div className="flex-1 min-w-0">
+          <div className={`text-[13.5px] font-semibold ${enabled ? 'text-text' : 'text-text2'}`}>{title}</div>
+          <div className="text-[12px] text-text2">
+            {enabled
+              ? <>{value} {unitLabel} before start{chosen.length ? <> &middot; {chosen.map(c => c.label).join(', ')}</> : <span className="text-warn"> &middot; no recipients selected</span>}</>
+              : offText}
+          </div>
+        </div>
+      </div>
+      {enabled ? (
+        <div className="border-t border-border px-[14px] py-[12px] flex flex-col gap-[12px] bg-panel2">
+          <div className="flex items-center gap-[10px] flex-wrap">
+            <span className="rr-label w-[78px]">Send</span>
+            <NumberStepper value={value} min={1} max={999} onChange={onValue} width={44} />
+            <SegmentedControl size="sm" value={unit} onChange={onUnit} options={UNIT_OPTIONS} />
+            <span className="text-[12.5px] text-text2">before event start</span>
+          </div>
+          <div className="flex items-center gap-[10px] flex-wrap">
+            <span className="rr-label w-[78px]">Recipients</span>
+            <div className="flex flex-wrap gap-[6px]">
+              {RECIPIENTS.map(r => {
+                const on = recipients[r.key];
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => onRecipient(r.key, !on)}
+                    className={`inline-flex items-center gap-[6px] h-[28px] px-[10px] rounded-rr-ctl border text-[12.5px] font-semibold cursor-pointer transition-colors ${on ? 'text-text' : 'text-text3 border-border2 bg-transparent hover:border-accent hover:text-text2'}`}
+                    style={on ? { background: `color-mix(in srgb, ${r.color} 16%, transparent)`, borderColor: `color-mix(in srgb, ${r.color} 55%, transparent)` } : undefined}
+                  >
+                    <span className="w-[7px] h-[7px] rounded-full" style={on ? { background: r.color } : { boxShadow: `inset 0 0 0 1.5px ${r.color}` }} />
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
+  );
+};

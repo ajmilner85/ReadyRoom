@@ -1,6 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { useAuth } from '../../context/AuthContext';
+import { Button, Icon, NumberStepper, SegmentedControl, Select, Toggle } from '../ui/primitives';
+import { DlgCard, SettingRow, UNIT_OPTIONS, unitWord } from '../ui/events/dialogParts';
+import SettingsSection from './SettingsSection';
 
 interface MissionDebriefingSettingsProps {
   error?: string | null;
@@ -40,11 +43,6 @@ interface WingDebriefingSettings {
 const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ setError }) => {
   const { userProfile } = useAuth();
 
-  const timeUnits: { value: TimeUnit; label: string }[] = [
-    { value: 'minutes', label: 'minutes' },
-    { value: 'hours', label: 'hours' },
-    { value: 'days', label: 'days' }
-  ];
 
   // Local state
   const [settings, setSettings] = useState<DebriefingSettings>({
@@ -437,84 +435,6 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
     }
   };
 
-  const renderToggle = (enabled: boolean, onChange: (enabled: boolean) => void, disabled: boolean = false) => (
-    <div
-      onClick={() => !disabled && onChange(!enabled)}
-      style={{
-        width: '44px',
-        height: '24px',
-        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-        borderRadius: '12px',
-        position: 'relative',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'background-color 0.2s ease',
-        opacity: disabled ? 0.5 : 1
-      }}
-    >
-      <div
-        style={{
-          width: '20px',
-          height: '20px',
-          backgroundColor: 'var(--rr-panel)',
-          borderRadius: '50%',
-          position: 'absolute',
-          top: '2px',
-          left: enabled ? '22px' : '2px',
-          transition: 'left 0.2s ease',
-          boxShadow: 'var(--rr-shadow)'
-        }}
-      />
-    </div>
-  );
-
-  const renderReminderTimeSelector = (
-    reminderTime: ReminderTime,
-    onTimeChange: (field: 'value' | 'unit', value: number | TimeUnit) => void,
-    disabled: boolean = false
-  ) => (
-    <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-      <input
-        type="number"
-        min="1"
-        max="999"
-        value={reminderTime.value}
-        onChange={(e) => onTimeChange('value', Math.max(1, parseInt(e.target.value) || 1))}
-        disabled={disabled}
-        style={{
-          width: '80px',
-          padding: '8px',
-          border: '1px solid var(--rr-border2)',
-          borderRadius: '4px',
-          fontSize: '14px',
-          fontFamily: 'inherit',
-          textAlign: 'center',
-          opacity: disabled ? 0.5 : 1
-        }}
-      />
-      <select
-        value={reminderTime.unit}
-        onChange={(e) => onTimeChange('unit', e.target.value as TimeUnit)}
-        disabled={disabled}
-        style={{
-          padding: '8px',
-          border: '1px solid var(--rr-border2)',
-          borderRadius: '4px',
-          fontSize: '14px',
-          fontFamily: 'inherit',
-          backgroundColor: 'var(--rr-panel)',
-          opacity: disabled ? 0.5 : 1
-        }}
-      >
-        {timeUnits.map(unit => (
-          <option key={unit.value} value={unit.value}>
-            {unit.label}
-          </option>
-        ))}
-      </select>
-      <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>after mission completion</span>
-    </div>
-  );
-
   const renderReminderSection = (
     reminderType: 'first_reminder' | 'second_reminder',
     title: string,
@@ -526,347 +446,130 @@ const MissionDebriefingSettings: React.FC<MissionDebriefingSettingsProps> = ({ s
     setSelectedBilletId: (id: string) => void
   ) => {
     const reminder = settings[reminderType];
+    const setEnabled = (enabled: boolean) => setSettings({ ...settings, [reminderType]: { ...reminder, enabled } });
+    const pendingId = recipientType === 'user' ? selectedUserId : selectedBilletId;
+    const unitLabel = unitWord(reminder.time.value, reminder.time.unit);
 
     return (
-      <div style={{
-        padding: '24px',
-        backgroundColor: 'var(--rr-panel2)',
-        border: '1px solid var(--rr-border)',
-        borderRadius: '8px',
-        marginBottom: '16px'
-      }}>
-        {/* Header with toggle */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
-            {title}
-          </h3>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>Enabled by default</span>
-            {renderToggle(
-              reminder.enabled,
-              (enabled) => setSettings({
-                ...settings,
-                [reminderType]: { ...reminder, enabled }
-              })
-            )}
+      <section key={reminderType} className={`rounded-rr-lg border bg-panel overflow-hidden ${reminder.enabled ? 'border-border2' : 'border-border'}`}>
+        <div className="flex items-center gap-3 px-[14px] py-[12px] cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) setEnabled(!reminder.enabled); }}>
+          <Toggle checked={reminder.enabled} onChange={setEnabled} />
+          <div className="flex-1 min-w-0">
+            <div className={`text-[13.5px] font-semibold ${reminder.enabled ? 'text-text' : 'text-text2'}`}>{title}</div>
+            <div className="text-[12px] text-text2">
+              {reminder.enabled
+                ? `${reminder.time.value} ${unitLabel} after mission completion · ${reminder.escalation_recipients.length || 'no'} escalation recipient${reminder.escalation_recipients.length === 1 ? '' : 's'}`
+                : 'Off by default'}
+            </div>
           </div>
         </div>
-
-        {/* Time selector */}
-        <div style={{ marginBottom: '20px' }}>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
-            Default {title.toLowerCase()} time
-          </label>
-          {renderReminderTimeSelector(
-            reminder.time,
-            (field, value) => handleReminderTimeChange(reminderType, field, value),
-            !reminder.enabled
-          )}
-        </div>
-
-        {/* Escalation Recipients */}
-        <div>
-          <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
-            Escalation recipients
-          </label>
-          <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '0 0 12px 0', fontFamily: 'inherit' }}>
-            These users or billets will be @mentioned in this reminder.
-          </p>
-
-          {/* Add recipient form */}
-          <div style={{ display: 'flex', gap: '8px', marginBottom: '16px' }}>
-            <select
-              value={recipientType}
-              onChange={(e) => setRecipientType(e.target.value as 'user' | 'billet')}
-              disabled={!reminder.enabled}
-              style={{
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                width: '120px',
-                opacity: reminder.enabled ? 1 : 0.5
-              }}
-            >
-              <option value="user">User</option>
-              <option value="billet">Billet</option>
-            </select>
-
-            {recipientType === 'user' ? (
-              <select
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-                disabled={!reminder.enabled}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  opacity: reminder.enabled ? 1 : 0.5
-                }}
-              >
-                <option value="">Select a user...</option>
-                {availableUsers.map(user => (
-                  <option key={user.id} value={user.id}>
-                    {user.name}
-                  </option>
-                ))}
-              </select>
-            ) : (
-              <select
-                value={selectedBilletId}
-                onChange={(e) => setSelectedBilletId(e.target.value)}
-                disabled={!reminder.enabled}
-                style={{
-                  flex: 1,
-                  padding: '8px 12px',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  opacity: reminder.enabled ? 1 : 0.5
-                }}
-              >
-                <option value="">Select a billet...</option>
-                {availableBillets.map(billet => (
-                  <option key={billet.id} value={billet.id}>
-                    {billet.name}
-                  </option>
-                ))}
-              </select>
-            )}
-
-            <button
-              onClick={() => handleAddRecipient(reminderType)}
-              disabled={!reminder.enabled || (recipientType === 'user' ? !selectedUserId : !selectedBilletId)}
-              style={{
-                padding: '8px 16px',
-                backgroundColor: reminder.enabled && (recipientType === 'user' ? selectedUserId : selectedBilletId) ? 'var(--rr-accent)' : '#94A3B8',
-                color: 'white',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 500,
-                cursor: reminder.enabled && (recipientType === 'user' ? selectedUserId : selectedBilletId) ? 'pointer' : 'not-allowed'
-              }}
-            >
-              Add
-            </button>
-          </div>
-
-          {/* Current recipients badges */}
-          {reminder.escalation_recipients.length > 0 ? (
-            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-              {reminder.escalation_recipients.map((recipient, index) => (
-                <div
-                  key={index}
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '6px',
-                    padding: '4px 8px 4px 10px',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    height: '26px',
-                    boxSizing: 'border-box',
-                    whiteSpace: 'nowrap',
-                    backgroundColor: recipient.type === 'user' ? 'var(--rr-accent-weak)' : 'rgba(222,154,31,.14)',
-                    color: recipient.type === 'user' ? 'var(--rr-accent-text)' : 'var(--rr-warn)',
-                    border: `1px solid ${recipient.type === 'user' ? 'var(--rr-accent)' : 'var(--rr-warn)'}`,
-                    opacity: reminder.enabled ? 1 : 0.5
-                  }}
-                >
-                  <span>{getRecipientDisplayText(recipient)}</span>
-                  <button
-                    type="button"
-                    onClick={() => handleRemoveRecipient(reminderType, index)}
-                    disabled={!reminder.enabled}
-                    style={{
-                      padding: '0',
-                      width: '14px',
-                      height: '14px',
-                      backgroundColor: 'transparent',
-                      border: 'none',
-                      cursor: reminder.enabled ? 'pointer' : 'not-allowed',
-                      color: recipient.type === 'user' ? 'var(--rr-accent-text)' : 'var(--rr-warn)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderRadius: '50%',
-                      transition: 'background-color 0.2s'
-                    }}
-                    onMouseEnter={(e) => {
-                      if (reminder.enabled) {
-                        e.currentTarget.style.backgroundColor = recipient.type === 'user' ? 'rgba(29, 78, 216, 0.1)' : 'rgba(245, 158, 11, 0.1)';
-                      }
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }}
-                  >
-                    <span style={{ fontSize: '14px', lineHeight: '14px' }}>×</span>
-                  </button>
+        {reminder.enabled ? (
+          <div className="border-t border-border px-[14px] py-[12px] flex flex-col gap-[12px] bg-panel2">
+            <div className="flex items-center gap-[10px] flex-wrap">
+              <span className="rr-label w-[78px]">Send</span>
+              <NumberStepper value={reminder.time.value} min={1} max={999} width={44} onChange={(n) => handleReminderTimeChange(reminderType, 'value', Math.max(1, n))} />
+              <SegmentedControl size="sm" value={reminder.time.unit} onChange={(u) => handleReminderTimeChange(reminderType, 'unit', u)} options={UNIT_OPTIONS} />
+              <span className="text-[12.5px] text-text2">after mission completion</span>
+            </div>
+            <div className="flex items-start gap-[10px] flex-wrap">
+              <span className="rr-label w-[78px] pt-[9px]">Escalate to</span>
+              <div className="flex-1 min-w-[260px] flex flex-col gap-[8px]">
+                <div className="flex items-center gap-[8px]">
+                  <SegmentedControl
+                    size="sm"
+                    value={recipientType}
+                    onChange={(v) => setRecipientType(v)}
+                    options={[{ value: 'user', label: 'User' }, { value: 'billet', label: 'Billet' }]}
+                  />
+                  <div className="flex-1 min-w-0">
+                    {recipientType === 'user' ? (
+                      <Select size="sm" value={selectedUserId} onChange={setSelectedUserId} placeholder="Select a user…" searchable options={availableUsers.map(u => ({ value: u.id, label: u.name }))} />
+                    ) : (
+                      <Select size="sm" value={selectedBilletId} onChange={setSelectedBilletId} placeholder="Select a billet…" options={availableBillets.map(b => ({ value: b.id, label: b.name }))} />
+                    )}
+                  </div>
+                  <Button size="sm" variant="secondary" icon="plus" disabled={!pendingId} onClick={() => handleAddRecipient(reminderType)}>Add</Button>
                 </div>
-              ))}
+                {reminder.escalation_recipients.length > 0 ? (
+                  <div className="flex flex-wrap gap-[6px]">
+                    {reminder.escalation_recipients.map((recipient, index) => {
+                      const c = recipient.type === 'user' ? 'var(--rr-info)' : 'var(--rr-warn)';
+                      return (
+                        <span
+                          key={index}
+                          className="inline-flex items-center gap-[4px] h-[26px] pl-[10px] pr-[4px] rounded-rr-md text-[12px] font-semibold"
+                          style={{ background: `color-mix(in srgb, ${c} 14%, transparent)`, color: `color-mix(in oklab, ${c} 60%, var(--rr-text))`, border: `1px solid color-mix(in srgb, ${c} 45%, transparent)` }}
+                          title={recipient.type === 'user' ? 'User' : 'Billet'}
+                        >
+                          {recipient.type === 'billet' ? <Icon name="star" size={11} /> : <Icon name="user" size={11} />}
+                          {getRecipientDisplayText(recipient)}
+                          <button
+                            type="button"
+                            aria-label={`Remove ${getRecipientDisplayText(recipient)}`}
+                            onClick={() => handleRemoveRecipient(reminderType, index)}
+                            className="w-[18px] h-[18px] rounded-full flex items-center justify-center border-0 bg-transparent cursor-pointer text-inherit hover:bg-black/15"
+                          >
+                            <Icon name="close" size={11} />
+                          </button>
+                        </span>
+                      );
+                    })}
+                  </div>
+                ) : (
+                  <div className="text-[11.5px] text-text3">Nobody is @mentioned in this reminder.</div>
+                )}
+              </div>
             </div>
-          ) : (
-            <div style={{
-              padding: '16px',
-              backgroundColor: 'var(--rr-panel)',
-              border: '1px dashed var(--rr-border2)',
-              borderRadius: '6px',
-              textAlign: 'center',
-              color: 'var(--rr-text2)',
-              fontSize: '14px'
-            }}>
-              No escalation recipients configured
-            </div>
-          )}
-        </div>
-      </div>
+          </div>
+        ) : null}
+      </section>
     );
   };
 
+  const header = { title: 'Mission Debriefing', description: 'AAR submission reminders and debriefing thread settings.' };
+
   if (loading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
-        <div style={{ padding: 0, flexShrink: 0 }}>
-          <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
-            <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
-              Mission Debriefing
-            </h2>
-            <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
-              Configure AAR submission reminders and debriefing thread settings
-            </p>
-          </div>
-        </div>
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-          <div style={{ maxWidth: '960px', textAlign: 'center', color: 'var(--rr-text2)' }}>
-            Loading settings...
-          </div>
-        </div>
-      </div>
+      <SettingsSection {...header}>
+        <div className="max-w-[860px] py-6 text-center text-[13px] text-text2">Loading settings…</div>
+      </SettingsSection>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
-      {/* Fixed Header */}
-      <div style={{ padding: 0, flexShrink: 0 }}>
-        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
-          <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
-            Mission Debriefing
-          </h2>
-          <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
-            Configure AAR submission reminders and debriefing thread settings
-          </p>
+    <SettingsSection {...header}>
+      <div className="max-w-[860px] flex flex-col gap-[16px]">
+        <DlgCard title="Wing" flush>
+          <SettingRow
+            label="Group debriefing threads by squadron"
+            description="Each squadron gets its own debriefing thread. When off, all squadrons share one thread per mission."
+            checked={wingSettings.group_by_squadron}
+            onChange={(enabled) => setWingSettings({ ...wingSettings, group_by_squadron: enabled })}
+          />
+        </DlgCard>
+
+        <div className="flex flex-col gap-[10px]">
+          <div className="rr-label px-[2px]">AAR reminders</div>
+          {renderReminderSection('first_reminder', 'First reminder', firstRecipientType, setFirstRecipientType, firstSelectedUserId, setFirstSelectedUserId, firstSelectedBilletId, setFirstSelectedBilletId)}
+          {renderReminderSection('second_reminder', 'Second reminder', secondRecipientType, setSecondRecipientType, secondSelectedUserId, setSecondSelectedUserId, secondSelectedBilletId, setSecondSelectedBilletId)}
         </div>
-      </div>
 
-      {/* Scrollable Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-        <div style={{ maxWidth: '960px' }}>
-
-        {/* Wing-Level Settings */}
-        <div style={{
-          padding: '24px',
-          backgroundColor: 'var(--rr-panel2)',
-          border: '1px solid var(--rr-border)',
-          borderRadius: '8px',
-          marginBottom: '24px'
-        }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
-            Wing-Level Settings
-          </h3>
-
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-            <div style={{ flex: 1 }}>
-              <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '4px' }}>
-                Group Debriefing Threads by Squadron
-              </div>
-              <div style={{ fontSize: '13px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
-                When enabled, each squadron gets its own debriefing thread. When disabled, all squadrons share one thread per mission.
-              </div>
+        <DlgCard title="Discord threads" description="Debriefing reports always post to Discord threads.">
+          <div className="flex items-center gap-[12px] flex-wrap">
+            <div className="flex-1 min-w-[220px]">
+              <div className="text-[13.5px] font-medium text-text">Auto-archive after</div>
+              <div className="text-[12px] text-text2 mt-[2px]">Threads archive automatically after this long without activity.</div>
             </div>
-            {renderToggle(
-              wingSettings.group_by_squadron,
-              (enabled) => setWingSettings({ ...wingSettings, group_by_squadron: enabled })
-            )}
+            <SegmentedControl
+              size="sm"
+              value={String(settings.thread_auto_archive_days) as '1' | '3' | '7'}
+              onChange={(v) => setSettings({ ...settings, thread_auto_archive_days: parseInt(v) })}
+              options={[{ value: '1', label: '1 day' }, { value: '3', label: '3 days' }, { value: '7', label: '7 days' }]}
+            />
           </div>
-        </div>
-
-        {/* Reminders Section */}
-        <div style={{ marginBottom: '24px' }}>
-          <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
-            Reminders
-          </h3>
-
-          {renderReminderSection(
-            'first_reminder',
-            'First Reminder',
-            firstRecipientType,
-            setFirstRecipientType,
-            firstSelectedUserId,
-            setFirstSelectedUserId,
-            firstSelectedBilletId,
-            setFirstSelectedBilletId
-          )}
-
-          {renderReminderSection(
-            'second_reminder',
-            'Second Reminder',
-            secondRecipientType,
-            setSecondRecipientType,
-            secondSelectedUserId,
-            setSecondSelectedUserId,
-            secondSelectedBilletId,
-            setSecondSelectedBilletId
-          )}
-        </div>
-
-        {/* Thread Settings */}
-        <div style={{
-          padding: '24px',
-          border: '1px solid var(--rr-border)',
-          borderRadius: '8px',
-          marginBottom: '24px'
-        }}>
-          <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 8px 0' }}>
-            Discord Thread Settings
-          </h3>
-          <p style={{ fontSize: '14px', color: 'var(--rr-text2)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
-            Debriefing reports always use Discord threads.
-          </p>
-
-          <div>
-            <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)', marginBottom: '8px' }}>
-              Thread Auto-Archive Duration
-            </label>
-            <select
-              value={settings.thread_auto_archive_days}
-              onChange={(e) => setSettings({ ...settings, thread_auto_archive_days: parseInt(e.target.value) })}
-              style={{
-                width: '200px',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                fontSize: '14px'
-              }}
-            >
-              <option value="1">1 day</option>
-              <option value="3">3 days</option>
-              <option value="7">7 days</option>
-            </select>
-            <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '8px 0 0 0', fontFamily: 'inherit' }}>
-              Threads will automatically archive after this duration of inactivity.
-            </p>
-          </div>
-        </div>
-
-        </div>
+        </DlgCard>
       </div>
-    </div>
+    </SettingsSection>
   );
 };
 

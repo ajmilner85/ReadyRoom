@@ -1,6 +1,6 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../ui/primitives';
+import { Icon, Toggle } from '../ui/primitives';
 import { supabase } from '../../utils/supabaseClient';
 import { GradingDialogData, TrainingGrade, DLOGrade, PTRCellData } from '../../types/TrainingTypes';
 import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
@@ -1581,36 +1581,7 @@ const GradingDialog: React.FC<GradingDialogProps> = ({
               {!isReadOnly && (
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', minHeight: '40px' }}>
                   <label style={{ display: 'flex', alignItems: 'center', gap: '12px', fontSize: '14px', cursor: 'pointer' }}>
-                    <div
-                      onClick={(e) => {
-                        e.preventDefault();
-                        setIsMakeupFlight(!isMakeupFlight);
-                      }}
-                      style={{
-                        width: '44px',
-                        height: '24px',
-                        backgroundColor: isMakeupFlight ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                        borderRadius: '12px',
-                        position: 'relative',
-                        transition: 'background-color 0.2s ease',
-                        cursor: 'pointer',
-                        flexShrink: 0
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundColor: 'var(--rr-panel)',
-                          borderRadius: '50%',
-                          position: 'absolute',
-                          top: '2px',
-                          left: isMakeupFlight ? '22px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: 'var(--rr-shadow)'
-                        }}
-                      />
-                    </div>
+                    <Toggle checked={Boolean(isMakeupFlight)} onChange={() => setIsMakeupFlight(!isMakeupFlight)} />
                     <span style={{ fontWeight: 500, color: 'var(--rr-text)' }}>This was a makeup flight</span>
                   </label>
 

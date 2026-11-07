@@ -2006,7 +2006,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
                 
                 {/* Arrow */}
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                  <path d="M13.5 6L20.5 12L13.5 18M19.5 12H3" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                  <path d="M13.5 6L20.5 12L13.5 18M19.5 12H3" stroke={'var(--rr-text3)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
                 </svg>
                 
                 {/* Qualification Selector */}
@@ -2249,7 +2249,7 @@ const PilotDetails: React.FC<PilotDetailsProps> = ({
 
               {/* Arrow */}
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" style={{ flexShrink: 0 }}>
-                <path d="M13.5 6L20.5 12L13.5 18M19.5 12H3" stroke="#9CA3AF" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+                <path d="M13.5 6L20.5 12L13.5 18M19.5 12H3" stroke={'var(--rr-text3)'} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
               </svg>
 
               {/* Team Name */}

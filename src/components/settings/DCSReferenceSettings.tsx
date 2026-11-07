@@ -442,47 +442,25 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
     ) : null
   );
 
-  const getCategoryBadgeColor = (category: string) => {
-    switch (category) {
-      case 'AIRPLANE':
-        return { bg: 'var(--rr-accent-weak)', text: '#1D4ED8', border: 'var(--rr-accent)' };
-      case 'HELICOPTER':
-        return { bg: 'var(--rr-accent-weak)', text: '#3730A3', border: '#6366F1' };
-      case 'GROUND_UNIT':
-        return { bg: 'rgba(64,168,91,.14)', text: '#065F46', border: 'var(--rr-good)' };
-      case 'SHIP':
-        return { bg: '#CCFBF1', text: '#115E59', border: '#14B8A6' };
-      case 'STRUCTURE':
-        return { bg: 'rgba(224,82,78,.12)', text: '#991B1B', border: 'var(--rr-bad)' };
-      case 'HELIPORT':
-        return { bg: 'rgba(222,154,31,.14)', text: '#92400E', border: 'var(--rr-warn)' };
-      case 'CARGO':
-        return { bg: '#FBCFE8', text: '#831843', border: '#EC4899' };
-      case 'UNKNOWN':
-        return { bg: '#F3E8FF', text: '#6B21A8', border: '#A855F7' };
-      default:
-        return { bg: 'var(--rr-panel2)', text: '#374151', border: 'var(--rr-border2)' };
-    }
+  // Tag colours: one base hue per value, tinted so they read on dark and light panels
+  const tagTint = (c: string) => ({
+    bg: `color-mix(in srgb, ${c} 14%, transparent)`,
+    text: `color-mix(in oklab, ${c} 62%, var(--rr-text))`,
+    border: `color-mix(in srgb, ${c} 45%, transparent)`,
+  });
+  const CATEGORY_HUE: Record<string, string> = {
+    AIRPLANE: 'var(--rr-info)', HELICOPTER: '#6366F1', GROUND_UNIT: 'var(--rr-good)', SHIP: '#14B8A6',
+    STRUCTURE: 'var(--rr-bad)', HELIPORT: 'var(--rr-warn)', CARGO: '#EC4899', UNKNOWN: 'var(--rr-purple)',
   };
-
-  const getKillCategoryBadgeColor = (killCategory: string) => {
-    switch (killCategory) {
-      case 'A2A':
-        return { bg: 'var(--rr-accent-weak)', text: '#1D4ED8', border: 'var(--rr-accent)' };
-      case 'A2G':
-        return { bg: 'rgba(64,168,91,.14)', text: '#065F46', border: 'var(--rr-good)' };
-      case 'A2S':
-        return { bg: '#CCFBF1', text: '#115E59', border: '#14B8A6' };
-      default:
-        return { bg: 'var(--rr-panel2)', text: '#374151', border: 'var(--rr-border2)' };
-    }
-  };
+  const KILL_HUE: Record<string, string> = { A2A: 'var(--rr-info)', A2G: 'var(--rr-good)', A2S: '#14B8A6' };
+  const getCategoryBadgeColor = (category: string) => tagTint(CATEGORY_HUE[category] || 'var(--rr-text3)');
+  const getKillCategoryBadgeColor = (killCategory: string) => tagTint(KILL_HUE[killCategory] || 'var(--rr-text3)');
 
   return (
     <div ref={componentRef} style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
       {/* Fixed Header */}
       <div style={{ padding: 0, flexShrink: 0 }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto', borderBottom: '1px solid var(--rr-border)', paddingBottom: '24px' }}>
+        <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
           <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
             DCS Reference Data
           </h2>
@@ -493,8 +471,8 @@ const DCSReferenceSettings: React.FC<DCSReferenceSettingsProps> = ({ setError })
       </div>
 
       {/* Scrollable Content */}
-      <div style={{ flex: 1, overflow: 'auto', padding: '24px 40px 0 40px' }}>
-        <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
+      <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
+        <div style={{ maxWidth: '1200px' }}>
 
           {/* Sync Section */}
           <div style={{

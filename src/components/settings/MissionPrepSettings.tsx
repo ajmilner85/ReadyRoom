@@ -1,8 +1,9 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
-import { Icon } from '../ui/primitives';
+import { Button, Chip, Field, FieldLabel, IconButton, Select, TextInput, Textarea, Toast, Toggle } from '../ui/primitives';
+import { DlgCard, SettingRow } from '../ui/events/dialogParts';
+import SettingsSection from './SettingsSection';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
-import StyledSelect from '../dossier/StyledSelect';
 import CommsEntriesEditor from './CommsEntriesEditor';
 import { CommsPlanEntry, generateInitialCommsData } from '../../types/CommsTypes';
 import {
@@ -29,68 +30,6 @@ interface TemplateDraft {
   is_shared: boolean;
   entries: CommsPlanEntry[];
 }
-
-const sectionStyle: React.CSSProperties = {
-  padding: '24px',
-  backgroundColor: 'var(--rr-panel2)',
-  border: '1px solid var(--rr-border)',
-  borderRadius: '8px',
-  marginBottom: '24px'
-};
-
-const inputStyle: React.CSSProperties = {
-  width: '100%',
-  padding: '8px 12px',
-  border: '1px solid var(--rr-border2)',
-  borderRadius: '6px',
-  fontSize: '14px',
-  fontFamily: 'inherit',
-  boxSizing: 'border-box',
-  backgroundColor: 'var(--rr-panel)'
-};
-
-const labelStyle: React.CSSProperties = {
-  display: 'block',
-  fontSize: '14px',
-  fontWeight: 500,
-  color: 'var(--rr-text)',
-  marginBottom: '8px'
-};
-
-const primaryButton = (enabled: boolean): React.CSSProperties => ({
-  padding: '8px 16px',
-  backgroundColor: enabled ? 'var(--rr-accent)' : '#94A3B8',
-  color: 'white',
-  border: 'none',
-  borderRadius: '6px',
-  fontSize: '14px',
-  fontWeight: 500,
-  cursor: enabled ? 'pointer' : 'not-allowed',
-  display: 'inline-flex',
-  alignItems: 'center',
-  gap: '6px'
-});
-
-const secondaryButton: React.CSSProperties = {
-  padding: '8px 16px',
-  backgroundColor: 'var(--rr-panel)',
-  color: 'var(--rr-text)',
-  border: '1px solid var(--rr-border2)',
-  borderRadius: '6px',
-  fontSize: '14px',
-  fontWeight: 500,
-  cursor: 'pointer'
-};
-
-const iconButton: React.CSSProperties = {
-  padding: '6px',
-  backgroundColor: 'transparent',
-  border: 'none',
-  borderRadius: '4px',
-  cursor: 'pointer',
-  display: 'flex',
-  alignItems: 'center'
-};
 
 const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) => {
   const { userProfile } = useAuth();
@@ -215,118 +154,64 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
     }
   };
 
-  // Toggle — copied from MissionDebriefingSettings
-  const renderToggle = (enabled: boolean, onChange: (enabled: boolean) => void, disabled: boolean = false) => (
-    <div
-      onClick={() => !disabled && onChange(!enabled)}
-      style={{
-        width: '44px',
-        height: '24px',
-        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-        borderRadius: '12px',
-        position: 'relative',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'background-color 0.2s ease',
-        opacity: disabled ? 0.5 : 1,
-        flexShrink: 0
-      }}
-    >
-      <div
-        style={{
-          width: '20px',
-          height: '20px',
-          backgroundColor: 'var(--rr-panel)',
-          borderRadius: '50%',
-          position: 'absolute',
-          top: '2px',
-          left: enabled ? '22px' : '2px',
-          transition: 'left 0.2s ease',
-          boxShadow: 'var(--rr-shadow)'
-        }}
-      />
-    </div>
-  );
-
   const renderSourceOption = (value: NewMissionCommsSource, title: string, description: string) => {
     const selected = settings.new_mission_comms_source === value;
     return (
-      <label
-        style={{
-          display: 'flex',
-          gap: '10px',
-          alignItems: 'flex-start',
-          padding: '12px',
-          border: `1px solid ${selected ? 'var(--rr-accent)' : 'var(--rr-border)'}`,
-          backgroundColor: selected ? 'var(--rr-accent-weak)' : 'var(--rr-panel)',
-          borderRadius: '6px',
-          cursor: canManage ? 'pointer' : 'not-allowed',
-          opacity: canManage ? 1 : 0.7,
-          marginBottom: '8px'
-        }}
+      <button
+        key={value}
+        type="button"
+        role="radio"
+        aria-checked={selected}
+        disabled={!canManage}
+        onClick={() => !selected && saveSettings({ new_mission_comms_source: value })}
+        className={`w-full flex items-start gap-[10px] px-[12px] py-[11px] rounded-rr-md border text-left transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${selected ? 'border-accent bg-accent-weak' : 'border-border bg-panel2 hover:border-border2 cursor-pointer'}`}
       >
-        <input
-          type="radio"
-          name="new_mission_comms_source"
-          checked={selected}
-          disabled={!canManage}
-          onChange={() => saveSettings({ new_mission_comms_source: value })}
-          style={{ marginTop: '3px' }}
-        />
-        <div>
-          <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>{title}</div>
-          <div style={{ fontSize: '13px', color: 'var(--rr-text2)', marginTop: '2px' }}>{description}</div>
-        </div>
-      </label>
+        <span
+          className="flex-none mt-[2px] w-[16px] h-[16px] rounded-full flex items-center justify-center"
+          style={{ border: `1.5px solid ${selected ? 'var(--rr-accent)' : 'var(--rr-border2)'}` }}
+        >
+          {selected ? <span className="w-[8px] h-[8px] rounded-full bg-accent" /> : null}
+        </span>
+        <span className="min-w-0">
+          <span className="block text-[13.5px] font-medium text-text">{title}</span>
+          <span className="block text-[12px] text-text2 mt-[2px] leading-[1.45]">{description}</span>
+        </span>
+      </button>
     );
   };
 
   const renderDraftEditor = () => {
     if (!draft) return null;
     return (
-      <div style={{ ...sectionStyle, backgroundColor: 'var(--rr-panel)' }}>
-        <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 16px 0' }}>
-          {draft.id ? 'Edit Template' : 'New Template'}
-        </h3>
-        <div style={{ marginBottom: '16px' }}>
-          <label style={labelStyle}>Title</label>
-          <input
-            autoFocus
-            value={draft.title}
-            onChange={e => setDraft({ ...draft, title: e.target.value })}
-            style={inputStyle}
-          />
-        </div>
-        <div style={{ marginBottom: '16px' }}>
-          <label style={labelStyle}>Description</label>
-          <textarea
-            value={draft.description}
-            onChange={e => setDraft({ ...draft, description: e.target.value })}
-            rows={2}
-            style={{ ...inputStyle, resize: 'vertical' }}
-          />
-        </div>
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-          <div>
-            <div style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Share this template</div>
-            <div style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Shared templates are visible to all users.</div>
+      <DlgCard
+        title={draft.id ? 'Edit template' : 'New template'}
+        footer={
+          <div className="flex justify-end gap-[8px]">
+            <Button size="sm" variant="ghost" onClick={() => setDraft(null)}>Cancel</Button>
+            <Button size="sm" variant="primary" icon="check" disabled={!draft.title.trim() || savingDraft} loading={savingDraft} onClick={saveDraft}>
+              {savingDraft ? 'Saving…' : 'Save template'}
+            </Button>
           </div>
-          {renderToggle(draft.is_shared, is_shared => setDraft({ ...draft, is_shared }))}
+        }
+      >
+        <div className="flex flex-col gap-[14px]">
+          <Field label="Title" required>
+            <TextInput autoFocus value={draft.title} onChange={e => setDraft({ ...draft, title: e.target.value })} />
+          </Field>
+          <Field label="Description">
+            <Textarea rows={2} value={draft.description} onChange={e => setDraft({ ...draft, description: e.target.value })} />
+          </Field>
+          <div className="rounded-rr-md border border-border overflow-hidden">
+            <SettingRow label="Share this template" description="Shared templates are visible to all users." checked={draft.is_shared} onChange={is_shared => setDraft({ ...draft, is_shared })} />
+          </div>
+          <div>
+            <FieldLabel>Channels (PRI)</FieldLabel>
+            <div className="rounded-rr-md border border-border py-[8px]">
+              <CommsEntriesEditor entries={draft.entries} onChange={entries => setDraft({ ...draft, entries })} />
+            </div>
+          </div>
         </div>
-        <label style={labelStyle}>Channels (PRI)</label>
-        <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', padding: '8px 0', marginBottom: '16px' }}>
-          <CommsEntriesEditor entries={draft.entries} onChange={entries => setDraft({ ...draft, entries })} />
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '8px' }}>
-          <button style={secondaryButton} onClick={() => setDraft(null)}>Cancel</button>
-          <button
-            style={primaryButton(!!draft.title.trim() && !savingDraft)}
-            disabled={!draft.title.trim() || savingDraft}
-            onClick={saveDraft}
-          >
-            {savingDraft ? 'Saving…' : 'Save Template'}
-          </button>
-        </div>
-      </div>
+      </DlgCard>
     );
   };
 
@@ -334,77 +219,34 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
     const own = isOwn(t);
     const isDefault = settings.default_comms_template_id === t.id;
     return (
-      <div
-        key={t.id}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          padding: '12px 16px',
-          backgroundColor: 'var(--rr-panel)',
-          border: '1px solid var(--rr-border)',
-          borderRadius: '6px',
-          marginBottom: '8px'
-        }}
-      >
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
-            <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>{t.title}</span>
-            {isDefault && (
-              <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '8px', backgroundColor: 'var(--rr-accent-weak)', color: 'var(--rr-accent-text)', border: '1px solid var(--rr-accent)' }}>
-                Default
-              </span>
-            )}
-            {t.is_shared && (
-              <span style={{ fontSize: '11px', fontWeight: 500, padding: '2px 8px', borderRadius: '8px', backgroundColor: 'rgba(64,168,91,.14)', color: 'var(--rr-good)', border: '1px solid #22C55E' }}>
-                Shared
-              </span>
-            )}
+      <div key={t.id} className="flex items-center gap-[12px] px-[14px] py-[11px]">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-[8px] flex-wrap">
+            <span className="text-[13.5px] font-semibold text-text">{t.title}</span>
+            {isDefault ? <Chip tone="accent" size="sm">Default</Chip> : null}
+            {t.is_shared ? <Chip tone="good" size="sm">Shared</Chip> : null}
           </div>
-          {t.description && (
-            <div style={{ fontSize: '13px', color: 'var(--rr-text2)', marginTop: '2px' }}>{t.description}</div>
-          )}
-          <div style={{ fontSize: '12px', color: 'var(--rr-text3)', marginTop: '2px' }}>
-            {own ? 'Created by you' : `Created by ${t.creator_name || 'another user'}`}
-          </div>
+          {t.description ? <div className="text-[12.5px] text-text2 mt-[2px]">{t.description}</div> : null}
+          <div className="text-[11.5px] text-text3 mt-[2px]">{own ? 'Created by you' : `Created by ${t.creator_name || 'another user'}`}</div>
         </div>
 
         {confirmDeleteId === t.id ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <span style={{ fontSize: '13px', color: 'var(--rr-bad)' }}>
-              {isDefault ? 'Delete the default template?' : 'Delete template?'}
-            </span>
-            <button style={{ ...secondaryButton, padding: '4px 10px', fontSize: '12px' }} onClick={() => setConfirmDeleteId(null)}>Cancel</button>
-            <button
-              style={{ ...primaryButton(true), backgroundColor: 'var(--rr-bad)', padding: '4px 10px', fontSize: '12px' }}
-              onClick={() => handleDelete(t.id)}
-            >
-              Delete
-            </button>
+          <div className="flex items-center gap-[8px]">
+            <span className="text-[12.5px] text-bad">{isDefault ? 'Delete the default template?' : 'Delete template?'}</span>
+            <Button size="sm" variant="ghost" onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+            <Button size="sm" variant="danger" onClick={() => handleDelete(t.id)}>Delete</Button>
           </div>
-        ) : canManage && (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
-            {!isDefault && (
-              <button
-                style={iconButton}
-                title="Set as default"
-                onClick={() => saveSettings({ default_comms_template_id: t.id })}
-              >
-                <Icon name="star" size={16} color="#64748B" />
-              </button>
-            )}
-            {own && (
+        ) : canManage ? (
+          <div className="flex items-center gap-[2px]">
+            {!isDefault ? <IconButton icon="star" size={28} iconSize={14} label="Set as default" onClick={() => saveSettings({ default_comms_template_id: t.id })} /> : null}
+            {own ? (
               <>
-                <button style={iconButton} title="Edit" onClick={() => startEdit(t)}>
-                  <Icon name="edit" size={16} color="#64748B" />
-                </button>
-                <button style={iconButton} title="Delete" onClick={() => setConfirmDeleteId(t.id)}>
-                  <Icon name="trash" size={16} color="#DC2626" />
-                </button>
+                <IconButton icon="edit" size={28} iconSize={14} label="Edit template" onClick={() => startEdit(t)} />
+                <IconButton icon="trash" size={28} iconSize={14} className="hover:!text-bad" label="Delete template" onClick={() => setConfirmDeleteId(t.id)} />
               </>
-            )}
+            ) : null}
           </div>
-        )}
+        ) : null}
       </div>
     );
   };
@@ -414,122 +256,67 @@ const MissionPrepSettings: React.FC<MissionPrepSettingsProps> = ({ setError }) =
     ...templates.map(t => ({ value: t.id, label: isOwn(t) ? t.title : `${t.title} (by ${t.creator_name || 'another user'})` }))
   ];
 
-  const header = (
-    <div style={{ padding: 0, flexShrink: 0 }}>
-      <div style={{ padding: '14px 16px', borderBottom: '1px solid var(--rr-border)' }}>
-        <h2 style={{ fontSize: '16px', fontWeight: 700, margin: 0, color: 'var(--rr-text)' }}>
-          Mission Preparation
-        </h2>
-        <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '1px 0 0 0', fontFamily: 'inherit' }}>
-          Manage comms card templates and how new missions get their comms card
-        </p>
-      </div>
-    </div>
-  );
+  const header = { title: 'Mission Preparation', description: 'Comms card templates, and how new missions get their comms card.' };
 
   if (loading || permissionsLoading) {
     return (
-      <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
-        {header}
-        <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-          <div style={{ maxWidth: '960px', textAlign: 'center', color: 'var(--rr-text2)' }}>
-            Loading settings...
-          </div>
-        </div>
-      </div>
+      <SettingsSection {...header}>
+        <div className="max-w-[860px] py-6 text-center text-[13px] text-text2">Loading settings…</div>
+      </SettingsSection>
     );
   }
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
-      {header}
+    <SettingsSection {...header}>
+      <div className="max-w-[860px] flex flex-col gap-[16px]">
+        {!canManage ? (
+          <Toast tone="warn">You need the "Manage Comms Card Templates" permission to change these settings or manage templates.</Toast>
+        ) : null}
 
-      <div style={{ flex: 1, overflow: 'auto', padding: '20px' }}>
-        <div style={{ maxWidth: '960px' }}>
-
-          {!canManage && (
-            <div style={{ padding: '12px 16px', backgroundColor: 'rgba(222,154,31,.14)', border: '1px solid var(--rr-warn)', borderRadius: '6px', fontSize: '13px', color: 'var(--rr-warn)', marginBottom: '24px' }}>
-              You need the "Manage Comms Card Templates" permission to change these settings or manage templates.
-            </div>
-          )}
-
-          {/* New mission comms card */}
-          <div style={sectionStyle}>
-            <h3 style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 4px 0' }}>
-              New Mission Comms Card
-            </h3>
-            <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '0 0 16px 0' }}>
-              Applies to the whole organization when a mission is created, or opened for the first time without a comms card.
-            </p>
-
+        <DlgCard title="New mission comms card" description="Applies to the whole organization when a mission is created, or opened for the first time without a comms card.">
+          <div role="radiogroup" className="flex flex-col gap-[8px]">
             {renderSourceOption(
               'previous_mission',
               'Copy from the previous mission in the cycle',
               'Uses the comms card from the most recent earlier mission in the same cycle. The first mission of a cycle, and standalone events, use the default template.'
             )}
-            {renderSourceOption(
-              'default_template',
-              'Always use the default template',
-              'Every new mission starts with the default template.'
-            )}
-
-            <div style={{ marginTop: '16px' }}>
-              <label style={labelStyle}>Default template</label>
-              <div style={{ maxWidth: '400px' }}>
-                <StyledSelect
-                  value={settings.default_comms_template_id || ''}
-                  options={defaultTemplateOptions}
-                  onChange={value => saveSettings({ default_comms_template_id: value || null })}
-                  disabled={!canManage}
-                />
-              </div>
-              <p style={{ fontSize: '13px', color: 'var(--rr-text2)', margin: '8px 0 0 0' }}>
-                The default template is readable by everyone, even if it isn't shared.
-              </p>
-            </div>
+            {renderSourceOption('default_template', 'Always use the default template', 'Every new mission starts with the default template.')}
           </div>
-
-          {/* Templates */}
-          <div style={{ marginBottom: '24px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '16px' }}>
-              <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
-                Comms Card Templates
-              </h3>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>Show shared templates</span>
-                  {renderToggle(showShared, setShowShared)}
-                </div>
-                {canManage && !draft && (
-                  <button style={primaryButton(true)} onClick={startNew}>
-                    <Icon name="plus" size={16} /> New Template
-                  </button>
-                )}
-              </div>
+          <Field className="mt-[14px]" label="Default template" hint="The default template is readable by everyone, even if it isn't shared.">
+            <div className="max-w-[420px]">
+              <Select
+                value={settings.default_comms_template_id || ''}
+                options={defaultTemplateOptions}
+                onChange={value => saveSettings({ default_comms_template_id: value || null })}
+                disabled={!canManage}
+              />
             </div>
+          </Field>
+        </DlgCard>
 
-            {renderDraftEditor()}
+        {renderDraftEditor()}
 
-            {visibleTemplates.length > 0 ? (
-              visibleTemplates.map(renderTemplateRow)
-            ) : (
-              <div style={{
-                padding: '16px',
-                backgroundColor: 'var(--rr-panel)',
-                border: '1px dashed var(--rr-border2)',
-                borderRadius: '6px',
-                textAlign: 'center',
-                color: 'var(--rr-text2)',
-                fontSize: '14px'
-              }}>
-                {templates.length > 0 ? 'No templates of your own. Turn on "Show shared templates" to see others.' : 'No comms card templates yet'}
-              </div>
-            )}
-          </div>
-
-        </div>
+        <DlgCard
+          title="Comms card templates"
+          count={visibleTemplates.length}
+          right={
+            <div className="flex items-center gap-[12px]">
+              <Toggle size="sm" checked={showShared} onChange={setShowShared} label={<span className="text-[12px] text-text2">Show shared</span>} />
+              {canManage && !draft ? <Button size="sm" variant="primary" icon="plus" onClick={startNew}>New template</Button> : null}
+            </div>
+          }
+          flush
+        >
+          {visibleTemplates.length > 0 ? (
+            visibleTemplates.map(renderTemplateRow)
+          ) : (
+            <div className="px-[14px] py-[16px] text-center text-[12.5px] text-text2">
+              {templates.length > 0 ? 'No templates of your own. Turn on "Show shared" to see others.' : 'No comms card templates yet.'}
+            </div>
+          )}
+        </DlgCard>
       </div>
-    </div>
+    </SettingsSection>
   );
 };
 

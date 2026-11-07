@@ -1,5 +1,5 @@
 ﻿import React, { useEffect, useState } from 'react';
-import { Icon } from '../primitives';
+import { Icon, Toggle } from '../primitives';
 import { supabase } from '../../../utils/supabaseClient';
 import { getActiveQualifications, Qualification } from '../../../utils/qualificationService';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
@@ -595,7 +595,7 @@ const ActivityCard: React.FC<{
             justifyContent: 'center'
           }}
         >
-          <Icon name="close" size={20} color="#64748B" />
+          <Icon name="close" size={20} color={'var(--rr-text2)'} />
         </button>
       </div>
 
@@ -817,33 +817,7 @@ const ActivityCard: React.FC<{
                 )}
               </div>
             </div>
-            <div
-              onClick={() => onUpdateSettings({ requiresAar: !settings.requiresAar })}
-              style={{
-                width: '44px',
-                height: '24px',
-                backgroundColor: settings.requiresAar ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                borderRadius: '12px',
-                position: 'relative',
-                cursor: 'pointer',
-                transition: 'background-color 0.2s ease',
-                flexShrink: 0
-              }}
-            >
-              <div
-                style={{
-                  width: '20px',
-                  height: '20px',
-                  backgroundColor: 'var(--rr-panel)',
-                  borderRadius: '50%',
-                  position: 'absolute',
-                  top: '2px',
-                  left: settings.requiresAar ? '22px' : '2px',
-                  transition: 'left 0.2s ease',
-                  boxShadow: 'var(--rr-shadow)'
-                }}
-              />
-            </div>
+            <Toggle checked={Boolean(settings.requiresAar)} onChange={() => onUpdateSettings({ requiresAar: !settings.requiresAar })} />
           </div>
         </CollapsibleSection>
       </div>

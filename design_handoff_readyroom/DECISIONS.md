@@ -55,3 +55,11 @@ Record small design calls made during implementation so they can be folded back 
 - My Training: 360px progress column + roadmap timeline (numbered markers, connector, per-lesson objective bars); unnumbered lessons lead the roadmap.
 - PTR: redundant in-card title removed; toolbar = kit cycle Select + student/instructor chips. Badge wrappers lost their legacy -20px offset (PTR grid, grading dialog, cycle enrollment lists), which clipped insignia.
 - Kit: Chip accent tone text uses --rr-accent-text (was --rr-accent, unreadable on dark); purple tone uses --rr-purple. Change-log markdown accepts "- " list items and uses text tokens. Settings opens on Appearance when no section is given.
+
+## Settings pass (2026-11-07)
+- Settings pages share one header (16/700 title, 12px description, 14x16 padding) and an 860px card column. Events, Mission Debriefing and Mission Preparation are rebuilt on dialogParts (DlgCard, SettingRow, ReminderCard now shared with the Event dialog, NumberStepper, SegmentedControl, kit Select).
+- All hand-built 44x24 switches in the app replaced with the kit Toggle; bare "+" add buttons are labelled ghost buttons ("Add status", "Add wing"…); roster settings tables fill the column.
+- StyledSelect is now a wrapper over the kit Select (same props). Kit popovers default to z-index 2500 (tooltips 2600) so they open above dialogs; floating roots carry data-rr-floating (AnchoredPopover treats them as inside).
+- Native controls still in place get kit styling app-wide: chevron on <select>, no number spinners, accent checkboxes/radios. Remaining native selects: Discord integration, squadron Discord settings, OrgEntityModal, AddEditUnitDialog.
+- Icon's color prop is applied via style so token colours resolve; leftover light-theme hexes mapped property-aware to tokens.
+- Home fills the viewport: polls/change log row takes the remaining height (min 360px) and scrolls inside each card.

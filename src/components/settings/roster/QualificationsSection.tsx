@@ -1,3 +1,4 @@
+import { Checkbox, Button } from '../../ui/primitives';
 import React from 'react';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
@@ -272,8 +273,7 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
             alignItems: 'center',
             padding: '4px 0'
           }}>
-          <button
-            onClick={() => {
+          <Button size="sm" variant="ghost" icon="plus" onClick={() => {
               // Reset form fields when opening modal
               setNewQualificationName('');
               setNewQualificationCode('');
@@ -286,40 +286,7 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
               setNewQualificationColor('#646F7E');
               setErrorMessage('');
               setIsAddingQualification(true);
-            }}
-            disabled={loading}
-            style={{
-              width: '119px',
-              height: '30px',
-              background: 'var(--rr-panel)',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'inherit',
-              fontStyle: 'normal',
-              fontWeight: 400,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: 'var(--rr-text2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: loading ? 0.5 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (!loading) {
-                e.currentTarget.style.boxShadow = 'none';
-              }
-            }}
-          >
-            +
-          </button>
+            }} disabled={loading}>Add qualification</Button>
           </div>
         </div>
       </div>
@@ -531,59 +498,11 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
                 </div>
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="new-qual-active-modal"
-                      checked={newQualificationActive}
-                      onChange={() => setNewQualificationActive(!newQualificationActive)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <label htmlFor="new-qual-active-modal" style={{
-                      fontSize: '14px',
-                      color: 'var(--rr-text)',
-                      fontFamily: 'inherit',
-                      cursor: 'pointer'
-                    }}>
-                      Active
-                    </label>
-                  </div>
+                  <Checkbox checked={newQualificationActive} onChange={() => setNewQualificationActive(!newQualificationActive)} label="Active" />
 
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="new-qual-expiry-modal"
-                      checked={newQualificationIsExpirable}
-                      onChange={() => setNewQualificationIsExpirable(!newQualificationIsExpirable)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <label htmlFor="new-qual-expiry-modal" style={{
-                      fontSize: '14px',
-                      color: 'var(--rr-text)',
-                      fontFamily: 'inherit',
-                      cursor: 'pointer'
-                    }}>
-                      Expires
-                    </label>
-                  </div>
+                  <Checkbox checked={newQualificationIsExpirable} onChange={() => setNewQualificationIsExpirable(!newQualificationIsExpirable)} label="Expires" />
 
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="new-qual-support-role-modal"
-                      checked={newQualificationIsSupportRole}
-                      onChange={() => setNewQualificationIsSupportRole(!newQualificationIsSupportRole)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <label htmlFor="new-qual-support-role-modal" style={{
-                      fontSize: '14px',
-                      color: 'var(--rr-text)',
-                      fontFamily: 'inherit',
-                      cursor: 'pointer'
-                    }}>
-                      Mission Support role
-                    </label>
-                  </div>
+                  <Checkbox checked={newQualificationIsSupportRole} onChange={() => setNewQualificationIsSupportRole(!newQualificationIsSupportRole)} label="Mission Support role" />
                 </div>
               </div>
 
@@ -894,61 +813,13 @@ export const QualificationsSection: React.FC<QualificationsSectionProps> = ({
 
                 <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
                   {/* Active Checkbox */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="edit-qual-active-modal"
-                      checked={editingQualificationActive}
-                      onChange={() => setEditingQualificationActive(!editingQualificationActive)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <label htmlFor="edit-qual-active-modal" style={{
-                      fontSize: '14px',
-                      color: 'var(--rr-text)',
-                      fontFamily: 'inherit',
-                      cursor: 'pointer'
-                    }}>
-                      Active
-                    </label>
-                  </div>
+                  <Checkbox checked={editingQualificationActive} onChange={() => setEditingQualificationActive(!editingQualificationActive)} label="Active" />
 
                   {/* Expires Checkbox */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="edit-qual-expiry-modal"
-                      checked={editingQualificationIsExpirable}
-                      onChange={() => setEditingQualificationIsExpirable(!editingQualificationIsExpirable)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <label htmlFor="edit-qual-expiry-modal" style={{
-                      fontSize: '14px',
-                      color: 'var(--rr-text)',
-                      fontFamily: 'inherit',
-                      cursor: 'pointer'
-                    }}>
-                      Expires
-                    </label>
-                  </div>
+                  <Checkbox checked={editingQualificationIsExpirable} onChange={() => setEditingQualificationIsExpirable(!editingQualificationIsExpirable)} label="Expires" />
 
                   {/* Mission Support Role Checkbox */}
-                  <div style={{ display: 'flex', alignItems: 'center' }}>
-                    <input
-                      type="checkbox"
-                      id="edit-qual-support-role-modal"
-                      checked={editingQualificationIsSupportRole}
-                      onChange={() => setEditingQualificationIsSupportRole(!editingQualificationIsSupportRole)}
-                      style={{ marginRight: '8px' }}
-                    />
-                    <label htmlFor="edit-qual-support-role-modal" style={{
-                      fontSize: '14px',
-                      color: 'var(--rr-text)',
-                      fontFamily: 'inherit',
-                      cursor: 'pointer'
-                    }}>
-                      Mission Support role
-                    </label>
-                  </div>
+                  <Checkbox checked={editingQualificationIsSupportRole} onChange={() => setEditingQualificationIsSupportRole(!editingQualificationIsSupportRole)} label="Mission Support role" />
                 </div>
               </div>
 

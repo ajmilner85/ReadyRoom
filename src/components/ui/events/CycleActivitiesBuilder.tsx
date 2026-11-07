@@ -537,7 +537,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                         zIndex: 1
                       }}
                     >
-                      <Icon name="close" size={14} color="#64748B" />
+                      <Icon name="close" size={14} color={'var(--rr-text2)'} />
                     </button>
                   )}
                 </div>
@@ -748,7 +748,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                           justifyContent: 'center'
                                         }}
                                       >
-                                        <Icon name="close" size={11} color="#64748B" />
+                                        <Icon name="close" size={11} color={'var(--rr-text2)'} />
                                       </button>
                                     )}
                                   </div>
@@ -818,7 +818,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                   justifyContent: 'center'
                                 }}
                               >
-                                <Icon name="reset" size={13} color="#64748B" />
+                                <Icon name="reset" size={13} color={'var(--rr-text2)'} />
                               </button>
                             )}
                             <button
@@ -840,7 +840,7 @@ const CycleActivitiesBuilder: React.FC<CycleActivitiesBuilderProps> = ({
                                 justifyContent: 'center'
                               }}
                             >
-                              <Icon name="close" size={14} color="#64748B" />
+                              <Icon name="close" size={14} color={'var(--rr-text2)'} />
                             </button>
                           </div>
                         )}
