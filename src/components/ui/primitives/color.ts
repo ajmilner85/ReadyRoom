@@ -63,3 +63,49 @@ export function legibleHex(color?: string | null, fallback = '#6B7280'): string 
   const [a, b] = [rgb(base), rgb(text)];
   return '#' + a.map((c, i) => Math.round(c * keep + b[i] * (1 - keep)).toString(16).padStart(2, '0')).join('');
 }
+
+/* ------------------------------------------------------------------ */
+/* Accent taming                                                       */
+/* ------------------------------------------------------------------ */
+function hexToHsl(hex: string): [number, number, number] | null {
+  const h = hex.replace('#', '').trim();
+  const f = h.length === 3 ? h.split('').map(c => c + c).join('') : h;
+  if (!/^[0-9a-f]{6}$/i.test(f)) return null;
+  const n = parseInt(f, 16);
+  const r = ((n >> 16) & 255) / 255, g = ((n >> 8) & 255) / 255, b = (n & 255) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  if (max === min) return [0, 0, l];
+  const d = max - min;
+  const s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+  const hue = max === r ? ((g - b) / d + (g < b ? 6 : 0)) : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+  return [hue * 60, s, l];
+}
+function hslToHex(h: number, s: number, l: number): string {
+  const c = (1 - Math.abs(2 * l - 1)) * s;
+  const x = c * (1 - Math.abs(((h / 60) % 2) - 1));
+  const m = l - c / 2;
+  const [r, g, b] = h < 60 ? [c, x, 0] : h < 120 ? [x, c, 0] : h < 180 ? [0, c, x] : h < 240 ? [0, x, c] : h < 300 ? [x, 0, c] : [c, 0, x];
+  return '#' + [r, g, b].map(v => Math.round((v + m) * 255).toString(16).padStart(2, '0')).join('');
+}
+const clamp = (v: number, lo: number, hi: number) => Math.min(hi, Math.max(lo, v));
+
+/**
+ * Caps how loud an accent can be. Squadron / preset colours are often fully saturated
+ * (e.g. #FF4715), which glare as button fills on dark panels. Hue is kept; saturation and
+ * lightness are clamped into a band that reads as "the squadron colour" without glowing.
+ * fill: solid buttons, active segments, toggles. text: accent text, underlines, icons.
+ */
+export function tameAccent(hex: string, theme: 'dark' | 'light'): { fill: string; text: string } | null {
+  const hsl = hexToHsl(hex);
+  if (!hsl) return null;
+  const [h, s, l] = hsl;
+  const fill = theme === 'dark'
+    ? hslToHex(h, Math.min(s, 0.62), clamp(l, 0.3, 0.42))
+    : hslToHex(h, Math.min(s, 0.66), clamp(l, 0.32, 0.46));
+  // Neutral-ish colours (greys) keep their low saturation; only the band is enforced
+  const text = theme === 'dark'
+    ? hslToHex(h, Math.min(s, 0.7), clamp(l, 0.58, 0.68))
+    : hslToHex(h, Math.min(s, 0.7), clamp(l, 0.3, 0.42));
+  return { fill, text };
+}
