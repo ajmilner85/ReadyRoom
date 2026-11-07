@@ -5,7 +5,7 @@ import MissionSummaryWithPopups from './MissionSummaryWithPopups';
 import type { PilotAssignment } from '../../types/MissionTypes';
 import type { FlightDebrief } from '../../types/DebriefingTypes';
 import type { Squadron } from '../../utils/squadronService';
-import { Chip, EmptyState, Icon, SectionCard, SectionLabel, Select, SquadronInsignia, squadronColor } from '../ui/primitives';
+import { Button, Chip, EmptyState, Icon, SectionCard, SectionLabel, Select, Spinner, SquadronInsignia, Toast, squadronColor } from '../ui/primitives';
 import type { Tone } from '../ui/primitives';
 import { debriefingService } from '../../services/debriefingService';
 import { killTrackingService } from '../../services/killTrackingService';
@@ -45,6 +45,11 @@ interface FlightInfo {
 interface MissionDetailsProps {
   selectedMission: MissionListItem | null;
   missionFlights: FlightInfo[];
+  /** Flights / debriefs for the selected mission are still loading. */
+  loadingFlights?: boolean;
+  /** The mission's debrief record couldn't be opened; flights show read-only. */
+  debriefError?: string | null;
+  onRetryDebrief?: () => void;
   missionDebriefId: string | null;
   flightDebriefs: Map<string, FlightDebrief>;
   showDebriefForm: boolean;
@@ -66,6 +71,9 @@ interface MissionDetailsProps {
 const MissionDetails: React.FC<MissionDetailsProps> = ({
   selectedMission,
   missionFlights,
+  loadingFlights = false,
+  debriefError = null,
+  onRetryDebrief,
   missionDebriefId,
   flightDebriefs,
   showDebriefForm,
@@ -189,13 +197,13 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     { k: 'Outcome', v: <Chip tone={OUTCOME_TONE[missionOutcome]} size="sm">{OUTCOME_LABEL[missionOutcome]}</Chip> },
     {
       k: 'After action reports',
-      v: aarFlights.length ? `${submittedCount} / ${aarFlights.length}` : '—',
-      sub: aarFlights.length
+      v: loadingFlights ? '…' : aarFlights.length ? `${submittedCount} / ${aarFlights.length}` : '—',
+      sub: loadingFlights ? 'Loading' : aarFlights.length
         ? (submittedCount === aarFlights.length ? 'All submitted' : `${aarFlights.length - submittedCount} pending`)
         : (aarRequired === false ? 'Not required' : undefined),
       mono: true,
     },
-    { k: 'Squadrons', v: flightsBySquadron.size || '—', mono: true },
+    { k: 'Squadrons', v: loadingFlights ? '…' : flightsBySquadron.size || '—', mono: true },
     {
       k: 'Debrief',
       v: missionFinalized ? 'Finalized' : 'Open',
@@ -243,10 +251,10 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           </div>
 
           {/* Mission summary (status / kills / performance) */}
-          {missionDebriefId && (loadingSummary || missionSummary) ? (
+          {loadingFlights || (missionDebriefId && (loadingSummary || missionSummary)) ? (
             <div className="flex flex-col gap-[8px]">
               <SectionLabel className="mb-0">Mission summary</SectionLabel>
-              {missionSummary ? (
+              {missionSummary && missionDebriefId && !loadingFlights ? (
                 <MissionSummaryWithPopups missionDebriefId={missionDebriefId} summaryData={missionSummary} />
               ) : (
                 <div className="h-[215px] rounded-rr-lg border border-border bg-panel2 flex items-center justify-center text-[12.5px] text-text3">Loading summary…</div>
@@ -257,7 +265,20 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
           {/* After action reports: one card per squadron */}
           <div className="flex flex-col gap-[8px]">
             <SectionLabel className="mb-0">After action reports</SectionLabel>
-            {flightsBySquadron.size > 0 ? (
+            {debriefError && !loadingFlights ? (
+              <Toast tone="warn">
+                <span className="flex items-center gap-3 w-full">
+                  <span className="flex-1">{debriefError}</span>
+                  {onRetryDebrief ? <Button size="sm" variant="secondary" icon="refresh" onClick={onRetryDebrief}>Retry</Button> : null}
+                </span>
+              </Toast>
+            ) : null}
+            {loadingFlights ? (
+              <div className="h-[180px] rounded-rr-lg border border-border bg-panel flex items-center justify-center gap-[10px] text-[12.5px] text-text2" role="status" aria-live="polite">
+                <Spinner size={16} />
+                Loading flights…
+              </div>
+            ) : flightsBySquadron.size > 0 ? (
               <div className="grid gap-[14px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))' }}>
                 {Array.from(flightsBySquadron.entries()).map(([squadronId, flights]) => {
                   const squadron = squadrons.find(s => s.id === squadronId);
@@ -276,7 +297,7 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
                             key={flight.flightId}
                             flight={flight}
                             debrief={flightDebriefs.get(flight.flightId) || null}
-                            canSubmit={canSubmitAAR(flight)}
+                            canSubmit={Boolean(missionDebriefId) && canSubmitAAR(flight)}
                             onSubmitAAR={() => onSubmitAAR(flight)}
                             color={squadronColor(squadron as any)}
                             missionFinalized={missionFinalized}
