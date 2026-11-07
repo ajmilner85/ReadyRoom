@@ -218,6 +218,7 @@ const KneeboardLayout: React.FC = () => {
       const { data: cyclesData, error: cyclesError } = await supabase
         .from('cycles')
         .select('*')
+        .is('deleted_at', null)
         .order('start_date', { ascending: false });
 
       if (cyclesError) {

@@ -105,6 +105,7 @@ function useVisibleModules(): NavModule[] {
       access_kneeboard: !!p.access_kneeboard,
       access_reports: !!p.canAccessReports,
       access_settings: !!p.canAccessSettings,
+      access_ui_kit: !!p.access_ui_kit,
     };
     return NAV_MODULES.filter(m => allowed[m.permission]);
   }, [p]);

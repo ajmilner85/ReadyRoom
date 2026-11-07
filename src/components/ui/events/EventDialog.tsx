@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Button, Chip, CloseButton, Field, FieldLabel, Icon, NumberStepper, SegmentedControl, Select, Textarea, TextInput, Toast, Toggle, controlClass } from '../primitives';
+import { Button, Chip, CloseButton, Field, FieldLabel, Icon, NumberStepper, SegmentedControl, Select, Textarea, TextInput, Toast, Toggle, DateTimePicker, DurationPicker } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase, getEventActivities, getCycleActivities } from '../../../utils/supabaseClient';
@@ -1743,26 +1743,32 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           </div>
 
           <DlgCard title="When">
-            <div className="grid gap-[14px] items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+            {/* Row 1: start + time zone; row 2: duration with the computed end beside it */}
+            <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'minmax(0, 1.5fr) minmax(0, 1fr)' }}>
               <Field label="Start" required>
-                <input type="datetime-local" value={datetime} onChange={handleDatetimeChange} className={`${controlClass} px-3 py-[7px] min-h-[36px]`} style={{ colorScheme: 'inherit' }} />
+                <DateTimePicker value={datetime} onChange={(v) => handleDatetimeChange({ target: { value: v } } as React.ChangeEvent<HTMLInputElement>)} />
               </Field>
               <Field label="Time zone">
                 <Select value={timezone} onChange={(v) => setTimezone(v)} options={TZ_OPTIONS} />
               </Field>
-              <Field label="Duration">
-                <div className="flex items-center gap-[8px]">
-                  <NumberStepper value={durationHours} min={0} max={48} onChange={(n) => handleDurationHoursChange({ target: { value: String(n) } } as any)} suffix="h" width={40} />
-                  <NumberStepper value={durationMinutes} min={0} max={59} step={15} onChange={(n) => handleDurationMinutesChange({ target: { value: String(n) } } as any)} suffix="m" width={40} />
-                </div>
-              </Field>
             </div>
-            {endReadout ? (
-              <div className="mt-[10px] flex items-center gap-[6px] text-[12px] text-text2">
-                <Icon name="clock" size={13} style={{ color: 'var(--rr-text3)' }} />
-                Ends <span className="font-semibold text-text">{endReadout}</span> <span className="text-text3">· {tzLabel}</span>
-              </div>
-            ) : null}
+            <div className="mt-[14px] flex items-end gap-[18px] flex-wrap">
+              <Field label="Duration">
+                <DurationPicker
+                  value={durationHours * 60 + durationMinutes}
+                  onChange={(total) => {
+                    handleDurationHoursChange({ target: { value: String(Math.floor(total / 60)) } } as React.ChangeEvent<HTMLInputElement>);
+                    handleDurationMinutesChange({ target: { value: String(total % 60) } } as React.ChangeEvent<HTMLInputElement>);
+                  }}
+                />
+              </Field>
+              {endReadout ? (
+                <div className="flex items-center gap-[6px] h-[34px] text-[12px] text-text2">
+                  <Icon name="clock" size={13} style={{ color: 'var(--rr-text3)' }} />
+                  Ends <span className="font-semibold text-text">{endReadout}</span> <span className="text-text3">· {tzLabel}</span>
+                </div>
+              ) : null}
+            </div>
           </DlgCard>
 
           <Field label="Description" hint="Shown in the Discord event post.">
@@ -1966,7 +1972,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
             {scheduledPublicationEnabled ? (
               <div className="grid gap-[14px] items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
                 <Field label="Publish at" hint={`In the event's time zone (${tzLabel}).`}>
-                  <input type="datetime-local" value={scheduledPublicationDatetime} onChange={handleScheduledPublicationDatetimeChange} className={`${controlClass} px-3 py-[7px] min-h-[36px]`} />
+                  <DateTimePicker value={scheduledPublicationDatetime} onChange={(v) => handleScheduledPublicationDatetimeChange({ target: { value: v } } as React.ChangeEvent<HTMLInputElement>)} />
                 </Field>
                 <Field label="Or, before event start" hint="Both stay in sync.">
                   <div className="flex items-center gap-[8px] flex-wrap">

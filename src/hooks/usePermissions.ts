@@ -212,7 +212,10 @@ export function usePermissions() {
     access_training_management: state.permissions?.access_training_management || false,
 
     // Kneeboard permissions
-    access_kneeboard: state.permissions?.access_kneeboard || false
+    access_kneeboard: state.permissions?.access_kneeboard || false,
+
+    // UI Kit
+    access_ui_kit: state.permissions?.access_ui_kit || false
   };
 }
 
@@ -267,7 +270,8 @@ export function useSimplePermissions() {
     canAccessMissionDebriefing,
     access_my_training,
     access_training_management,
-    access_kneeboard
+    access_kneeboard,
+    access_ui_kit
   } = usePermissions();
 
   return {
@@ -283,6 +287,7 @@ export function useSimplePermissions() {
     access_my_training,
     access_training_management,
     access_kneeboard,
+    access_ui_kit,
 
     // Generic permission check
     hasPermission,

@@ -3,7 +3,7 @@ import type { IconName } from '../ui/primitives/Icon';
 export type NavPermission =
   | 'access_home' | 'access_roster' | 'access_events' | 'access_mission_prep' | 'access_flights'
   | 'access_settings' | 'access_reports' | 'access_mission_debriefing' | 'access_my_training'
-  | 'access_training_management' | 'access_kneeboard';
+  | 'access_training_management' | 'access_kneeboard' | 'access_ui_kit';
 
 export type NavGroup = 'OVERVIEW' | 'FLIGHT OPS' | 'SQUADRON' | 'RECORDS' | 'ADMIN';
 export const NAV_GROUP_ORDER: NavGroup[] = ['OVERVIEW', 'FLIGHT OPS', 'SQUADRON', 'RECORDS', 'ADMIN'];
@@ -35,7 +35,7 @@ export const NAV_MODULES: NavModule[] = [
   { id: 'my-training', label: 'My Training', route: '/my-training', icon: 'bookOpen', group: 'SQUADRON', permission: 'access_my_training', code: 'TRAINING', title: 'My Training' },
   { id: 'dossier', label: 'Pilot Dossier', short: 'Dossier', route: '/dossier', icon: 'dossier', group: 'RECORDS', permission: 'access_home', code: 'RECORDS', title: 'Pilot Dossier' },
   { id: 'reports', label: 'Reports', route: '/reports', icon: 'reports', group: 'RECORDS', permission: 'access_reports', code: 'RECORDS', title: 'Reports' },
-  { id: 'ui-kit', label: 'UI Kit', route: '/ui-kit', icon: 'grid', group: 'ADMIN', permission: 'access_settings', code: 'ADMIN', title: 'UI Kit' },
+  { id: 'ui-kit', label: 'UI Kit', route: '/ui-kit', icon: 'grid', group: 'ADMIN', permission: 'access_ui_kit', code: 'ADMIN', title: 'UI Kit' },
   { id: 'admin', label: 'Settings', route: '/settings', icon: 'settings', group: 'ADMIN', permission: 'access_settings', code: 'ADMIN', title: 'Settings' },
 ];
 

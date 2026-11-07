@@ -247,6 +247,7 @@ export async function getDossierCycles(): Promise<{ data: DossierCycle[] | null;
   const { data, error } = await supabase
     .from('cycles')
     .select('id, name, type, status, start_date, end_date')
+    .is('deleted_at', null)
     .order('start_date', { ascending: false });
 
   return { data: data as DossierCycle[] | null, error };

@@ -551,7 +551,7 @@ const App: React.FC = () => {
             } />
 
             <Route path="/ui-kit" element={
-              <PermissionGuardedRoute requiredPermission="access_settings">
+              <PermissionGuardedRoute requiredPermission="access_ui_kit">
                 <Suspense fallback={<StandardPageLoader message="Loading UI kit..." />}>
                   <UiKit />
                 </Suspense>

@@ -24,6 +24,7 @@ export async function fetchCycles(): Promise<CycleData[]> {
   const { data, error } = await supabase
     .from('cycles')
     .select('id, name, start_date, end_date, type, participants')
+    .is('deleted_at', null)
     .order('start_date', { ascending: false });
 
   if (error) {
@@ -46,6 +47,7 @@ export async function fetchDefaultCycle(): Promise<CycleData | null> {
     .select('id, name, start_date, end_date, type, participants')
     .lte('start_date', now)
     .gte('end_date', now)
+    .is('deleted_at', null)
     .order('start_date', { ascending: false })
     .limit(1);
 

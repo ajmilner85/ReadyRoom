@@ -1,5 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Button, Chip, CloseButton, Field, Icon, NumberStepper, SegmentedControl, Select, Spinner, Tabs, Textarea, TextInput, Toast, Toggle, controlClass } from '../primitives';
+import { Button, Chip, CloseButton, Field, Icon, NumberStepper, SegmentedControl, Select, Spinner, Tabs, Textarea, TextInput, Toast, Toggle, DatePicker } from '../primitives';
 import { DialogShell, DlgCard, RolePicker, SettingRow, SquadronToggleTile, StepIntro, UNIT_OPTIONS, unitWord, type ReminderUnit } from './dialogParts';
 import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
@@ -1963,10 +1963,10 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
       <DlgCard title="Schedule">
         <div className="grid gap-[12px]" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
           <Field label="Start date" required>
-            <input type="date" value={startDate} onChange={handleStartDateChange} className={`${controlClass} px-[10px] py-[7px] min-h-[36px]`} />
+            <DatePicker value={startDate} onChange={(v) => handleStartDateChange({ target: { value: v } } as React.ChangeEvent<HTMLInputElement>)} />
           </Field>
           <Field label="End date" required>
-            <input type="date" value={endDate} onChange={handleEndDateChange} className={`${controlClass} px-[10px] py-[7px] min-h-[36px]`} />
+            <DatePicker value={endDate} onChange={(v) => handleEndDateChange({ target: { value: v } } as React.ChangeEvent<HTMLInputElement>)} min={startDate || undefined} />
           </Field>
         </div>
         <div className="mt-[12px] flex items-center gap-[12px] flex-wrap">

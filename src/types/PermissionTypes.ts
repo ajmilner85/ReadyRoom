@@ -159,6 +159,9 @@ export interface UserPermissions {
   // Kneeboard (global only)
   access_kneeboard: boolean;                     // Global only
 
+  // UI Kit reference page (global only)
+  access_ui_kit: boolean;                        // Global only
+
   // Meta information
   bases: PermissionBasis[];
   calculatedAt: Date;
