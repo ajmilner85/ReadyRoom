@@ -1,5 +1,5 @@
 import { supabase } from './supabaseClient';
-import { uploadToR2, deleteFromR2, getAccessToken, deleteStorageFileByUrl } from './r2StorageService';
+import { uploadToR2, getAccessToken, deleteStorageFileByUrl } from './r2StorageService';
 
 /**
  * Compress an image file to WebP format with quality reduction
@@ -113,45 +113,58 @@ export const uploadEventImage = async (eventId: string, file: File) => {
 };
 
 /**
+ * Image files are shared: events generated from a syllabus reuse the mission's image URLs, and
+ * copied events reuse each other's. A file may only be deleted when nothing else references it.
+ * Uses the count_image_references RPC (SECURITY DEFINER, so rows hidden by RLS still count).
+ * Fail-safe: if the check can't run (RPC missing, network, auth), the file is KEPT. An orphan
+ * file costs nothing; deleting a shared one breaks every event/mission using it.
+ */
+async function isImageReferencedElsewhere(url: string, excludeEventId?: string): Promise<boolean> {
+  const clean = url.split('?')[0];
+  if (clean.includes('supabase.co')) return false; // legacy URLs: the file is already gone
+  let path: string;
+  try { path = new URL(clean).pathname.slice(1); } catch { return true; }
+  const { data, error } = await (supabase as any).rpc('count_image_references', {
+    p_path: path,
+    p_exclude_event: excludeEventId ?? null,
+  });
+  if (error || typeof data !== 'number') {
+    console.warn('[GC] Image reference check unavailable, keeping file:', path, error?.message);
+    return true;
+  }
+  if (data > 0) console.log(`[GC] Keeping ${path}: still referenced by ${data} other row(s)`);
+  return data > 0;
+}
+
+/** Delete a stored image only if no other event / syllabus mission still uses it. */
+export async function deleteImageIfUnreferenced(url: string, excludeEventId?: string): Promise<void> {
+  if (!url) return;
+  if (await isImageReferencedElsewhere(url, excludeEventId)) return;
+  await deleteStorageFileByUrl(url);
+}
+
+/**
  * Delete an event image from Supabase storage
  * @param imageUrl The URL of the image to delete
  * @returns Success status
  */
 export const deleteEventImage = async (imageUrl: string) => {
   if (!imageUrl) return { error: null };
-  
+
   try {
     console.log(`Attempting to delete image: ${imageUrl}`);
 
-    const cleanUrl = imageUrl.split('?')[0];
-
-    // Legacy Supabase Storage URLs point at buckets that were deleted after
-    // the R2 migration — the file is already gone, only clear the DB reference.
-    if (!cleanUrl.includes('supabase.co')) {
-      // R2 URL: https://pub-xxx.r2.dev/event-images/evt-id/file.webp
-      // R2 key:                                      event-images/evt-id/file.webp
-      const r2Path = new URL(cleanUrl).pathname.slice(1);
-      console.log(`Extracted R2 path to delete: ${r2Path}`);
-      const accessToken = await getAccessToken();
-      if (!accessToken) return { error: new Error('Not authenticated') };
-      const { error: r2Error } = await deleteFromR2(r2Path, accessToken);
-      if (r2Error) {
-        console.error('Error deleting image from R2:', r2Error);
-        return { error: new Error(r2Error) };
-      }
-    }
-
-    // Update the event to remove the image URL
+    // Clear the event's reference first, so the reference check below only sees other users of the file
     const { error: updateError } = await supabase
       .from('events')
       .update({ image_url: null })
       .eq('image_url', imageUrl);
-      
+
     if (updateError) {
       console.error('Error updating event after image deletion:', updateError);
     }
-    
-    console.log('Successfully deleted image and updated event');
+
+    await deleteImageIfUnreferenced(imageUrl);
     return { error: null };
   } catch (err) {
     console.error('Unexpected error in deleteEventImage:', err);
@@ -168,7 +181,7 @@ export async function deleteEventImageFiles(imageData: {
   imageUrl?: string | null;
   headerImageUrl?: string | null;
   additionalImageUrls?: (string | null)[];
-} | string | null | undefined): Promise<void> {
+} | string | null | undefined, eventId?: string): Promise<void> {
   const urls: string[] = [];
 
   if (!imageData) return;
@@ -183,7 +196,9 @@ export async function deleteEventImageFiles(imageData: {
     }
   }
 
-  await Promise.all(urls.map(url => deleteStorageFileByUrl(url)));
+  // eventId: the event being deleted (its own row still exists at this point, so exclude it)
+  const unique = Array.from(new Set(urls.map(u => u.split('?')[0])));
+  await Promise.all(unique.map(url => deleteImageIfUnreferenced(url, eventId)));
 }
 
 /**
@@ -306,7 +321,8 @@ export const uploadMultipleEventImages = async (eventId: string, images: {
     const orphanUrls = [...oldUrlSet].filter(u => !newUrlSet.has(u));
     if (orphanUrls.length > 0) {
       console.log(`[GC] Deleting ${orphanUrls.length} orphaned image file(s)`);
-      await Promise.all(orphanUrls.map(url => deleteStorageFileByUrl(url)));
+      // This event no longer references them; another event or a syllabus mission may
+      await Promise.all(orphanUrls.map(url => deleteImageIfUnreferenced(url)));
     }
 
     return { urls: imageUrls, error: null };
