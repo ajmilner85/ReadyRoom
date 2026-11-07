@@ -124,7 +124,11 @@ interface EventDialogProps {
     type?: string;
   };
   cycles?: Array<{ id: string; name: string; type: string }>;
+  /** Open on the step that edits this part of the event (Edit icons on Event Details cards). */
+  initialSection?: EventDialogSection;
 }
+
+export type EventDialogSection = 'details' | 'activities' | 'support' | 'references' | 'options' | 'notifications' | 'publish';
 
 type WorkflowStep = 'details' | 'training' | 'mission' | 'participants' | 'reminders' | 'publish';
 
@@ -148,7 +152,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   initialData,
   squadrons = [],
   selectedCycle,
-  cycles = []
+  cycles = [],
+  initialSection
 }) => {
   const { settings } = useAppSettings();
 
@@ -157,6 +162,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
 
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('details');
+  const userNavigatedRef = React.useRef(false);
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
 
   // Form data state
@@ -1131,6 +1137,22 @@ export const EventDialog: React.FC<EventDialogProps> = ({
         { key: 'publish', title: 'Publish', description: 'Publication settings' }
       ];
 
+  // Jump to the step that holds the requested section. Re-resolved once the activities flag
+  // loads (it changes which step holds activities/support roles) until the user navigates.
+  useEffect(() => {
+    if (!initialSection || userNavigatedRef.current) return;
+    const stepFor: Record<EventDialogSection, WorkflowStep> = {
+      details: 'details',
+      activities: activitiesEnabled || isTrainingEvent ? 'training' : 'details',
+      references: activitiesEnabled || isTrainingEvent ? 'training' : 'details',
+      support: activitiesEnabled ? 'training' : 'mission',
+      options: 'participants',
+      notifications: 'reminders',
+      publish: 'publish',
+    };
+    setCurrentStep(stepFor[initialSection]);
+  }, [initialSection, activitiesEnabled, isTrainingEvent]);
+
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
   const isFirstStep = currentStepIndex === 0;
   const isLastStep = currentStepIndex === steps.length - 1;
@@ -1248,6 +1270,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   };
 
   const handleNextStep = () => {
+    userNavigatedRef.current = true;
     if (validateCurrentStep()) {
       const newCompleted = new Set(completedSteps);
       newCompleted.add(currentStep);
@@ -1260,15 +1283,18 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   };
 
   const handlePreviousStep = () => {
+    userNavigatedRef.current = true;
     if (!isFirstStep) {
       setCurrentStep(steps[currentStepIndex - 1].key);
     }
   };
 
   const handleStepClick = (stepKey: WorkflowStep) => {
+    userNavigatedRef.current = true;
     // Allow clicking on previous steps or current step
     const stepIndex = steps.findIndex(step => step.key === stepKey);
-    if (stepIndex <= currentStepIndex || completedSteps.has(stepKey)) {
+    // Editing an existing event: every step already holds valid data, so allow jumping anywhere
+    if (initialData || stepIndex <= currentStepIndex || completedSteps.has(stepKey)) {
       setCurrentStep(stepKey);
     }
   };
@@ -1620,7 +1646,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
           {steps.map((step, index) => {
             const isCompleted = completedSteps.has(step.key);
             const isCurrent = currentStep === step.key;
-            const isClickable = index <= currentStepIndex || isCompleted;
+            const isClickable = Boolean(initialData) || index <= currentStepIndex || isCompleted;
             const showLine = index < steps.length - 1;
             const lineActive = index < currentStepIndex;
 
@@ -1983,7 +2009,6 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                 <div style={{ 
                   display: 'grid',
                   gridTemplateColumns: '1fr 1fr',
-                  gridTemplateRows: '1fr 1fr',
                   gap: '12px'
                   }}>
                     {[0, 1, 2, 3].map((index) => (
@@ -1996,27 +2021,29 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                         style={{
                           border: `2px dashed ${dragOverStates[index] ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
                           borderRadius: '6px',
-                          padding: '12px',
+                          padding: imagePreviews[index] ? 0 : '12px',
                           textAlign: 'center',
                           cursor: 'pointer',
                           backgroundColor: dragOverStates[index] ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
                           transition: 'all 0.2s ease',
-                          minHeight: '100px',
+                          aspectRatio: '16 / 9',
+                          overflow: 'hidden',
+                          position: 'relative',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center'
                         }}
                       >
                         {imagePreviews[index] ? (
-                          <div style={{ position: 'relative' }}>
+                          <div style={{ position: 'absolute', inset: 0 }}>
                             <img
                               src={imagePreviews[index]!}
                               alt={`Image ${index + 1}`}
                               style={{
-                                maxWidth: '120px',
-                                maxHeight: '80px',
-                                borderRadius: '4px',
-                                objectFit: 'cover'
+                                width: '100%',
+                                height: '100%',
+                                objectFit: 'cover',
+                                display: 'block'
                               }}
                             />
                             <button
@@ -2026,13 +2053,13 @@ export const EventDialog: React.FC<EventDialogProps> = ({
                               }}
                               style={{
                                 position: 'absolute',
-                                top: '2px',
-                                right: '2px',
+                                top: '6px',
+                                right: '6px',
                                 background: 'rgba(0, 0, 0, 0.7)',
                                 border: 'none',
                                 borderRadius: '50%',
-                                width: '18px',
-                                height: '18px',
+                                width: '22px',
+                                height: '22px',
                                 color: '#fff',
                                 cursor: 'pointer',
                                 display: 'flex',
