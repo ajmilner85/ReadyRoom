@@ -135,12 +135,14 @@ const PilotDossier: React.FC = () => {
 
   // If the current selection becomes non-viewable (e.g. permissions loaded), fall back to own dossier
   useEffect(() => {
-    if (!selectedPilotId || pilotOptions.length === 0) return;
+    // Wait for permissions: while loading, only your own pilot counts as viewable, which would
+    // throw away a ?pilot= preselection before it can be checked
+    if (!selectedPilotId || pilotOptions.length === 0 || permissionsLoading) return;
     const stillViewable = viewablePilots.some(p => p.id === selectedPilotId);
     if (!stillViewable && ownPilotId && selectedPilotId !== ownPilotId) {
       setSelectedPilotId(ownPilotId);
     }
-  }, [viewablePilots, selectedPilotId, ownPilotId, pilotOptions.length]);
+  }, [viewablePilots, selectedPilotId, ownPilotId, pilotOptions.length, permissionsLoading]);
 
   const selectedPilotOption = pilotOptions.find(p => p.id === selectedPilotId);
   const isOwnDossier = selectedPilotId === ownPilotId;
