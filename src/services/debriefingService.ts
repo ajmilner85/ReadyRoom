@@ -368,7 +368,8 @@ class DebriefingService {
   async getCycles() {
     const { data, error } = await supabase
       .from('cycles')
-      .select('id, name, start_date, end_date')
+      .select('id, name, type, start_date, end_date')
+      .is('deleted_at', null)
       .order('start_date', { ascending: false});
 
     if (error) {

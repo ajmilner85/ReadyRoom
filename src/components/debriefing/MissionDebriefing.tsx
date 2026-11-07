@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { usePageLoading } from '../../context/PageLoadingContext';
-import MissionList from './MissionList';
+import DebriefNavigator from './DebriefNavigator';
+import type { AccordionCycle } from '../ui/events/CycleAccordion';
 import MissionDetails from './MissionDetails';
 import { debriefingService } from '../../services/debriefingService';
 import { getAllSquadrons } from '../../utils/squadronService';
@@ -9,13 +10,13 @@ import type { Squadron } from '../../utils/squadronService';
 import { supabase } from '../../utils/supabaseClient';
 import type { PilotAssignment } from '../../types/MissionTypes';
 import type { FlightDebrief } from '../../types/DebriefingTypes';
-import { debriefingStyles } from '../../styles/DebriefingStyles';
 
 interface MissionListItem {
   id: string;
   name: string;
   scheduled_time: string;
   status: string; // Mission planning status from missions table
+  cycle_id?: string | null;
   wing_id?: string;
   squadron_id?: string;
   mission_objectives?: any;
@@ -44,9 +45,9 @@ const MissionDebriefing: React.FC = () => {
   const { setPageLoading } = usePageLoading();
 
   // Data state
-  const [missions, setMissions] = useState<MissionListItem[]>([]);
-  const [allMissions, setAllMissions] = useState<MissionListItem[]>([]); // Unfiltered missions for accurate counts
-  const [cycles, setCycles] = useState<Array<{ id: string; name: string }>>([]);
+  const [allMissions, setAllMissions] = useState<MissionListItem[]>([]); // every debriefable mission; the navigator groups by cycle
+  const [cycles, setCycles] = useState<AccordionCycle[]>([]);
+  const [loadingCycles, setLoadingCycles] = useState(true);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [loading, setLoading] = useState(true);
   const [_error, setError] = useState<string | null>(null);
@@ -62,7 +63,6 @@ const MissionDebriefing: React.FC = () => {
 
   // Selection state
   const [selectedMission, setSelectedMission] = useState<MissionListItem | null>(null);
-  const [hoveredMission, setHoveredMission] = useState<string | null>(null);
 
   // Mission details state
   const [_missionDetails, setMissionDetails] = useState<any>(null);
@@ -85,10 +85,6 @@ const MissionDebriefing: React.FC = () => {
     loadInitialData();
   }, [setPageLoading]);
 
-  useEffect(() => {
-    loadMissions();
-  }, [selectedCycleId]);
-
   const loadInitialData = async () => {
     await Promise.all([
       loadCycles(),
@@ -100,7 +96,7 @@ const MissionDebriefing: React.FC = () => {
   const loadCycles = async () => {
     try {
       const cyclesData = await debriefingService.getCycles();
-      setCycles(cyclesData || []);
+      setCycles((cyclesData || []).map((c: any) => ({ id: c.id, name: c.name, type: c.type, startDate: c.start_date, endDate: c.end_date })));
 
       // Set current cycle as default if not already selected
       if (!selectedCycleId && cyclesData && cyclesData.length > 0) {
@@ -117,6 +113,8 @@ const MissionDebriefing: React.FC = () => {
       }
     } catch (err: any) {
       console.error('Failed to load cycles:', err);
+    } finally {
+      setLoadingCycles(false);
     }
   };
 
@@ -146,17 +144,10 @@ const MissionDebriefing: React.FC = () => {
 
       const wingId = userProfile?.pilot?.currentSquadron?.wing_id;
 
-      // Always load all missions for accurate filter counts
-      const allMissionsData = await debriefingService.getDebriefableMissions(wingId, undefined);
+      // One query for every debriefable mission; cycle grouping happens client-side in the navigator
+      const missions = await debriefingService.getDebriefableMissions(wingId, undefined);
       if (requestId !== missionsRequestRef.current) return;
-      setAllMissions(allMissionsData || []);
-
-      // Handle standalone events filter
-      const cycleId = selectedCycleId === 'standalone' ? null : (selectedCycleId || undefined);
-      const missions = await debriefingService.getDebriefableMissions(wingId, cycleId ?? undefined);
-      if (requestId !== missionsRequestRef.current) return;
-
-      setMissions(missions || []);
+      setAllMissions(missions || []);
 
       // If there's a currently selected mission, update it with the refreshed data
       if (selectedMission) {
@@ -542,27 +533,24 @@ const MissionDebriefing: React.FC = () => {
   };
 
   return (
-    <div style={debriefingStyles.container}>
-      <div style={debriefingStyles.contentWrapper}>
-        <div style={debriefingStyles.columnsContainer}>
-          {/* Left column - Mission List */}
-          <MissionList
-            missions={missions}
-            allMissions={allMissions}
+    <div className="flex-1 min-h-0 flex flex-col">
+      <div className="rr-page flex-1 min-h-0 flex gap-[14px] p-[14px]">
+          {/* Left pane - cycle accordion (Events page navigator) listing each cycle's missions */}
+          <DebriefNavigator
             cycles={cycles}
+            missions={allMissions as any}
             squadrons={squadrons}
-            selectedMission={selectedMission}
-            hoveredMission={hoveredMission}
+            loading={loading}
+            loadingCycles={loadingCycles}
             selectedCycleId={selectedCycleId}
+            onCycleSelect={setSelectedCycleId}
+            selectedMission={selectedMission}
+            onSelectMission={m => handleSelectMission(m as any)}
             selectedSquadronIds={selectedSquadronIds}
             selectedStatus={selectedStatus}
             startDate={startDate}
             endDate={endDate}
             filtersEnabled={filtersEnabled}
-            loading={loading}
-            onSelectMission={handleSelectMission}
-            setHoveredMission={setHoveredMission}
-            setSelectedCycleId={setSelectedCycleId}
             setSelectedSquadronIds={setSelectedSquadronIds}
             setSelectedStatus={setSelectedStatus}
             setStartDate={setStartDate}
@@ -589,7 +577,6 @@ const MissionDebriefing: React.FC = () => {
             squadrons={squadrons}
             onOutcomeUpdate={loadMissions}
           />
-        </div>
       </div>
     </div>
   );

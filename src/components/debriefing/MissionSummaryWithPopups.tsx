@@ -175,26 +175,8 @@ const MissionSummaryWithPopups: React.FC<MissionSummaryWithPopupsProps> = ({
 
   return (
     <>
-      <h3 style={{
-        fontSize: '12px',
-        fontWeight: 600,
-        color: 'var(--rr-text2)',
-        fontFamily: 'inherit',
-        textTransform: 'uppercase',
-        letterSpacing: '.14em',
-        marginBottom: '16px',
-        marginTop: '24px',
-        textAlign: 'center'
-      }}>
-        Mission Summary
-      </h3>
-
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
-        gap: '16px',
-        marginBottom: '32px'
-      }}>
+      {/* Heading lives in MissionDetails; four category cards share the Event Details card */}
+      <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(230px, 100%), 1fr))' }}>
         <PilotStatusCard
           data={summaryData.pilotStatus}
           onRowClick={handlePilotStatusClick}

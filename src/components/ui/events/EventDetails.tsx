@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Button, Chip, EmptyState, Icon, IconButton, Toast } from '../primitives';
+import { Button, Chip, EmptyState, Icon, SectionCard, Toast } from '../primitives';
 import type { EventDialogSection } from './EventDialog';
 import type { Event, EventActivity, EventActivityParticipantBlock, ReferenceMaterial } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
@@ -79,20 +79,8 @@ interface ObjectiveRow {
   syllabus_mission_id: string;
 }
 
-/** Card used by every section of the details grid (pane-title header, optional count/action/footer). */
-const Section: React.FC<{ title: string; count?: number; action?: React.ReactNode; onEdit?: () => void; children: React.ReactNode; className?: string; footer?: React.ReactNode }> = ({ title, count, action, onEdit, children, className = '', footer }) => (
-  <section className={`rounded-rr-lg border border-border bg-panel overflow-hidden flex flex-col ${className}`}>
-    <div className="flex items-center gap-2 pl-[14px] pr-[8px] min-h-[42px] border-b border-border">
-      <span className="rr-pane-title">{title}</span>
-      {count != null ? <span className="font-mono text-[11px] text-text3">{count}</span> : null}
-      <span className="flex-1" />
-      {action}
-      {onEdit ? <IconButton icon="edit" size={26} iconSize={13} label={`Edit ${title.toLowerCase()}`} onClick={onEdit} /> : null}
-    </div>
-    <div className="flex-1">{children}</div>
-    {footer ? <div className="px-[14px] py-[8px] text-[11px] text-text3 border-t border-border">{footer}</div> : null}
-  </section>
-);
+/** Card used by every section of the details grid (kit SectionCard). */
+const Section = SectionCard;
 
 /** All event images, one at a time: arrows + dots, counter, click to open full size. */
 const ImageCarousel: React.FC<{ urls: string[]; onError: (url: string) => void }> = ({ urls, onError }) => {

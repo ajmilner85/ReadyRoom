@@ -1,6 +1,6 @@
 import React from 'react';
 import { PlaneLanding } from 'lucide-react';
-import { Icon } from '../ui/primitives';
+import { Icon, SectionCard } from '../ui/primitives';
 
 interface MissionSummaryData {
   pilotStatus: {
@@ -40,92 +40,43 @@ interface CategoryCardProps {
   children: React.ReactNode;
 }
 
-const CategoryCard: React.FC<CategoryCardProps> = ({ title, children }) => {
-  return (
-    <div style={{
-      backgroundColor: 'var(--rr-panel2)',
-      borderRadius: '12px',
-      padding: '24px',
-      border: '1px solid var(--rr-border)'
-    }}>
-      <div style={{
-        fontSize: '12px',
-        fontWeight: 600,
-        color: 'var(--rr-text2)',
-        textTransform: 'uppercase',
-        letterSpacing: '0.5px',
-        fontFamily: 'inherit',
-        marginBottom: '12px'
-      }}>
-        {title}
-      </div>
-      <div style={{
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '8px'
-      }}>
-        {children}
-      </div>
-    </div>
-  );
-};
+/** Summary category — kit SectionCard (same card as Event Details) with divided rows. */
+const CategoryCard: React.FC<CategoryCardProps> = ({ title, children }) => (
+  <SectionCard title={title}>
+    <div className="flex flex-col py-[6px]">{children}</div>
+  </SectionCard>
+);
 
 interface StatusRowProps {
   icon?: React.ReactNode;
   label: string;
-  value: number;
-  // Friendly-fire count shown in blue parentheses next to the value
+  value: React.ReactNode;
+  // Friendly-fire count shown in parentheses next to the value
   friendlyValue?: number;
   highlighted?: boolean;
   onClick?: (event: React.MouseEvent<HTMLDivElement>) => void;
 }
 
-const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, friendlyValue, highlighted = false, onClick }) => {
-  const [isHovered, setIsHovered] = React.useState(false);
-
-  return (
-    <div
-      onMouseEnter={() => setIsHovered(true)}
-      onMouseLeave={() => setIsHovered(false)}
-      onClick={onClick}
-      style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '8px 12px',
-        backgroundColor: highlighted ? 'var(--rr-panel2)' : isHovered ? 'var(--rr-panel2)' : 'var(--rr-panel)',
-        borderRadius: '6px',
-        cursor: onClick ? 'pointer' : 'default',
-        transition: 'background-color 0.15s'
-      }}
-    >
-      {icon}
-      <span style={{
-        fontSize: '13px',
-        fontWeight: highlighted ? 600 : 500,
-        color: highlighted ? 'var(--rr-text)' : 'var(--rr-text2)',
-        fontFamily: 'inherit',
-        minWidth: '100px'
-      }}>
-        {label}
-      </span>
-      <span style={{
-        fontSize: '16px',
-        fontWeight: highlighted ? 700 : 600,
-        color: highlighted ? 'var(--rr-text)' : 'var(--rr-text)',
-        fontFamily: 'inherit',
-        marginLeft: 'auto'
-      }}>
-        {value ?? 0}
-        {friendlyValue != null && friendlyValue > 0 && (
-          <span style={{ fontWeight: 600, color: 'var(--rr-accent-text)', marginLeft: '4px' }}>
-            ({friendlyValue})
-          </span>
-        )}
-      </span>
-    </div>
-  );
-};
+const StatusRow: React.FC<StatusRowProps> = ({ icon, label, value, friendlyValue, highlighted = false, onClick }) => (
+  <div
+    onClick={onClick}
+    className={[
+      'flex items-center gap-[10px] mx-[6px] px-[8px] h-[32px] rounded-rr-ctl transition-colors',
+      onClick ? 'cursor-pointer hover:bg-panel2' : 'cursor-default',
+      highlighted ? 'mt-[4px] border-t border-border rounded-none' : '',
+    ].join(' ')}
+  >
+    {icon ?? <span className="w-4 flex-none" />}
+    <span className={`text-[13px] ${highlighted ? 'font-semibold text-text' : 'font-medium text-text2'}`}>{label}</span>
+    <span className="flex-1" />
+    <span className={`font-mono text-[14px] ${highlighted ? 'font-bold' : 'font-semibold'} text-text`} style={{ fontVariantNumeric: 'tabular-nums' }}>
+      {value ?? 0}
+      {friendlyValue != null && friendlyValue > 0 && (
+        <span className="font-semibold ml-1" style={{ color: 'var(--rr-accent-text)' }} title="Friendly fire">({friendlyValue})</span>
+      )}
+    </span>
+  </div>
+);
 
 interface PilotStatusCardProps {
   data: MissionSummaryData['pilotStatus'];
@@ -261,34 +212,7 @@ export const PerformanceCard: React.FC<PerformanceCardProps> = ({ data, onRowCli
         value={data.unassessed ?? 0}
         onClick={onRowClick ? (e) => onRowClick('unassessed', e) : undefined}
       />
-      <div style={{
-        display: 'flex',
-        alignItems: 'center',
-        gap: '8px',
-        padding: '8px 12px',
-        backgroundColor: 'var(--rr-panel2)',
-        borderRadius: '6px',
-        marginTop: '4px'
-      }}>
-        <span style={{
-          fontSize: '13px',
-          fontWeight: 600,
-          color: 'var(--rr-text)',
-          fontFamily: 'inherit',
-          minWidth: '100px'
-        }}>
-          Total Evaluated
-        </span>
-        <span style={{
-          fontSize: '16px',
-          fontWeight: 700,
-          color: 'var(--rr-text)',
-          fontFamily: 'inherit',
-          marginLeft: 'auto'
-        }}>
-          {data.total ?? 0}/{data.totalPossible ?? 0}
-        </span>
-      </div>
+      <StatusRow label="Total Evaluated" value={`${data.total ?? 0}/${data.totalPossible ?? 0}`} highlighted />
     </CategoryCard>
   );
 };

@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import clsx from 'clsx';
 import aircraftMaskUrl from '../../../assets/aircraft-mask.png';
 import { Icon, IconName } from './Icon';
-import { Button } from './Button';
+import { Button, IconButton } from './Button';
 
 /* ------------------------------------------------------------------ */
 /* Pane — the basic surface (10px radius, 1px border, subtle shadow)   */
@@ -248,4 +248,34 @@ export const SignalBars: React.FC<{ level: 1 | 2 | 3; color?: string }> = ({ lev
       <span key={b} className="w-[3px] rounded-[1px]" style={{ height: 3 + b * 3, background: b <= 4 - level ? color : 'var(--rr-border2)' }} />
     ))}
   </span>
+);
+
+/* ------------------------------------------------------------------ */
+/* Section card — pane-title header (count / action / edit), body, footer.
+   Used by Event Details and Mission Debrief so content cards match.     */
+/* ------------------------------------------------------------------ */
+export const SectionCard: React.FC<{
+  title: React.ReactNode;
+  count?: React.ReactNode;
+  /** Shown before the title (e.g. squadron insignia). */
+  lead?: React.ReactNode;
+  action?: React.ReactNode;
+  onEdit?: () => void;
+  editLabel?: string;
+  children: React.ReactNode;
+  className?: string;
+  footer?: React.ReactNode;
+}> = ({ title, count, lead, action, onEdit, editLabel, children, className = '', footer }) => (
+  <section className={clsx('rounded-rr-lg border border-border bg-panel overflow-hidden flex flex-col', className)}>
+    <div className="flex items-center gap-2 pl-[14px] pr-[8px] min-h-[42px] border-b border-border">
+      {lead}
+      <span className="rr-pane-title">{title}</span>
+      {count != null ? <span className="font-mono text-[11px] text-text3">{count}</span> : null}
+      <span className="flex-1" />
+      {action}
+      {onEdit ? <IconButton icon="edit" size={26} iconSize={13} label={editLabel ?? (typeof title === 'string' ? `Edit ${title.toLowerCase()}` : 'Edit')} onClick={onEdit} /> : null}
+    </div>
+    <div className="flex-1">{children}</div>
+    {footer ? <div className="px-[14px] py-[8px] text-[11px] text-text3 border-t border-border">{footer}</div> : null}
+  </section>
 );
