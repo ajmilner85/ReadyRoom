@@ -1998,7 +1998,7 @@ const EventsManagement: React.FC = () => {
                 </div>
                 <div className="text-[12px] text-text2 truncate">
                   {mainTab === 'builder'
-                    ? (selectedCycle ? `${selectedCycle.type || 'Cycle'} · ${new Date(selectedCycle.startDate).toLocaleDateString()} – ${new Date(selectedCycle.endDate).toLocaleDateString()}` : 'Select a cycle on the left')
+                    ? (selectedCycle ? `${selectedCycle.type || 'Cycle'} · ${new Date(selectedCycle.startDate).toLocaleDateString(undefined, { timeZone: 'UTC' })} – ${new Date(selectedCycle.endDate).toLocaleDateString(undefined, { timeZone: 'UTC' })}` : 'Select a cycle on the left')
                     : selectedEvent
                       ? [selectedCycle?.name, eventDate && !isNaN(eventDate.getTime()) ? eventDate.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' }) : null].filter(Boolean).join(' · ')
                       : 'Select an event on the left'}

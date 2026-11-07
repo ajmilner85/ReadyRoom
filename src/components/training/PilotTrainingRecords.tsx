@@ -1,7 +1,9 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Chip, EmptyState, Icon, Select } from '../ui/primitives';
+import { Chip, EmptyState, Icon, SegmentedControl } from '../ui/primitives';
+import { CycleAccordionItem, CycleAccordionPane } from '../ui/events/CycleAccordion';
+import type { AccordionCycle } from '../ui/events/CycleAccordion';
 import PTRGrid from './PTRGrid';
 import GradingDialog from './GradingDialog';
 import GraduationDialog from './GraduationDialog';
@@ -17,6 +19,7 @@ import { usePermissions } from '../../hooks/usePermissions';
 interface TrainingCycle {
   id: string;
   name: string;
+  type?: string | null;
   start_date: string;
   end_date: string | null;
   syllabus_id: string;
@@ -38,6 +41,9 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
   const [instructorCounts, setInstructorCounts] = useState<Record<string, number>>({});
   const [gradingDialogCell, setGradingDialogCell] = useState<PTRCellData | null>(null);
   const [ptrGridKey, setPtrGridKey] = useState(0);
+  const [syllabusNames, setSyllabusNames] = useState<Record<string, string>>({});
+  // Navigator filter: training cycles only (default) or every cycle
+  const [cycleFilter, setCycleFilter] = useState<'training' | 'all'>('training');
 
   // Graduation dialog state
   const [graduationStudentIds, setGraduationStudentIds] = useState<string[] | null>(null);
@@ -58,11 +64,10 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
       // Get the current user's pilot ID from userProfile
       const userPilotId = userProfile?.pilotId || null;
 
-      // Get all training cycles
+      // All cycles (the navigator filters to Training by default; other cycles can carry a syllabus too)
       const { data: allCycles, error: cyclesError } = await supabase
         .from('cycles')
         .select('*')
-        .eq('type', 'Training')
         .is('deleted_at', null) // soft-deleted cycles stay hidden (as on Events)
         .order('start_date', { ascending: false });
 
@@ -83,9 +88,20 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
 
       setCycles(accessibleCycles);
       if (accessibleCycles.length > 0 && !selectedCycleId) {
-        setSelectedCycleId(accessibleCycles[0].id);
+        // Default: the running training cycle, else the most recent training cycle, else the most recent cycle
+        const now = new Date();
+        const training = accessibleCycles.filter(c => c.type === 'Training');
+        const running = training.find(c => new Date(c.start_date) <= now && (!c.end_date || new Date(c.end_date) >= now));
+        setSelectedCycleId((running || training[0] || accessibleCycles[0]).id);
       } else if (accessibleCycles.length === 0) {
         setSelectedCycleId(undefined);
+      }
+
+      // Syllabus names for the navigator
+      const syllabusIds = Array.from(new Set(accessibleCycles.map(c => c.syllabus_id).filter(Boolean)));
+      if (syllabusIds.length) {
+        const { data: syl } = await supabase.from('training_syllabi').select('id, name').in('id', syllabusIds);
+        setSyllabusNames(Object.fromEntries((syl || []).map((x: any) => [x.id, x.name])));
       }
 
       // Load enrollment counts for accessible cycles
@@ -229,17 +245,22 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
 
   if (loading) {
     return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '40px' }}>
-        Loading training cycles...
-      </div>
+      <div className="flex-1 flex items-center justify-center p-10 text-[13px] text-text2">Loading training cycles…</div>
     );
   }
 
+  const selectedCycle = cycles.find(c => c.id === selectedCycleId) || null;
+  const shownCycles = cycleFilter === 'training' ? cycles.filter(c => c.type === 'Training') : cycles;
+  const navCycles: AccordionCycle[] = shownCycles.map(c => ({
+    id: c.id, name: c.name, type: c.type, startDate: c.start_date, endDate: c.end_date || c.start_date,
+  }));
+  const fmt = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' }) : '—');
+
   return (
-    <div style={{ padding: '16px 18px', height: '100%', display: 'flex', flexDirection: 'column' }}>
+    <div className="flex-1 min-w-0 min-h-0 flex gap-[14px]">
       {/* No Access Message */}
       {cycles.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center">
+        <div className="flex-1 flex items-center justify-center bg-panel border border-border rounded-rr-xl shadow-rr">
           <EmptyState
             icon="userCheck"
             title="No training cycles available"
@@ -250,47 +271,79 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
         </div>
       ) : (
         <>
-          {/* Toolbar: cycle picker + enrollment counts (the page header already names the view) */}
-          <div className="flex items-center gap-[10px] flex-wrap mb-[14px]">
-            <div className="w-[420px] max-w-full">
-            <Select
-              value={selectedCycleId || ''}
-              onChange={(v) => setSelectedCycleId(v)}
-              placeholder="Select a training cycle"
-              options={cycles.map(cycle => ({
-                value: cycle.id,
-                label: cycle.name,
-                searchText: cycle.name,
-                description: `Starts ${new Date(cycle.start_date).toLocaleDateString('en-US', { timeZone: 'UTC', month: 'short', day: 'numeric', year: 'numeric' })}`,
-              }))}
-            />
-            </div>
-            <span className="flex-1" />
-            {selectedCycleId ? (
-              <>
-                <Chip tone="info" size="sm"><Icon name="roster" size={12} />{enrollmentCounts[selectedCycleId] ?? 0} students</Chip>
-                <Chip tone="good" size="sm"><Icon name="userCheck" size={12} />{instructorCounts[selectedCycleId] ?? 0} instructors</Chip>
-              </>
-            ) : null}
-          </div>
-
-          {/* PTR Grid Content */}
-          <div style={{ flex: 1, minHeight: 0 }}>
-            {selectedCycleId && cycles.find(c => c.id === selectedCycleId)?.syllabus_id ? (
-              <PTRGrid
-                key={ptrGridKey}
-                syllabusId={cycles.find(c => c.id === selectedCycleId)!.syllabus_id!}
-                cycleId={selectedCycleId}
-                onCellClick={handleCellClick}
-                onGraduateClick={handleGraduateClick}
-                suppressTooltips={isGraduationPending || !!graduationStudentIds}
-                ownStudentsPilotId={ptrScope === 'own_students' ? userProfile?.pilotId : undefined}
+          {/* Left: cycle accordion (Events / Debrief navigator) */}
+          <CycleAccordionPane
+            title="Cycles"
+            headerActions={
+              <SegmentedControl
+                size="sm"
+                value={cycleFilter}
+                onChange={setCycleFilter}
+                options={[{ value: 'training', label: 'TRAINING' }, { value: 'all', label: 'ALL' }]}
               />
-            ) : selectedCycleId ? (
-              <EmptyState icon="bookOpen" title="No syllabus assigned" message="Assign a syllabus to this training cycle to grade it here." />
-            ) : (
-              <EmptyState icon="training" title="Pick a training cycle" message="Choose a cycle above to see its training records." />
-            )}
+            }
+            cycles={navCycles}
+            selectedId={selectedCycleId}
+            renderItem={(c, o) => {
+              const cyc = cycles.find(x => x.id === c.id);
+              return (
+                <CycleAccordionItem
+                  key={c.id}
+                  cycle={c}
+                  open={o.open}
+                  onToggle={() => setSelectedCycleId(o.open ? undefined : c.id)}
+                >
+                  <div className="flex flex-col gap-[8px] px-2 pt-[10px] pb-[2px]">
+                    <div className="flex items-center gap-[6px] text-[12px] text-text2 min-w-0">
+                      <Icon name="bookOpen" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0 }} />
+                      <span className="truncate">{cyc?.syllabus_id ? (syllabusNames[cyc.syllabus_id] || 'Syllabus') : 'No syllabus assigned'}</span>
+                    </div>
+                    <div className="flex items-center gap-[6px] flex-wrap">
+                      <Chip tone="info" size="sm"><Icon name="roster" size={11} />{enrollmentCounts[c.id] ?? 0} students</Chip>
+                      <Chip tone="good" size="sm"><Icon name="userCheck" size={11} />{instructorCounts[c.id] ?? 0} instructors</Chip>
+                    </div>
+                  </div>
+                </CycleAccordionItem>
+              );
+            }}
+          />
+
+          {/* Right: the selected cycle's training records */}
+          <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
+            <div className="flex-none flex items-center gap-3 px-4 pt-3 pb-2 flex-wrap">
+              <div className="min-w-0 flex-1">
+                <div className="text-[17px] font-semibold truncate">{selectedCycle?.name || 'No cycle selected'}</div>
+                <div className="text-[12px] text-text2 truncate">
+                  {selectedCycle
+                    ? [selectedCycle.type, `${fmt(selectedCycle.start_date)} – ${fmt(selectedCycle.end_date)}`, selectedCycle.syllabus_id ? syllabusNames[selectedCycle.syllabus_id] : null].filter(Boolean).join(' · ')
+                    : 'Select a cycle on the left'}
+                </div>
+              </div>
+              {selectedCycle ? (
+                <>
+                  <Chip tone="info" size="sm"><Icon name="roster" size={12} />{enrollmentCounts[selectedCycle.id] ?? 0} students</Chip>
+                  <Chip tone="good" size="sm"><Icon name="userCheck" size={12} />{instructorCounts[selectedCycle.id] ?? 0} instructors</Chip>
+                </>
+              ) : null}
+            </div>
+            <div className="h-px bg-border flex-none" />
+            <div className="flex-1 min-h-0 overflow-auto p-4">
+              {selectedCycle?.syllabus_id ? (
+                <PTRGrid
+                  key={ptrGridKey}
+                  syllabusId={selectedCycle.syllabus_id}
+                  cycleId={selectedCycle.id}
+                  onCellClick={handleCellClick}
+                  onGraduateClick={handleGraduateClick}
+                  suppressTooltips={isGraduationPending || !!graduationStudentIds}
+                  ownStudentsPilotId={ptrScope === 'own_students' ? userProfile?.pilotId : undefined}
+                />
+              ) : selectedCycle ? (
+                <EmptyState icon="bookOpen" title="No syllabus assigned" message="Assign a syllabus to this cycle to grade it here." />
+              ) : (
+                <EmptyState icon="training" title="Pick a cycle" message="Expand a cycle on the left to see its training records." />
+              )}
+            </div>
           </div>
 
           {/* Grading Dialog */}
