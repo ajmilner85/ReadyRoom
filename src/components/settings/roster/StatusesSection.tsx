@@ -1,4 +1,5 @@
 import React from 'react';
+import { Toggle, Button } from '../../ui/primitives';
 import { DndContext, closestCenter, KeyboardSensor, PointerSensor, useSensor, useSensors, DragEndEvent } from '@dnd-kit/core';
 import { SortableContext, sortableKeyboardCoordinates, verticalListSortingStrategy } from '@dnd-kit/sortable';
 import { restrictToVerticalAxis } from '@dnd-kit/modifiers';
@@ -60,33 +61,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
   );
 
   const renderToggle = (enabled: boolean, onChange: () => void, disabled = false) => (
-    <div
-      onClick={disabled ? undefined : onChange}
-      style={{
-        width: '44px',
-        height: '24px',
-        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-        borderRadius: '12px',
-        position: 'relative',
-        cursor: disabled ? 'not-allowed' : 'pointer',
-        transition: 'background-color 0.2s ease',
-        opacity: disabled ? 0.5 : 1
-      }}
-    >
-      <div
-        style={{
-          width: '20px',
-          height: '20px',
-          backgroundColor: 'var(--rr-panel)',
-          borderRadius: '50%',
-          position: 'absolute',
-          top: '2px',
-          left: enabled ? '22px' : '2px',
-          transition: 'left 0.2s ease',
-          boxShadow: 'var(--rr-shadow)'
-        }}
-      />
-    </div>
+    <Toggle checked={Boolean(enabled)} onChange={() => onChange()} disabled={disabled} />
   );
 
   return (
@@ -98,13 +73,13 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
         Define the status options available for pilots in the squadron roster.
       </p>
 
-      <div style={{ width: 'fit-content' }}>
+      <div style={{ width: '100%' }}>
         <div style={{
           border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           overflow: 'hidden',
           backgroundColor: 'var(--rr-panel)',
-          width: '594px'
+          width: '100%'
         }}>
           {/* Header Row */}
           <div style={{
@@ -119,7 +94,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
             fontFamily: 'inherit'
           }}>
             <div style={{ width: '24px' }}></div>
-            <div style={{ width: '300px', padding: '12px' }}>Status Name</div>
+            <div style={{ flex: 1, minWidth: 0, padding: '12px' }}>Status Name</div>
             <div style={{ width: '150px', padding: '12px', textAlign: 'center' }}>Active</div>
             <div style={{ width: '120px', padding: '12px', textAlign: 'center' }}>Actions</div>
           </div>
@@ -158,42 +133,10 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           alignItems: 'center',
           padding: '4px 0'
         }}>
-          <button
-            onClick={() => {
+          <Button size="sm" variant="ghost" icon="plus" onClick={() => {
               setEditingStatusId(null);
               setIsAddingStatus(true);
-            }}
-            disabled={loading}
-            style={{
-              width: '119px',
-              height: '30px',
-              background: 'var(--rr-panel)',
-              borderRadius: '8px',
-              border: 'none',
-              cursor: loading ? 'not-allowed' : 'pointer',
-              transition: 'box-shadow 0.2s ease-in-out',
-              fontFamily: 'inherit',
-              fontStyle: 'normal',
-              fontWeight: 400,
-              fontSize: '20px',
-              lineHeight: '24px',
-              color: 'var(--rr-text2)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              opacity: loading ? 0.5 : 1
-            }}
-            onMouseEnter={(e) => {
-              if (!loading) {
-                e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              e.currentTarget.style.boxShadow = 'none';
-            }}
-          >
-            +
-          </button>
+            }} disabled={loading}>Add status</Button>
         </div>
       </div>
 
@@ -205,7 +148,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           backgroundColor: 'var(--rr-panel2)',
-          width: '594px',
+          width: '100%',
           boxSizing: 'border-box'
         }}>
           <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 12px 0' }}>
@@ -289,7 +232,7 @@ export const StatusesSection: React.FC<StatusesSectionProps> = ({
           border: '1px solid var(--rr-border)',
           borderRadius: '8px',
           backgroundColor: 'var(--rr-panel2)',
-          width: '594px',
+          width: '100%',
           boxSizing: 'border-box'
         }}>
           <h4 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)', margin: '0 0 12px 0' }}>

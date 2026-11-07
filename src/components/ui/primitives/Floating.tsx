@@ -25,7 +25,7 @@ interface FloatingProps {
 }
 
 export const Floating: React.FC<FloatingProps> = ({
-  anchor, open, onClose, placement = 'bottom-start', offset = 4, matchWidth, zIndex = 90,
+  anchor, open, onClose, placement = 'bottom-start', offset = 4, matchWidth, zIndex = 2500, // above every dialog layer (kit 80, legacy/new dialogs 1000-1003)
   children, className, style, dismissOnOutside = true,
 }) => {
   const ref = useRef<HTMLDivElement>(null);
@@ -92,6 +92,7 @@ export const Floating: React.FC<FloatingProps> = ({
   return createPortal(
     <div
       ref={ref}
+      data-rr-floating=""
       className={className}
       style={{
         position: 'fixed',

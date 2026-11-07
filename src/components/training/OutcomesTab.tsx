@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Icon } from '../ui/primitives';
+import { Icon, Toggle } from '../ui/primitives';
 import type { GraduationOutcome, GraduationOutcomeType, GraduationEffectiveDate, GraduationQualEntry } from '../../types/TrainingTypes';
 import QualificationBadge from '../ui/QualificationBadge';
 
@@ -260,32 +260,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
                     onClick={(e) => e.stopPropagation()}
                   >
                     <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Required</span>
-                    <button
-                      onClick={() => updateOutcome(type, { required: !outcome.required })}
-                      style={{
-                        position: 'relative',
-                        width: '44px',
-                        height: '24px',
-                        backgroundColor: outcome.required ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                        borderRadius: '12px',
-                        border: 'none',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s',
-                        padding: 0,
-                        flexShrink: 0,
-                      }}
-                    >
-                      <div style={{
-                        position: 'absolute',
-                        top: '2px',
-                        left: outcome.required ? '22px' : '2px',
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        transition: 'left 0.2s',
-                      }} />
-                    </button>
+                    <Toggle checked={Boolean(outcome.required)} onChange={() => updateOutcome(type, { required: !outcome.required })} />
                   </div>
                 )}
               </div>

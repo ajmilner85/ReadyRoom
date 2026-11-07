@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Icon } from '../ui/primitives';
+import { Icon, Button } from '../ui/primitives';
 import {
   Command,
   Group,
@@ -345,41 +345,11 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
     }
   };
 
-  const addButtonStyle = {
-    width: '119px',
-    height: '30px',
-    background: 'var(--rr-panel)',
-    borderRadius: '8px',
-    border: 'none',
-    cursor: 'pointer',
-    transition: 'box-shadow 0.2s ease-in-out',
-    fontFamily: 'inherit',
-    fontStyle: 'normal',
-    fontWeight: 400,
-    fontSize: '20px',
-    lineHeight: '24px',
-    color: 'var(--rr-text2)',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: '10px',
-    marginLeft: 'auto',
-    marginRight: 'auto'
-  };
 
-  const sectionStyle = {
-    paddingTop: '32px',
-    paddingBottom: '32px',
-    borderTop: '1px solid var(--rr-border)',
-    marginTop: '32px'
-  };
-
-  const firstSectionStyle = {
-    paddingTop: '0',
-    paddingBottom: '32px',
-    marginTop: '0',
-    borderTop: 'none'
-  };
+  // Dividers are drawn between sections only (.rr-org-section + .rr-org-section), so a hidden
+  // first section (e.g. no Commands) doesn't leave an empty band at the top.
+  const sectionStyle = { paddingBottom: '32px' };
+  const firstSectionStyle = sectionStyle;
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', backgroundColor: 'var(--rr-panel)' }}>
@@ -400,31 +370,15 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
               </p>
             </div>
 
-            <button
+            <Button
+              size="sm"
+              variant="secondary"
+              icon={showInactive ? 'eyeOff' : 'eye'}
+              title={showInactive ? 'Hide inactive entities' : 'Show inactive entities'}
               onClick={() => setShowInactive(!showInactive)}
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                padding: '8px 12px',
-                backgroundColor: 'var(--rr-panel)',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontFamily: 'inherit',
-                color: 'var(--rr-text)',
-                transition: 'background-color 0.2s ease'
-              }}
-              title={showInactive ? "Hide inactive entities" : "Show inactive entities"}
-              onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
-              onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel)'}
             >
-              {showInactive ? <Icon name="eyeOff" size={16} /> : <Icon name="eye" size={16} />}
-              <span>
-                {showInactive ? 'Hide Inactive' : 'Show Inactive'}
-              </span>
-            </button>
+              {showInactive ? 'Hide inactive' : 'Show inactive'}
+            </Button>
           </div>
         </div>
       </div>
@@ -475,7 +429,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
           <>
             {/* Commands Level */}
             {(showInactive || filterEntities(commands).length > 0) && (
-            <div style={firstSectionStyle}>
+            <div className="rr-org-section" style={firstSectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Commands
@@ -488,18 +442,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {filterEntities(commands).length === 0 ? (
               <div className="text-center py-8 text-text2">
                 <p className="mb-4">No commands configured</p>
-                <button
-                  onClick={() => handleCreateEntity('command')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('command')}>Add command</Button></div>
               </div>
             ) : (
               <>
@@ -598,18 +541,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={() => handleCreateEntity('command')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('command')}>Add command</Button></div>
               </>
             )}
             </div>
@@ -617,7 +549,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
 
             {/* Groups Level */}
             {(showInactive || filterEntities(groups).length > 0) && (
-            <div style={sectionStyle}>
+            <div className="rr-org-section" style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Groups
@@ -630,18 +562,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {filterEntities(groups).length === 0 ? (
               <div className="text-center py-8 text-text2">
                 <p className="mb-4">No groups configured</p>
-                <button
-                  onClick={() => handleCreateEntity('group')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('group')}>Add group</Button></div>
               </div>
             ) : (
               <>
@@ -745,25 +666,14 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={() => handleCreateEntity('group')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('group')}>Add group</Button></div>
               </>
             )}
             </div>
             )}
 
             {/* Wings Level */}
-            <div style={sectionStyle}>
+            <div className="rr-org-section" style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Wings
@@ -776,18 +686,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {filterEntities(wings).length === 0 ? (
               <div className="text-center py-8 text-text2">
                 <p className="mb-4">No wings configured</p>
-                <button
-                  onClick={() => handleCreateEntity('wing')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('wing')}>Add wing</Button></div>
               </div>
             ) : (
               <>
@@ -929,24 +828,13 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={() => handleCreateEntity('wing')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('wing')}>Add wing</Button></div>
               </>
             )}
             </div>
 
             {/* Squadrons Level */}
-            <div style={sectionStyle}>
+            <div className="rr-org-section" style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Squadrons
@@ -959,18 +847,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {filterEntities(squadrons).length === 0 ? (
               <div className="text-center py-8 text-text2">
                 <p className="mb-4">No squadrons configured</p>
-                <button
-                  onClick={() => handleCreateEntity('squadron')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('squadron')}>Add squadron</Button></div>
               </div>
             ) : (
               <>
@@ -1114,24 +991,13 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={() => handleCreateEntity('squadron')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('squadron')}>Add squadron</Button></div>
               </>
             )}
             </div>
 
             {/* Teams Section */}
-            <div style={sectionStyle}>
+            <div className="rr-org-section" style={sectionStyle}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
                 <h3 style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)', margin: 0 }}>
                   Teams
@@ -1144,18 +1010,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
             {filterEntities(teams).length === 0 ? (
               <div className="text-center py-8 text-text2">
                 <p className="mb-4">No teams configured</p>
-                <button
-                  onClick={() => handleCreateEntity('team')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('team')}>Add team</Button></div>
               </div>
             ) : (
               <>
@@ -1257,18 +1112,7 @@ const OrganizationSettings: React.FC<OrganizationSettingsProps> = ({ error, setE
                     </div>
                   ))}
                 </div>
-                <button
-                  onClick={() => handleCreateEntity('team')}
-                  style={addButtonStyle}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.boxShadow = 'none';
-                  }}
-                >
-                  +
-                </button>
+                <div className="flex justify-center mt-[10px]"><Button size="sm" variant="ghost" icon="plus" onClick={() => handleCreateEntity('team')}>Add team</Button></div>
               </>
             )}
             </div>

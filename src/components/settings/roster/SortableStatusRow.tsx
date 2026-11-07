@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
-import { Icon } from '../../ui/primitives';
+import { Icon, Toggle } from '../../ui/primitives';
 import { Status } from '../../../utils/statusService';
 
 interface SortableStatusRowProps {
@@ -32,32 +32,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
   };
 
   const renderToggle = (enabled: boolean, onChange: () => void) => (
-    <div
-      onClick={onChange}
-      style={{
-        width: '44px',
-        height: '24px',
-        backgroundColor: enabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-        borderRadius: '12px',
-        position: 'relative',
-        cursor: 'pointer',
-        transition: 'background-color 0.2s ease',
-      }}
-    >
-      <div
-        style={{
-          width: '20px',
-          height: '20px',
-          backgroundColor: 'var(--rr-panel)',
-          borderRadius: '50%',
-          position: 'absolute',
-          top: '2px',
-          left: enabled ? '22px' : '2px',
-          transition: 'left 0.2s ease',
-          boxShadow: 'var(--rr-shadow)'
-        }}
-      />
-    </div>
+    <Toggle checked={Boolean(enabled)} onChange={() => onChange()} />
   );
 
   return (
@@ -92,7 +67,8 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
 
       {/* Status Name Column */}
       <div style={{
-        width: '300px',
+        flex: 1,
+        minWidth: 0,
         padding: '5px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -153,7 +129,7 @@ export const SortableStatusRow: React.FC<SortableStatusRowProps> = ({
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Icon name="edit" size={14} color="#64748B" />
+              <Icon name="edit" size={14} color={'var(--rr-text2)'} />
             </button>
             <button
               onClick={onDeleteClick}

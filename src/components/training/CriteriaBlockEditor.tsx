@@ -260,7 +260,7 @@ const CriteriaBlockEditor: React.FC<CriteriaBlockEditorProps> = ({
                     }}
                     title="Remove block"
                   >
-                    <Icon name="close" size={16} color="#64748B" />
+                    <Icon name="close" size={16} color={'var(--rr-text2)'} />
                   </button>
                 ) : (
                 <div style={{

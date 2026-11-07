@@ -63,7 +63,8 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
 
       {/* Role Name Column */}
       <div style={{
-        flex: '0 0 300px',
+        flex: '1 1 0',
+        minWidth: 0,
         padding: '5px 12px',
         display: 'flex',
         alignItems: 'center',
@@ -191,7 +192,7 @@ export const SortableRoleItem: React.FC<SortableRoleItemProps> = ({
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Icon name="edit" size={14} color="#64748B" />
+              <Icon name="edit" size={14} color={'var(--rr-text2)'} />
             </button>
             <button
               onClick={onDeleteClick}

@@ -761,7 +761,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
               justifyContent: 'center'
             }}
           >
-            <Icon name="close" size={20} color="#64748B" />
+            <Icon name="close" size={20} color={'var(--rr-text2)'} />
           </button>
         </div>
 
@@ -1398,7 +1398,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                   }}
                 >
                   {uploadingImage ? (
-                    <Icon name="upload" size={32} color="#64748B" />
+                    <Icon name="upload" size={32} color={'var(--rr-text2)'} />
                   ) : formData.insignia_url ? (
                     <img 
                       src={formData.insignia_url} 
@@ -1410,7 +1410,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                       }} 
                     />
                   ) : (
-                    <Icon name="upload" size={32} color="#64748B" />
+                    <Icon name="upload" size={32} color={'var(--rr-text2)'} />
                   )}
                 </div>
                 
@@ -1890,7 +1890,7 @@ const OrgEntityModal: React.FC<OrgEntityModalProps> = ({
                           onMouseEnter={(e) => e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'}
                           onMouseLeave={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
                         >
-                          <Icon name="edit" size={14} color="#64748B" />
+                          <Icon name="edit" size={14} color={'var(--rr-text2)'} />
                         </button>
                         <button
                           onClick={() => handleDeleteTeam(team.id)}

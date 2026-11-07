@@ -140,7 +140,7 @@ const DossierTrapSheetTab: React.FC<DossierTrapSheetTabProps> = ({ traps, loadin
               transform: 'translateY(-50%)',
               pointerEvents: 'none'
             }}>
-              <Icon name="chevronDown" size={16} color="#64748B" />
+              <Icon name="chevronDown" size={16} color={'var(--rr-text2)'} />
             </div>
           </div>
         ))}

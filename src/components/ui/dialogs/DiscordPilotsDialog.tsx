@@ -797,7 +797,7 @@ export const DiscordPilotsDialog: React.FC<DiscordPilotsDialogProps> = ({
             }}
             disabled={processing}
           >
-            <Icon name="close" size={20} color="#64748B" />
+            <Icon name="close" size={20} color={'var(--rr-text2)'} />
           </button>
         </div>
 

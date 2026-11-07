@@ -138,7 +138,8 @@ export interface IconProps extends Omit<React.SVGProps<SVGSVGElement>, 'name' | 
   title?: string;
 }
 
-export const Icon: React.FC<IconProps> = ({ name, size = 16, stroke, title, style, ...rest }) => {
+// `color` goes into the style (not the SVG presentation attribute) so CSS variables resolve.
+export const Icon: React.FC<IconProps> = ({ name, size = 16, stroke, title, style, color, ...rest }) => {
   const d = ICON_PATHS[name];
   const sw = stroke ?? (size >= 17 ? 1.7 : 1.8);
   return (
@@ -153,7 +154,7 @@ export const Icon: React.FC<IconProps> = ({ name, size = 16, stroke, title, styl
       strokeLinejoin="round"
       aria-hidden={title ? undefined : true}
       role={title ? 'img' : undefined}
-      style={{ flex: 'none', ...style }}
+      style={{ flex: 'none', ...(color ? { color } : null), ...style }}
       {...rest}
     >
       {title ? <title>{title}</title> : null}

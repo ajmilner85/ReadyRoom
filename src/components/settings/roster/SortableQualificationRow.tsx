@@ -148,7 +148,7 @@ export const SortableQualificationRow: React.FC<SortableQualificationRowProps> =
                 e.currentTarget.style.background = 'var(--rr-panel)';
               }}
             >
-              <Icon name="edit" size={14} color="#64748B" />
+              <Icon name="edit" size={14} color={'var(--rr-text2)'} />
             </button>
             <button
               onClick={onDeleteClick}
