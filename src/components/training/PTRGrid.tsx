@@ -800,7 +800,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       key={week.weekNumber}
                       data-week-header
                       style={{
-                        padding: '12px 16px 2px',
+                        padding: '12px 10px 2px',
                         textAlign: 'center',
                         fontSize: '12px',
                         fontWeight: 500,
@@ -1049,18 +1049,20 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                 <th
                   title="Squadron assigned at graduation"
                   style={{
-                    padding: '12px 8px 2px',
-                    textAlign: 'center',
+                    padding: '12px 12px 2px',
+                    textAlign: 'left',
+                    fontSize: '12px',
+                    fontWeight: 500,
+                    color: 'var(--rr-text2)',
+                    textTransform: 'uppercase',
                     backgroundColor: 'var(--rr-panel2)',
                     whiteSpace: 'nowrap',
-                    width: '52px',
-                    minWidth: '52px',
                     position: 'sticky',
                     top: 0,
                     zIndex: 10,
                   }}
                 >
-                  <Icon name="shield" size={16} style={{ color: 'var(--rr-text2)' }} />
+                  Assigned to
                 </th>
               </tr>
               {/* Hop Number Row */}
@@ -1081,7 +1083,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       key={week.weekNumber}
                       data-week-header
                       style={{
-                        padding: '2px 16px 12px',
+                        padding: '2px 10px 12px',
                         textAlign: 'center',
                         fontSize: '11px',
                         fontWeight: 400,
@@ -1125,7 +1127,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     minWidth: '48px',
                   }} />
                 )}
-                <th style={{ padding: '2px 8px 12px', backgroundColor: 'var(--rr-panel2)', width: '52px', minWidth: '52px' }} />
+                <th style={{ padding: '2px 12px 12px', backgroundColor: 'var(--rr-panel2)' }} />
               </tr>
             </thead>
             <tbody>
@@ -1251,7 +1253,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         }}
                         onClick={() => handleCellClick(cellData)}
                         style={{
-                          padding: '12px 16px',
+                          padding: '12px 10px',
                           textAlign: 'center',
                           borderBottom: '1px solid var(--rr-border)',
                           width: '90px',
@@ -1318,25 +1320,27 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       )}
                     </td>
                   )}
-                  {/* Squadron assigned at graduation */}
+                  {/* Squadron assigned at graduation: ">>" then its insignia */}
                   <td
                     style={{
-                      padding: '8px',
-                      textAlign: 'center',
+                      padding: '6px 12px',
+                      textAlign: 'left',
                       borderBottom: '1px solid var(--rr-border)',
-                      width: '52px',
-                      minWidth: '52px',
+                      whiteSpace: 'nowrap',
                       backgroundColor: hoveredRow === row.student.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
                       transition: 'background-color 0.1s',
                     }}
                     title={row.student.graduated_to ? `Graduated to ${row.student.graduated_to.designation} ${row.student.graduated_to.name}` : undefined}
                   >
                     {row.student.enrollment_status === 'graduated' && row.student.graduated_to ? (
-                      row.student.graduated_to.insignia_url ? (
-                        <img src={row.student.graduated_to.insignia_url} alt={row.student.graduated_to.designation} style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
-                      ) : (
-                        <span style={{ fontSize: '10.5px', fontWeight: 600, fontFamily: 'var(--rr-font-mono)', color: 'var(--rr-text2)' }}>{row.student.graduated_to.designation}</span>
-                      )
+                      <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
+                        <span style={{ fontFamily: 'var(--rr-font-mono)', fontSize: '12px', fontWeight: 600, color: 'var(--rr-text3)' }}>&gt;&gt;</span>
+                        {row.student.graduated_to.insignia_url ? (
+                          <img src={row.student.graduated_to.insignia_url} alt={row.student.graduated_to.designation} style={{ width: '30px', height: '30px', objectFit: 'contain', display: 'block' }} />
+                        ) : (
+                          <span style={{ fontSize: '11px', fontWeight: 600, fontFamily: 'var(--rr-font-mono)', color: 'var(--rr-text2)' }}>{row.student.graduated_to.designation}</span>
+                        )}
+                      </span>
                     ) : null}
                   </td>
                 </tr>
