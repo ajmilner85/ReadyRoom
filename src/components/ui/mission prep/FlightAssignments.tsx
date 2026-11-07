@@ -2147,7 +2147,9 @@ const FlightAssignments: React.FC<FlightAssignmentsProps> = ({
               fontFamily: 'inherit',
               fontSize: '14px',
               fontWeight: 400,
-              flex: '0 0 30%'
+              flex: '0 0 30%',
+              height: '39px', // footer row is the same height on every Mission Prep tab
+              boxSizing: 'border-box'
             }}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
