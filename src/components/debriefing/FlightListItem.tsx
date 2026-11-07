@@ -1,5 +1,5 @@
 import React from 'react';
-import { Card } from '../ui/card';
+import { BoardNumber, Button, Chip } from '../ui/primitives';
 import type { FlightDebrief } from '../../types/DebriefingTypes';
 import type { PilotAssignment } from '../../types/MissionTypes';
 
@@ -18,387 +18,62 @@ interface FlightListItemProps {
   flight: FlightInfo;
   debrief?: FlightDebrief | null;
   canSubmit: boolean;
-  pilotKills?: Array<{
-    air_to_air_kills: number;
-    air_to_ground_kills: number;
-  }>;
   onSubmitAAR: () => void;
-  dashNumber?: string;
-  compact?: boolean;
+  /** Squadron colour for the flight lead's board number. */
+  color?: string;
   missionFinalized?: boolean;
 }
 
+/**
+ * One flight in a squadron's After Action Reports card: callsign, flight lead, AAR state.
+ * Status uses tinted chips; the only button is the action the viewer can take
+ * (Submit AAR / View-Edit), so pending flights don't shout.
+ */
 const FlightListItem: React.FC<FlightListItemProps> = ({
   flight,
   debrief,
   canSubmit,
-  pilotKills,
   onSubmitAAR,
-  dashNumber: _dashNumber,
-  compact = false,
+  color,
   missionFinalized = false
 }) => {
-  // Calculate performance summary if debrief exists
-  const getPerformanceSummary = () => {
-    if (!debrief?.performance_ratings) return null;
-
-    const ratings = Object.values(debrief.performance_ratings);
-    const satCount = ratings.filter(r => r.rating === 'SAT').length;
-    const totalCount = ratings.length;
-    const percentage = totalCount > 0 ? Math.round((satCount / totalCount) * 100) : 0;
-
-    return { satCount, totalCount, percentage };
-  };
-
-  // Calculate total kills
-  const getTotalKills = () => {
-    if (!pilotKills || pilotKills.length === 0) return { a2a: 0, a2g: 0 };
-
-    return pilotKills.reduce(
-      (acc, kill) => ({
-        a2a: acc.a2a + kill.air_to_air_kills,
-        a2g: acc.a2g + kill.air_to_ground_kills
-      }),
-      { a2a: 0, a2g: 0 }
+  let status: React.ReactNode;
+  if (debrief) {
+    // Finalized missions still open the (read-only) form for viewing
+    status = canSubmit ? (
+      <>
+        <Chip tone="good" size="sm">Submitted</Chip>
+        <Button size="sm" variant="ghost" icon={missionFinalized ? 'eye' : 'edit'} onClick={onSubmitAAR}>
+          {missionFinalized ? 'View' : 'View / Edit'}
+        </Button>
+      </>
+    ) : (
+      <Chip tone="good" size="sm">Submitted</Chip>
     );
-  };
-
-  const performanceSummary = getPerformanceSummary();
-  const totalKills = getTotalKills();
-
-  // Compact mode for grid layout
-  if (compact) {
-    return (
-      <div
-        style={{
-          padding: '12px',
-          backgroundColor: 'var(--rr-panel)',
-          border: '1px solid var(--rr-border)',
-          borderRadius: '6px',
-          display: 'flex',
-          flexDirection: 'column',
-          gap: '8px'
-        }}
-      >
-        {/* Flight callsign */}
-        <div
-          style={{
-            fontSize: '14px',
-            fontWeight: 600,
-            color: 'var(--rr-text)'
-          }}
-        >
-          {flight.callsign} {flight.flightNumber}
-        </div>
-
-        {/* Flight Lead */}
-        <div
-          style={{
-            fontSize: '12px',
-            color: 'var(--rr-text2)'
-          }}
-        >
-          {flight.flightLeadBoardNumber} {flight.flightLeadCallsign}
-        </div>
-
-        {/* AAR Status */}
-        <div style={{ display: 'flex', justifyContent: 'flex-end' }}>
-          {debrief && canSubmit ? (
-            <button
-              onClick={onSubmitAAR}
-              style={{
-                fontSize: '11px',
-                fontWeight: 500,
-                color: missionFinalized ? 'var(--rr-good)' : '#0369A1',
-                backgroundColor: missionFinalized ? 'rgba(64,168,91,.14)' : 'var(--rr-accent-weak)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: missionFinalized ? 'default' : 'pointer'
-              }}
-            >
-              {missionFinalized ? 'AAR SUBMITTED' : 'VIEW/EDIT AAR'}
-            </button>
-          ) : debrief && !canSubmit ? (
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 500,
-                color: 'var(--rr-text2)',
-                backgroundColor: 'var(--rr-panel2)',
-                padding: '4px 8px',
-                borderRadius: '4px'
-              }}
-            >
-              AAR SUBMITTED
-            </span>
-          ) : canSubmit ? (
-            <button
-              onClick={onSubmitAAR}
-              style={{
-                fontSize: '11px',
-                fontWeight: 500,
-                color: '#FFFFFF',
-                backgroundColor: 'var(--rr-warn)',
-                padding: '4px 8px',
-                borderRadius: '4px',
-                border: 'none',
-                cursor: 'pointer'
-              }}
-            >
-              Pending AAR
-            </button>
-          ) : (
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 500,
-                color: 'var(--rr-text2)',
-                backgroundColor: 'var(--rr-panel2)',
-                padding: '4px 8px',
-                borderRadius: '4px'
-              }}
-            >
-              PENDING AAR
-            </span>
-          )}
-        </div>
-      </div>
+  } else if (canSubmit) {
+    status = (
+      <>
+        <Chip tone="muted" size="sm">Pending</Chip>
+        <Button size="sm" variant="secondary" icon="clipboard" onClick={onSubmitAAR}>Submit AAR</Button>
+      </>
     );
+  } else {
+    status = <Chip tone="muted" size="sm">Pending</Chip>;
   }
 
-  // Full mode (original)
   return (
-    <Card>
-      <div style={{ padding: '20px' }}>
-        <div
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: '16px'
-          }}
-        >
-          {/* Flight Info */}
-          <div style={{ flex: 1 }}>
-            <h3
-              style={{
-                fontSize: '18px',
-                fontWeight: 600,
-                color: 'var(--rr-text)',
-                marginBottom: '6px'
-              }}
-            >
-              {flight.callsign} {flight.flightNumber}
-            </h3>
-            <p style={{ fontSize: '14px', color: 'var(--rr-text2)', marginBottom: '0' }}>
-              {flight.flightLeadBoardNumber} {flight.flightLeadCallsign}
-            </p>
-          </div>
-
-          {/* Status/Action Area */}
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            {debrief && canSubmit ? (
-              <>
-                {/* Show performance summary if AAR was submitted AND user has permission */}
-                <div
-                  style={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '16px',
-                    padding: '12px 20px',
-                    backgroundColor: 'var(--rr-panel2)',
-                    borderRadius: '8px',
-                    border: '1px solid var(--rr-border)'
-                  }}
-                >
-                {/* Performance */}
-                {performanceSummary && (
-                  <div style={{ textAlign: 'center' }}>
-                    <div
-                      style={{
-                        fontSize: '11px',
-                        fontWeight: 500,
-                        color: 'var(--rr-text2)',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.5px',
-                        marginBottom: '4px'
-                      }}
-                    >
-                      Performance
-                    </div>
-                    <div
-                      style={{
-                        fontSize: '16px',
-                        fontWeight: 600,
-                        color:
-                          performanceSummary.percentage >= 80
-                            ? '#059669'
-                            : performanceSummary.percentage >= 60
-                            ? '#D97706'
-                            : '#DC2626'
-                      }}
-                    >
-                      {performanceSummary.satCount}/{performanceSummary.totalCount} (
-                      {performanceSummary.percentage}%)
-                    </div>
-                  </div>
-                )}
-
-                {/* Divider */}
-                <div
-                  style={{
-                    width: '1px',
-                    height: '40px',
-                    backgroundColor: 'var(--rr-panel3)'
-                  }}
-                />
-
-                {/* A2A Kills */}
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px'
-                    }}
-                  >
-                    A2A Kills
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      color: 'var(--rr-text)'
-                    }}
-                  >
-                    {totalKills.a2a}
-                  </div>
-                </div>
-
-                {/* Divider */}
-                <div
-                  style={{
-                    width: '1px',
-                    height: '40px',
-                    backgroundColor: 'var(--rr-panel3)'
-                  }}
-                />
-
-                {/* A2G Kills */}
-                <div style={{ textAlign: 'center' }}>
-                  <div
-                    style={{
-                      fontSize: '11px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      marginBottom: '4px'
-                    }}
-                  >
-                    A2G Kills
-                  </div>
-                  <div
-                    style={{
-                      fontSize: '16px',
-                      fontWeight: 600,
-                      color: 'var(--rr-text)'
-                    }}
-                  >
-                    {totalKills.a2g}
-                  </div>
-                </div>
-              </div>
-
-              {/* View/Edit button */}
-              {!missionFinalized && (
-                <button
-                  onClick={onSubmitAAR}
-                  style={{
-                    padding: '10px 20px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: '#FFFFFF',
-                    backgroundColor: '#0EA5E9',
-                    border: 'none',
-                    borderRadius: '6px',
-                    cursor: 'pointer',
-                    transition: 'background-color 0.2s'
-                  }}
-                  onMouseEnter={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0284C7';
-                  }}
-                  onMouseLeave={(e) => {
-                    e.currentTarget.style.backgroundColor = '#0EA5E9';
-                  }}
-                >
-                  View/Edit AAR
-                </button>
-              )}
-              </>
-            ) : debrief && !canSubmit ? (
-              // Show read-only submitted indicator for debriefs user cannot edit
-              <div
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'var(--rr-good)',
-                  backgroundColor: 'rgba(64,168,91,.14)',
-                  border: '1px solid var(--rr-good)',
-                  borderRadius: '6px'
-                }}
-              >
-                AAR Submitted
-              </div>
-            ) : canSubmit ? (
-              // Show Submit AAR button if permitted
-              <button
-                onClick={onSubmitAAR}
-                style={{
-                  padding: '10px 20px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: '#FFFFFF',
-                  backgroundColor: 'var(--rr-accent)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-                }}
-              >
-                Submit AAR
-              </button>
-            ) : (
-              // Show pending indicator for non-permitted users
-              <div
-                style={{
-                  padding: '8px 16px',
-                  fontSize: '13px',
-                  fontWeight: 500,
-                  color: 'var(--rr-warn)',
-                  backgroundColor: 'rgba(222,154,31,.14)',
-                  border: '1px solid var(--rr-warn)',
-                  borderRadius: '6px'
-                }}
-              >
-                Pending AAR
-              </div>
-            )}
-          </div>
+    <div className="flex items-center gap-3 px-[14px] min-h-[52px] py-[8px]">
+      <div className="min-w-0 flex-1">
+        <div className="text-[13.5px] font-semibold text-text leading-[1.3] truncate">
+          {flight.callsign} {flight.flightNumber}
+        </div>
+        <div className="flex items-center gap-[6px] text-[12px] text-text2 leading-[1.3] min-w-0">
+          {flight.flightLeadBoardNumber ? <BoardNumber value={flight.flightLeadBoardNumber} color={color} size={11.5} /> : null}
+          <span className="truncate">{flight.flightLeadCallsign || 'No lead assigned'}</span>
         </div>
       </div>
-    </Card>
+      <div className="flex-none flex items-center gap-2">{status}</div>
+    </div>
   );
 };
 

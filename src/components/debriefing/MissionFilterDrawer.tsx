@@ -20,6 +20,8 @@ interface MissionFilterDrawerProps {
   setFiltersEnabled: (enabled: boolean) => void;
   /** Missions currently shown (for the header count). */
   shownCount?: number;
+  /** Inside the cycle navigator: no header row and no cycle select (the accordion picks the cycle). */
+  embedded?: boolean;
 }
 
 const MISSION_OUTCOMES = [
@@ -57,7 +59,8 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
   setStartDate,
   setEndDate,
   setFiltersEnabled,
-  shownCount
+  shownCount,
+  embedded = false
 }) => {
   const safeSquadrons = Array.isArray(squadrons) ? squadrons : [];
   const safeCycles = Array.isArray(cycles) ? cycles : [];
@@ -88,13 +91,13 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
   };
 
   const activeCount =
-    (selectedCycleId !== '' ? 1 : 0) +
+    (!embedded && selectedCycleId !== '' ? 1 : 0) +
     (selectedSquadronIds.length > 0 ? 1 : 0) +
     (selectedStatus !== '' ? 1 : 0) +
     (startDate !== '' || endDate !== '' ? 1 : 0);
 
   const clearAllFilters = () => {
-    setSelectedCycleId('');
+    if (!embedded) setSelectedCycleId('');
     setSelectedSquadronIds([]);
     setSelectedStatus('');
     setStartDate('');
@@ -105,8 +108,8 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
 
   return (
     <div className="flex-none bg-panel border-b border-border">
-      {/* Header */}
-      <div className="flex items-center gap-[10px] px-[14px] min-h-[46px] border-b border-border">
+      {/* Header (embedded: the navigator header owns the title; apply/clear sit in the strip) */}
+      {embedded ? null : <div className="flex items-center gap-[10px] px-[14px] min-h-[46px] border-b border-border">
         <span className="rr-pane-title">Missions</span>
         {shownCount != null ? (
           <span className="font-mono text-[11px] text-text3">
@@ -126,11 +129,11 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
             </button>
           </>
         ) : null}
-      </div>
+      </div>}
 
       <div className={`flex flex-col gap-[10px] px-[14px] py-[12px] transition-opacity ${dim}`}>
-        <div className="grid gap-[8px]" style={{ gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)' }}>
-          <Select
+        <div className="grid gap-[8px]" style={{ gridTemplateColumns: embedded ? 'minmax(0, 1fr)' : 'minmax(0, 1.4fr) minmax(0, 1fr)' }}>
+          {embedded ? null : <Select
             size="sm"
             value={selectedCycleId}
             onChange={setSelectedCycleId}
@@ -139,7 +142,7 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
               { value: 'standalone', label: withCount('Standalone events', cycleCount('standalone')), searchText: 'Standalone events' },
               ...safeCycles.map(c => ({ value: c.id, label: withCount(c.name, cycleCount(c.id)), searchText: c.name })),
             ]}
-          />
+          />}
           <Select
             size="sm"
             value={selectedStatus}
@@ -179,6 +182,20 @@ const MissionFilterDrawer: React.FC<MissionFilterDrawerProps> = ({
           <input type="date" aria-label="To date" value={endDate} onChange={(e) => setEndDate(e.target.value)} className={`${controlClass} flex-1 min-w-0 px-[10px] h-[30px] text-[12.5px]`} />
         </div>
       </div>
+      {embedded ? (
+        <div className="flex items-center gap-[10px] px-[14px] pb-[10px] -mt-[2px]">
+          <Toggle size="sm" checked={filtersEnabled} onChange={setFiltersEnabled} disabled={activeCount === 0} label={<span className="text-[12px] text-text2">Apply filters</span>} />
+          <span className="flex-1" />
+          <button
+            type="button"
+            onClick={clearAllFilters}
+            disabled={activeCount === 0}
+            className="text-[12px] font-semibold text-text3 enabled:hover:text-bad disabled:opacity-50 disabled:cursor-default bg-transparent border-0 cursor-pointer"
+          >
+            Clear{activeCount > 1 ? ` (${activeCount})` : ''}
+          </button>
+        </div>
+      ) : null}
     </div>
   );
 };

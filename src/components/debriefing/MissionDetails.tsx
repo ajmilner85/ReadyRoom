@@ -1,14 +1,19 @@
-import React, { useState, useRef, useEffect } from 'react';
-import { missionDetailsStyles, squadronTileStyles } from '../../styles/DebriefingStyles';
+import React, { useState, useEffect } from 'react';
 import FlightListItem from './FlightListItem';
 import FlightDebriefForm from './FlightDebriefForm';
 import MissionSummaryWithPopups from './MissionSummaryWithPopups';
 import type { PilotAssignment } from '../../types/MissionTypes';
 import type { FlightDebrief } from '../../types/DebriefingTypes';
 import type { Squadron } from '../../utils/squadronService';
-import { Icon } from '../ui/primitives';
+import { Chip, EmptyState, Icon, SectionCard, SectionLabel, Select, SquadronInsignia, squadronColor } from '../ui/primitives';
+import type { Tone } from '../ui/primitives';
 import { debriefingService } from '../../services/debriefingService';
 import { killTrackingService } from '../../services/killTrackingService';
+
+type OutcomeValue = 'pending' | 'success' | 'partial_success' | 'failure';
+const OUTCOME_LABEL: Record<OutcomeValue, string> = { pending: 'Pending', success: 'Success', partial_success: 'Partial Success', failure: 'Failure' };
+const OUTCOME_TONE: Record<OutcomeValue, Tone> = { pending: 'neutral', success: 'good', partial_success: 'warn', failure: 'bad' };
+const OUTCOME_OPTIONS = (Object.keys(OUTCOME_LABEL) as OutcomeValue[]).map(v => ({ value: v, label: OUTCOME_LABEL[v] }));
 
 interface MissionListItem {
   id: string;
@@ -77,11 +82,9 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
   onOutcomeUpdate
 }) => {
   // All hooks must be called before any conditional returns
-  const [outcomeDropdownOpen, setOutcomeDropdownOpen] = useState(false);
   const [updatingOutcome, setUpdatingOutcome] = useState(false);
   const [missionSummary, setMissionSummary] = useState<any>(null);
   const [loadingSummary, setLoadingSummary] = useState(false);
-  const outcomeDropdownRef = useRef<HTMLDivElement>(null);
 
   // Load mission summary when missionDebriefId changes
   useEffect(() => {
@@ -104,23 +107,6 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
 
     loadMissionSummary();
   }, [missionDebriefId, flightDebriefs]); // Re-load when flight debriefs change
-
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (outcomeDropdownRef.current && !outcomeDropdownRef.current.contains(event.target as Node)) {
-        setOutcomeDropdownOpen(false);
-      }
-    };
-
-    if (outcomeDropdownOpen) {
-      document.addEventListener('mousedown', handleClickOutside);
-    }
-
-    return () => {
-      document.removeEventListener('mousedown', handleClickOutside);
-    };
-  }, [outcomeDropdownOpen]);
 
   // Group flights by squadron - must be called before conditional return
   const flightsBySquadron = React.useMemo(() => {
@@ -154,11 +140,13 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     return grouped;
   }, [missionFlights, aarOperationalOnly, aarRequired, aarSquadronIds, squadrons]);
 
+  const pane = 'flex-1 min-w-0 min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden';
+
   if (!selectedMission) {
     return (
-      <div style={missionDetailsStyles.container}>
-        <div style={missionDetailsStyles.emptyState}>
-          Select a mission from the list to view flight debriefs
+      <div className={pane}>
+        <div className="flex-1 flex items-center justify-center p-6">
+          <EmptyState icon="debrief" title="No mission selected" message="Pick a mission on the left to see its summary and after action reports." />
         </div>
       </div>
     );
@@ -169,233 +157,149 @@ const MissionDetails: React.FC<MissionDetailsProps> = ({
     ? selectedMission.mission_debriefings[0]
     : selectedMission.mission_debriefings;
 
-  const missionOutcome = debriefing?.mission_outcome || 'pending';
+  const missionOutcome = (debriefing?.mission_outcome || 'pending') as OutcomeValue;
   const missionFinalized = debriefing?.finalized_at != null;
 
-  const outcomeOptions = [
-    { value: 'pending', label: 'Pending' },
-    { value: 'success', label: 'Success' },
-    { value: 'partial_success', label: 'Partial Success' },
-    { value: 'failure', label: 'Failure' }
+  const changeOutcome = async (value: OutcomeValue) => {
+    if (!missionDebriefId || updatingOutcome || value === missionOutcome) return;
+    setUpdatingOutcome(true);
+    try {
+      await debriefingService.updateMissionOutcome(missionDebriefId, value);
+      onOutcomeUpdate?.();
+    } catch (error) {
+      console.error('Failed to update mission outcome:', error);
+    } finally {
+      setUpdatingOutcome(false);
+    }
+  };
+
+  const when = new Date(selectedMission.scheduled_time);
+  const validWhen = !isNaN(when.getTime());
+
+  // AAR progress across the flights that need one
+  const aarFlights = Array.from(flightsBySquadron.values()).flat();
+  const submittedCount = aarFlights.filter(f => flightDebriefs.has(f.flightId)).length;
+
+  const meta: Array<{ k: string; v: React.ReactNode; sub?: React.ReactNode; mono?: boolean }> = [
+    {
+      k: 'Date',
+      v: validWhen ? when.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' }) : '—',
+      sub: validWhen ? when.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : undefined,
+    },
+    { k: 'Outcome', v: <Chip tone={OUTCOME_TONE[missionOutcome]} size="sm">{OUTCOME_LABEL[missionOutcome]}</Chip> },
+    {
+      k: 'After action reports',
+      v: aarFlights.length ? `${submittedCount} / ${aarFlights.length}` : '—',
+      sub: aarFlights.length
+        ? (submittedCount === aarFlights.length ? 'All submitted' : `${aarFlights.length - submittedCount} pending`)
+        : (aarRequired === false ? 'Not required' : undefined),
+      mono: true,
+    },
+    { k: 'Squadrons', v: flightsBySquadron.size || '—', mono: true },
+    {
+      k: 'Debrief',
+      v: missionFinalized ? 'Finalized' : 'Open',
+      sub: missionFinalized && debriefing?.finalized_at
+        ? new Date(debriefing.finalized_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })
+        : 'AARs can be edited',
+    },
   ];
 
   return (
-    <div style={missionDetailsStyles.container}>
-      {/* Mission Header */}
-      <div style={missionDetailsStyles.header}>
-        <div style={{ flex: 1 }}>
-          <h2 style={missionDetailsStyles.missionName}>
-            {selectedMission.name}
-          </h2>
-          <p style={missionDetailsStyles.missionTime}>
-            {new Date(selectedMission.scheduled_time).toLocaleDateString('en-US', {
-              month: 'long',
-              day: 'numeric',
-              year: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit'
-            })}
-          </p>
-        </div>
-
-        {/* Mission Outcome Selector */}
-        <div style={{ minWidth: '200px', position: 'relative', marginRight: '16px' }} ref={outcomeDropdownRef}>
-          <label style={{
-            display: 'block',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            marginBottom: '6px'
-          }}>
-            Mission Outcome
-          </label>
-          <div
-            onClick={() => setOutcomeDropdownOpen(!outcomeDropdownOpen)}
-            style={{
-              width: '100%',
-              padding: '8px 12px',
-              fontSize: '14px',
-              color: 'var(--rr-text)',
-              backgroundColor: 'var(--rr-panel)',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              boxSizing: 'border-box'
-            }}
-          >
-            <span>{outcomeOptions.find(o => o.value === missionOutcome)?.label || 'Pending'}</span>
-            <Icon name="chevronDown" size={16} style={{ color: 'var(--rr-text2)' }} />
+    <div className={pane}>
+      {/* Header: title + date, outcome control (Events page pattern) */}
+      <div className="flex-none flex items-center gap-3 px-4 pt-3 pb-2 flex-wrap">
+        <div className="min-w-0 flex-1">
+          <div className="text-[17px] font-semibold truncate">{selectedMission.name}</div>
+          <div className="text-[12px] text-text2 truncate">
+            {validWhen ? when.toLocaleString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : 'No date'}
           </div>
-
-          {outcomeDropdownOpen && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              width: '100%',
-              marginTop: '4px',
-              backgroundColor: 'var(--rr-panel)',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              boxShadow: 'var(--rr-shadow)',
-              zIndex: 1000,
-              maxHeight: '200px',
-              overflowY: 'auto',
-              boxSizing: 'border-box'
-            }}>
-              {outcomeOptions.map(option => (
-                <div
-                  key={option.value}
-                  onClick={async () => {
-                    if (missionDebriefId && !updatingOutcome) {
-                      setUpdatingOutcome(true);
-                      try {
-                        await debriefingService.updateMissionOutcome(
-                          missionDebriefId,
-                          option.value as 'pending' | 'success' | 'partial_success' | 'failure'
-                        );
-                        setOutcomeDropdownOpen(false);
-                        // Notify parent to refresh data
-                        if (onOutcomeUpdate) {
-                          onOutcomeUpdate();
-                        }
-                      } catch (error) {
-                        console.error('Failed to update mission outcome:', error);
-                      } finally {
-                        setUpdatingOutcome(false);
-                      }
-                    }
-                  }}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: updatingOutcome ? 'not-allowed' : 'pointer',
-                    backgroundColor: missionOutcome === option.value ? 'var(--rr-accent-weak)' : 'transparent',
-                    fontSize: '14px',
-                    fontFamily: 'inherit',
-                    transition: 'background-color 0.2s',
-                    opacity: updatingOutcome ? 0.5 : 1
-                  }}
-                  onMouseEnter={(e) => {
-                    if (missionOutcome !== option.value) {
-                      e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-                    }
-                  }}
-                  onMouseLeave={(e) => {
-                    if (missionOutcome !== option.value) {
-                      e.currentTarget.style.backgroundColor = 'transparent';
-                    }
-                  }}
-                >
-                  {option.label}
-                </div>
-              ))}
-            </div>
-          )}
+        </div>
+        {missionFinalized ? <Chip tone="good" size="sm"><Icon name="lock" size={11} />Finalized</Chip> : null}
+        <span className="text-[12px] text-text2">Outcome</span>
+        <div className="w-[170px]">
+          <Select<OutcomeValue>
+            size="sm"
+            value={missionOutcome}
+            onChange={changeOutcome}
+            disabled={!missionDebriefId || updatingOutcome}
+            options={OUTCOME_OPTIONS}
+          />
         </div>
       </div>
+      <div className="h-px bg-border flex-none" />
 
-      {/* Mission Summary Section */}
-      {!loadingSummary && missionSummary && missionDebriefId && (
-        <MissionSummaryWithPopups
-          missionDebriefId={missionDebriefId}
-          summaryData={missionSummary}
-        />
-      )}
-
-      {/* After Action Reports Section */}
-      <h3 style={{
-        fontSize: '12px',
-        fontWeight: 600,
-        color: 'var(--rr-text2)',
-        fontFamily: 'inherit',
-        textTransform: 'uppercase',
-        letterSpacing: '.14em',
-        marginBottom: '12px',
-        textAlign: 'left'
-      }}>
-        After Action Reports
-      </h3>
-
-      {/* Squadron Tiles with Flights */}
-      {flightsBySquadron.size > 0 ? (
-        <div style={missionDetailsStyles.squadronsContainer}>
-          {Array.from(flightsBySquadron.entries()).map(([squadronId, flights]) => {
-            const squadron = squadrons.find(s => s.id === squadronId);
-            const squadronName = squadron?.name || 'Unknown Squadron';
-
-            return (
-              <div key={squadronId} style={squadronTileStyles.container}>
-                {/* Squadron Header */}
-                <div style={squadronTileStyles.header}>
-                  {squadron?.insignia_url && (
-                    <img
-                      src={squadron.insignia_url}
-                      alt={`${squadronName} insignia`}
-                      loading="lazy"
-                      style={squadronTileStyles.insignia}
-                    />
-                  )}
-                  <div>
-                    <div style={squadronTileStyles.squadronDesignation}>
-                      {squadron?.designation || 'Unknown'}
-                    </div>
-                    <div style={squadronTileStyles.squadronName}>
-                      {squadronName}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Flights in this squadron */}
-                <div style={squadronTileStyles.flightsContainer}>
-                  {flights.map((flight) => {
-                    const debrief = flightDebriefs.get(flight.flightId);
-                    const flightLeadDashNumber = flight.pilotAssignments.find(
-                      a => a.pilot_id === flight.flightLeadPilotId
-                    )?.dash_number || '1';
-
-                    // Check permissions regardless of whether debrief exists
-                    const hasPermission = canSubmitAAR(flight);
-
-                    return (
-                      <FlightListItem
-                        key={flight.flightId}
-                        flight={flight}
-                        debrief={debrief || null}
-                        canSubmit={hasPermission}
-                        pilotKills={(debrief as any)?.pilot_kills}
-                        onSubmitAAR={() => onSubmitAAR(flight)}
-                        dashNumber={flightLeadDashNumber}
-                        compact={true}
-                        missionFinalized={missionFinalized}
-                      />
-                    );
-                  })}
-                </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="flex flex-col gap-[14px]">
+          {/* Meta strip */}
+          <div className="grid gap-x-5 gap-y-[14px] p-[14px] rounded-rr-lg border border-border bg-panel2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+            {meta.map(m => (
+              <div key={m.k} className="min-w-0">
+                <div className="rr-label mb-[4px]">{m.k}</div>
+                <div className={`text-[13.5px] font-semibold text-text leading-[1.3] ${m.mono ? 'font-mono text-[12.5px]' : ''}`}>{m.v}</div>
+                {m.sub ? <div className="text-[12px] text-text2 leading-[1.3]">{m.sub}</div> : null}
               </div>
-            );
-          })}
+            ))}
+          </div>
+
+          {/* Mission summary (status / kills / performance) */}
+          {missionDebriefId && (loadingSummary || missionSummary) ? (
+            <div className="flex flex-col gap-[8px]">
+              <SectionLabel className="mb-0">Mission summary</SectionLabel>
+              {missionSummary ? (
+                <MissionSummaryWithPopups missionDebriefId={missionDebriefId} summaryData={missionSummary} />
+              ) : (
+                <div className="h-[215px] rounded-rr-lg border border-border bg-panel2 flex items-center justify-center text-[12.5px] text-text3">Loading summary…</div>
+              )}
+            </div>
+          ) : null}
+
+          {/* After action reports: one card per squadron */}
+          <div className="flex flex-col gap-[8px]">
+            <SectionLabel className="mb-0">After action reports</SectionLabel>
+            {flightsBySquadron.size > 0 ? (
+              <div className="grid gap-[14px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(min(340px, 100%), 1fr))' }}>
+                {Array.from(flightsBySquadron.entries()).map(([squadronId, flights]) => {
+                  const squadron = squadrons.find(s => s.id === squadronId);
+                  const done = flights.filter(f => flightDebriefs.has(f.flightId)).length;
+                  return (
+                    <SectionCard
+                      key={squadronId}
+                      lead={<SquadronInsignia squadron={squadron as any} size={22} />}
+                      title={squadron?.designation || 'Unknown squadron'}
+                      count={`${done}/${flights.length}`}
+                      action={squadron?.name ? <span className="text-[11.5px] text-text3 truncate pr-[6px]" style={{ maxWidth: 180 }}>{squadron.name}</span> : null}
+                    >
+                      <div className="divide-y divide-border">
+                        {flights.map(flight => (
+                          <FlightListItem
+                            key={flight.flightId}
+                            flight={flight}
+                            debrief={flightDebriefs.get(flight.flightId) || null}
+                            canSubmit={canSubmitAAR(flight)}
+                            onSubmitAAR={() => onSubmitAAR(flight)}
+                            color={squadronColor(squadron as any)}
+                            missionFinalized={missionFinalized}
+                          />
+                        ))}
+                      </div>
+                    </SectionCard>
+                  );
+                })}
+              </div>
+            ) : (
+              <div className="rounded-rr-lg border border-border bg-panel">
+                <EmptyState
+                  compact
+                  icon="clipboard"
+                  title={aarRequired === false ? 'No AARs required' : 'No flights'}
+                  message={aarRequired === false ? 'No activity at this event requires an After Action Report.' : 'No flights were assigned for this mission.'}
+                />
+              </div>
+            )}
+          </div>
         </div>
-      ) : (
-        <div
-          style={{
-            padding: '40px',
-            textAlign: 'center',
-            color: 'var(--rr-text3)',
-            fontSize: '14px',
-            backgroundColor: 'var(--rr-panel2)',
-            borderRadius: '8px',
-            border: '1px solid var(--rr-border)'
-          }}
-        >
-          {aarRequired === false
-            ? 'No After Action Reports required for this event.'
-            : 'No flights found for this mission.'}
-        </div>
-      )}
+      </div>
 
       {/* Debrief Form Modal */}
       {showDebriefForm && selectedFlight && missionDebriefId && userPilotId && selectedMission && (

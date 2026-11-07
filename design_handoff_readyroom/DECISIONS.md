@@ -63,3 +63,8 @@ Record small design calls made during implementation so they can be folded back 
 - Native controls still in place get kit styling app-wide: chevron on <select>, no number spinners, accent checkboxes/radios. Remaining native selects: Discord integration, squadron Discord settings, OrgEntityModal, AddEditUnitDialog.
 - Icon's color prop is applied via style so token colours resolve; leftover light-theme hexes mapped property-aware to tokens.
 - Home fills the viewport: polls/change log row takes the remaining height (min 360px) and scrolls inside each card.
+
+## Mission Debrief to Events standard (2026-11-07)
+- Left pane is the Events cycle accordion, now shared as CycleAccordion (EventsNavigator uses it too). Rows are missions grouped In progress / Completed with an outcome dot (hollow = pending). Missions with no cycle or a deleted cycle sit under Standalone Events; cycles query excludes deleted_at. Outcome / squadron / date filters collapse into a strip behind a Filters button (badge = active count); the cycle select is gone (the accordion picks the cycle). Cycle grouping is client-side, which also fixes the old "standalone" filter returning every mission.
+- Detail pane follows Event Details: title/date header with kit outcome Select, meta strip (date, outcome, AARs n/total, squadrons, debrief state), then kit SectionCards (the Event Details Section, now exported from the kit) for the four summary categories and one card per squadron.
+- AAR rows: tinted status chip + only the viewer's action as a button (secondary "Submit AAR", ghost "View / Edit", "View" once finalized). The solid amber "Pending AAR" button is gone.
