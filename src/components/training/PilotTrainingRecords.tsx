@@ -327,7 +327,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
               ) : null}
             </div>
             <div className="h-px bg-border flex-none" />
-            <div className="flex-1 min-h-0 overflow-auto p-4">
+            <div className="flex-1 min-h-0 overflow-y-auto overflow-x-hidden p-4">
               {selectedCycle?.syllabus_id ? (
                 <PTRGrid
                   key={ptrGridKey}

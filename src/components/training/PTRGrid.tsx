@@ -3,7 +3,6 @@ import { legibleColor } from '../ui/primitives/color';
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import { Icon } from '../ui/primitives';
-import PilotIDBadgeSm from '../ui/PilotIDBadgeSm';
 import { PTRCellData, TrainingGrade } from '../../types/TrainingTypes';
 import type { ReferenceMaterial } from '../../types/EventTypes';
 import { useNavigate } from 'react-router-dom';
@@ -30,6 +29,8 @@ interface Student {
     insignia_url: string;
     primary_color: string;
   };
+  /** Squadron assigned by this cycle's graduation (graduation_records squadron_assignment outcome). */
+  graduated_to?: { id: string; designation: string; name: string; insignia_url: string | null } | null;
 }
 
 interface WeekInfo {
@@ -173,6 +174,28 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
         }
       });
 
+      // Post-graduation squadron: the squadron_assignment outcome recorded when this cycle graduated them
+      const gradSquadronByPilot = new Map<string, string>();
+      const graduatedIds = visibleEnrollments.filter((e: any) => e.status === 'graduated').map((e: any) => e.pilot_id);
+      if (graduatedIds.length) {
+        const { data: gradRecords } = await supabase
+          .from('graduation_records')
+          .select('student_pilot_id, graduated_at, outcomes_applied')
+          .eq('cycle_id', cycleId)
+          .in('student_pilot_id', graduatedIds)
+          .order('graduated_at', { ascending: true }); // later records win
+        (gradRecords || []).forEach((r: any) => {
+          const sq = (Array.isArray(r.outcomes_applied) ? r.outcomes_applied : []).find((o: any) => o?.type === 'squadron_assignment' && typeof o.value === 'string' && o.value);
+          if (sq) gradSquadronByPilot.set(r.student_pilot_id, sq.value);
+        });
+      }
+      const gradSquadronIds = Array.from(new Set(gradSquadronByPilot.values()));
+      const gradSquadrons = new Map<string, any>();
+      if (gradSquadronIds.length) {
+        const { data: sqData } = await supabase.from('org_squadrons').select('id, designation, name, insignia_url').in('id', gradSquadronIds);
+        (sqData || []).forEach((sq: any) => gradSquadrons.set(sq.id, sq));
+      }
+
       // Build enriched pilot data from enrollments; a pilot is active when
       // their current (open-ended) status row is an active status
       const enrichedPilotsData = visibleEnrollments.map((enrollment: any) => {
@@ -185,7 +208,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
           board_number: enrollment.pilots.boardNumber,
           squadron: squadronMap.get(enrollment.pilot_id) || null,
           enrollment_status: enrollment.status,
-          is_active: isActive
+          is_active: isActive,
+          graduated_to: gradSquadrons.get(gradSquadronByPilot.get(enrollment.pilot_id) || '') || null
         };
       });
 
@@ -503,7 +527,8 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
             board_number: pilot.board_number,
             squadron: pilot.squadron,
             enrollment_status: pilot.enrollment_status,
-            is_active: pilot.is_active
+            is_active: pilot.is_active,
+            graduated_to: pilot.graduated_to
           },
           weekCells
         };
@@ -576,7 +601,17 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
     }
   };
 
+  // Hover requests are async (grade fetch). Only the latest one may open the tooltip, and leaving a
+  // cell cancels it, otherwise a slow fetch reopens the tooltip after the pointer has gone.
+  const hoverRequestRef = React.useRef(0);
+  // A new cycle (or syllabus) never inherits the previous grid's tooltip
+  React.useEffect(() => {
+    hoverRequestRef.current++;
+    setTooltipData(null);
+  }, [cycleId, syllabusId]);
+
   const handleCellHover = async (cellData: PTRCellData, event: React.MouseEvent<HTMLTableCellElement>, weekInfo: WeekInfo) => {
+    const requestId = ++hoverRequestRef.current;
     if (suppressTooltips) return;
     // Only show tooltip if there's a grade
     if (!cellData.hasGrade || !cellData.latestAttemptId) {
@@ -604,6 +639,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
         .single();
 
       if (gradeError) throw gradeError;
+      if (requestId !== hoverRequestRef.current) return; // pointer moved on while loading
 
       console.log('Raw grade data from DB:', gradeData);
 
@@ -650,11 +686,12 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
       });
     } catch (err) {
       console.error('Error loading grade details for tooltip:', err);
-      setTooltipData(null);
+      if (requestId === hoverRequestRef.current) setTooltipData(null);
     }
   };
 
   const handleCellLeave = () => {
+    hoverRequestRef.current++; // cancels any in-flight hover
     setTooltipData(null);
   };
 
@@ -714,7 +751,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
         </button>
       </div>
 
-      <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', position: 'relative', overflow: 'visible', width: 'fit-content', height: '100%', display: 'flex', flexDirection: 'column' }}>
+      <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', position: 'relative', overflow: 'visible', width: 'fit-content', maxWidth: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
         <div style={{ overflowX: 'auto', overflowY: 'auto', flex: 1, position: 'relative' }}>
           <table style={{ borderCollapse: 'collapse', width: 'auto' }}>
             <thead style={{ position: 'sticky', top: 0, zIndex: 10 }}>
@@ -1008,6 +1045,23 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     <Icon name="training" size={16} style={{ color: 'var(--rr-text2)' }} />
                   </th>
                 )}
+                {/* Post-graduation squadron column header */}
+                <th
+                  title="Squadron assigned at graduation"
+                  style={{
+                    padding: '12px 8px 2px',
+                    textAlign: 'center',
+                    backgroundColor: 'var(--rr-panel2)',
+                    whiteSpace: 'nowrap',
+                    width: '52px',
+                    minWidth: '52px',
+                    position: 'sticky',
+                    top: 0,
+                    zIndex: 10,
+                  }}
+                >
+                  <Icon name="shield" size={16} style={{ color: 'var(--rr-text2)' }} />
+                </th>
               </tr>
               {/* Hop Number Row */}
               <tr style={{ backgroundColor: 'var(--rr-panel2)', borderBottom: '1px solid var(--rr-border)' }}>
@@ -1041,7 +1095,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       onMouseEnter={() => {
                         setHoveredCol(week.weekNumber);
                         // Clear cell tooltip when hovering over a week header
-                        setTooltipData(null);
+                        hoverRequestRef.current++; setTooltipData(null);
                         if (clickedWeekPopup === null) {
                           setHoveredWeekPopup(week.weekNumber);
                         }
@@ -1071,6 +1125,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                     minWidth: '48px',
                   }} />
                 )}
+                <th style={{ padding: '2px 8px 12px', backgroundColor: 'var(--rr-panel2)', width: '52px', minWidth: '52px' }} />
               </tr>
             </thead>
             <tbody>
@@ -1090,21 +1145,25 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       title={row.student.is_active === false ? 'Inactive pilot' : undefined}
                       style={{
                         display: 'flex',
-                        alignItems: 'center',
+                        alignItems: 'baseline',
+                        lineHeight: '24px',
                         height: '24px',
-                        gap: '8px',
+                        gap: '10px',
                         opacity: row.student.is_active === false ? 0.5 : 1
                       }}
                     >
-                      <div style={{ flexShrink: 0 }}>
-                        <PilotIDBadgeSm
-                          squadronTailCode={row.student.squadron?.tail_code}
-                          boardNumber={row.student.board_number}
-                          squadronInsigniaUrl={row.student.squadron?.insignia_url}
-                          color={legibleColor(row.student.squadron?.primary_color, 'var(--rr-text2)')}
-                        />
-                      </div>
                       {/* Board # carries the squadron colour; callsign stays plain (same as every pilot list) */}
+                      <span style={{
+                        width: '34px',
+                        flexShrink: 0,
+                        fontFamily: 'var(--rr-font-mono)',
+                        fontSize: '12.5px',
+                        fontWeight: 600,
+                        letterSpacing: '.02em',
+                        color: legibleColor(row.student.squadron?.primary_color, 'var(--rr-text2)')
+                      }}>
+                        {row.student.board_number || '—'}
+                      </span>
                       <span style={{
                         fontSize: '13.5px',
                         fontWeight: 600,
@@ -1234,7 +1293,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                         <button
                           onClick={(e) => {
                             e.stopPropagation();
-                            setTooltipData(null);
+                            hoverRequestRef.current++; setTooltipData(null);
                             setHoveredWeekPopup(null);
                             setClickedWeekPopup(null);
                             onGraduateClick([row.student.id]);
@@ -1259,6 +1318,27 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       )}
                     </td>
                   )}
+                  {/* Squadron assigned at graduation */}
+                  <td
+                    style={{
+                      padding: '8px',
+                      textAlign: 'center',
+                      borderBottom: '1px solid var(--rr-border)',
+                      width: '52px',
+                      minWidth: '52px',
+                      backgroundColor: hoveredRow === row.student.id ? 'var(--rr-panel2)' : 'var(--rr-panel)',
+                      transition: 'background-color 0.1s',
+                    }}
+                    title={row.student.graduated_to ? `Graduated to ${row.student.graduated_to.designation} ${row.student.graduated_to.name}` : undefined}
+                  >
+                    {row.student.enrollment_status === 'graduated' && row.student.graduated_to ? (
+                      row.student.graduated_to.insignia_url ? (
+                        <img src={row.student.graduated_to.insignia_url} alt={row.student.graduated_to.designation} style={{ width: '24px', height: '24px', objectFit: 'contain', display: 'block', margin: '0 auto' }} />
+                      ) : (
+                        <span style={{ fontSize: '10.5px', fontWeight: 600, fontFamily: 'var(--rr-font-mono)', color: 'var(--rr-text2)' }}>{row.student.graduated_to.designation}</span>
+                      )
+                    ) : null}
+                  </td>
                 </tr>
               ))}
             </tbody>
