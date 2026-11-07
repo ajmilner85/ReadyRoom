@@ -63,6 +63,7 @@ const PilotTrainingRecords: React.FC<PilotTrainingRecordsProps> = ({ error, setE
         .from('cycles')
         .select('*')
         .eq('type', 'Training')
+        .is('deleted_at', null) // soft-deleted cycles stay hidden (as on Events)
         .order('start_date', { ascending: false });
 
       if (cyclesError) throw cyclesError;

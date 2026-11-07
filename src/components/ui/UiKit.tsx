@@ -6,6 +6,7 @@ import {
   ProgressBar, RadioGroup, SearchInput, SectionLabel, SegmentedControl, Select, SignalBars, StatTile, StatusChip, Stepper,
   Tabs, TextInput, Textarea, Toggle, ToolbarButton, ToolbarGroup, Tooltip, useToast,
   OptionList, MultiSelect, SquadronMark, QualTag, Swatch, TriMode, PickerOption, squadronColor,
+  DatePicker, TimePicker, DateTimePicker, DurationPicker, formatMinutes,
 } from './primitives';
 import { getAllSquadrons, Squadron } from '../../utils/squadronService';
 import { getAllQualifications, Qualification } from '../../utils/qualificationService';
@@ -65,6 +66,10 @@ const UiKit: React.FC = () => {
   const [dialog, setDialog] = useState(false);
   const [drawer, setDrawer] = useState(false);
   const [facets, setFacets] = useState<string[]>(['Active']);
+  const [dtDate, setDtDate] = useState('2026-11-12');
+  const [dtTime, setDtTime] = useState('20:30');
+  const [dtStart, setDtStart] = useState('2026-11-12T20:30');
+  const [dtDur, setDtDur] = useState(150);
   // Real reference data for the pickers section
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [quals, setQuals] = useState<Qualification[]>([]);
@@ -129,6 +134,23 @@ const UiKit: React.FC = () => {
                 <Field label="Board number" className="w-[130px]"><TextInput mono placeholder="551" /></Field>
                 <Field label="Callsign" className="flex-1"><TextInput placeholder="BOOT" /></Field>
               </div>
+            </div>
+          </Card>
+
+          <Card title="Date, time & duration">
+            <div className="grid gap-[14px]">
+              <Field label="Date" hint="DatePicker · 'YYYY-MM-DD' (drop-in for type=date)">
+                <DatePicker value={dtDate} onChange={setDtDate} clearable />
+              </Field>
+              <Field label="Time (24 h)" hint="TimePicker · type 2030 or pick from the lists">
+                <div className="w-[130px]"><TimePicker value={dtTime} onChange={setDtTime} /></div>
+              </Field>
+              <Field label="Start" hint={<>DateTimePicker · <span className="font-mono">{dtStart || '—'}</span></>}>
+                <DateTimePicker value={dtStart} onChange={setDtStart} />
+              </Field>
+              <Field label="Duration" hint={<>DurationPicker · {dtDur} min ({formatMinutes(dtDur)})</>}>
+                <DurationPicker value={dtDur} onChange={setDtDur} />
+              </Field>
             </div>
           </Card>
 

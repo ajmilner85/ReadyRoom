@@ -453,6 +453,9 @@ export class PermissionCalculator {
       // Kneeboard (global only)
       access_kneeboard: false,
 
+      // UI Kit (global only)
+      access_ui_kit: false,
+
       // Meta
       bases: this.extractPermissionBases(userBases),
       calculatedAt: new Date(),
@@ -718,6 +721,11 @@ export class PermissionCalculator {
       // Kneeboard permissions (global only)
       case 'access_kneeboard':
         permissions.access_kneeboard = true;
+        break;
+
+      // UI Kit (global only)
+      case 'access_ui_kit':
+        permissions.access_ui_kit = true;
         break;
     }
   }

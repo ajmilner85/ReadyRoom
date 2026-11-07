@@ -531,6 +531,9 @@ export class PermissionCacheService {
       // Kneeboard permissions
       access_kneeboard: false,
 
+      // UI Kit
+      access_ui_kit: false,
+
       bases: [],
       calculatedAt: new Date(),
       expiresAt: new Date(Date.now() + PERMISSION_CACHE_CONFIG.DURATION_MS)

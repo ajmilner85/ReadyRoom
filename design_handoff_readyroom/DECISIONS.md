@@ -81,3 +81,8 @@ Record small design calls made during implementation so they can be folded back 
 - Centre column scrolls as one column (gap 14px) and the tabs card keeps a 380px minimum instead of being squashed between Statistics and Awards; tabs are kit inline Tabs.
 - Scope is a one-row toolbar (kit Selects + "Last mission"). Pilot card follows the Roster detail header: insignia, squadron-coloured board #, kit meta grid, searchable grouped pilot picker in the card header.
 - SectionCard body is min-h-0 so height-constrained cards can scroll their body.
+
+## Release prep (2026-11-07)
+- UI Kit page has its own permission, access_ui_kit (navigation, global; added additively, no rule): intended to be granted by the Developer qualification in Settings > Permissions. Nav entry and route use it instead of access_settings.
+- Kit date/time pickers (primitives/DateTime.tsx): DatePicker ('YYYY-MM-DD', themed month calendar, Today/Clear), TimePicker ('HH:MM' 24 h; type "2030" or pick hour/minute lists), DateTimePicker ('YYYY-MM-DDTHH:MM', drop-in for datetime-local), DurationPicker (minutes; h/m steppers + presets). Replace the native inputs in the Event dialog (start, duration, scheduled publication) and Cycle dialog (start/end). Remaining native date inputs (roster, training, awards…) can move over the same way.
+- Soft-deleted cycles (deleted_at set) are now hidden in every cycle list (PTR, Kneeboard, Reports, Dossier), matching Events.
