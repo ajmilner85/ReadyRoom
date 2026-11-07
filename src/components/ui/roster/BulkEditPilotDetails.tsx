@@ -5,7 +5,7 @@ import { Standing } from '../../../utils/standingService';
 import { Squadron } from '../../../utils/squadronService';
 import { Qualification } from '../../../utils/qualificationService';
 import type { Team, PilotTeam } from '../../../types/TeamTypes';
-import { UNASSIGN_SQUADRON } from './SquadronSelector';
+import { UNASSIGN_SQUADRON } from './rosterConstants';
 import { Button, Chip, Dialog, EmptyState, Field, IconButton, SectionCard, Select, SquadronInsignia, TextInput, controlClass } from '../primitives';
 import QualificationBadge from '../QualificationBadge';
 
