@@ -1101,12 +1101,14 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                           squadronTailCode={row.student.squadron?.tail_code}
                           boardNumber={row.student.board_number}
                           squadronInsigniaUrl={row.student.squadron?.insignia_url}
+                          color={legibleColor(row.student.squadron?.primary_color, 'var(--rr-text2)')}
                         />
                       </div>
+                      {/* Board # carries the squadron colour; callsign stays plain (same as every pilot list) */}
                       <span style={{
-                        fontSize: '16px',
-                        fontWeight: 700,
-                        color: legibleColor(row.student.squadron?.primary_color, 'var(--rr-text)')
+                        fontSize: '13.5px',
+                        fontWeight: 600,
+                        color: 'var(--rr-text)'
                       }}>
                         {row.student.callsign}
                       </span>

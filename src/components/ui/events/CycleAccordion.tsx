@@ -20,7 +20,11 @@ export const STANDALONE_ID = 'standalone';
 
 export const fmtShort = (iso: string) =>
   iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric' }) : '';
-const fmtRange = (c: AccordionCycle) => (c.startDate ? `${fmtShort(c.startDate)} – ${fmtShort(c.endDate)}` : '');
+// Cycle start/end are calendar dates stored as midnight UTC: format in UTC or they show a day
+// early west of Greenwich. (fmtShort stays local: event/mission times are real instants.)
+const fmtDay = (iso: string) =>
+  iso ? new Date(iso).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' }) : '';
+const fmtRange = (c: AccordionCycle) => (c.startDate ? `${fmtDay(c.startDate)} – ${fmtDay(c.endDate)}` : '');
 
 export function groupCyclesByDate<C extends AccordionCycle>(cycles: C[]) {
   const now = new Date();
