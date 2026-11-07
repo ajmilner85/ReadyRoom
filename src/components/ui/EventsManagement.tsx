@@ -1769,7 +1769,7 @@ const EventsManagement: React.FC = () => {
             imageUrl: event.imageUrl,
             headerImageUrl: event.headerImageUrl,
             additionalImageUrls: event.additionalImageUrls,
-          }).catch(err => console.warn(`[GC] Failed to delete images for event ${event.id}:`, err));
+          }, event.id).catch(err => console.warn(`[GC] Failed to delete images for event ${event.id}:`, err));
         }
 
         const { error } = historical
@@ -1865,7 +1865,7 @@ const EventsManagement: React.FC = () => {
             imageUrl: eventToDelete.imageUrl,
             headerImageUrl: eventToDelete.headerImageUrl,
             additionalImageUrls: eventToDelete.additionalImageUrls,
-          }).catch(err => console.warn('[GC] Failed to delete event images:', err));
+          }, eventToDelete.id).catch(err => console.warn('[GC] Failed to delete event images:', err));
         }
 
         console.log(`[DELETE-EVENT] ${historical ? 'Soft-deleting' : 'Deleting'} event ${eventToDelete.id}`);
