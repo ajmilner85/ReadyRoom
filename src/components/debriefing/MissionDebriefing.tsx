@@ -76,6 +76,12 @@ const MissionDebriefing: React.FC = () => {
   const [aarRequired, setAarRequired] = useState<boolean | undefined>(undefined);
   const [aarSquadronIds, setAarSquadronIds] = useState<string[]>([]);
 
+  // True while the selected mission's flights / debriefs load (detail pane shows a loader, not "No flights")
+  const [loadingFlights, setLoadingFlights] = useState(false);
+  const selectRequestRef = React.useRef(0);
+  // Set when the mission's debrief record can't be opened/created (flights still show, AARs disabled)
+  const [debriefError, setDebriefError] = useState<string | null>(null);
+
   // Form state
   const [showDebriefForm, setShowDebriefForm] = useState(false);
   const [selectedFlight, setSelectedFlight] = useState<FlightInfo | null>(null);
@@ -166,14 +172,24 @@ const MissionDebriefing: React.FC = () => {
   };
 
   const handleSelectMission = async (mission: MissionListItem) => {
+    // Only the latest selection may write state (quick clicks would otherwise show the wrong mission's flights)
+    const requestId = ++selectRequestRef.current;
+    const stale = () => requestId !== selectRequestRef.current;
     try {
       setSelectedMission(mission);
       setError(null);
+      setLoadingFlights(true);
+      // Clear the previous mission's data so it never shows under the new title
+      setMissionFlights([]);
+      setFlightDebriefs(new Map());
+      setMissionDebriefId(null);
+      setDebriefError(null);
 
       console.log('[MISSION-SELECT] Loading mission:', mission.id);
 
       // Get full mission details with flights and pilot assignments
       const fullMission = await debriefingService.getMissionWithFlights(mission.id);
+      if (stale()) return;
       console.log('[MISSION-SELECT] Full mission data:', fullMission);
       setMissionDetails(fullMission);
 
@@ -184,6 +200,7 @@ const MissionDebriefing: React.FC = () => {
           .select('event_settings')
           .eq('id', fullMission.event_id)
           .single();
+        if (stale()) return;
 
         if (!eventError && eventData && eventData.event_settings) {
           const settings = eventData.event_settings as any;
@@ -205,33 +222,47 @@ const MissionDebriefing: React.FC = () => {
         setAarSquadronIds([]);
       }
 
-      // Get or create mission debrief
-      const debrief = await debriefingService.getOrCreateDebrief(mission.id);
-      setMissionDebriefId(debrief.id);
-
-      // Load existing flight debriefs with kills
-      const debriefs = await debriefingService.getFlightDebriefsByMissionWithKills(debrief.id);
-      console.log('[MISSION-SELECT] Existing debriefs:', debriefs);
-
-      // Convert to Map keyed by flight_id for quick lookup
+      // Get or create mission debrief. A failure here must not hide the flights.
+      let debriefId: string | null = null;
       const debriefMap = new Map<string, FlightDebrief>();
-      debriefs.forEach((d: any) => {
-        debriefMap.set(d.flight_id, d);
-      });
-      setFlightDebriefs(debriefMap);
+      try {
+        const debrief = await debriefingService.getOrCreateDebrief(mission.id);
+        if (stale()) return;
+        debriefId = debrief.id;
 
-      // Parse flights from pilot_assignments
-      const flights = parseFlightsFromMission(fullMission);
+        // Load existing flight debriefs with kills, keyed by flight_id
+        const debriefs = await debriefingService.getFlightDebriefsByMissionWithKills(debrief.id);
+        if (stale()) return;
+        console.log('[MISSION-SELECT] Existing debriefs:', debriefs);
+        debriefs.forEach((d: any) => {
+          debriefMap.set(d.flight_id, d);
+        });
+      } catch (err: any) {
+        if (stale()) return;
+        console.error('Failed to open mission debrief:', err);
+        // Seen when the permission cache is mid-refresh (e.g. after idle): the existing debrief
+        // isn't visible yet, so the create fallback is rejected. A retry normally succeeds.
+        setDebriefError("Couldn't open this mission's debrief, so reports can't be filed right now. Try again in a moment.");
+      }
+
+      // Parse flights from pilot_assignments, then resolve flight lead names before showing them
+      const flights = await fetchPilotsForFlights(parseFlightsFromMission(fullMission, debriefMap));
+      if (stale()) return;
       console.log('[MISSION-SELECT] Parsed flights:', flights);
+      setMissionDebriefId(debriefId);
+      setFlightDebriefs(debriefMap);
       setMissionFlights(flights);
     } catch (err: any) {
+      if (stale()) return;
       console.error('Failed to load mission debrief:', err);
       setError(err.message || 'Failed to load mission debrief');
+    } finally {
+      if (!stale()) setLoadingFlights(false);
     }
   };
 
   // Helper function to parse flights from mission data
-  const parseFlightsFromMission = (mission: any): FlightInfo[] => {
+  const parseFlightsFromMission = (mission: any, debriefMap: Map<string, FlightDebrief>): FlightInfo[] => {
     console.log('[PARSE-FLIGHTS] Starting parse with:', {
       hasAssignments: !!mission.pilot_assignments,
       hasFlights: !!mission.flights,
@@ -276,7 +307,7 @@ const MissionDebriefing: React.FC = () => {
 
       // Determine squadron - prefer existing debrief's squadron, then callsign lookup
       let squadronId = '';
-      const existingDebrief = flightDebriefs.get(flight.id);
+      const existingDebrief = debriefMap.get(flight.id);
 
       if (existingDebrief?.squadron_id) {
         // Use squadron from existing debrief (authoritative source)
@@ -318,14 +349,11 @@ const MissionDebriefing: React.FC = () => {
 
     console.log('[PARSE-FLIGHTS] Parsed flights:', flights.length);
 
-    // Fetch pilot data for flight leads
-    fetchPilotsForFlights(flights);
-
     return flights;
   };
 
   // Fetch pilot data and squadron assignments for flight leads
-  const fetchPilotsForFlights = async (flights: FlightInfo[]) => {
+  const fetchPilotsForFlights = async (flights: FlightInfo[]): Promise<FlightInfo[]> => {
     try {
       const pilotIds = flights.map(f => f.flightLeadPilotId);
 
@@ -337,7 +365,7 @@ const MissionDebriefing: React.FC = () => {
 
       if (pilotsError) {
         console.error('Failed to fetch pilots:', pilotsError);
-        return;
+        return flights;
       }
 
       // Create map for quick lookup
@@ -357,9 +385,10 @@ const MissionDebriefing: React.FC = () => {
       });
 
       console.log('[FETCH-PILOTS] Updated flights with squadron data:', updatedFlights);
-      setMissionFlights(updatedFlights);
+      return updatedFlights;
     } catch (err) {
       console.error('Failed to fetch pilots for flights:', err);
+      return flights;
     }
   };
 
@@ -562,6 +591,9 @@ const MissionDebriefing: React.FC = () => {
           <MissionDetails
             selectedMission={selectedMission}
             missionFlights={missionFlights}
+            loadingFlights={loadingFlights}
+            debriefError={debriefError}
+            onRetryDebrief={() => { if (selectedMission) handleSelectMission(selectedMission); }}
             missionDebriefId={missionDebriefId}
             flightDebriefs={flightDebriefs}
             showDebriefForm={showDebriefForm}
