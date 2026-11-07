@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
-import { UNASSIGN_SQUADRON } from './roster/SquadronSelector';
+import { UNASSIGN_SQUADRON } from './roster/rosterConstants';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import StandardPageLoader from './StandardPageLoader';
