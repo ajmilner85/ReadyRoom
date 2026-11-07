@@ -2,8 +2,8 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
-import { Save } from 'lucide-react';
-import { Icon, Toggle } from '../ui/primitives';
+import { Button, Chip, Dialog, EmptyState, Field, FieldLabel, Icon, IconButton, SectionCard, Select, Tabs, TextInput, Textarea, Toast, Toggle } from '../ui/primitives';
+import type { Tone } from '../ui/primitives';
 import ReferenceMaterialsInput from '../ui/events/ReferenceMaterialsInput';
 import CriteriaBlockEditor, { CriteriaBlock } from './CriteriaBlockEditor';
 import type { ReferenceMaterial } from '../../types/EventTypes';
@@ -36,9 +36,26 @@ interface Objective {
 interface SyllabusEditorProps {
   syllabusId?: string;
   onBack?: () => void;
+  /** Rendered inside the Syllabus Management pane (no back button / page frame). */
+  embedded?: boolean;
+  /** Reports unsaved-change state so the host can guard switching syllabi. */
+  onDirtyChange?: (dirty: boolean) => void;
+  /** Called after a new syllabus is first saved (instead of navigating to its route). */
+  onSaved?: (id: string) => void;
+  /** Shows a delete action in the header. */
+  onDelete?: () => void;
 }
 
-const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabusId, onBack }) => {
+const PANE = 'flex-1 min-w-0 min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden';
+
+const KIND_META = {
+  linear: { label: 'Linear syllabus', short: 'Linear', tone: 'info' as Tone, desc: 'Ordered weekly progression (Initial Training / PTR)' },
+  pool: { label: 'Lesson pool', short: 'Pool', tone: 'accent' as Tone, desc: 'Flat, unordered lesson library' },
+  module: { label: 'Module', short: 'Module', tone: 'purple' as Tone, desc: 'Reusable multi-lesson collection' },
+  advanced_qualification: { label: 'Advanced qualification', short: 'Adv qual', tone: 'warn' as Tone, desc: 'Lessons for a specific advanced qualification (e.g. JTAC)' },
+};
+
+const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabusId, onBack, embedded = false, onDirtyChange, onSaved, onDelete }) => {
   const { syllabusId: paramSyllabusId } = useParams<{ syllabusId: string }>();
   const navigate = useNavigate();
   const syllabusId = propSyllabusId || paramSyllabusId;
@@ -61,11 +78,14 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
   const [editingMission, setEditingMission] = useState<{ index: number; mission: Mission } | null>(null);
   const [showEventDialog, setShowEventDialog] = useState(false);
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  useEffect(() => { onDirtyChange?.(hasUnsavedChanges); }, [hasUnsavedChanges]);
   const [showUnsavedWarning, setShowUnsavedWarning] = useState(false);
   const [deleteConfirmIndex, setDeleteConfirmIndex] = useState<number | null>(null);
 
   // Tab state for the syllabus editor
-  const [activeTab, setActiveTab] = useState<'missions' | 'student-enrollment' | 'instructor-qualifications' | 'outcomes' | 'issues'>('missions');
+  const [activeTab, setActiveTab] = useState<'details' | 'missions' | 'student-enrollment' | 'instructor-qualifications' | 'outcomes' | 'issues'>(isCreating ? 'details' : 'missions');
+  // A different syllabus opens on its missions (new ones on Details)
+  useEffect(() => { setActiveTab(isCreating ? 'details' : 'missions'); }, [syllabusId]);
 
   // Mission dialog tab state
   const [missionDialogTab, setMissionDialogTab] = useState<'details' | 'objectives' | 'reference-materials' | 'issues'>('details');
@@ -336,7 +356,8 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
       setHasUnsavedChanges(false);
 
       if (isCreating) {
-        navigate(`/training-management/syllabus/${currentSyllabusId}`);
+        if (onSaved) onSaved(currentSyllabusId);
+        else navigate(`/training-management/syllabus/${currentSyllabusId}`);
       } else {
         await loadSyllabus();
       }
@@ -789,991 +810,439 @@ const SyllabusEditor: React.FC<SyllabusEditorProps> = ({ syllabusId: propSyllabu
 
   if (loading) {
     return (
-      <div style={{ padding: '32px', textAlign: 'center' }}>
-        <div>Loading syllabus...</div>
+      <div className={embedded ? PANE : 'flex-1 flex items-center justify-center p-10'}>
+        <div className="flex-1 flex items-center justify-center p-10 text-[13px] text-text2">Loading syllabus…</div>
       </div>
     );
   }
 
-  return (
-    <div style={{ padding: '32px' }}>
-      <div style={{ maxWidth: '1200px', margin: '0 auto' }}>
-        {/* Header */}
-        <div style={{ marginBottom: '32px', display: 'flex', gap: '16px', alignItems: 'center' }}>
-          <button
-            onClick={handleBackClick}
-            style={{
-              padding: '8px',
-              backgroundColor: 'var(--rr-panel)',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              flexShrink: 0
-            }}
-          >
-            <Icon name="arrowLeft" size={20} />
-          </button>
-          <div style={{ flex: 1 }}>
-            <h1 style={{ fontSize: '24px', fontWeight: 600, marginBottom: '4px' }}>
-              {isCreating ? 'NEW SYLLABUS' : 'EDIT SYLLABUS'}
-            </h1>
-            <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0 }}>
-              Configure training syllabus, missions, and objectives
-            </p>
-          </div>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            style={{
-              padding: '10px 16px',
-              backgroundColor: saving ? 'var(--rr-text3)' : 'var(--rr-accent)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: saving ? 'not-allowed' : 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              flexShrink: 0
-            }}
-          >
-            <Icon name="save" size={16} />
-            {saving ? 'Saving...' : 'Save Syllabus'}
-          </button>
-        </div>
+  const kind = (syllabus.kind || 'linear') as keyof typeof KIND_META;
+  const meta = KIND_META[kind] || KIND_META.linear;
+  const isLinear = kind === 'linear';
+  const objectiveCount = missions.reduce((n, m) => n + (m.objectives?.length || 0), 0);
+  const mark = () => setHasUnsavedChanges(true);
 
-      {error && (
-        <div style={{ padding: '12px', backgroundColor: 'rgba(224,82,78,.12)', border: '1px solid var(--rr-bad)', borderRadius: '6px', marginBottom: '24px' }}>
-          {error}
-        </div>
-      )}
+  // Mission dialog field updater (immutable)
+  const patchMission = (patch: Partial<Mission>) =>
+    editingMission && setEditingMission({ ...editingMission, mission: { ...editingMission.mission, ...patch } });
+  const patchObjective = (i: number, patch: Partial<Objective>) =>
+    editingMission && patchMission({ objectives: editingMission.mission.objectives.map((o, k) => (k === i ? { ...o, ...patch } : o)) });
 
-      {/* Syllabus Details */}
-      <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
-        <h3 style={{ fontSize: '14px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text2)', textTransform: 'uppercase' }}>
-          Syllabus Details
-        </h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: '20px' }}>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-              Type
-            </label>
-            <select
-              value={syllabus.kind}
-              onChange={(e) => {
-                setSyllabus({ ...syllabus, kind: e.target.value });
-                setHasUnsavedChanges(true);
-              }}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                boxSizing: 'border-box',
-                backgroundColor: 'var(--rr-panel)'
-              }}
-            >
-              <option value="linear">Linear Syllabus — ordered weekly progression (Initial Training / PTR)</option>
-              <option value="pool">Lesson Pool — flat, unordered lesson library</option>
-              <option value="module">Module — reusable multi-lesson collection</option>
-              <option value="advanced_qualification">Advanced Qualification — lessons for a specific advanced qualification (e.g. JTAC)</option>
-            </select>
-            {syllabus.kind !== 'linear' && (
-              <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '6px 0 0 0' }}>
-                Lessons in this syllabus type have no week numbers and do not appear in the PTR grid.
-                They are selectable as event activities.
-              </p>
-            )}
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-              Name *
-            </label>
-            <input
-              type="text"
-              value={syllabus.name}
-              onChange={(e) => {
-                setSyllabus({ ...syllabus, name: e.target.value });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="e.g., F/A-18C BFM Syllabus"
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-          <div>
-            <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-              Description
-            </label>
-            <textarea
-              value={syllabus.description}
-              onChange={(e) => {
-                setSyllabus({ ...syllabus, description: e.target.value });
-                setHasUnsavedChanges(true);
-              }}
-              placeholder="Brief description of training program"
-              rows={3}
-              style={{
-                width: '100%',
-                padding: '8px 12px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '6px',
-                fontSize: '14px',
-                resize: 'none',
-                boxSizing: 'border-box'
-              }}
-            />
-          </div>
-        </div>
-      </div>
+  const tabs = [
+    { value: 'details' as const, label: 'Details' },
+    { value: 'missions' as const, label: isLinear ? 'Missions' : 'Lessons', badge: <span className="font-mono text-[10.5px] text-text3">{missions.length}</span> },
+    { value: 'student-enrollment' as const, label: 'Student enrollment', badge: syllabus.auto_enrollment_rules.length ? <span className="font-mono text-[10.5px] text-text3">{syllabus.auto_enrollment_rules.length}</span> : undefined },
+    { value: 'instructor-qualifications' as const, label: 'Instructor qualifications', badge: syllabus.instructor_qualification_rules.length ? <span className="font-mono text-[10.5px] text-text3">{syllabus.instructor_qualification_rules.length}</span> : undefined },
+    { value: 'outcomes' as const, label: 'Outcomes', badge: (syllabus.graduation_outcomes || []).filter((o: any) => o.enabled).length ? <span className="font-mono text-[10.5px] text-text3">{(syllabus.graduation_outcomes || []).filter((o: any) => o.enabled).length}</span> : undefined },
+    { value: 'issues' as const, label: 'Issues' },
+  ];
 
-      {/* Tabs */}
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--rr-border)' }}>
-          {(['missions', 'student-enrollment', 'instructor-qualifications', 'outcomes', 'issues'] as const).map((tab) => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              style={{
-                padding: '12px 20px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                cursor: 'pointer',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: activeTab === tab ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-                borderBottom: activeTab === tab ? '2px solid var(--rr-accent)' : '2px solid transparent',
-                marginBottom: '-1px',
-                transition: 'color 0.2s, border-color 0.2s'
-              }}
-            >
-              {tab === 'missions' && `Missions (${missions.length})`}
-              {tab === 'student-enrollment' && 'Student Enrollment'}
-              {tab === 'instructor-qualifications' && 'Instructor Qualifications'}
-              {tab === 'outcomes' && 'Outcomes'}
-              {tab === 'issues' && 'Issues'}
-            </button>
-          ))}
-        </div>
-      </div>
-
-      {/* Tab Content */}
-      {activeTab === 'student-enrollment' && (
-        <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
-          <CriteriaBlockEditor
-            blocks={syllabus.auto_enrollment_rules}
-            onChange={handleStudentEnrollmentRulesChange}
-            standings={standings}
-            statuses={statuses}
-            qualifications={qualifications}
-            title="Student Auto-Enrollment Rules"
-            description="Define criteria to automatically suggest students for enrollment when creating training cycles. Criteria within a block use AND logic. Multiple blocks use OR logic. Rules are suggestions only and require confirmation."
-            blockLabel="Student Criteria Block"
-            addBlockLabel="Add Student Criteria Block"
-          />
-        </div>
-      )}
-
-      {activeTab === 'instructor-qualifications' && (
-        <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
-          <CriteriaBlockEditor
-            blocks={syllabus.instructor_qualification_rules}
-            onChange={handleInstructorQualificationRulesChange}
-            standings={standings}
-            statuses={statuses}
-            qualifications={qualifications}
-            title="Instructor Qualification Rules"
-            description="Define criteria for pilots who are qualified to instruct this syllabus. Criteria within a block use AND logic. Multiple blocks use OR logic. Qualified instructors will be suggested when creating training cycles."
-            blockLabel="Instructor Criteria Block"
-            addBlockLabel="Add Instructor Criteria Block"
-          />
-        </div>
-      )}
-
-      {activeTab === 'outcomes' && (
-        <OutcomesTab
-          outcomes={syllabus.graduation_outcomes}
-          onChange={(outcomes) => {
-            setSyllabus({ ...syllabus, graduation_outcomes: outcomes });
-            setHasUnsavedChanges(true);
-          }}
-          maxWeekNumber={missions.length > 0
-            ? (syllabus.starts_at_week_zero ? missions.length - 1 : missions.length)
-            : 10
-          }
-        />
-      )}
-
-      {activeTab === 'issues' && !isCreating && syllabusId && (
-        <div style={{ backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
-          <IssuesTab
-            entityType="syllabus"
-            entityId={syllabusId}
-            entityName={syllabus.name}
-          />
-        </div>
-      )}
-
-      {activeTab === 'issues' && isCreating && (
-        <div style={{ padding: '40px 24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px', textAlign: 'center', color: 'var(--rr-text2)' }}>
-          <p style={{ margin: 0, fontSize: '14px' }}>Save the syllabus first to add issues.</p>
-        </div>
-      )}
-
-      {/* Events - only show when Missions tab is active */}
-      {activeTab === 'missions' && (
-      <div style={{ marginBottom: '24px' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
-            <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: 0 }}>
-              Events ({missions.length})
-            </h3>
-            {syllabus.kind === 'linear' && (
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <span style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Starts at:</span>
-              <Toggle checked={Boolean(syllabus.starts_at_week_zero)} onChange={() => { setSyllabus({ ...syllabus, starts_at_week_zero: !syllabus.starts_at_week_zero }); setHasUnsavedChanges(true); }} />
-              <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '50px' }}>
-                Week {syllabus.starts_at_week_zero ? '0' : '1'}
-              </span>
-            </div>
-            )}
-          </div>
-          <button
-            onClick={handleAddMission}
-            style={{
-              padding: '8px 12px',
-              backgroundColor: 'var(--rr-accent)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px'
-            }}
-          >
-            <Icon name="plus" size={14} />
-            Add Event
-          </button>
-        </div>
-
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
-          {missions.map((mission, missionIndex) => {
-            const calculatedWeek = (syllabus.starts_at_week_zero ? 0 : 1) + missionIndex;
-            return (
-              <div
-                key={missionIndex}
-                draggable
-                onDragStart={(e) => {
-                  e.dataTransfer.effectAllowed = 'move';
-                  e.dataTransfer.setData('text/plain', missionIndex.toString());
-                }}
-                onDragOver={(e) => {
-                  e.preventDefault();
-                  e.dataTransfer.dropEffect = 'move';
-                }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
-                  if (draggedIndex !== missionIndex) {
-                    const updatedMissions = [...missions];
-                    const [draggedItem] = updatedMissions.splice(draggedIndex, 1);
-                    updatedMissions.splice(missionIndex, 0, draggedItem);
-                    setMissions(updatedMissions);
-                    setHasUnsavedChanges(true);
-                  }
-                }}
-                style={{
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border)',
-                  borderRadius: '8px',
-                  padding: '16px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px',
-                  cursor: 'grab'
-                }}
-              >
-                <Icon name="grip" size={16} style={{ color: 'var(--rr-text3)', cursor: 'grab' }} />
-                
-                {/* Thumbnail */}
-                <div style={{
-                  width: '48px',
-                  height: '27px',
-                  borderRadius: '4px',
-                  overflow: 'hidden',
-                  backgroundColor: 'var(--rr-panel2)',
-                  flexShrink: 0,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center'
-                }}>
-                  {mission.image_url?.headerImage ? (
-                    <img 
-                      src={mission.image_url.headerImage} 
-                      alt=""
-                      loading="lazy"
-                      style={{
-                        width: '100%',
-                        height: '100%',
-                        objectFit: 'cover'
-                      }}
-                    />
-                  ) : (
-                    <Icon name="image" size={12} style={{ color: 'var(--rr-text3)' }} />
-                  )}
-                </div>
-
-                <div style={{ flex: 1 }}>
-                  <div style={{ fontSize: '14px', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    {mission.mission_number !== null && (
-                      <span style={{ color: 'var(--rr-text2)' }}>
-                        H{String(mission.mission_number).padStart(2, '0')}
-                      </span>
-                    )}
-                    <span>{mission.mission_name || '(Unnamed Event)'}</span>
-                  </div>
-                  <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
-                    {syllabus.kind === 'linear' ? `Week ${calculatedWeek} • ` : ''}{mission.objectives.length} objectives
-                  </div>
-                </div>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleEditMission(missionIndex);
-                  }}
-                  style={{
-                    padding: '6px',
-                    backgroundColor: 'var(--rr-panel)',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    color: 'var(--rr-accent-text)'
-                  }}
-                >
-                  <Icon name="edit" size={14} />
-                </button>
-                <button
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    handleDeleteClick(missionIndex);
-                  }}
-                  style={{
-                    padding: '6px',
-                    backgroundColor: 'var(--rr-panel)',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    color: 'var(--rr-bad)'
-                  }}
-                >
-                  <Icon name="trash" size={14} />
-                </button>
-              </div>
-            );
-          })}
-
-          {missions.length === 0 && (
-            <div style={{ padding: '48px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', textAlign: 'center' }}>
-              <p style={{ color: 'var(--rr-text2)', marginBottom: '16px' }}>No events yet</p>
+  const renderImageSlot = (imageIndex: number) => {
+    const preview = missionImagePreviews[imageIndex];
+    return (
+      <div key={imageIndex} className="flex flex-col gap-[5px]">
+        <div
+          onDragOver={(e) => handleMissionImageDragOver(e, imageIndex)}
+          onDragLeave={(e) => handleMissionImageDragLeave(e, imageIndex)}
+          onDrop={(e) => handleMissionImageDrop(e, imageIndex)}
+          className={`relative rounded-rr-lg overflow-hidden flex items-center justify-center transition-colors ${preview ? 'border border-border' : `border border-dashed ${missionImageDragStates[imageIndex] ? 'border-accent bg-accent-weak' : 'border-border2 bg-panel2 hover:border-accent'}`}`}
+          style={{ aspectRatio: '16 / 9' }}
+        >
+          {preview ? (
+            <>
+              <img src={preview} alt={`Image ${imageIndex + 1}`} className="w-full h-full object-cover" />
               <button
-                onClick={handleAddMission}
-                style={{
-                  padding: '8px 12px',
-                  backgroundColor: 'var(--rr-accent)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px'
-                }}
+                type="button"
+                onClick={() => removeMissionImage(imageIndex)}
+                aria-label="Remove image"
+                className="absolute top-[6px] right-[6px] w-7 h-7 rounded-full flex items-center justify-center border-0 cursor-pointer text-white bg-black/55 hover:bg-black/75"
               >
-                <Icon name="plus" size={14} />
-                Add Your First Event
+                <Icon name="close" size={13} />
               </button>
-            </div>
+            </>
+          ) : (
+            <>
+              <input type="file" accept="image/*" onChange={(e) => handleMissionImageFileInputChange(e, imageIndex)} className="absolute inset-0 opacity-0 cursor-pointer" />
+              <div className="text-center pointer-events-none text-text3">
+                <Icon name="image" size={20} />
+                <div className="text-[11.5px] mt-1">Drop or click</div>
+              </div>
+            </>
           )}
         </div>
+        <div className="text-[11.5px] text-text2">{imageIndex === 0 ? 'Header image' : `Image ${imageIndex + 1}`}</div>
       </div>
-      )}
+    );
+  };
 
-      {/* Event Dialog Modal */}
-      {showEventDialog && editingMission && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1000
-        }}>
-          <div style={{
-            backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
-            width: '90%',
-            maxWidth: '800px',
-            maxHeight: '90vh',
-            overflow: 'auto',
-            boxShadow: 'var(--rr-shadow-lg)'
-          }}>
-            <div style={{ padding: '24px', borderBottom: '1px solid var(--rr-border)' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, margin: 0 }}>
-                {editingMission.index === -1 ? 'Add Event' : 'Edit Event'}
-              </h2>
+  const pane = (
+    <div className={PANE}>
+      {/* Header */}
+      <div className="flex-none flex items-center gap-3 px-4 pt-3 pb-2 flex-wrap">
+        {!embedded ? <IconButton icon="arrowLeft" size={32} iconSize={16} variant="outline" label="Back to syllabi" onClick={handleBackClick} /> : null}
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center gap-2 min-w-0">
+            <span className="text-[17px] font-semibold truncate">{syllabus.name || (isCreating ? 'New syllabus' : 'Untitled syllabus')}</span>
+            <Chip tone={meta.tone} size="sm">{meta.short}</Chip>
+          </div>
+          <div className="text-[12px] text-text2 truncate">
+            {missions.length} {isLinear ? (missions.length === 1 ? 'mission' : 'missions') : (missions.length === 1 ? 'lesson' : 'lessons')} · {objectiveCount} objectives
+            {isLinear && missions.length ? ` · weeks ${syllabus.starts_at_week_zero ? 0 : 1}–${(syllabus.starts_at_week_zero ? 0 : 1) + missions.length - 1}` : ''}
+          </div>
+        </div>
+        <span className="flex items-center gap-[6px] text-[12px] text-text2">
+          <span className="w-[7px] h-[7px] rounded-full" style={hasUnsavedChanges || isCreating ? { background: 'var(--rr-warn)' } : { boxShadow: 'inset 0 0 0 1.5px var(--rr-text3)' }} />
+          {isCreating ? 'Not saved yet' : hasUnsavedChanges ? 'Unsaved changes' : 'Saved'}
+        </span>
+        {onDelete && !isCreating ? (
+          <IconButton icon="trash" size={32} iconSize={14} label="Delete syllabus" className="hover:!text-bad" onClick={onDelete} />
+        ) : null}
+        <Button variant="primary" icon="save" onClick={handleSave} loading={saving} disabled={saving}>
+          {isCreating ? 'Create syllabus' : 'Save'}
+        </Button>
+      </div>
+      <Tabs variant="inline" value={activeTab} onChange={setActiveTab} items={tabs} className="flex-none px-[6px]" />
+
+      {error ? (
+        <div className="flex-none px-4 pt-3"><Toast tone="bad" onDismiss={() => setError(null)}>{error}</Toast></div>
+      ) : null}
+
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        {activeTab === 'details' && (
+          <div className="flex flex-col gap-[14px] max-w-[860px]">
+            <SectionCard title="Syllabus">
+              <div className="flex flex-col gap-[14px] p-[14px]">
+                <Field label="Type" hint={isLinear ? undefined : 'Lessons of this type have no week numbers and do not appear in the PTR grid. They are selectable as event activities.'}>
+                  <Select
+                    value={kind}
+                    onChange={(v) => { setSyllabus({ ...syllabus, kind: v }); mark(); }}
+                    options={(Object.keys(KIND_META) as Array<keyof typeof KIND_META>).map(k => ({ value: k, label: KIND_META[k].label, description: KIND_META[k].desc }))}
+                  />
+                </Field>
+                <Field label="Name" required>
+                  <TextInput value={syllabus.name} placeholder="e.g. F/A-18C BFM Syllabus" onChange={(e) => { setSyllabus({ ...syllabus, name: e.target.value }); mark(); }} />
+                </Field>
+                <Field label="Description">
+                  <Textarea rows={4} value={syllabus.description} placeholder="Brief description of the training program" onChange={(e) => { setSyllabus({ ...syllabus, description: e.target.value }); mark(); }} />
+                </Field>
+              </div>
+            </SectionCard>
+            {isLinear ? (
+              <SectionCard title="Week numbering">
+                <label className="flex items-center gap-3 px-[14px] py-[12px] cursor-pointer">
+                  <div className="flex-1 min-w-0">
+                    <div className="text-[13px] font-semibold text-text">Start at week 0</div>
+                    <div className="text-[12px] text-text2">The first mission is week {syllabus.starts_at_week_zero ? '0' : '1'}; weeks follow the mission order.</div>
+                  </div>
+                  <Toggle checked={Boolean(syllabus.starts_at_week_zero)} onChange={() => { setSyllabus({ ...syllabus, starts_at_week_zero: !syllabus.starts_at_week_zero }); mark(); }} />
+                </label>
+              </SectionCard>
+            ) : null}
+          </div>
+        )}
+
+        {activeTab === 'missions' && (
+          <SectionCard
+            title={isLinear ? 'Missions' : 'Lessons'}
+            count={missions.length}
+            action={<Button size="sm" variant="secondary" icon="plus" onClick={handleAddMission}>{isLinear ? 'Add mission' : 'Add lesson'}</Button>}
+            footer={missions.length > 1 ? (isLinear ? 'Drag to reorder; week numbers follow the order.' : 'Drag to reorder.') : undefined}
+          >
+            {missions.length === 0 ? (
+              <EmptyState icon="training" title={isLinear ? 'No missions yet' : 'No lessons yet'} message={isLinear ? 'Add the missions of this syllabus in the order they are flown.' : 'Add the lessons in this library.'} action={{ label: isLinear ? 'Add mission' : 'Add lesson', onClick: handleAddMission }} />
+            ) : (
+              <div className="divide-y divide-border">
+                {missions.map((mission, missionIndex) => {
+                  const week = (syllabus.starts_at_week_zero ? 0 : 1) + missionIndex;
+                  const refs = mission.reference_materials?.length || 0;
+                  return (
+                    <div
+                      key={missionIndex}
+                      draggable
+                      onDragStart={(e) => { e.dataTransfer.effectAllowed = 'move'; e.dataTransfer.setData('text/plain', missionIndex.toString()); }}
+                      onDragOver={(e) => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        const draggedIndex = parseInt(e.dataTransfer.getData('text/plain'));
+                        if (draggedIndex !== missionIndex) {
+                          const updated = [...missions];
+                          const [dragged] = updated.splice(draggedIndex, 1);
+                          updated.splice(missionIndex, 0, dragged);
+                          setMissions(updated);
+                          mark();
+                        }
+                      }}
+                      onClick={() => handleEditMission(missionIndex)}
+                      className="group flex items-center gap-3 pl-[8px] pr-[10px] min-h-[56px] py-[8px] cursor-pointer hover:bg-panel2 transition-colors"
+                    >
+                      <span className="text-text3 cursor-grab flex" title="Drag to reorder"><Icon name="grip" size={15} /></span>
+                      {isLinear ? (
+                        <span className="w-[44px] flex-none text-center font-mono text-[10.5px] font-semibold tracking-[.06em] text-text2 py-[3px] rounded-[5px] bg-panel2 border border-border">WK {week}</span>
+                      ) : null}
+                      {/* Placeholder sits behind the image; an image that fails to load hides itself */}
+                      <div className="relative w-[64px] h-[36px] flex-none rounded-[5px] overflow-hidden bg-panel2 border border-border flex items-center justify-center">
+                        <Icon name="image" size={13} style={{ color: 'var(--rr-text3)' }} />
+                        {mission.image_url?.headerImage ? (
+                          <img
+                            src={mission.image_url.headerImage}
+                            alt=""
+                            loading="lazy"
+                            className="absolute inset-0 w-full h-full object-cover"
+                            onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                          />
+                        ) : null}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-baseline gap-2 min-w-0">
+                          {mission.mission_number !== null && mission.mission_number !== undefined
+                            ? <span className="font-mono text-[12px] font-semibold text-text2 flex-none">H{String(mission.mission_number).padStart(2, '0')}</span>
+                            : null}
+                          <span className="text-[13.5px] font-semibold text-text truncate">{mission.mission_name || '(Unnamed)'}</span>
+                        </div>
+                        {mission.description ? <div className="text-[12px] text-text2 truncate">{mission.description}</div> : null}
+                      </div>
+                      <span className="flex items-center gap-[6px] flex-none">
+                        <Chip size="sm" tone={mission.objectives.length ? 'neutral' : 'muted'}>{mission.objectives.length} obj</Chip>
+                        {refs ? <Chip size="sm" tone="neutral"><Icon name="link" size={10} />{refs}</Chip> : null}
+                      </span>
+                      <span className="flex items-center gap-[2px] flex-none" onClick={(e) => e.stopPropagation()}>
+                        <IconButton icon="edit" size={28} iconSize={13} label="Edit" onClick={() => handleEditMission(missionIndex)} />
+                        <IconButton icon="trash" size={28} iconSize={13} label="Delete" className="hover:!text-bad" onClick={() => handleDeleteClick(missionIndex)} />
+                      </span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </SectionCard>
+        )}
+
+        {activeTab === 'student-enrollment' && (
+          <div className="rounded-rr-lg border border-border bg-panel p-[14px] max-w-[980px]">
+            <CriteriaBlockEditor
+              blocks={syllabus.auto_enrollment_rules}
+              onChange={handleStudentEnrollmentRulesChange}
+              standings={standings}
+              statuses={statuses}
+              qualifications={qualifications}
+              title="Student auto-enrollment rules"
+              description="Criteria that suggest students for enrollment when a training cycle is created. Criteria within a block must all match (AND); any block can match (OR). Suggestions always need confirmation."
+              blockLabel="Student criteria"
+              addBlockLabel="Add criteria block"
+            />
+          </div>
+        )}
+
+        {activeTab === 'instructor-qualifications' && (
+          <div className="rounded-rr-lg border border-border bg-panel p-[14px] max-w-[980px]">
+            <CriteriaBlockEditor
+              blocks={syllabus.instructor_qualification_rules}
+              onChange={handleInstructorQualificationRulesChange}
+              standings={standings}
+              statuses={statuses}
+              qualifications={qualifications}
+              title="Instructor qualification rules"
+              description="Criteria for pilots qualified to instruct this syllabus. Criteria within a block must all match (AND); any block can match (OR). Matching instructors are suggested when a training cycle is created."
+              blockLabel="Instructor criteria"
+              addBlockLabel="Add criteria block"
+            />
+          </div>
+        )}
+
+        {activeTab === 'outcomes' && (
+          <div className="rounded-rr-lg border border-border bg-panel p-[14px]">
+            <OutcomesTab
+              outcomes={syllabus.graduation_outcomes}
+              onChange={(outcomes) => { setSyllabus({ ...syllabus, graduation_outcomes: outcomes }); mark(); }}
+              maxWeekNumber={missions.length > 0 ? (syllabus.starts_at_week_zero ? missions.length - 1 : missions.length) : 10}
+            />
+          </div>
+        )}
+
+        {activeTab === 'issues' && (
+          !isCreating && syllabusId ? (
+            <div className="rounded-rr-lg border border-border bg-panel overflow-hidden">
+              <IssuesTab entityType="syllabus" entityId={syllabusId} entityName={syllabus.name} />
             </div>
-
-            {/* Tab Navigation */}
-            <div style={{ borderBottom: '1px solid var(--rr-border)', display: 'flex', paddingLeft: '24px' }}>
-              {[
-                { id: 'details', label: 'Details' },
-                { id: 'objectives', label: 'Objectives' },
-                { id: 'references', label: 'Reference Materials' },
-                ...(editingMission.mission.id ? [{ id: 'issues', label: 'Issues' }] : [])
-              ].map((tab) => (
-                <button
-                  key={tab.id}
-                  onClick={() => setMissionDialogTab(tab.id as typeof missionDialogTab)}
-                  style={{
-                    padding: '12px 16px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: missionDialogTab === tab.id ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-                    borderBottom: missionDialogTab === tab.id ? '2px solid var(--rr-accent)' : '2px solid transparent',
-                    cursor: 'pointer',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {tab.label}
-                </button>
-              ))}
+          ) : (
+            <div className="rounded-rr-lg border border-border bg-panel">
+              <EmptyState compact icon="alertCircle" title="Save first" message="Issues can be added once the syllabus has been created." />
             </div>
+          )
+        )}
+      </div>
 
-            <div style={{ padding: '24px' }}>
-              {/* Details Tab */}
+      {/* Mission / lesson editor */}
+      <Dialog
+        open={Boolean(showEventDialog && editingMission)}
+        onClose={handleCancelEvent}
+        title={editingMission ? `${editingMission.index === -1 ? 'Add' : 'Edit'} ${isLinear ? 'mission' : 'lesson'}` : ''}
+        width={820}
+        tall
+        flush
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleCancelEvent}>Cancel</Button>
+            <Button variant="primary" icon="check" onClick={handleSaveEvent}>{editingMission?.index === -1 ? (isLinear ? 'Add mission' : 'Add lesson') : 'Apply'}</Button>
+          </>
+        }
+      >
+        {editingMission ? (
+          <div className="flex flex-col min-h-full">
+            <Tabs
+              variant="inline"
+              value={missionDialogTab}
+              onChange={(v) => setMissionDialogTab(v as typeof missionDialogTab)}
+              className="flex-none px-[10px] sticky top-0 bg-panel z-[1]"
+              items={[
+                { value: 'details', label: 'Details' },
+                { value: 'objectives', label: 'Objectives', badge: <span className="font-mono text-[10.5px] text-text3">{editingMission.mission.objectives.length}</span> },
+                { value: 'reference-materials', label: 'Reference materials', badge: editingMission.mission.reference_materials?.length ? <span className="font-mono text-[10.5px] text-text3">{editingMission.mission.reference_materials.length}</span> : undefined },
+                { value: 'issues', label: 'Issues', hidden: !editingMission.mission.id },
+              ]}
+            />
+            <div className="p-[18px] flex-1">
               {missionDialogTab === 'details' && (
-                <>
-                  <div style={{ display: 'grid', gridTemplateColumns: '140px 1fr', gap: '16px', marginBottom: '24px' }}>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                        Mission Number
-                      </label>
-                      <input
+                <div className="flex flex-col gap-[14px]">
+                  <div className="grid gap-[14px]" style={{ gridTemplateColumns: '140px minmax(0, 1fr)' }}>
+                    <Field label="Hop number" hint="Optional">
+                      <TextInput
+                        mono
                         type="number"
+                        min={1}
                         value={editingMission.mission.mission_number ?? ''}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setEditingMission({
-                            ...editingMission,
-                            mission: {
-                              ...editingMission.mission,
-                              mission_number: value === '' ? null : parseInt(value) || null
-                            }
-                          });
-                        }}
-                        min="1"
-                        placeholder="Optional"
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          border: '1px solid var(--rr-border2)',
-                          borderRadius: '6px',
-                          fontSize: '14px',
-                          boxSizing: 'border-box'
-                        }}
+                        placeholder="e.g. 3"
+                        onChange={(e) => patchMission({ mission_number: e.target.value === '' ? null : parseInt(e.target.value) || null })}
                       />
-                    </div>
-                    <div>
-                      <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                        Event Name
-                      </label>
-                      <input
-                        type="text"
-                        value={editingMission.mission.mission_name}
-                        onChange={(e) => {
-                          setEditingMission({
-                            ...editingMission,
-                            mission: {
-                              ...editingMission.mission,
-                              mission_name: e.target.value
-                            }
-                          });
-                        }}
-                        placeholder="Event name"
-                        style={{
-                          width: '100%',
-                          padding: '8px 12px',
-                          border: '1px solid var(--rr-border2)',
-                          borderRadius: '6px',
-                          fontSize: '14px',
-                          boxSizing: 'border-box'
-                        }}
-                      />
-                    </div>
+                    </Field>
+                    <Field label="Name" required>
+                      <TextInput value={editingMission.mission.mission_name} placeholder={isLinear ? 'Mission name' : 'Lesson name'} onChange={(e) => patchMission({ mission_name: e.target.value })} />
+                    </Field>
                   </div>
-
-                  <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                      Description
-                    </label>
-                    <textarea
-                      value={editingMission.mission.description || ''}
-                      onChange={(e) => {
-                        setEditingMission({
-                          ...editingMission,
-                          mission: {
-                            ...editingMission.mission,
-                            description: e.target.value
-                          }
-                        });
-                      }}
-                      placeholder="Event description"
-                      rows={6}
-                      style={{
-                        width: '100%',
-                        padding: '8px 12px',
-                        border: '1px solid var(--rr-border2)',
-                        borderRadius: '6px',
-                        fontSize: '14px',
-                        resize: 'vertical',
-                        boxSizing: 'border-box'
-                      }}
-                    />
+                  <Field label="Description">
+                    <Textarea rows={6} value={editingMission.mission.description || ''} placeholder="What this mission covers" onChange={(e) => patchMission({ description: e.target.value })} />
+                  </Field>
+                  <div>
+                    <FieldLabel>Images</FieldLabel>
+                    <div className="grid gap-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+                      {[0, 1, 2, 3].map(renderImageSlot)}
+                    </div>
+                    <div className="mt-[6px] text-[11.5px] text-text2">16:9 works best. The header image leads; the others follow it.</div>
                   </div>
+                </div>
+              )}
 
-                  {/* Image Upload Section */}
-                  <div style={{ marginBottom: '24px' }}>
-                    <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500 }}>
-                      Images (up to 4)
-                    </label>
-                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: '12px' }}>
-                      {[0, 1, 2, 3].map((imageIndex) => (
-                        <div
-                          key={imageIndex}
-                          onDragOver={(e) => handleMissionImageDragOver(e, imageIndex)}
-                          onDragLeave={(e) => handleMissionImageDragLeave(e, imageIndex)}
-                          onDrop={(e) => handleMissionImageDrop(e, imageIndex)}
-                          style={{
-                            position: 'relative',
-                            border: missionImageDragStates[imageIndex] ? '2px dashed var(--rr-accent)' : '2px dashed var(--rr-border2)',
-                            borderRadius: '8px',
-                            aspectRatio: '16/9',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            backgroundColor: missionImagePreviews[imageIndex] ? 'transparent' : 'var(--rr-panel2)',
-                            cursor: 'pointer',
-                            overflow: 'hidden',
-                            transition: 'all 0.2s'
-                          }}
-                        >
-                          {missionImagePreviews[imageIndex] ? (
-                            <>
-                              <img
-                                src={missionImagePreviews[imageIndex]!}
-                                alt={`Preview ${imageIndex + 1}`}
-                                style={{
-                                  width: '100%',
-                                  height: '100%',
-                                  objectFit: 'cover'
-                                }}
-                              />
-                              <button
-                                onClick={() => removeMissionImage(imageIndex)}
-                                style={{
-                                  position: 'absolute',
-                                  top: '6px',
-                                  right: '6px',
-                                  padding: '4px',
-                                  backgroundColor: 'rgba(0, 0, 0, 0.6)',
-                                  border: 'none',
-                                  borderRadius: '4px',
-                                  cursor: 'pointer',
-                                  color: 'white',
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  justifyContent: 'center'
-                                }}
-                              >
-                                <Icon name="close" size={14} />
-                              </button>
-                            </>
-                          ) : (
-                            <>
-                              <input
-                                type="file"
-                                accept="image/*"
-                                onChange={(e) => handleMissionImageFileInputChange(e, imageIndex)}
-                                style={{
-                                  position: 'absolute',
-                                  inset: 0,
-                                  opacity: 0,
-                                  cursor: 'pointer'
-                                }}
-                              />
-                              <div style={{ textAlign: 'center', pointerEvents: 'none' }}>
-                                <Icon name="image" size={24} style={{ color: 'var(--rr-text3)', marginBottom: '8px' }} />
-                                <div style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>
-                                  {imageIndex === 0 ? 'Header' : `Image ${imageIndex + 1}`}
-                                </div>
-                                <div style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '4px' }}>
-                                  Click or drag
-                                </div>
-                              </div>
-                            </>
-                          )}
+              {missionDialogTab === 'objectives' && (
+                <div className="flex flex-col gap-[10px]">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[12.5px] text-text2 flex-1">Each objective is graded in the AAR / grading dialog.</span>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      icon="plus"
+                      onClick={() => patchMission({
+                        objectives: [...editingMission.mission.objectives, { scope_level: 'Individual', objective_text: '', display_order: editingMission.mission.objectives.length }],
+                      })}
+                    >
+                      Add objective
+                    </Button>
+                  </div>
+                  {editingMission.mission.objectives.length === 0 ? (
+                    <div className="rounded-rr-lg border border-border">
+                      <EmptyState compact icon="checkCircle" title="No objectives" message="Add the objectives students are graded against." />
+                    </div>
+                  ) : (
+                    <div className="rounded-rr-lg border border-border divide-y divide-border">
+                      {editingMission.mission.objectives.map((objective, objIndex) => (
+                        <div key={objIndex} className="flex items-center gap-2 px-[10px] py-[8px]">
+                          <span className="w-[22px] flex-none text-center font-mono text-[11px] text-text3">{objIndex + 1}</span>
+                          <div className="w-[140px] flex-none">
+                            <Select
+                              size="sm"
+                              value={objective.scope_level}
+                              onChange={(v) => patchObjective(objIndex, { scope_level: v })}
+                              options={['Individual', 'Element', 'Flight', 'Mission'].map(v => ({ value: v, label: v }))}
+                            />
+                          </div>
+                          <TextInput
+                            className="flex-1 min-w-0"
+                            value={objective.objective_text}
+                            placeholder="Objective"
+                            onChange={(e) => patchObjective(objIndex, { objective_text: e.target.value })}
+                          />
+                          <IconButton
+                            icon="trash"
+                            size={30}
+                            iconSize={13}
+                            label="Remove objective"
+                            className="hover:!text-bad flex-none"
+                            onClick={() => patchMission({ objectives: editingMission.mission.objectives.filter((_, i) => i !== objIndex) })}
+                          />
                         </div>
                       ))}
                     </div>
-                  </div>
-                </>
-              )}
-
-              {/* Objectives Tab */}
-              {missionDialogTab === 'objectives' && (
-                <div>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                    <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: 0 }}>
-                      Objectives ({editingMission.mission.objectives.length})
-                    </h3>
-                    <button
-                      onClick={() => {
-                        setEditingMission({
-                          ...editingMission,
-                          mission: {
-                            ...editingMission.mission,
-                            objectives: [
-                              ...editingMission.mission.objectives,
-                              {
-                                scope_level: 'Individual',
-                                objective_text: '',
-                                display_order: editingMission.mission.objectives.length
-                              }
-                            ]
-                          }
-                        });
-                      }}
-                      style={{
-                        padding: '6px 10px',
-                        backgroundColor: 'var(--rr-panel2)',
-                        border: '1px solid var(--rr-border2)',
-                        borderRadius: '4px',
-                        cursor: 'pointer',
-                        fontSize: '13px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Icon name="plus" size={14} />
-                      Add Objective
-                    </button>
-                  </div>
-
-                  {editingMission.mission.objectives.map((objective, objIndex) => (
-                    <div key={objIndex} style={{ padding: '12px', backgroundColor: 'var(--rr-panel2)', borderRadius: '6px', marginBottom: '8px' }}>
-                      <div style={{ display: 'grid', gridTemplateColumns: '150px 1fr auto', gap: '8px', alignItems: 'start' }}>
-                        <select
-                          value={objective.scope_level}
-                          onChange={(e) => {
-                            const updatedObjectives = [...editingMission.mission.objectives];
-                            updatedObjectives[objIndex].scope_level = e.target.value;
-                            setEditingMission({
-                              ...editingMission,
-                              mission: {
-                                ...editingMission.mission,
-                                objectives: updatedObjectives
-                              }
-                            });
-                          }}
-                          style={{
-                            padding: '6px 8px',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            backgroundColor: 'var(--rr-panel)'
-                          }}
-                        >
-                          <option value="Individual">Individual</option>
-                          <option value="Element">Element</option>
-                          <option value="Flight">Flight</option>
-                          <option value="Mission">Mission</option>
-                        </select>
-                        <input
-                          type="text"
-                          value={objective.objective_text}
-                          onChange={(e) => {
-                            const updatedObjectives = [...editingMission.mission.objectives];
-                            updatedObjectives[objIndex].objective_text = e.target.value;
-                            setEditingMission({
-                              ...editingMission,
-                              mission: {
-                                ...editingMission.mission,
-                                objectives: updatedObjectives
-                              }
-                            });
-                          }}
-                          placeholder="Objective description"
-                          style={{
-                            padding: '6px 8px',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            backgroundColor: 'var(--rr-panel)'
-                          }}
-                        />
-                        <button
-                          onClick={() => {
-                            const updatedObjectives = editingMission.mission.objectives.filter((_, i) => i !== objIndex);
-                            setEditingMission({
-                              ...editingMission,
-                              mission: {
-                                ...editingMission.mission,
-                                objectives: updatedObjectives
-                              }
-                            });
-                          }}
-                          style={{
-                            padding: '6px',
-                            backgroundColor: 'var(--rr-panel)',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            cursor: 'pointer',
-                            color: 'var(--rr-bad)'
-                          }}
-                        >
-                          <Icon name="trash" size={14} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
-
-                  {editingMission.mission.objectives.length === 0 && (
-                    <div style={{ padding: '48px 24px', textAlign: 'center', color: 'var(--rr-text3)', fontSize: '14px' }}>
-                      No objectives yet. Click "Add Objective" to create one.
-                    </div>
                   )}
                 </div>
               )}
 
-              {/* Reference Materials Tab */}
-              {missionDialogTab === 'references' && (
-                <div>
-                  <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', marginBottom: '12px' }}>
-                    Reference Materials
-                  </h3>
-                  <ReferenceMaterialsInput
-                    value={editingMission.mission.reference_materials || []}
-                    onChange={(materials) => {
-                      setEditingMission({
-                        ...editingMission,
-                        mission: {
-                          ...editingMission.mission,
-                          reference_materials: materials
-                        }
-                      });
-                    }}
-                  />
-                </div>
+              {missionDialogTab === 'reference-materials' && (
+                <ReferenceMaterialsInput
+                  value={editingMission.mission.reference_materials || []}
+                  onChange={(materials) => patchMission({ reference_materials: materials })}
+                />
               )}
 
-              {/* Issues Tab */}
               {missionDialogTab === 'issues' && editingMission.mission.id && (
-                <div style={{ margin: '-24px', marginBottom: '-24px' }}>
-                  <IssuesTab
-                    entityType="syllabus_mission"
-                    entityId={editingMission.mission.id}
-                    entityName={editingMission.mission.mission_name}
-                  />
+                <div className="-m-[18px]">
+                  <IssuesTab entityType="syllabus_mission" entityId={editingMission.mission.id} entityName={editingMission.mission.mission_name} />
                 </div>
               )}
             </div>
-
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={handleCancelEvent}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleSaveEvent}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-accent)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Save Event
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        ) : null}
+      </Dialog>
 
-      {/* Unsaved Changes Warning Dialog */}
-      {showUnsavedWarning && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1001
-        }}>
-          <div style={{
-            backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
-            width: '90%',
-            maxWidth: '500px',
-            boxShadow: 'var(--rr-shadow-lg)'
-          }}>
-            <div style={{ padding: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
-                Unsaved Changes
-              </h2>
-              <p style={{ color: 'var(--rr-text2)', fontSize: '14px', marginTop: '8px', marginBottom: 0 }}>
-                You have unsaved changes that will be lost if you leave this page. Are you sure you want to continue?
-              </p>
-            </div>
+      {/* Unsaved changes */}
+      <Dialog
+        open={showUnsavedWarning}
+        onClose={handleCancelLeave}
+        title="Unsaved changes"
+        width={460}
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleCancelLeave}>Stay</Button>
+            <Button variant="danger" onClick={handleConfirmLeave}>Leave without saving</Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[13px] text-text2 leading-[1.55]">Your changes to this syllabus will be lost if you leave now.</p>
+      </Dialog>
 
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={handleCancelLeave}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Stay on Page
-              </button>
-              <button
-                onClick={handleConfirmLeave}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-bad)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Leave Without Saving
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Delete mission / lesson */}
+      <Dialog
+        open={deleteConfirmIndex !== null}
+        onClose={handleCancelDelete}
+        title={`Delete ${isLinear ? 'mission' : 'lesson'}`}
+        width={460}
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleCancelDelete}>Cancel</Button>
+            <Button variant="danger" icon="trash" onClick={handleConfirmDelete}>Delete</Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[13px] text-text2 leading-[1.55]">
+          Delete <strong className="text-text">{deleteConfirmIndex !== null ? (missions[deleteConfirmIndex]?.mission_name || 'this item') : ''}</strong> and all its objectives? This can't be undone.
+        </p>
+      </Dialog>
+    </div>
+  );
 
-      {/* Delete Confirmation Dialog */}
-      {deleteConfirmIndex !== null && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1002
-        }}>
-          <div style={{
-            backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
-            width: '90%',
-            maxWidth: '500px',
-            boxShadow: 'var(--rr-shadow-lg)'
-          }}>
-            <div style={{ padding: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
-                Delete Event
-              </h2>
-              <p style={{ color: 'var(--rr-text2)', fontSize: '14px', marginTop: '8px', marginBottom: 0 }}>
-                Are you sure you want to delete this event and all its objectives? This action cannot be undone.
-              </p>
-            </div>
-
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={handleCancelDelete}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-bad)',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Delete Event
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      </div>
+  if (embedded) return pane;
+  // Standalone route: the same pane on the shared page frame
+  return (
+    <div className="flex-1 min-h-0 p-[14px] flex flex-col">
+      <div className="rr-page flex-1 min-h-0 flex">{pane}</div>
     </div>
   );
 };

@@ -54,7 +54,8 @@ const TrainingManagement: React.FC = () => {
       ) : null}
       <div className="flex-1 min-h-0 p-[14px] flex flex-col">
         {activeTrainingPage === 'syllabi' ? (
-          <div className="rr-page flex-initial min-h-0 bg-panel border border-border rounded-rr-xl shadow-rr overflow-auto">
+          // Syllabi: navigator + editor panes (Events layout), so no outer card
+          <div className="rr-page flex-1 min-w-0 min-h-0 flex">
             <SyllabusManagement error={error} setError={setError} />
           </div>
         ) : (

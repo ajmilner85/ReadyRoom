@@ -1,9 +1,8 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 import { supabase } from '../../utils/supabaseClient';
-import { Edit } from 'lucide-react';
-import { Icon } from '../ui/primitives';
+import { Button, Dialog, EmptyState, Field, TextInput } from '../ui/primitives';
+import { AccordionGroupLabel } from '../ui/events/CycleAccordion';
 import { useComponentPermissions } from '../../hooks/usePermissions';
 import SyllabusEditor from './SyllabusEditor';
 
@@ -41,13 +40,17 @@ interface SyllabusManagementProps {
 }
 
 const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError }) => {
-  const navigate = useNavigate();
-  const { isVisible } = useComponentPermissions();
+    const { isVisible } = useComponentPermissions();
   const [syllabi, setSyllabi] = useState<Syllabus[]>([]);
   const [selectedSyllabusId, setSelectedSyllabusId] = useState<string | 'new' | undefined>();
   const [loading, setLoading] = useState(true);
   const [deleteConfirmSyllabusId, setDeleteConfirmSyllabusId] = useState<string | null>(null);
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  // Unsaved edits in the open editor, and a selection waiting on the discard prompt
+  const [editorDirty, setEditorDirty] = useState(false);
+  const [pendingSelect, setPendingSelect] = useState<string | 'new' | null | undefined>(undefined);
+  const [missionCounts, setMissionCounts] = useState<Record<string, number>>({});
+  const [cycleCounts, setCycleCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     loadSyllabi();
@@ -64,6 +67,19 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
       if (syllabusError) throw syllabusError;
 
       setSyllabi(data || []);
+
+      // Navigator counts: missions per syllabus, and the (non-deleted) cycles that use it
+      const ids = (data || []).map((s: any) => s.id);
+      if (ids.length) {
+        const [{ data: ms }, { data: cs }] = await Promise.all([
+          supabase.from('training_syllabus_missions').select('syllabus_id').in('syllabus_id', ids),
+          supabase.from('cycles').select('syllabus_id').in('syllabus_id', ids).is('deleted_at', null),
+        ]);
+        const count = (rows: any[] | null) => (rows || []).reduce((acc: Record<string, number>, r: any) => { acc[r.syllabus_id] = (acc[r.syllabus_id] || 0) + 1; return acc; }, {});
+        setMissionCounts(count(ms));
+        setCycleCounts(count(cs));
+      }
+      setSelectedSyllabusId(prev => prev ?? (data || []).find((s: any) => (s.kind || 'linear') === 'linear')?.id ?? (data || [])[0]?.id);
     } catch (err: any) {
       setError(err.message);
     } finally {
@@ -109,283 +125,153 @@ const SyllabusManagement: React.FC<SyllabusManagementProps> = ({ error, setError
     }
   };
 
-  const handleSyllabusEditorBack = () => {
-    setSelectedSyllabusId(undefined);
-    loadSyllabi();
+  // ---- Selection with unsaved-change guard -----------------------------------------------
+  const requestSelect = (id: string | 'new' | undefined) => {
+    if (id === selectedSyllabusId) return;
+    if (editorDirty) { setPendingSelect(id ?? null); return; }
+    setSelectedSyllabusId(id);
+  };
+
+  const handleSaved = async (id: string) => {
+    setEditorDirty(false);
+    await loadSyllabi();
+    setSelectedSyllabusId(id);
   };
 
   if (loading) {
-    return (
-      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '100%', padding: '40px' }}>
-        Loading training syllabi...
-      </div>
-    );
+    return <div className="flex-1 flex items-center justify-center p-10 text-[13px] text-text2">Loading training syllabi…</div>;
   }
 
-  // If a syllabus is selected for editing, show the SyllabusEditor
-  if (selectedSyllabusId) {
-    return (
-      <div style={{ height: '100%', overflow: 'auto' }}>
-        <SyllabusEditor
-          syllabusId={selectedSyllabusId}
-          onBack={handleSyllabusEditorBack}
-        />
-      </div>
-    );
-  }
+  const deleting = syllabi.find(s => s.id === deleteConfirmSyllabusId);
+  const canDelete = isVisible('manage_training_syllabi');
 
-  // Otherwise, show the syllabus list
   return (
-    <div style={{ padding: '40px 32px', height: '100%', overflow: 'auto' }}>
-      <div>
-        {/* Header */}
-        <div style={{ marginBottom: '24px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div>
-            <h2 style={{ fontSize: '20px', fontWeight: 600, marginBottom: '4px', margin: 0 }}>
-              Training Syllabi
-            </h2>
-            <p style={{ color: 'var(--rr-text2)', fontSize: '14px', margin: 0, marginTop: '4px' }}>
-              Manage training syllabi, missions, and objectives
-            </p>
-          </div>
-          <button
-            style={{
-              padding: '10px 16px',
-              backgroundColor: 'var(--rr-accent)',
-              color: 'white',
-              border: 'none',
-              borderRadius: '6px',
-              cursor: 'pointer',
-              fontSize: '14px',
-              fontWeight: 500,
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px'
-            }}
-            onClick={() => setSelectedSyllabusId('new')}
-          >
-            <Icon name="plus" size={16} />
-            Create Syllabus
-          </button>
+    <div className="flex-1 min-w-0 min-h-0 flex gap-[14px]">
+      {/* Left: syllabi grouped by type */}
+      <div className="flex-none w-[320px] min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden max-[760px]:w-auto">
+        <div className="flex-none flex items-center gap-2 px-[14px] min-h-[46px] border-b border-border">
+          <span className="rr-pane-title">Syllabi</span>
+          <span className="font-mono text-[11px] text-text3">{syllabi.length}</span>
+          <span className="flex-1" />
+          <Button size="sm" variant="primary" icon="plus" onClick={() => requestSelect('new')}>New</Button>
         </div>
-
-        {/* Syllabi List, grouped by kind (linear first; pool/module sections
-            only appear once such a library exists) */}
-        {syllabi.length > 0 ? (
-          KIND_SECTIONS.map(section => {
-            const sectionSyllabi = syllabi.filter(s => (s.kind || 'linear') === section.kind);
-            if (sectionSyllabi.length === 0) return null;
-            return (
-          <div key={section.kind} style={{ marginBottom: '32px' }}>
-            <div style={{ marginBottom: '12px' }}>
-              <h3 style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: 0 }}>
-                {section.title}
-              </h3>
-              <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '2px 0 0 0' }}>
-                {section.blurb}
-              </p>
-            </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            {sectionSyllabi.map((syllabus) => (
-              <div
-                key={syllabus.id}
-                style={{
-                  padding: '16px',
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border)',
-                  borderRadius: '8px',
-                  transition: 'all 0.2s'
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{ fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)', marginBottom: '4px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                      {syllabus.name}
-                      {syllabus.kind && syllabus.kind !== 'linear' && (
-                        <span style={{
-                          fontSize: '11px',
-                          fontWeight: 600,
-                          textTransform: 'uppercase',
-                          padding: '2px 8px',
-                          borderRadius: '9999px',
-                          backgroundColor: KIND_BADGE_COLORS[syllabus.kind].bg,
-                          color: KIND_BADGE_COLORS[syllabus.kind].fg
-                        }}>
-                          {KIND_BADGE_LABELS[syllabus.kind] || syllabus.kind}
-                        </span>
-                      )}
-                    </div>
-                    {syllabus.description && (
-                      <div style={{ fontSize: '13px', color: 'var(--rr-text2)', marginBottom: '8px' }}>
-                        {syllabus.description}
-                      </div>
-                    )}
-                    <div style={{ display: 'flex', gap: '16px', fontSize: '12px', color: 'var(--rr-text3)' }}>
-                      {syllabus.aircraft_type && (
-                        <span>Aircraft: {syllabus.aircraft_type}</span>
-                      )}
-                      {syllabus.estimated_hours && (
-                        <span>Est. Hours: {syllabus.estimated_hours}</span>
-                      )}
-                    </div>
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px' }}>
-                    <button
-                      style={{
-                        padding: '6px 12px',
-                        backgroundColor: 'transparent',
-                        border: '1px solid var(--rr-border2)',
-                        borderRadius: '6px',
-                        fontSize: '12px',
-                        fontWeight: 500,
-                        color: 'var(--rr-text)',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '6px'
-                      }}
-                      onClick={() => setSelectedSyllabusId(syllabus.id)}
-                    >
-                      <Icon name="edit" size={14} />
-                      Edit
-                    </button>
-                    {isVisible('manage_training_syllabi') && (
-                      <button
-                        style={{
-                          padding: '6px',
-                          backgroundColor: 'transparent',
-                          border: '1px solid var(--rr-bad)',
-                          borderRadius: '6px',
-                          fontSize: '12px',
-                          fontWeight: 500,
-                          color: 'var(--rr-bad)',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center'
-                        }}
-                        onClick={() => handleDeleteClick(syllabus.id)}
+        <div className="flex-1 min-h-0 overflow-y-auto p-[10px] flex flex-col gap-[6px]">
+          {syllabi.length === 0 ? (
+            <EmptyState compact icon="bookOpen" title="No syllabi yet" message="Create the first training syllabus." />
+          ) : (
+            KIND_SECTIONS.map(section => {
+              const list = syllabi.filter(s => (s.kind || 'linear') === section.kind);
+              if (!list.length) return null;
+              return (
+                <div key={section.kind} className="flex flex-col gap-[4px]">
+                  <AccordionGroupLabel className="mt-[6px] mb-[2px] px-1">{section.title}</AccordionGroupLabel>
+                  {list.map(sy => {
+                    const sel = selectedSyllabusId === sy.id;
+                    const n = missionCounts[sy.id] ?? 0;
+                    return (
+                      <div
+                        key={sy.id}
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => requestSelect(sy.id)}
+                        onKeyDown={(e) => { if (e.key === 'Enter') requestSelect(sy.id); }}
+                        className={`flex flex-col gap-[2px] px-[10px] py-[8px] rounded-rr-md cursor-pointer transition-colors ${sel ? 'bg-accent-weak' : 'hover:bg-panel2'}`}
+                        style={sel ? { boxShadow: 'inset 2px 0 0 var(--rr-accent)' } : undefined}
+                        title={sy.description || undefined}
                       >
-                        <Icon name="trash" size={14} />
-                      </button>
-                    )}
-                  </div>
+                        <span className={`text-[13px] leading-[1.3] text-text ${sel ? 'font-semibold' : 'font-medium'}`} style={{ overflowWrap: 'anywhere' }}>{sy.name}</span>
+                        <span className="flex items-center gap-[6px] text-[11px] text-text2">
+                          <span className="font-mono text-[10.5px]">{n} {section.kind === 'linear' ? (n === 1 ? 'mission' : 'missions') : (n === 1 ? 'lesson' : 'lessons')}</span>
+                          {cycleCounts[sy.id] ? <><span className="text-text3">·</span><span className="font-mono text-[10.5px]">{cycleCounts[sy.id]} {cycleCounts[sy.id] === 1 ? 'cycle' : 'cycles'}</span></> : null}
+                        </span>
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
-            ))}
-          </div>
-          </div>
-            );
-          })
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 20px', textAlign: 'center', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px' }}>
-            <Icon name="bookOpen" size={48} style={{ color: 'var(--rr-text3)', marginBottom: '16px' }} />
-            <p style={{ color: 'var(--rr-text2)', marginBottom: '16px', margin: 0 }}>No training syllabi created yet</p>
-            <button
-              style={{
-                padding: '10px 20px',
-                backgroundColor: 'var(--rr-accent)',
-                border: 'none',
-                borderRadius: '6px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: 'white',
-                cursor: 'pointer',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                marginTop: '16px'
-              }}
-              onClick={() => setSelectedSyllabusId('new')}
-            >
-              <Icon name="plus" size={16} />
-              Create Your First Syllabus
-            </button>
-          </div>
-        )}
+              );
+            })
+          )}
+          {selectedSyllabusId === 'new' ? (
+            <div className="flex flex-col gap-[4px]">
+              <AccordionGroupLabel className="mt-[6px] mb-[2px] px-1">Draft</AccordionGroupLabel>
+              <div className="px-[10px] py-[8px] rounded-rr-md bg-accent-weak text-[13px] font-semibold" style={{ boxShadow: 'inset 2px 0 0 var(--rr-accent)' }}>New syllabus</div>
+            </div>
+          ) : null}
+        </div>
       </div>
 
-      {/* Delete Confirmation Dialog */}
-      {deleteConfirmSyllabusId && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 1002
-        }}>
-          <div style={{
-            backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
-            width: '90%',
-            maxWidth: '500px',
-            boxShadow: 'var(--rr-shadow-lg)'
-          }}>
-            <div style={{ padding: '24px' }}>
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '12px', margin: 0 }}>
-                Delete Syllabus
-              </h2>
-              <p style={{ color: 'var(--rr-text2)', fontSize: '14px', marginTop: '8px', marginBottom: '16px' }}>
-                Are you sure you want to delete this syllabus? This will permanently delete all associated missions and objectives. This action cannot be undone.
-              </p>
-              <p style={{ color: 'var(--rr-text)', fontSize: '14px', fontWeight: 500, marginBottom: '8px' }}>
-                Type <strong>yes</strong> to confirm deletion:
-              </p>
-              <input
-                type="text"
-                value={deleteConfirmText}
-                onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder="Type 'yes' to confirm"
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box'
-                }}
-              />
-            </div>
-
-            <div style={{ padding: '16px 24px', borderTop: '1px solid var(--rr-border)', display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-              <button
-                onClick={handleCancelDelete}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmDelete}
-                disabled={deleteConfirmText.toLowerCase() !== 'yes'}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: deleteConfirmText.toLowerCase() === 'yes' ? 'var(--rr-bad)' : '#FCA5A5',
-                  color: 'white',
-                  border: 'none',
-                  borderRadius: '6px',
-                  cursor: deleteConfirmText.toLowerCase() === 'yes' ? 'pointer' : 'not-allowed',
-                  fontSize: '14px',
-                  fontWeight: 500
-                }}
-              >
-                Delete Syllabus
-              </button>
-            </div>
-          </div>
+      {/* Right: editor */}
+      {selectedSyllabusId ? (
+        <SyllabusEditor
+          key={selectedSyllabusId}
+          embedded
+          syllabusId={selectedSyllabusId}
+          onDirtyChange={setEditorDirty}
+          onSaved={handleSaved}
+          onDelete={canDelete && selectedSyllabusId !== 'new' ? () => handleDeleteClick(selectedSyllabusId) : undefined}
+        />
+      ) : (
+        <div className="flex-1 min-w-0 flex items-center justify-center bg-panel border border-border rounded-rr-xl shadow-rr">
+          <EmptyState
+            icon="bookOpen"
+            title="Pick a syllabus"
+            message="Choose a syllabus on the left to edit its missions, enrollment rules and outcomes."
+            action={{ label: 'New syllabus', onClick: () => requestSelect('new') }}
+          />
         </div>
       )}
+
+      {/* Switch away from unsaved edits */}
+      <Dialog
+        open={pendingSelect !== undefined}
+        onClose={() => setPendingSelect(undefined)}
+        title="Unsaved changes"
+        width={460}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setPendingSelect(undefined)}>Stay</Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                setEditorDirty(false);
+                setSelectedSyllabusId(pendingSelect ?? undefined);
+                setPendingSelect(undefined);
+              }}
+            >
+              Discard changes
+            </Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[13px] text-text2 leading-[1.55]">Your changes to this syllabus haven't been saved and will be lost.</p>
+      </Dialog>
+
+      {/* Delete syllabus (type "yes") */}
+      <Dialog
+        open={Boolean(deleteConfirmSyllabusId)}
+        onClose={handleCancelDelete}
+        title="Delete syllabus"
+        width={460}
+        footer={
+          <>
+            <Button variant="secondary" onClick={handleCancelDelete}>Cancel</Button>
+            <Button variant="danger" icon="trash" onClick={handleConfirmDelete} disabled={deleteConfirmText.toLowerCase() !== 'yes'}>Delete syllabus</Button>
+          </>
+        }
+      >
+        <p className="m-0 mb-[14px] text-[13px] text-text2 leading-[1.55]">
+          Delete <strong className="text-text">{deleting?.name || 'this syllabus'}</strong> with all its missions and objectives? This can't be undone.
+        </p>
+        <Field label={<>Type <span className="text-text">yes</span> to confirm</>}>
+          <TextInput
+            value={deleteConfirmText}
+            onChange={(e) => setDeleteConfirmText(e.target.value)}
+            placeholder="yes"
+            autoFocus
+            onKeyDown={(e) => { if (e.key === 'Enter' && deleteConfirmText.toLowerCase() === 'yes') handleConfirmDelete(); }}
+          />
+        </Field>
+      </Dialog>
     </div>
   );
 };

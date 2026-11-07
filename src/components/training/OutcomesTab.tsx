@@ -1,7 +1,7 @@
 // @ts-nocheck
 import React, { useState, useEffect } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import { Icon, Toggle } from '../ui/primitives';
+import { IconButton, SegmentedControl, Select, Toggle } from '../ui/primitives';
 import type { GraduationOutcome, GraduationOutcomeType, GraduationEffectiveDate, GraduationQualEntry } from '../../types/TrainingTypes';
 import QualificationBadge from '../ui/QualificationBadge';
 
@@ -40,78 +40,43 @@ interface QualOption {
   color: string | null;
 }
 
-/** Reusable effective date segmented control */
+/** Effective date: on graduation, or a syllabus week */
 const EffectiveDateControl: React.FC<{
   effectiveDate: GraduationEffectiveDate;
   weekOptions: number[];
   onChange: (ed: GraduationEffectiveDate) => void;
 }> = ({ effectiveDate, weekOptions, onChange }) => (
-  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-    <div style={{ display: 'flex', borderRadius: '6px', overflow: 'hidden', border: '1px solid var(--rr-border2)' }}>
-      <button
-        onClick={(e) => { e.stopPropagation(); onChange({ mode: 'graduation' }); }}
-        style={{
-          padding: '4px 10px',
-          border: 'none',
-          fontSize: '12px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          backgroundColor: effectiveDate.mode === 'graduation' ? 'var(--rr-accent)' : 'var(--rr-panel)',
-          color: effectiveDate.mode === 'graduation' ? 'white' : 'var(--rr-text2)',
-          transition: 'all 0.15s',
-        }}
-      >
-        Graduation
-      </button>
-      <button
-        onClick={(e) => {
-          e.stopPropagation();
-          onChange({ mode: 'week', weekNumber: effectiveDate.weekNumber ?? 1 });
-        }}
-        style={{
-          padding: '4px 10px',
-          border: 'none',
-          borderLeft: '1px solid var(--rr-border2)',
-          fontSize: '12px',
-          fontWeight: 500,
-          cursor: 'pointer',
-          backgroundColor: effectiveDate.mode === 'week' ? 'var(--rr-accent)' : 'var(--rr-panel)',
-          color: effectiveDate.mode === 'week' ? 'white' : 'var(--rr-text2)',
-          transition: 'all 0.15s',
-        }}
-      >
-        Week
-      </button>
-    </div>
-    {effectiveDate.mode === 'week' && (
-      <select
-        value={effectiveDate.weekNumber ?? 1}
-        onClick={(e) => e.stopPropagation()}
-        onChange={(e) => {
-          e.stopPropagation();
-          onChange({ mode: 'week', weekNumber: parseInt(e.target.value, 10) });
-        }}
-        style={{
-          padding: '4px 8px',
-          border: '1px solid var(--rr-border2)',
-          borderRadius: '6px',
-          fontSize: '12px',
-          backgroundColor: 'var(--rr-panel)',
-        }}
-      >
-        {weekOptions.map(w => (
-          <option key={w} value={w}>Week {w}</option>
-        ))}
-      </select>
-    )}
+  <div className="flex items-center gap-2">
+    <SegmentedControl
+      size="sm"
+      value={effectiveDate.mode}
+      onChange={(m) => onChange(m === 'graduation' ? { mode: 'graduation' } : { mode: 'week', weekNumber: effectiveDate.weekNumber ?? 1 })}
+      options={[{ value: 'graduation', label: 'GRADUATION' }, { value: 'week', label: 'WEEK' }]}
+    />
+    {effectiveDate.mode === 'week' ? (
+      <div className="w-[110px]">
+        <Select<number>
+          size="sm"
+          value={effectiveDate.weekNumber ?? 1}
+          onChange={(w) => onChange({ mode: 'week', weekNumber: w })}
+          options={weekOptions.map(w => ({ value: w, label: `Week ${w}` }))}
+        />
+      </div>
+    ) : null}
   </div>
 );
+
+const OUTCOME_HINT: Record<GraduationOutcomeType, string> = {
+  callsign: 'Confirm or change the student\'s callsign at graduation.',
+  standing: 'Move the student to a new standing (e.g. from Student to Pilot).',
+  squadron_assignment: 'Assign the graduate to a squadron.',
+  qualifications: 'Qualifications awarded on graduation, each with its own effective date.',
+};
 
 const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNumber }) => {
   const [standings, setStandings] = useState<Array<{ id: string; name: string }>>([]);
   const [qualOptions, setQualOptions] = useState<QualOption[]>([]);
   const [loading, setLoading] = useState(true);
-  const [qualDropdownOpen, setQualDropdownOpen] = useState(false);
 
   const merged = mergeWithDefaults(outcomes);
 
@@ -184,273 +149,112 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
   };
 
   if (loading) {
-    return (
-      <div style={{ padding: '24px', color: 'var(--rr-text2)', fontSize: '14px' }}>
-        Loading options...
-      </div>
-    );
+    return <div className="py-6 text-center text-[12.5px] text-text2">Loading options…</div>;
   }
 
+  const field = (label: string, control: React.ReactNode) => (
+    <div className="flex items-center gap-3 flex-wrap">
+      <span className="rr-label w-[110px] flex-none">{label}</span>
+      {control}
+    </div>
+  );
+
   return (
-    <div style={{ padding: '24px', backgroundColor: 'var(--rr-panel)', border: '1px solid var(--rr-border)', borderRadius: '8px', marginBottom: '24px' }}>
-      {/* Header */}
-      <div style={{ marginBottom: '20px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-          <Icon name="training" size={20} style={{ color: 'var(--rr-accent-text)' }} />
-          <h3 style={{ margin: 0, fontSize: '16px', fontWeight: 600, color: 'var(--rr-text)' }}>
-            Graduation Outcomes
-          </h3>
-        </div>
-        <p style={{ margin: 0, fontSize: '13px', color: 'var(--rr-text2)', lineHeight: '1.5' }}>
-          Configure what changes apply to a student upon graduation. Enabled outcomes will appear in the graduation dialog
-          with their default values pre-filled. Required outcomes must be completed before graduation can be confirmed.
+    <div className="flex flex-col gap-[14px]">
+      <div>
+        <div className="rr-pane-title">Graduation outcomes</div>
+        <p className="m-0 mt-1 text-[12.5px] text-text2 leading-[1.5] max-w-[75ch]">
+          What changes for a student when they graduate. Enabled outcomes appear in the graduation dialog with their defaults pre-filled; required ones must be completed before graduation can be confirmed.
         </p>
       </div>
 
-      {/* Outcome Cards */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+      <div className="grid gap-[12px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))' }}>
         {OUTCOME_TYPES.map(({ type, label }) => {
           const outcome = merged.find(o => o.type === type)!;
           const qualEntries = type === 'qualifications' ? getQualEntries(outcome) : [];
           const availableQuals = qualOptions.filter(q => !qualEntries.find(e => e.id === q.id));
-
+          const on = Boolean(outcome.enabled);
           return (
-            <div
+            <section
               key={type}
-              style={{
-                border: `1px solid ${outcome.enabled ? 'var(--rr-accent)' : 'var(--rr-border)'}`,
-                borderRadius: '8px',
-                backgroundColor: outcome.enabled ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
-                transition: 'all 0.15s',
-              }}
+              className={`rounded-rr-lg border flex flex-col transition-colors ${on ? 'border-accent bg-panel' : 'border-border bg-panel2'}`}
+              style={type === 'qualifications' ? { gridColumn: '1 / -1' } : undefined}
             >
-              {/* Card Header */}
-              <div
-                style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  padding: '14px 16px',
-                  cursor: 'pointer',
-                }}
-                onClick={() => toggleEnabled(type)}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                  <div
-                    style={{
-                      width: '20px',
-                      height: '20px',
-                      borderRadius: '4px',
-                      border: outcome.enabled ? '2px solid var(--rr-accent)' : '2px solid var(--rr-border2)',
-                      backgroundColor: outcome.enabled ? 'var(--rr-accent)' : 'var(--rr-panel)',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      transition: 'all 0.15s',
-                      flexShrink: 0,
-                    }}
-                  >
-                    {outcome.enabled && <Icon name="check" size={14} color="white" strokeWidth={3} />}
-                  </div>
-                  <span style={{ fontSize: '14px', fontWeight: 600, color: 'var(--rr-text)' }}>{label}</span>
+              <div className="flex items-start gap-3 px-[14px] py-[12px]">
+                <div className="pt-[1px]"><Toggle checked={on} onChange={() => toggleEnabled(type)} /></div>
+                <div className="flex-1 min-w-0">
+                  <div className="text-[13.5px] font-semibold text-text">{label}</div>
+                  <div className="text-[12px] text-text2 leading-[1.4]">{OUTCOME_HINT[type]}</div>
                 </div>
-                {outcome.enabled && (
-                  <div
-                    style={{ display: 'flex', alignItems: 'center', gap: '8px' }}
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <span style={{ fontSize: '12px', color: 'var(--rr-text2)' }}>Required</span>
-                    <Toggle checked={Boolean(outcome.required)} onChange={() => updateOutcome(type, { required: !outcome.required })} />
-                  </div>
-                )}
+                {on ? (
+                  <label className="flex items-center gap-2 text-[12px] text-text2 flex-none cursor-pointer">
+                    Required
+                    <Toggle size="sm" checked={Boolean(outcome.required)} onChange={() => updateOutcome(type, { required: !outcome.required })} />
+                  </label>
+                ) : null}
               </div>
 
-              {/* Expanded Settings */}
-              {outcome.enabled && (
-                <div style={{
-                  padding: '14px 16px 16px',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: '14px',
-                  borderTop: '1px solid var(--rr-accent)',
-                }}>
-                  {/* Effective Date — not shown for qualifications (per-qual dates instead) */}
-                  {type !== 'qualifications' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '90px' }}>
-                        Effective date:
-                      </span>
-                      <EffectiveDateControl
-                        effectiveDate={outcome.effectiveDate}
-                        weekOptions={weekOptions}
-                        onChange={(ed) => setEffectiveDate(type, ed)}
-                      />
-                    </div>
-                  )}
+              {on ? (
+                <div className="flex flex-col gap-[12px] px-[14px] pb-[14px] pt-[12px] border-t border-border">
+                  {type !== 'qualifications'
+                    ? field('Effective', <EffectiveDateControl effectiveDate={outcome.effectiveDate} weekOptions={weekOptions} onChange={(ed) => setEffectiveDate(type, ed)} />)
+                    : null}
 
-                  {/* Standing default */}
-                  {type === 'standing' && (
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                      <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text)', minWidth: '90px' }}>
-                        Default value:
-                      </span>
-                      <select
-                        value={(outcome.defaultValue as string) || ''}
-                        onClick={(e) => e.stopPropagation()}
-                        onChange={(e) => { e.stopPropagation(); setDefaultValue(type, e.target.value || null); }}
-                        style={{
-                          padding: '6px 10px',
-                          border: '1px solid var(--rr-border2)',
-                          borderRadius: '6px',
-                          fontSize: '13px',
-                          backgroundColor: 'var(--rr-panel)',
-                          minWidth: '200px',
-                        }}
-                      >
-                        <option value="">No default (select at graduation)</option>
-                        {standings.map(s => (
-                          <option key={s.id} value={s.id}>{s.name}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-
-                  {/* Qualifications — custom badge dropdown + list with per-qual effective dates */}
-                  {type === 'qualifications' && (
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                      {/* Custom badge dropdown */}
-                      {availableQuals.length > 0 && (
-                        <div style={{ position: 'relative' }} onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => setQualDropdownOpen(o => !o)}
-                            style={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              width: '100%',
-                              padding: '7px 10px',
-                              border: '1px solid var(--rr-border2)',
-                              borderRadius: '6px',
-                              backgroundColor: 'var(--rr-panel)',
-                              fontSize: '13px',
-                              color: 'var(--rr-text2)',
-                              cursor: 'pointer',
-                              textAlign: 'left',
-                            }}
-                          >
-                            <span>Add a qualification...</span>
-                            <Icon name="chevronDown" size={14} />
-                          </button>
-                          {qualDropdownOpen && (
-                            <div style={{
-                              position: 'absolute',
-                              top: 'calc(100% + 4px)',
-                              left: 0,
-                              right: 0,
-                              zIndex: 20,
-                              backgroundColor: 'var(--rr-panel)',
-                              border: '1px solid var(--rr-border2)',
-                              borderRadius: '6px',
-                              boxShadow: 'var(--rr-shadow)',
-                              maxHeight: '240px',
-                              overflowY: 'auto',
-                            }}>
-                              {availableQuals.map(q => (
-                                <div
-                                  key={q.id}
-                                  onClick={() => { addQualEntry(type, q.id); setQualDropdownOpen(false); }}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    gap: '10px',
-                                    padding: '8px 12px',
-                                    cursor: 'pointer',
-                                    borderBottom: '1px solid var(--rr-border)',
-                                  }}
-                                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'var(--rr-panel2)'; }}
-                                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; }}
-                                >
-                                  <QualificationBadge
-                                    type={q.name}
-                                    code={q.code || undefined}
-                                    color={q.color || undefined}
-                                    size="small"
-                                  />
-                                  <span style={{ fontSize: '13px', color: 'var(--rr-text)' }}>{q.name}</span>
-                                </div>
-                              ))}
-                            </div>
-                          )}
+                  {type === 'standing'
+                    ? field('Default', (
+                        <div className="w-[260px] max-w-full">
+                          <Select
+                            size="sm"
+                            value={(outcome.defaultValue as string) || ''}
+                            onChange={(v) => setDefaultValue(type, v || null)}
+                            options={[{ value: '', label: 'No default (pick at graduation)' }, ...standings.map(st => ({ value: st.id, label: st.name }))]}
+                          />
                         </div>
-                      )}
+                      ))
+                    : null}
 
-                      {/* Selected qualifications list */}
+                  {type === 'qualifications' ? (
+                    <div className="flex flex-col gap-[8px]">
                       {qualEntries.length > 0 ? (
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                        <div className="rounded-rr-lg border border-border divide-y divide-border bg-panel2">
                           {qualEntries.map(entry => {
                             const qual = qualOptions.find(q => q.id === entry.id);
                             if (!qual) return null;
                             return (
-                              <div
-                                key={entry.id}
-                                style={{
-                                  display: 'flex',
-                                  alignItems: 'center',
-                                  gap: '10px',
-                                  padding: '8px 10px',
-                                  backgroundColor: 'var(--rr-panel)',
-                                  border: '1px solid var(--rr-border)',
-                                  borderRadius: '6px',
-                                  flexWrap: 'wrap',
-                                }}
-                              >
-                                <QualificationBadge
-                                  type={qual.name}
-                                  code={qual.code || undefined}
-                                  color={qual.color || undefined}
-                                  size="small"
-                                />
-                                <span style={{ fontSize: '13px', color: 'var(--rr-text)', flex: 1, minWidth: '100px' }}>
-                                  {qual.name}
-                                </span>
-                                <EffectiveDateControl
-                                  effectiveDate={entry.effectiveDate}
-                                  weekOptions={weekOptions}
-                                  onChange={(ed) => updateQualEntryDate(type, entry.id, ed)}
-                                />
-                                <button
-                                  onClick={(e) => { e.stopPropagation(); removeQualEntry(type, entry.id); }}
-                                  style={{
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'center',
-                                    width: '24px',
-                                    height: '24px',
-                                    border: 'none',
-                                    borderRadius: '4px',
-                                    backgroundColor: 'transparent',
-                                    color: 'var(--rr-text3)',
-                                    cursor: 'pointer',
-                                    padding: 0,
-                                    flexShrink: 0,
-                                  }}
-                                >
-                                  <Icon name="close" size={14} />
-                                </button>
+                              <div key={entry.id} className="flex items-center gap-[10px] px-[12px] min-h-[44px] py-[6px] flex-wrap">
+                                <QualificationBadge type={qual.name} code={qual.code || undefined} color={qual.color || undefined} size="small" />
+                                <span className="flex-1 min-w-[120px] text-[13px] text-text">{qual.name}</span>
+                                <EffectiveDateControl effectiveDate={entry.effectiveDate} weekOptions={weekOptions} onChange={(ed) => updateQualEntryDate(type, entry.id, ed)} />
+                                <IconButton icon="close" size={26} iconSize={12} label="Remove qualification" className="hover:!text-bad" onClick={() => removeQualEntry(type, entry.id)} />
                               </div>
                             );
                           })}
                         </div>
                       ) : (
-                        <div style={{ fontSize: '12px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>
-                          No qualifications added yet
-                        </div>
+                        <div className="text-[12.5px] text-text3">No qualifications added yet.</div>
                       )}
+                      {availableQuals.length > 0 ? (
+                        <div className="w-[320px] max-w-full">
+                          <Select
+                            size="sm"
+                            value=""
+                            placeholder="Add a qualification…"
+                            searchable
+                            onChange={(id) => { if (id) addQualEntry(type, id); }}
+                            options={availableQuals.map(q => ({
+                              value: q.id,
+                              label: q.name,
+                              searchText: `${q.name} ${q.code || ''}`,
+                              icon: <QualificationBadge type={q.name} code={q.code || undefined} color={q.color || undefined} size="small" />,
+                            }))}
+                          />
+                        </div>
+                      ) : null}
                     </div>
-                  )}
+                  ) : null}
                 </div>
-              )}
-            </div>
+              ) : null}
+            </section>
           );
         })}
       </div>
