@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { Button, Chip, EmptyState, Icon, Toast } from '../primitives';
+import { Button, Chip, EmptyState, Icon, IconButton, Toast } from '../primitives';
+import type { EventDialogSection } from './EventDialog';
 import type { Event, EventActivity, EventActivityParticipantBlock, ReferenceMaterial } from '../../../types/EventTypes';
 import { publishEventFromCycle, updateEventMultipleDiscordIds } from '../../../utils/discordService';
 import { fetchEvents, supabase, getEventActivities } from '../../../utils/supabaseClient';
@@ -35,8 +36,8 @@ async function checkServerAvailability(): Promise<boolean> {
 interface EventDetailsProps {
   event: Event | null;
   onEventUpdated?: () => void;
-  /** Opens the Edit Event dialog (owned by the Events page). */
-  onEdit?: (event: Event) => void;
+  /** Opens the Edit Event dialog (owned by the Events page), optionally on the step for a section. */
+  onEdit?: (event: Event, section?: EventDialogSection) => void;
   /** Name of the event's cycle, for the meta grid. */
   cycleName?: string;
 }
@@ -79,19 +80,54 @@ interface ObjectiveRow {
 }
 
 /** Card used by every section of the details grid (pane-title header, optional count/action/footer). */
-const Section: React.FC<{ title: string; count?: number; action?: React.ReactNode; children: React.ReactNode; className?: string; footer?: React.ReactNode }> = ({ title, count, action, children, className = '', footer }) => (
+const Section: React.FC<{ title: string; count?: number; action?: React.ReactNode; onEdit?: () => void; children: React.ReactNode; className?: string; footer?: React.ReactNode }> = ({ title, count, action, onEdit, children, className = '', footer }) => (
   <section className={`rounded-rr-lg border border-border bg-panel overflow-hidden flex flex-col ${className}`}>
-    <div className="flex items-center gap-2 px-[14px] min-h-[42px] border-b border-border">
+    <div className="flex items-center gap-2 pl-[14px] pr-[8px] min-h-[42px] border-b border-border">
       <span className="rr-pane-title">{title}</span>
       {count != null ? <span className="font-mono text-[11px] text-text3">{count}</span> : null}
       <span className="flex-1" />
       {action}
+      {onEdit ? <IconButton icon="edit" size={26} iconSize={13} label={`Edit ${title.toLowerCase()}`} onClick={onEdit} /> : null}
     </div>
     <div className="flex-1">{children}</div>
     {footer ? <div className="px-[14px] py-[8px] text-[11px] text-text3 border-t border-border">{footer}</div> : null}
   </section>
 );
 
+/** All event images, one at a time: arrows + dots, counter, click to open full size. */
+const ImageCarousel: React.FC<{ urls: string[]; onError: (url: string) => void }> = ({ urls, onError }) => {
+  const [idx, setIdx] = useState(0);
+  useEffect(() => { if (idx >= urls.length) setIdx(Math.max(0, urls.length - 1)); }, [urls.length, idx]);
+  if (urls.length === 0) return null;
+  const cur = urls[Math.min(idx, urls.length - 1)];
+  const go = (d: number) => setIdx(i => (i + d + urls.length) % urls.length);
+  const arrow = 'absolute top-1/2 -translate-y-1/2 w-8 h-8 rounded-full flex items-center justify-center border-0 cursor-pointer text-white bg-black/55 hover:bg-black/75 transition-colors';
+  return (
+    <div className="flex flex-col gap-[8px]">
+      <div className="relative w-full rounded-rr-md overflow-hidden bg-panel3" style={{ aspectRatio: '16 / 9' }}>
+        <a href={cur} target="_blank" rel="noopener noreferrer" title="Open full size" className="absolute inset-0">
+          <img key={cur} src={cur} alt={`Event image ${idx + 1}`} onError={() => onError(cur)} className="w-full h-full object-contain block" />
+        </a>
+        {urls.length > 1 ? (
+          <>
+            <button type="button" aria-label="Previous image" className={`${arrow} left-2`} onClick={() => go(-1)}><Icon name="chevronLeft" size={16} /></button>
+            <button type="button" aria-label="Next image" className={`${arrow} right-2`} onClick={() => go(1)}><Icon name="chevronRight" size={16} /></button>
+            <span className="absolute bottom-2 right-2 px-[7px] py-[2px] rounded-[5px] bg-black/60 text-white font-mono text-[10.5px] pointer-events-none">{idx + 1} / {urls.length}</span>
+          </>
+        ) : null}
+      </div>
+      {urls.length > 1 ? (
+        <div className="flex justify-center gap-[6px]">
+          {urls.map((u, i) => (
+            <button key={u} type="button" aria-label={`Image ${i + 1}`} onClick={() => setIdx(i)}
+              className="w-[7px] h-[7px] p-0 rounded-full border-0 cursor-pointer transition-colors"
+              style={{ background: i === idx ? 'var(--rr-accent)' : 'var(--rr-border2)' }} />
+          ))}
+        </div>
+      ) : null}
+    </div>
+  );
+};
 
 const EventDetails: React.FC<EventDetailsProps> = ({
   event,
@@ -104,7 +140,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   const [imageLoading, setImageLoading] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [imageFailed, setImageFailed] = useState(false); // hide the card when the URL doesn't load
+  const [failedImages, setFailedImages] = useState<string[]>([]); // URLs that didn't load are dropped from the carousel
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [squadrons, setSquadrons] = useState<Squadron[]>([]);
   const [scheduledReminders, setScheduledReminders] = useState<any[]>([]);
@@ -125,10 +161,10 @@ const EventDetails: React.FC<EventDetailsProps> = ({
   useEffect(() => {
     const eventObj = event as any; // Cast to access non-standard properties
 
-    setImageFailed(false);
+    setFailedImages([]);
     if (event?.imageUrl) {
       setImagePreview(event.imageUrl);
-    } else if (eventObj?.image_url) {
+    } else if (typeof eventObj?.image_url === 'string' && eventObj.image_url) {
       setImagePreview(eventObj.image_url);
     } else {
       setImagePreview(null);
@@ -780,7 +816,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
     ].filter(Boolean) as Array<{ t: string; c: string }>;
   };
 
-  const notifications: Array<{ label: string; when: string; chips: Array<{ t: string; c: string }>; off?: boolean }> = [
+  const notifications: Array<{ label: string; when: string; chips: Array<{ t: string; c: string }>; off?: boolean; recipientsLabel?: boolean }> = [
     {
       label: 'Initial publication',
       when: isPublished ? 'Sent' : isScheduled ? formatScheduledTime(scheduledPublication!.scheduled_time) : 'Not published',
@@ -791,18 +827,36 @@ const EventDetails: React.FC<EventDetailsProps> = ({
       when: settings?.firstReminderEnabled && settings.firstReminderTime ? before(settings.firstReminderTime) : 'Off',
       chips: settings?.firstReminderEnabled ? recipientChips(settings.firstReminderRecipients) : [],
       off: !settings?.firstReminderEnabled,
+      recipientsLabel: true,
     },
     {
       label: 'Second reminder',
       when: settings?.secondReminderEnabled && settings.secondReminderTime ? before(settings.secondReminderTime) : 'Off',
       chips: settings?.secondReminderEnabled ? recipientChips(settings.secondReminderRecipients) : [],
       off: !settings?.secondReminderEnabled,
+      recipientsLabel: true,
     },
   ];
 
   const creator = event.creator && (event.creator.callsign || event.creator.boardNumber)
     ? `${event.creator.boardNumber ? `${event.creator.boardNumber} ` : ''}${event.creator.callsign || 'Unknown'}`
     : event.creator ? 'Unknown user' : 'System';
+
+  const imageUrls = Array.from(new Set(
+    [event.headerImageUrl || imagePreview, ...(event.additionalImageUrls || [])]
+      .filter((u): u is string => typeof u === 'string' && u.length > 0)
+  )).filter(u => !failedImages.includes(u));
+  const hasImages = imageUrls.length > 0 || imageLoading;
+
+  // Event-wide options (Options step of the Edit Event dialog)
+  const options: Array<{ label: string; on: boolean }> = [
+    { label: 'Group responses by qualification in Discord', on: Boolean(settings?.groupResponsesByQualification ?? event.trackQualifications ?? false) },
+    { label: 'Group by squadron in Discord', on: Boolean(settings?.groupBySquadron ?? false) },
+    { label: 'Show "No Response" users in Discord', on: Boolean(settings?.showNoResponse ?? false) },
+    { label: 'Allow tentative responses', on: settings?.allowTentativeResponse ?? true },
+    ...(event.cycleId ? [{ label: 'Include in Cycle Attendance Report', on: event.includeInAttendanceReport ?? true }] : []),
+  ];
+  const editSection = (section: EventDialogSection) => (onEdit ? () => onEdit(event, section) : undefined);
 
   const meta: Array<{ k: string; v: React.ReactNode; sub?: React.ReactNode; mono?: boolean }> = [
     { k: 'Start', v: fmtDate(event.datetime), sub: fmtTime(event.datetime) },
@@ -881,18 +935,16 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
           {/* Briefing text + image */}
           {event.description ? (
-            <Section title="Description" className={imagePreview && !imageFailed ? '' : 'col-span-full'}>
+            <Section title="Description" onEdit={editSection('details')} className={hasImages ? '' : 'col-span-full'}>
               <div className="px-[14px] py-3 text-[13.5px] leading-[1.6] text-text whitespace-pre-wrap" style={{ maxWidth: '75ch' }}>{event.description}</div>
             </Section>
           ) : null}
-          {(imagePreview && !imageFailed) || imageLoading ? (
-            <Section title="Image">
+          {hasImages ? (
+            <Section title="Images" count={imageUrls.length > 1 ? imageUrls.length : undefined} onEdit={editSection('details')}>
               <div className="p-3">
                 {imageLoading ? <div className="text-[12.5px] text-text2 py-4 text-center">Processing image…</div> : null}
                 {imageError ? <Toast tone="bad" onDismiss={() => setImageError(null)}>{imageError}</Toast> : null}
-                {imagePreview ? (
-                  <img src={imagePreview} alt="Event" onError={() => setImageFailed(true)} className="block w-full max-h-[320px] object-cover rounded-rr-md" />
-                ) : null}
+                <ImageCarousel urls={imageUrls} onError={u => setFailedImages(f => (f.includes(u) ? f : [...f, u]))} />
                 <input type="file" ref={fileInputRef} onChange={handleImageUpload} accept="image/*" className="hidden" />
               </div>
             </Section>
@@ -900,7 +952,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
 
           {/* Activities at this event */}
           {activityDisplays.length > 0 ? (
-            <Section title="Activities at this event" count={activityDisplays.length} className="col-span-full">
+            <Section title="Activities at this event" count={activityDisplays.length} onEdit={editSection('activities')} className="col-span-full">
               <div className="divide-y divide-border">
                 {activityDisplays.map(a => {
                   const tone = kindTone(a.kindLabel);
@@ -927,14 +979,14 @@ const EventDetails: React.FC<EventDetailsProps> = ({
               </div>
             </Section>
           ) : trainingObjectives.length > 0 ? (
-            <Section title="Training objectives" count={trainingObjectives.length} className="col-span-full">
+            <Section title="Training objectives" count={trainingObjectives.length} onEdit={editSection('activities')} className="col-span-full">
               <div className="px-[14px] py-3">{objectivesList(trainingObjectives.map(o => ({ id: o.id, text: o.objective_text })))}</div>
             </Section>
           ) : null}
 
           {/* Mission support roles */}
           {supportRoles.length > 0 ? (
-            <Section title="Mission Support Roles" count={supportRoles.length} footer="0 required = optional. Order matches the Discord post and attendance.">
+            <Section title="Mission Support Roles" count={supportRoles.length} onEdit={editSection('support')} footer="0 required = optional. Order matches the Discord post and attendance.">
               <div className="divide-y divide-border">
                 {supportRoles.map((r, i) => (
                   <div key={`${r.name}-${i}`} className="flex items-center gap-3 px-[14px] py-[9px]">
@@ -950,6 +1002,7 @@ const EventDetails: React.FC<EventDetailsProps> = ({
           {/* Notifications */}
           <Section
             title="Notifications"
+            onEdit={editSection('notifications')}
             footer={scheduledReminders.length > 0 ? `Next reminder ${fmtDateTime(scheduledReminders[0].scheduled_time)}` : undefined}
           >
             <div className="divide-y divide-border">
@@ -960,7 +1013,8 @@ const EventDetails: React.FC<EventDetailsProps> = ({
                     <span className="font-mono text-[11.5px] text-text2">{n.when}</span>
                   </div>
                   {n.chips.length > 0 ? (
-                    <div className="flex flex-wrap gap-[5px] mt-[6px]">
+                    <div className="flex flex-wrap items-center gap-[5px] mt-[6px]">
+                      {n.recipientsLabel ? <span className="text-[11.5px] text-text3 mr-[2px]">Recipients:</span> : null}
                       {n.chips.map(c => (
                         <span key={c.t} className="inline-flex items-center gap-[5px] h-[20px] px-2 rounded-[5px] bg-panel2 border border-border2 text-[11px] text-text2">
                           <span className="w-[6px] h-[6px] rounded-full" style={{ background: c.c }} />{c.t}
@@ -973,9 +1027,24 @@ const EventDetails: React.FC<EventDetailsProps> = ({
             </div>
           </Section>
 
+          {/* Event-wide options */}
+          <Section title="Options" onEdit={editSection('options')}>
+            <div className="divide-y divide-border">
+              {options.map(o => (
+                <div key={o.label} className="flex items-center gap-3 px-[14px] py-[9px]">
+                  <span className={`flex-1 min-w-0 text-[13px] ${o.on ? 'text-text font-medium' : 'text-text3'}`}>{o.label}</span>
+                  <span className={`flex-none inline-flex items-center gap-[5px] font-mono text-[10.5px] font-semibold tracking-[.06em] uppercase ${o.on ? 'text-good' : 'text-text3'}`}>
+                    <span className="w-[6px] h-[6px] rounded-full" style={o.on ? { background: 'var(--rr-good)' } : { boxShadow: 'inset 0 0 0 1.5px var(--rr-text3)' }} />
+                    {o.on ? 'On' : 'Off'}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </Section>
+
           {/* Reference materials */}
           {references.length > 0 ? (
-            <Section title="Reference Materials" count={references.length}>
+            <Section title="Reference Materials" count={references.length} onEdit={editSection('references')}>
               <div className="divide-y divide-border">
                 {references.map((ref, i) => (
                   <a key={`${ref.url}-${i}`} href={ref.url} target="_blank" rel="noopener noreferrer"

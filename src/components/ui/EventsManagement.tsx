@@ -5,7 +5,7 @@ import { useAppSettings } from '../../context/AppSettingsContext';
 import StandardPageLoader from './StandardPageLoader';
 import EventDetails from './events/EventDetails';
 import EventAttendance from './events/EventAttendance';
-import EventDialog from './events/EventDialog';
+import EventDialog, { type EventDialogSection } from './events/EventDialog';
 import CycleDialog from './events/CycleDialog';
 import { DeleteDivisionDialog } from './dialogs/DeleteDivisionDialog';
 import type { Event, Cycle, CycleType, ReferenceMaterial, CycleActivity, CycleSettings, EventActivity } from '../../types/EventTypes';
@@ -65,6 +65,7 @@ const EventsManagement: React.FC = () => {
   const [selectedCycle, setSelectedCycle] = useState<Cycle | null>(null);
   
   const [showEventDialog, setShowEventDialog] = useState(false);
+  const [editEventSection, setEditEventSection] = useState<EventDialogSection | undefined>(undefined);
   const [showCycleDialog, setShowCycleDialog] = useState(false);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [showDeleteAllEventsDialog, setShowDeleteAllEventsDialog] = useState(false);
@@ -1895,7 +1896,8 @@ const EventsManagement: React.FC = () => {
     }
   };
 
-  const handleEditEventClick = (event: Event) => {
+  const handleEditEventClick = (event: Event, section?: EventDialogSection) => {
+    setEditEventSection(section);
     console.log('[EDIT-EVENT-CLICK] Event being edited:', event);
     console.log('[EDIT-EVENT-CLICK] Event settings:', event.eventSettings);
     console.log('[EDIT-EVENT-CLICK] First reminder settings:', event.eventSettings?.firstReminderTime, event.eventSettings?.firstReminderRecipients);
@@ -1980,7 +1982,7 @@ const EventsManagement: React.FC = () => {
             onNewEvent={() => { setEditingEvent(null); setShowEventDialog(true); }}
             onEditCycle={handleEditCycleClick}
             onDeleteCycle={handleDeleteCycle}
-            onEditEvent={handleEditEventClick}
+            onEditEvent={(ev) => handleEditEventClick(ev)}
             onDeleteEvent={handleDeleteEvent}
             onRemoveAllEvents={() => setShowDeleteAllEventsDialog(true)}
           />
@@ -2095,7 +2097,9 @@ const EventsManagement: React.FC = () => {
           onCancel={() => {
             setShowEventDialog(false);
             setEditingEvent(null);
+            setEditEventSection(undefined);
           }}
+          initialSection={editingEvent ? editEventSection : undefined}
           initialData={editingEvent ? {
             id: editingEvent.id,
             title: editingEvent.title,

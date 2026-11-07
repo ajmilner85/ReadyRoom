@@ -136,10 +136,13 @@ const EventsNavigator: React.FC<EventsNavigatorProps> = ({
               <span className={`flex-1 min-w-0 text-[13px] leading-[1.3] ${sel ? 'font-semibold text-text' : 'font-medium text-text'}`} style={{ overflowWrap: 'anywhere' }}>
                 {ev.title}
               </span>
-              <span className="flex-none font-mono text-[10.5px] text-text3 group-hover/ev:hidden">{fmtShort(ev.datetime)}</span>
-              <span className="flex-none hidden group-hover/ev:flex items-center gap-[2px]" onClick={e => e.stopPropagation()}>
-                <IconButton icon="edit" size={24} iconSize={13} label="Edit event" onClick={() => onEditEvent(ev)} />
-                <IconButton icon="trash" size={24} iconSize={13} className="hover:!text-bad" label="Delete event" onClick={() => onDeleteEvent(ev)} />
+              {/* Fixed-width trailing slot: date and hover actions swap in place, so the title never reflows */}
+              <span className="relative flex-none w-[50px] h-[24px]">
+                <span className="absolute inset-0 flex items-center justify-end font-mono text-[10.5px] text-text3 group-hover/ev:invisible group-focus-within/ev:invisible">{fmtShort(ev.datetime)}</span>
+                <span className="absolute inset-0 flex items-center justify-end gap-[2px] invisible group-hover/ev:visible group-focus-within/ev:visible" onClick={e => e.stopPropagation()}>
+                  <IconButton icon="edit" size={24} iconSize={13} label="Edit event" onClick={() => onEditEvent(ev)} />
+                  <IconButton icon="trash" size={24} iconSize={13} className="hover:!text-bad" label="Delete event" onClick={() => onDeleteEvent(ev)} />
+                </span>
               </span>
             </div>
           );
@@ -180,7 +183,7 @@ const EventsNavigator: React.FC<EventsNavigatorProps> = ({
             </div>
           </div>
           {!opts.standalone ? (
-            <span className={`flex-none items-center gap-[2px] ${open ? 'flex' : 'hidden group-hover/cy:flex'}`} onClick={e => e.stopPropagation()}>
+            <span className={`flex-none flex items-center gap-[2px] ${open ? '' : 'invisible group-hover/cy:visible group-focus-within/cy:visible'}`} onClick={e => e.stopPropagation()}>
               <IconButton icon="edit" size={24} iconSize={13} label="Edit cycle" onClick={() => onEditCycle(cycle)} />
               <IconButton icon="trash" size={24} iconSize={13} className="hover:!text-bad" label="Delete cycle" onClick={() => onDeleteCycle(cycle)} />
             </span>
