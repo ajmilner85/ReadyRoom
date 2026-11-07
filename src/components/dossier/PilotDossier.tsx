@@ -458,8 +458,11 @@ const PilotDossier: React.FC = () => {
             minWidth: '440px',
             display: 'flex',
             flexDirection: 'column',
-            gap: '20px',
-            height: '100%'
+            gap: '14px',
+            height: '100%',
+            // Scroll as one column when the window is short, instead of squashing the tabs card
+            overflowY: 'auto',
+            minHeight: 0
           }}>
             <DossierScopeCard
               cycles={cycles}
@@ -490,6 +493,7 @@ const PilotDossier: React.FC = () => {
           </div>
 
           {/* Right column: timeline spanning the page height */}
+          <div style={{ flex: '0 1 380px', minWidth: '300px', minHeight: 0, height: '100%' }}>
           <DossierTimelineCard
             timeline={profile?.timeline || []}
             loading={profileLoading}
@@ -500,6 +504,7 @@ const PilotDossier: React.FC = () => {
             errorMessage={timelineError}
             squadronPalette={settings.interfaceThemeUsesSquadronColors ? (profile?.squadron?.color_palette || null) : null}
           />
+          </div>
         </div>
       </div>
 

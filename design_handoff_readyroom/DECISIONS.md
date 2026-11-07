@@ -75,3 +75,9 @@ Record small design calls made during implementation so they can be folded back 
 - Bulk edit uses the same shell: "Set for all" staged fields (empty = keep current) applied with "Apply to N", Discord unlink, cards for qualifications/enrollments/teams in common. Type-"yes" confirmations kept, on the kit Dialog.
 - All roster dialogs (add qualification/team/enrollment, delete, repair, billet and board-number conflicts) are kit Dialogs. Dossier accepts ?pilot=<id> (falls back to your own pilot if you can't view that one).
 - Removed now-unused StatusSelector, StandingSelector, RoleSelector, BasicPilotInfo, StatusFilter and RosterManagementStyles.
+
+## Dossier (2026-11-07)
+- Timeline: kit line icons on 28px tinted rounded-square markers (tint 15% + 1px inset ring, readable() icon colour) on a 1px rail, grouped by year with mono year labels; type colours are theme tokens, or the squadron palette (passed through legibleColor) when "interface uses squadron colours" is on. Edit mode uses kit controls (IconButton toggle, warn Toast, compact date input, trash IconButton).
+- Centre column scrolls as one column (gap 14px) and the tabs card keeps a 380px minimum instead of being squashed between Statistics and Awards; tabs are kit inline Tabs.
+- Scope is a one-row toolbar (kit Selects + "Last mission"). Pilot card follows the Roster detail header: insignia, squadron-coloured board #, kit meta grid, searchable grouped pilot picker in the card header.
+- SectionCard body is min-h-0 so height-constrained cards can scroll their body.

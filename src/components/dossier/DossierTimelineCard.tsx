@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Icon } from '../ui/primitives';
-import { dossierStyles, formatDossierDate } from './dossierStyles';
+import { EmptyState, Icon, IconButton, SectionCard, Toast, controlClass, legibleColor, tint, readable } from '../ui/primitives';
+import type { IconName } from '../ui/primitives';
+import { formatDossierDate } from './dossierStyles';
 import type { TimelineEvent, TimelineEventType } from '../../utils/dossierService';
 
 export interface SquadronPalette {
@@ -17,36 +18,48 @@ interface DossierTimelineCardProps {
   onEditEventDate: (event: TimelineEvent, newDate: string) => void;
   busyEventId: string | null;
   errorMessage?: string | null;
-  // Squadron color palette (from squadron settings); null = default colors
+  // Squadron color palette (from squadron settings); null = token colours
   squadronPalette?: SquadronPalette | null;
 }
 
-const EVENT_ICONS: Record<TimelineEventType, React.ReactNode> = {
-  squadron: <Icon name="roster" size={12} />,
-  billet: <Icon name="briefcase" size={12} />,
-  qualification: <Icon name="award" size={12} />,
-  standing: <Icon name="star" size={12} />,
-  status: <Icon name="activity" size={12} />,
-  graduation: <Icon name="training" size={12} />,
-  cruise: <Icon name="anchor" size={12} />,
-  award: <Icon name="award" size={12} />
+/** Kit icon per milestone type (same line icons as the rest of the app). */
+const EVENT_ICON: Record<TimelineEventType, IconName> = {
+  squadron: 'shield',
+  billet: 'briefcase',
+  qualification: 'checkCircle',
+  standing: 'star',
+  status: 'activity',
+  graduation: 'training',
+  cruise: 'anchor',
+  award: 'award',
 };
 
-const DEFAULT_EVENT_COLORS: Record<TimelineEventType, string> = {
-  squadron: '#3B82F6',
-  billet: '#8B5CF6',
-  qualification: '#F97316',
-  standing: '#10B981',
-  status: '#64748B',
-  graduation: '#EAB308',
-  cruise: '#0EA5E9',
-  award: '#B45309'
+const EVENT_LABEL: Record<TimelineEventType, string> = {
+  squadron: 'Squadron',
+  billet: 'Billet',
+  qualification: 'Qualification',
+  standing: 'Standing',
+  status: 'Status',
+  graduation: 'Graduation',
+  cruise: 'Cruise',
+  award: 'Award',
 };
 
-// ---- Palette derivation ----------------------------------------------------
-// The squadron palette only has up to three colors; the timeline needs eight.
-// Derive related colors by shifting hue/lightness in HSL space, clamping
-// lightness so the white icons stay legible.
+/** Theme tokens (legible in light and dark). */
+const TOKEN_COLORS: Record<TimelineEventType, string> = {
+  squadron: 'var(--rr-info)',
+  billet: 'var(--rr-purple)',
+  qualification: 'var(--rr-accent-text)',
+  standing: 'var(--rr-good)',
+  status: 'var(--rr-text2)',
+  graduation: 'var(--rr-warn)',
+  cruise: 'var(--rr-info)',
+  award: 'var(--rr-warn)',
+};
+
+// ---- Squadron palette derivation ------------------------------------------------------------
+// The palette has up to three colours; the timeline needs eight. Derive related colours by
+// shifting hue/lightness, then pass through legibleColor so they read on both themes.
 
 function hexToHsl(hex: string): { h: number; s: number; l: number } | null {
   const match = hex.trim().match(/^#?([0-9a-f]{6})$/i);
@@ -85,23 +98,20 @@ function hslToHex(h: number, s: number, l: number): string {
   return `#${toHex(channel(hue + 1 / 3))}${toHex(channel(hue))}${toHex(channel(hue - 1 / 3))}`;
 }
 
-/** Shift a hex color and clamp lightness to keep white icon text readable */
-function derive(hex: string, deltaHue: number = 0, deltaLightness: number = 0, deltaSaturation: number = 0): string {
+function derive(hex: string, deltaHue = 0, deltaLightness = 0, deltaSaturation = 0): string {
   const hsl = hexToHsl(hex);
   if (!hsl) return hex;
-  const l = Math.min(0.55, Math.max(0.28, hsl.l + deltaLightness));
-  const s = Math.min(1, Math.max(0.15, hsl.s + deltaSaturation));
+  const l = Math.min(0.62, Math.max(0.3, hsl.l + deltaLightness));
+  const s = Math.min(1, Math.max(0.2, hsl.s + deltaSaturation));
   return hslToHex(hsl.h + deltaHue, s, l);
 }
 
 function buildEventColors(palette: SquadronPalette | null | undefined): Record<TimelineEventType, string> {
   const primary = palette?.primary && hexToHsl(palette.primary) ? palette.primary : null;
-  if (!primary) return DEFAULT_EVENT_COLORS;
-
+  if (!primary) return TOKEN_COLORS;
   const secondary = palette?.secondary && hexToHsl(palette.secondary) ? palette.secondary : derive(primary, 30);
   const accent = palette?.accent && hexToHsl(palette.accent) ? palette.accent : derive(primary, -30);
-
-  return {
+  const raw: Record<TimelineEventType, string> = {
     squadron: derive(primary),
     billet: derive(secondary),
     qualification: derive(accent),
@@ -109,10 +119,20 @@ function buildEventColors(palette: SquadronPalette | null | undefined): Record<T
     status: derive(secondary, 0, 0.1, -0.25),
     graduation: derive(accent, 40),
     cruise: derive(primary, -40),
-    award: derive(accent, -40, -0.04)
+    award: derive(accent, -40, -0.04),
   };
+  return Object.fromEntries(Object.entries(raw).map(([k, v]) => [k, legibleColor(v, TOKEN_COLORS[k as TimelineEventType])])) as Record<TimelineEventType, string>;
 }
 
+const yearOf = (iso?: string | null) => {
+  const d = iso ? new Date(iso) : null;
+  return d && !isNaN(d.getTime()) ? String(d.getFullYear()) : 'Undated';
+};
+
+/**
+ * Service history: milestones grouped by year on a thin rail. Each entry has a tinted
+ * rounded-square marker with a line icon (kit style), coloured by milestone type.
+ */
 const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
   timeline,
   loading,
@@ -121,181 +141,110 @@ const DossierTimelineCard: React.FC<DossierTimelineCardProps> = ({
   onEditEventDate,
   busyEventId,
   errorMessage = null,
-  squadronPalette = null
+  squadronPalette = null,
 }) => {
   const [editMode, setEditMode] = useState(false);
-  const eventColors = useMemo(() => buildEventColors(squadronPalette), [squadronPalette]);
+  const colors = useMemo(() => buildEventColors(squadronPalette), [squadronPalette]);
+
+  const groups = useMemo(() => {
+    const out: Array<{ year: string; items: TimelineEvent[] }> = [];
+    timeline.forEach(ev => {
+      const y = yearOf(ev.date);
+      if (!out.length || out[out.length - 1].year !== y) out.push({ year: y, items: [] });
+      out[out.length - 1].items.push(ev);
+    });
+    return out;
+  }, [timeline]);
 
   return (
-    <div style={{ ...dossierStyles.card, flex: '0 1 380px', minWidth: '300px', height: '100%' }}>
-      <div style={{ ...dossierStyles.cardHeader, position: 'relative' }}>
-        <span style={dossierStyles.cardHeaderText}>Timeline</span>
-        {canEdit && (
-          <button
-            onClick={() => setEditMode(!editMode)}
-            title={editMode ? 'Exit edit mode' : 'Edit timeline (remove erroneous records)'}
-            style={{
-              position: 'absolute',
-              right: '16px',
-              top: '50%',
-              transform: 'translateY(-50%)',
-              width: '28px',
-              height: '28px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              backgroundColor: editMode ? 'rgba(224,82,78,.12)' : 'var(--rr-panel)',
-              color: editMode ? 'var(--rr-bad)' : 'var(--rr-text2)',
-              border: editMode ? '1px solid var(--rr-bad)' : '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              cursor: 'pointer'
-            }}
-          >
-            {editMode ? <Icon name="close" size={14} /> : <Icon name="edit" size={14} />}
-          </button>
-        )}
-      </div>
-      <div style={dossierStyles.cardContent}>
-        {editMode && (
-          <div style={{
-            padding: '8px 12px',
-            marginBottom: '16px',
-            backgroundColor: 'rgba(224,82,78,.12)',
-            border: '1px solid var(--rr-bad)',
-            borderRadius: '6px',
-            fontSize: '12px',
-            color: 'var(--rr-bad)'
-          }}>
-            Edit mode: change an entry's date with the date picker, or delete it to permanently remove the underlying history record.
-          </div>
-        )}
-        {errorMessage && (
-          <div style={{
-            padding: '8px 12px',
-            marginBottom: '16px',
-            backgroundColor: 'rgba(224,82,78,.12)',
-            border: '1px solid var(--rr-bad)',
-            borderRadius: '6px',
-            fontSize: '12px',
-            color: 'var(--rr-bad)',
-            fontWeight: 500
-          }}>
-            {errorMessage}
-          </div>
-        )}
+    <SectionCard
+      title="Timeline"
+      count={loading ? undefined : timeline.length}
+      className="h-full min-h-0"
+      action={canEdit ? (
+        <IconButton
+          icon={editMode ? 'check' : 'edit'}
+          size={26}
+          iconSize={13}
+          variant={editMode ? 'filled' : 'ghost'}
+          label={editMode ? 'Done editing' : 'Edit timeline (fix dates, remove erroneous records)'}
+          onClick={() => setEditMode(m => !m)}
+        />
+      ) : null}
+    >
+      <div className="h-full overflow-y-auto p-[14px] flex flex-col gap-[10px]">
+        {editMode ? (
+          <Toast tone="warn">Change an entry's date, or delete it to permanently remove the underlying history record.</Toast>
+        ) : null}
+        {errorMessage ? <Toast tone="bad">{errorMessage}</Toast> : null}
+
         {loading ? (
-          <div style={dossierStyles.emptyState}>Loading timeline...</div>
+          <div className="py-6 text-center text-[12.5px] text-text2">Loading timeline…</div>
         ) : timeline.length === 0 ? (
-          <div style={dossierStyles.emptyState}>No milestones recorded yet</div>
+          <EmptyState compact icon="clock" title="No milestones yet" message="Assignments, qualifications and awards appear here as they're recorded." />
         ) : (
-          <div style={{ position: 'relative', paddingLeft: '36px' }}>
-            {/* Vertical line */}
-            <div style={{
-              position: 'absolute',
-              left: '11px',
-              top: '18px',
-              bottom: '24px',
-              width: '2px',
-              backgroundColor: 'var(--rr-panel3)'
-            }} />
-            {timeline.map(event => {
-              const appearance = {
-                color: eventColors[event.type] || eventColors.status,
-                icon: EVENT_ICONS[event.type] || EVENT_ICONS.status
-              };
-              const isBusy = busyEventId === event.id;
-              return (
-                <div key={event.id} style={{ position: 'relative', paddingBottom: '20px', opacity: isBusy ? 0.4 : 1 }}>
-                  {/* Dot — centered on the date + title block (16px + 20px tall) */}
-                  <div style={{
-                    position: 'absolute',
-                    left: '-36px',
-                    top: '6px',
-                    width: '24px',
-                    height: '24px',
-                    borderRadius: '50%',
-                    backgroundColor: appearance.color,
-                    color: '#FFFFFF',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    border: '2px solid var(--rr-panel)',
-                    boxShadow: '0 0 0 1px #E2E8F0'
-                  }}>
-                    {appearance.icon}
-                  </div>
-                  <div style={{ display: 'flex', alignItems: 'flex-start', gap: '8px' }}>
-                    <div style={{ flex: 1, minWidth: 0 }}>
+          groups.map(g => (
+            <div key={g.year} className="flex flex-col">
+              <div className="flex items-center gap-2 font-mono text-[9.5px] tracking-[.14em] uppercase text-text3 mb-[6px]">
+                <span>{g.year}</span>
+                <span className="flex-1 h-px bg-border" />
+              </div>
+              {g.items.map((event, i) => {
+                const color = colors[event.type] || colors.status;
+                const isBusy = busyEventId === event.id;
+                const last = i === g.items.length - 1;
+                return (
+                  <div key={event.id} className="relative flex gap-[11px]" style={{ opacity: isBusy ? 0.4 : 1 }}>
+                    {/* Rail: marker + connector to the next entry in the year */}
+                    <div className="relative flex-none flex flex-col items-center w-[28px]">
+                      <span
+                        title={EVENT_LABEL[event.type]}
+                        className="relative z-[1] w-[28px] h-[28px] rounded-[8px] flex items-center justify-center"
+                        style={{ background: tint(color, 15), boxShadow: `inset 0 0 0 1px ${tint(color, 40)}`, color: readable(color) }}
+                      >
+                        <Icon name={EVENT_ICON[event.type] || 'activity'} size={14} />
+                      </span>
+                      {!last ? <span className="flex-1 w-px bg-border my-[3px]" /> : null}
+                    </div>
+
+                    <div className={`flex-1 min-w-0 ${last ? 'pb-[4px]' : 'pb-[12px]'}`}>
                       {editMode && event.source ? (
                         <input
                           type="date"
                           defaultValue={(event.date || '').split('T')[0]}
                           disabled={isBusy}
-                          onChange={(e) => {
+                          onChange={e => {
                             const newDate = e.target.value;
-                            const currentDate = (event.date || '').split('T')[0];
-                            if (newDate && newDate !== currentDate) {
-                              onEditEventDate(event, newDate);
-                            }
+                            if (newDate && newDate !== (event.date || '').split('T')[0]) onEditEventDate(event, newDate);
                           }}
-                          style={{
-                            fontSize: '12px',
-                            color: 'var(--rr-text)',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            backgroundColor: 'var(--rr-panel2)',
-                            padding: '0 4px',
-                            height: '18px',
-                            fontFamily: 'inherit'
-                          }}
+                          className={`${controlClass} w-auto px-2 h-[24px] text-[11.5px] font-mono`}
                         />
                       ) : (
-                        <div style={{ fontSize: '12px', color: 'var(--rr-text3)', lineHeight: '16px' }}>
-                          {formatDossierDate(event.date)}
-                        </div>
+                        <div className="font-mono text-[10.5px] text-text3 leading-[16px]">{formatDossierDate(event.date)}</div>
                       )}
-                      <div style={{ fontSize: '14px', color: 'var(--rr-text)', fontWeight: 500, lineHeight: '20px' }}>
-                        {event.title}
-                      </div>
-                      {event.subtitle && (
-                        <div style={{ fontSize: '12px', color: 'var(--rr-text2)', lineHeight: '16px' }}>
-                          {event.subtitle}
-                        </div>
-                      )}
+                      <div className="text-[13px] font-semibold text-text leading-[1.35]">{event.title}</div>
+                      {event.subtitle ? <div className="text-[12px] text-text2 leading-[1.35]">{event.subtitle}</div> : null}
                     </div>
-                    {editMode && event.source && (
-                      <button
-                        onClick={() => onDeleteEvent(event)}
+
+                    {editMode && event.source ? (
+                      <IconButton
+                        icon="trash"
+                        size={26}
+                        iconSize={13}
+                        label="Delete this history record"
+                        className="hover:!text-bad mt-[2px]"
                         disabled={isBusy}
-                        title="Delete this history record"
-                        style={{
-                          width: '24px',
-                          height: '24px',
-                          flexShrink: 0,
-                          marginTop: '6px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          backgroundColor: 'transparent',
-                          color: 'var(--rr-bad)',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: isBusy ? 'wait' : 'pointer'
-                        }}
-                        onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                      >
-                        <Icon name="trash" size={14} />
-                      </button>
-                    )}
+                        onClick={() => onDeleteEvent(event)}
+                      />
+                    ) : null}
                   </div>
-                </div>
-              );
-            })}
-          </div>
+                );
+              })}
+            </div>
+          ))
         )}
       </div>
-    </div>
+    </SectionCard>
   );
 };
 

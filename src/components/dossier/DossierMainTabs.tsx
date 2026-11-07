@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { dossierStyles } from './dossierStyles';
+import { Tabs } from '../ui/primitives';
 import DossierAttendanceTab from './DossierAttendanceTab';
 import DossierKillsTab from './DossierKillsTab';
 import DossierTrapSheetTab from './DossierTrapSheetTab';
@@ -20,19 +21,6 @@ interface DossierMainTabsProps {
   trapsLoading: boolean;
   scopeMissionIds: string[] | null;
 }
-
-// Tab pill styling copied from AwardsManagerDialog
-const tabButtonStyle = (active: boolean): React.CSSProperties => ({
-  cursor: 'pointer',
-  padding: '5px 12px',
-  borderRadius: '4px',
-  border: 'none',
-  fontSize: '14px',
-  fontFamily: 'inherit',
-  backgroundColor: active ? 'var(--rr-accent-weak)' : 'transparent',
-  color: active ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-  fontWeight: active ? 600 : 500
-});
 
 const TABS: Array<{ id: DossierTabId; label: string }> = [
   { id: 'attendance', label: 'Attendance' },
@@ -56,25 +44,15 @@ const DossierMainTabs: React.FC<DossierMainTabsProps> = ({
   const [activeTab, setActiveTab] = useState<DossierTabId>('attendance');
 
   return (
-    <div style={{ ...dossierStyles.card, flex: 1, minHeight: 0 }}>
-      <div style={{ display: 'flex', gap: '8px', padding: '16px 24px 0', flexShrink: 0 }}>
-        {TABS.map(tab => (
-          <button
-            key={tab.id}
-            onClick={() => setActiveTab(tab.id)}
-            style={tabButtonStyle(activeTab === tab.id)}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+    <div style={{ ...dossierStyles.card, flex: '1 0 380px', minHeight: '380px' }}>
+      <Tabs variant="inline" value={activeTab} onChange={setActiveTab} items={TABS.map(t => ({ value: t.id, label: t.label }))} className="flex-none px-[6px]" />
       <div
         className="dossier-scroll-column"
         style={{
           flex: 1,
           minHeight: 0,
           overflowY: 'auto',
-          padding: '16px 24px 24px',
+          padding: '14px',
           display: 'flex',
           flexDirection: 'column'
         }}
