@@ -1320,7 +1320,7 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                       )}
                     </td>
                   )}
-                  {/* Squadron assigned at graduation: ">>" then its insignia */}
+                  {/* Squadron assigned at graduation */}
                   <td
                     style={{
                       padding: '6px 12px',
@@ -1334,7 +1334,6 @@ const PTRGrid: React.FC<PTRGridProps> = ({ syllabusId, cycleId, onCellClick, onG
                   >
                     {row.student.enrollment_status === 'graduated' && row.student.graduated_to ? (
                       <span style={{ display: 'inline-flex', alignItems: 'center', gap: '8px' }}>
-                        <span style={{ fontFamily: 'var(--rr-font-mono)', fontSize: '12px', fontWeight: 600, color: 'var(--rr-text3)' }}>&gt;&gt;</span>
                         {row.student.graduated_to.insignia_url ? (
                           <img src={row.student.graduated_to.insignia_url} alt={row.student.graduated_to.designation} style={{ width: '30px', height: '30px', objectFit: 'contain', display: 'block' }} />
                         ) : (
