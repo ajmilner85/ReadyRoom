@@ -979,6 +979,7 @@ const AvailablePilots: React.FC<AvailablePilotsProps> = ({
     <div style={{
       display: 'flex',
       gap: '8px',
+      marginTop: '8px',
       marginBottom: '12px',
       justifyContent: 'flex-end'
     }}>
