@@ -168,7 +168,7 @@ const OutcomesTab: React.FC<OutcomesTabProps> = ({ outcomes, onChange, maxWeekNu
         </p>
       </div>
 
-      <div className="grid gap-[12px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))' }}>
+      <div className="grid gap-[12px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(420px, 100%), 1fr))' }}>
         {OUTCOME_TYPES.map(({ type, label }) => {
           const outcome = merged.find(o => o.type === type)!;
           const qualEntries = type === 'qualifications' ? getQualEntries(outcome) : [];
