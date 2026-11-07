@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { Icon } from '../primitives';
+import { Button, Chip, CloseButton, Field, Icon, NumberStepper, SegmentedControl, Select, Spinner, Tabs, Textarea, TextInput, Toast, Toggle, controlClass } from '../primitives';
+import { DialogShell, DlgCard, RolePicker, SettingRow, SquadronToggleTile, StepIntro, UNIT_OPTIONS, unitWord, type ReminderUnit } from './dialogParts';
 import { CycleType, TrainingSyllabus, CycleActivity, CycleSettings, EventActivityParticipantBlock } from '../../../types/EventTypes';
 import { Squadron } from '../../../types/OrganizationTypes';
 import { supabase, getCycleActivities, createEvent, deleteEvent, softDeleteEvent, isEventHistorical } from '../../../utils/supabaseClient';
@@ -1801,29 +1802,6 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
     lastChanged.current = 'endDate';
   };
 
-  const handleWeekCountChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const value = parseInt(e.target.value);
-    if (!isNaN(value) && value > 0) {
-      setWeekCount(value);
-      // When week count changes, it should take precedence
-      lastChanged.current = 'weeks';
-    }
-  };
-
-  const handleWeekIncrement = () => {
-    if (weekCount < 52) {
-      setWeekCount(weekCount + 1);
-      lastChanged.current = 'weeks';
-    }
-  };
-
-  const handleWeekDecrement = () => {
-    if (weekCount > 1) {
-      setWeekCount(weekCount - 1);
-      lastChanged.current = 'weeks';
-    }
-  };
-
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -1921,1150 +1899,417 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
   const cycleTypes: CycleType[] = ['Training', 'Cruise-WorkUp', 'Cruise-Mission', 'Other'];
 
-  return (
-    <>
-      <div 
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          zIndex: 1000
-        }}
-        onClick={onCancel}
-      />
-      <div style={{
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        // The gantt builder is a horizontal element - go near-fullscreen when
-        // the Activities flag is on (left settings pane + wide calendar)
-        width: activitiesEnabled ? 'min(96vw, 1800px)' : '663px',
-        backgroundColor: 'var(--rr-panel)',
-        boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border)',
-        borderRadius: '10px',
-        zIndex: 1001
-      }}>
-        {/* Show loading state until enrollment data is loaded */}
-        {!initialEnrollmentLoadComplete ? (
-          <div style={{ padding: '60px 24px', textAlign: 'center' }}>
-            <div style={{ fontSize: '14px', color: 'var(--rr-text2)', marginBottom: '16px' }}>
-              Loading cycle data...
+  // ---------------------------------------------------------------- view
+  const fmtDay = (iso: string) => {
+    if (!iso) return '';
+    const [y, m, d] = iso.split('-').map(Number);
+    return new Date(y, m - 1, d).toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+  };
+  const handleTypeChange = (newType: CycleType) => {
+    // Warn if changing away from Training when enrollments exist
+    if (type === 'Training' && newType !== 'Training' && enrolledPilots.length > 0) {
+      if (!window.confirm(`This training cycle has ${enrolledPilots.length} enrolled student(s). Changing the cycle type will prevent managing enrollments. Are you sure?`)) {
+        return;
+      }
+    }
+    setType(newType);
+  };
+  const setReminderTime = (timeKey: 'firstReminderTime' | 'secondReminderTime', patch: Partial<{ value: number; unit: ReminderUnit }>) =>
+    setCycleSettings(prev => ({
+      ...prev,
+      [timeKey]: {
+        value: prev[timeKey]?.value ?? (timeKey === 'firstReminderTime' ? 3 : 15),
+        unit: prev[timeKey]?.unit ?? (timeKey === 'firstReminderTime' ? 'days' : 'minutes'),
+        ...patch,
+      },
+    }));
+  const setPublicationOffset = (patch: Partial<{ value: number; unit: ReminderUnit }>) =>
+    setCycleSettings(prev => ({
+      ...prev,
+      scheduledPublicationOffset: {
+        value: prev.scheduledPublicationOffset?.value ?? 3,
+        unit: prev.scheduledPublicationOffset?.unit ?? 'days',
+        ...patch,
+      },
+    }));
+
+  const dialogTitle = initialData ? 'Edit Cycle' : 'Create Cycle';
+  const rangeText = startDate && endDate ? `${fmtDay(startDate)} – ${fmtDay(endDate)}` : '';
+  const defaultsHint = 'Defaults for events created in this cycle. Each event can still override them.';
+
+  const detailsContent = (
+    <div className="flex flex-col gap-[16px]">
+      <Field label="Cycle name" required>
+        <TextInput value={name} onChange={(e) => setName(e.target.value)} placeholder="e.g. Training Cycle 25-1" />
+      </Field>
+
+      <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))' }}>
+        <Field label="Cycle type">
+          <Select value={type} onChange={(v) => handleTypeChange(v as CycleType)} options={cycleTypes.map(t => ({ value: t, label: t.replace('-', ' – ') }))} />
+        </Field>
+        {/* With the Activities flag on, syllabi are attached as cycle activities and
+            cycles.syllabus_id is derived on save. */}
+        {!activitiesEnabled && type === 'Training' && (
+          <Field label="Training syllabus">
+            <Select
+              value={selectedSyllabusId}
+              onChange={(v) => { setSelectedSyllabusId(v); lastChanged.current = 'syllabus'; }}
+              options={[{ value: '', label: 'No syllabus' }, ...syllabi.map(s => ({ value: s.id, label: s.name }))]}
+            />
+          </Field>
+        )}
+      </div>
+
+      <DlgCard title="Schedule">
+        <div className="grid gap-[12px]" style={{ gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)' }}>
+          <Field label="Start date" required>
+            <input type="date" value={startDate} onChange={handleStartDateChange} className={`${controlClass} px-[10px] py-[7px] min-h-[36px]`} />
+          </Field>
+          <Field label="End date" required>
+            <input type="date" value={endDate} onChange={handleEndDateChange} className={`${controlClass} px-[10px] py-[7px] min-h-[36px]`} />
+          </Field>
+        </div>
+        <div className="mt-[12px] flex items-center gap-[12px] flex-wrap">
+          <span className="rr-label">Weeks</span>
+          <NumberStepper
+            value={weekCount}
+            min={1}
+            max={52}
+            width={44}
+            onChange={(n) => { if (n > 0) { setWeekCount(n); lastChanged.current = 'weeks'; } }}
+          />
+          {rangeText ? <span className="text-[12px] text-text2">{rangeText}</span> : null}
+        </div>
+      </DlgCard>
+
+      {/* Auto-create events - flag-off only (flag-on always generates weekly events from the activities) */}
+      {!activitiesEnabled && !hasEvents && type === 'Training' && selectedSyllabusId && (
+        <DlgCard flush>
+          <SettingRow
+            label="Automatically create events"
+            description="Create a weekly training event for each mission in the selected syllabus."
+            checked={autoCreateEvents}
+            onChange={setAutoCreateEvents}
+          />
+        </DlgCard>
+      )}
+
+      {/* Participating squadrons - flag-off only: flag-on derives participation from the activities */}
+      {!activitiesEnabled && (
+        <DlgCard
+          title="Participating squadrons"
+          count={participants.length || undefined}
+          right={
+            <div className="flex items-center gap-[2px]">
+              <Button size="sm" variant="ghost" onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}>All</Button>
+              <Button size="sm" variant="ghost" onClick={() => setParticipatingSquadrons([])}>None</Button>
             </div>
-            <div style={{
-              width: '32px',
-              height: '32px',
-              border: '3px solid var(--rr-border)',
-              borderTop: '3px solid var(--rr-accent)',
-              borderRadius: '50%',
-              animation: 'spin 0.8s linear infinite',
-              margin: '0 auto'
-            }} />
+          }
+          footer={participants.length === 0
+            ? 'No squadrons selected: events will not be posted to Discord.'
+            : `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected. Events in this cycle post to their Discord channels.`}
+        >
+          <div className="grid gap-[8px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+            {squadrons.map(squadron => {
+              const on = participants.includes(squadron.id);
+              return (
+                <SquadronToggleTile
+                  key={squadron.id}
+                  squadron={squadron}
+                  selected={on}
+                  onToggle={() => setParticipatingSquadrons(prev => on ? prev.filter(id => id !== squadron.id) : [...prev, squadron.id])}
+                />
+              );
+            })}
           </div>
-        ) : (
-          <>
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '16px 24px',
-          borderBottom: '1px solid var(--rr-border)'
-        }}>
-          <h2 style={{
-            fontSize: '18px',
-            fontWeight: 600,
-            color: 'var(--rr-text)'
-          }}>
-            {initialData ? `Edit ${type} Cycle` : `Create New ${type} Cycle`}
-          </h2>
-          <button
-            onClick={onCancel}
-            style={{
-              background: 'none',
-              border: 'none',
-              padding: '4px',
-              cursor: 'pointer',
-              borderRadius: '4px',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
-            <Icon name="close" size={20} color="#64748B" />
-          </button>
+        </DlgCard>
+      )}
+
+      <Field label="Description">
+        <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={5} placeholder="What this cycle is about" />
+      </Field>
+    </div>
+  );
+
+  const optionsContent = (
+    <div className="flex flex-col gap-[14px]">
+      <StepIntro title="Options" text={defaultsHint} />
+      <DlgCard title="Discord post" flush>
+        {([
+          { key: 'trackQualifications', label: 'Group responses by qualification', description: 'Organise the response lists in each post by pilot qualification.' },
+          { key: 'groupBySquadron', label: 'Group responses by squadron', description: 'Divide attendance in each post by squadron.' },
+          { key: 'showNoResponse', label: 'Show non-responders', description: 'List active users who haven’t responded yet.' },
+          { key: 'allowTentativeResponse', label: 'Allow tentative responses', description: 'Users can pick “Tentative” as well as Accept or Decline.' },
+        ] as Array<{ key: 'trackQualifications' | 'groupBySquadron' | 'showNoResponse' | 'allowTentativeResponse'; label: string; description: string }>).map(option => (
+          <SettingRow
+            key={option.key}
+            label={option.label}
+            description={option.description}
+            checked={Boolean(cycleSettings[option.key])}
+            onChange={(v) => setCycleSettings(prev => ({ ...prev, [option.key]: v }))}
+          />
+        ))}
+      </DlgCard>
+    </div>
+  );
+
+  const remindersContent = (
+    <div className="flex flex-col gap-[14px]">
+      <StepIntro title="Reminders" text={defaultsHint} />
+      {([
+        { enabledKey: 'firstReminderEnabled', timeKey: 'firstReminderTime', label: 'First reminder' },
+        { enabledKey: 'secondReminderEnabled', timeKey: 'secondReminderTime', label: 'Second reminder' },
+      ] as Array<{ enabledKey: 'firstReminderEnabled' | 'secondReminderEnabled'; timeKey: 'firstReminderTime' | 'secondReminderTime'; label: string }>).map(reminder => {
+        const enabled = cycleSettings[reminder.enabledKey] ?? false;
+        const value = cycleSettings[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15);
+        const unit = (cycleSettings[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')) as ReminderUnit;
+        const setEnabled = (v: boolean) => setCycleSettings(prev => ({ ...prev, [reminder.enabledKey]: v }));
+        return (
+          <section key={reminder.enabledKey} className={`rounded-rr-lg border bg-panel overflow-hidden ${enabled ? 'border-border2' : 'border-border'}`}>
+            <div className="flex items-center gap-3 px-[14px] py-[12px] cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) setEnabled(!enabled); }}>
+              <Toggle checked={enabled} onChange={setEnabled} />
+              <div className="flex-1 min-w-0">
+                <div className={`text-[13.5px] font-semibold ${enabled ? 'text-text' : 'text-text2'}`}>{reminder.label}</div>
+                <div className="text-[12px] text-text2">{enabled ? `${value} ${unitWord(value, unit)} before each event` : 'Off'}</div>
+              </div>
+            </div>
+            {enabled ? (
+              <div className="border-t border-border px-[14px] py-[12px] flex items-center gap-[10px] flex-wrap bg-panel2">
+                <span className="rr-label">Send</span>
+                <NumberStepper value={value} min={1} max={999} width={44} onChange={(n) => setReminderTime(reminder.timeKey, { value: Math.max(1, n) })} />
+                <SegmentedControl size="sm" value={unit} onChange={(u) => setReminderTime(reminder.timeKey, { unit: u })} options={UNIT_OPTIONS} />
+                <span className="text-[12.5px] text-text2">before</span>
+              </div>
+            ) : null}
+          </section>
+        );
+      })}
+    </div>
+  );
+
+  const publicationValue = cycleSettings.scheduledPublicationOffset?.value ?? 3;
+  const publicationUnit = (cycleSettings.scheduledPublicationOffset?.unit ?? 'days') as ReminderUnit;
+  const publicationContent = (
+    <div className="flex flex-col gap-[14px]">
+      <StepIntro title="Publication" text={defaultsHint} />
+      <DlgCard title="Initial notification" description="Discord roles to mention when each event is first published.">
+        <RolePicker
+          available={availableDiscordRoles}
+          selected={cycleSettings.initialNotificationRoles || []}
+          loading={loadingRoles}
+          pendingId={selectedRoleId}
+          onPendingChange={setSelectedRoleId}
+          onAdd={handleAddNotificationRole}
+          onRemove={handleRemoveNotificationRole}
+        />
+      </DlgCard>
+      <DlgCard
+        title="Schedule publication"
+        description="Publish each event automatically ahead of its start."
+        right={<Toggle checked={cycleSettings.scheduledPublicationEnabled ?? false} onChange={(v) => setCycleSettings(prev => ({ ...prev, scheduledPublicationEnabled: v }))} />}
+      >
+        {cycleSettings.scheduledPublicationEnabled ? (
+          <div className="flex items-center gap-[10px] flex-wrap">
+            <span className="rr-label">Publish</span>
+            <NumberStepper value={publicationValue} min={1} max={999} width={44} onChange={(n) => setPublicationOffset({ value: Math.max(1, n) })} />
+            <SegmentedControl size="sm" value={publicationUnit} onChange={(u) => setPublicationOffset({ unit: u })} options={UNIT_OPTIONS} />
+            <span className="text-[12.5px] text-text2">before</span>
+          </div>
+        ) : null}
+      </DlgCard>
+    </div>
+  );
+
+  const selectedActivity = selectedActivityIndex !== null ? cycleActivities[selectedActivityIndex] : undefined;
+
+  return (
+    <DialogShell
+      label={dialogTitle}
+      onClose={onCancel}
+      width={activitiesEnabled ? '1680px' : '760px'}
+      height={activitiesEnabled ? '980px' : '900px'}
+    >
+      {!initialEnrollmentLoadComplete ? (
+        <div className="flex-1 flex flex-col items-center justify-center gap-[12px] text-[13px] text-text2">
+          <Spinner size={22} />
+          Loading cycle…
+        </div>
+      ) : (
+      <form onSubmit={handleSubmit} className="flex-1 min-h-0 flex flex-col">
+        {/* Header */}
+        <div className="flex-none flex items-center gap-3 pl-[20px] pr-[14px] py-[14px] border-b border-border">
+          <div className="min-w-0 flex-1">
+            <div className="text-[16px] font-bold leading-[1.25] truncate">{dialogTitle}</div>
+            <div className="text-[12px] text-text2 truncate">
+              {name || (initialData ? 'Untitled cycle' : 'New cycle')}
+              {rangeText ? ` · ${rangeText}` : ''}
+            </div>
+          </div>
+          <Chip tone="neutral" size="sm">{type.replace('-', ' – ')}</Chip>
+          <CloseButton onClick={onCancel} />
         </div>
 
-        {/* Tabs - only show for editing Training cycles with a syllabus */}
+        {/* Flag-off training cycles: Details / Students / Instructors */}
         {showTabs && !activitiesEnabled && (
-          <div style={{
-            display: 'flex',
-            borderBottom: '1px solid var(--rr-border)',
-            backgroundColor: 'var(--rr-panel2)'
-          }}>
-            <button
-              type="button"
-              onClick={() => setActiveTab('details')}
-              style={{
-                flex: 1,
-                padding: '12px 16px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: activeTab === 'details' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-                fontWeight: activeTab === 'details' ? 600 : 500,
-                fontSize: '14px',
-                cursor: 'pointer',
-                borderBottom: activeTab === 'details' ? '2px solid var(--rr-accent)' : 'none',
-                transition: 'all 0.2s'
-              }}
-            >
-              Training Cycle Details
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('enrollments')}
-              style={{
-                flex: 1,
-                padding: '12px 16px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: activeTab === 'enrollments' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-                fontWeight: activeTab === 'enrollments' ? 600 : 500,
-                fontSize: '14px',
-                cursor: 'pointer',
-                borderBottom: activeTab === 'enrollments' ? '2px solid var(--rr-accent)' : 'none',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
-            >
-              <Icon name="roster" size={16} />
-              Students ({cycleId ? enrolledPilots.length : stagedEnrollmentIds.length})
-            </button>
-            <button
-              type="button"
-              onClick={() => setActiveTab('instructors')}
-              style={{
-                flex: 1,
-                padding: '12px 16px',
-                border: 'none',
-                backgroundColor: 'transparent',
-                color: activeTab === 'instructors' ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-                fontWeight: activeTab === 'instructors' ? 600 : 500,
-                fontSize: '14px',
-                cursor: 'pointer',
-                borderBottom: activeTab === 'instructors' ? '2px solid var(--rr-accent)' : 'none',
-                transition: 'all 0.2s',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: '6px'
-              }}
-            >
-              <Icon name="userCheck" size={16} />
-              Instructors ({cycleId ? enrolledInstructors.length : stagedInstructorIds.length})
-            </button>
-          </div>
+          <Tabs
+            variant="page"
+            value={activeTab}
+            onChange={(v) => setActiveTab(v)}
+            items={[
+              { value: 'details', label: 'Details' },
+              { value: 'enrollments', label: <><Icon name="roster" size={15} />Students</>, badge: <span className="font-mono text-[11px] text-text3">{cycleId ? enrolledPilots.length : stagedEnrollmentIds.length}</span> },
+              { value: 'instructors', label: <><Icon name="userCheck" size={15} />Instructors</>, badge: <span className="font-mono text-[11px] text-text3">{cycleId ? enrolledInstructors.length : stagedInstructorIds.length}</span> },
+            ]}
+          />
         )}
 
-        <form onSubmit={handleSubmit}>
-          {/* Flag-on: two panes - settings column (Details/Options/Reminders/
-              Publication stacked) on the left, activities calendar on the right */}
-          <div style={activitiesEnabled ? { display: 'flex', alignItems: 'stretch', height: 'min(940px, calc(94vh - 130px))' } : undefined}>
-          <div style={activitiesEnabled ? { width: '500px', flexShrink: 0, display: 'flex', flexDirection: 'column', borderRight: '1px solid var(--rr-border)' } : { display: 'contents' }}>
-          {/* Left-pane step tabs (flag-on): one settings section at a time,
-              the activities calendar stays on the right */}
-          {activitiesEnabled && (
-            <div style={{ display: 'flex', borderBottom: '1px solid var(--rr-border)', backgroundColor: 'var(--rr-panel2)', flexShrink: 0 }}>
-              {([
-                { key: 'details', title: 'Details' },
-                { key: 'options', title: 'Options' },
-                { key: 'reminders', title: 'Reminders' },
-                { key: 'publication', title: 'Publication' }
-              ] as Array<{ key: typeof activeTab; title: string }>).map(tab => (
-                <button
-                  key={tab.key}
-                  type="button"
-                  onClick={() => setActiveTab(tab.key)}
-                  style={{
-                    flex: 1,
-                    padding: '10px 4px',
-                    border: 'none',
-                    backgroundColor: 'transparent',
-                    color: activeTab === tab.key ? 'var(--rr-accent-text)' : 'var(--rr-text2)',
-                    fontWeight: activeTab === tab.key ? 600 : 500,
-                    fontSize: '13px',
-                    cursor: 'pointer',
-                    borderBottom: activeTab === tab.key ? '2px solid var(--rr-accent)' : '2px solid transparent',
-                    transition: 'all 0.2s'
-                  }}
-                >
-                  {tab.title}
-                </button>
-              ))}
+        <div className="flex-1 min-h-0 flex max-[900px]:flex-col max-[900px]:overflow-y-auto">
+          {/* Settings pane (flag-on: left column next to the activities builder) */}
+          {(activitiesEnabled || activeTab === 'details') && (
+            <div className={activitiesEnabled
+              ? 'flex-none w-[420px] min-h-0 flex flex-col border-r border-border bg-panel max-[900px]:w-auto max-[900px]:border-r-0 max-[900px]:border-b'
+              : 'flex-1 min-h-0 flex flex-col'}>
+              {activitiesEnabled && (
+                <Tabs
+                  variant="page"
+                  value={activeTab}
+                  onChange={(v) => setActiveTab(v)}
+                  items={[
+                    { value: 'details', label: 'Details' },
+                    { value: 'options', label: 'Options' },
+                    { value: 'reminders', label: 'Reminders' },
+                    { value: 'publication', label: 'Publication' },
+                  ]}
+                />
+              )}
+              <div className="flex-1 min-h-0 overflow-y-auto px-[18px] py-[16px]">
+                {activeTab === 'details' ? detailsContent : null}
+                {activitiesEnabled && activeTab === 'options' ? optionsContent : null}
+                {activitiesEnabled && activeTab === 'reminders' ? remindersContent : null}
+                {activitiesEnabled && activeTab === 'publication' ? publicationContent : null}
+              </div>
             </div>
           )}
-          {/* Details Content */}
-          {activeTab === 'details' && (
-          <div style={activitiesEnabled ? { padding: '16px', overflowY: 'auto', flex: 1 } : { padding: '24px', height: '900px', overflowY: 'auto' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: 'var(--rr-text2)'
-              }}>
-                Cycle Name
-              </label>
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px', // Changed from 4px 12px to 8px
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  boxSizing: 'border-box',
-                  height: '35px', // Set fixed height
-                  lineHeight: '19px' // Adjusted line height for new padding
-                }}
-                placeholder="Enter cycle name (e.g. Training Cycle 25-1)"
-              />
-            </div>
 
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
-              <div style={{ flex: '1' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  Cycle Type
-                </label>
-                <select
-                  value={type}
-                  onChange={(e) => {
-                    const newType = e.target.value as CycleType;
-                    // Warn if changing away from Training when enrollments exist
-                    if (type === 'Training' && newType !== 'Training' && enrolledPilots.length > 0) {
-                      if (!window.confirm(`This training cycle has ${enrolledPilots.length} enrolled student(s). Changing the cycle type will prevent managing enrollments. Are you sure?`)) {
-                        return;
-                      }
-                    }
-                    setType(newType);
-                  }}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px',
-                    lineHeight: '19px',
-                    appearance: 'menulist'
-                  }}
-                >
-                  {cycleTypes.map(cycleType => (
-                    <option
-                      key={cycleType}
-                      value={cycleType}
-                      style={{
-                        padding: '8px',
-                        whiteSpace: 'normal'
-                      }}
-                    >
-                      {cycleType.replace('-', ' - ')}
-                    </option>
-                  ))}
-                </select>
+          {/* Activities builder: calendar on top (scrolls), selection panels below it */}
+          {activitiesEnabled && (
+            <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel2">
+              <div className="flex-none flex items-center gap-3 px-[18px] min-h-[44px] border-b border-border bg-panel">
+                <span className="rr-pane-title">Activities</span>
+                <span className="font-mono text-[11px] text-text3">{cycleActivities.length}</span>
               </div>
-
-              {/* Training Syllabus Selector - only show for Training type.
-                  With the Activities flag on, syllabi are attached as cycle
-                  activities and cycles.syllabus_id is derived on save. */}
-              {!activitiesEnabled && type === 'Training' && (
-                <div style={{ flex: '1' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--rr-text2)'
-                  }}>
-                    Training Syllabus (Optional)
-                  </label>
-                  <select
-                    value={selectedSyllabusId}
-                    onChange={(e) => {
-                      setSelectedSyllabusId(e.target.value);
-                      lastChanged.current = 'syllabus';
+              <div className="flex-1 min-h-0 flex flex-col p-[16px] gap-[14px] overflow-hidden">
+                <div className="flex-shrink min-h-0 overflow-y-auto flex flex-col gap-[14px]">
+                  <CycleActivitiesBuilder
+                    activities={cycleActivities}
+                    onChange={setCycleActivities}
+                    weekCount={weekCount}
+                    onWeekCountChange={(weeks) => {
+                      setWeekCount(weeks);
+                      lastChanged.current = 'weeks';
                     }}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      lineHeight: '19px',
-                      appearance: 'menulist'
-                    }}
-                  >
-                    <option value="">No syllabus</option>
-                    {syllabi.map(syllabus => (
-                      <option key={syllabus.id} value={syllabus.id}>
-                        {syllabus.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-            </div>
+                    startDate={startDate}
+                    squadrons={squadrons}
+                    syllabusNames={syllabusNames}
+                    syllabusMissionNames={syllabusMissionNames}
+                    selection={builderSelection}
+                    onSelect={setBuilderSelection}
+                    participantRows={participantRows}
+                    onAddParticipantRow={handleAddParticipantRow}
+                    onRemoveParticipantRow={handleRemoveParticipantRow}
+                    onAddActivityInRow={handleAddActivityInRow}
+                    onRemoveActivity={handleRemoveActivityAt}
+                    cycleEvents={cycleEventItems}
+                    onMoveEvent={handleMoveEventToWeek}
+                    onResetActivity={handleResetActivity}
+                    onDeleteEvent={handleDeleteEventFromActivity}
+                    onAddEventInWeek={handleAddEventInWeek}
+                  />
 
-
-            {/* Auto-create Events Toggle - flag-off only (flag-on always
-                generates weekly events from the activities) */}
-            {!activitiesEnabled && !hasEvents && type === 'Training' && selectedSyllabusId && (
-              <div style={{
-                marginBottom: '16px',
-                padding: '12px',
-                backgroundColor: 'var(--rr-panel2)',
-                border: '1px solid var(--rr-border)',
-                borderRadius: '6px'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '12px'
-                }}>
-                  <div style={{ flex: 1 }}>
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text)',
-                      marginBottom: '4px'
-                    }}>
-                      Automatically Create Events
-                    </div>
-                    <div style={{
-                      fontSize: '13px',
-                      color: 'var(--rr-text2)'
-                    }}>
-                      Create weekly training events for each mission in the selected syllabus
-                    </div>
-                  </div>
-                  <div
-                    onClick={() => setAutoCreateEvents(!autoCreateEvents)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: autoCreateEvents ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      flexShrink: 0
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: autoCreateEvents ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            <div style={{ marginBottom: '16px', display: 'flex', gap: '16px' }}>
-              <div style={{ flex: '1' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={startDate}
-                  onChange={handleStartDateChange}
-                  style={{
-                    width: '100%',
-                    padding: '8px', // Changed to 8px uniform padding
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px', // Set fixed height
-                    lineHeight: '19px' // Adjusted line height for new padding
-                  }}
-                />
-              </div>
-
-              <div style={{ flex: '1' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  End Date
-                </label>
-                <input
-                  type="date"
-                  value={endDate}
-                  onChange={handleEndDateChange}
-                  style={{
-                    width: '100%',
-                    padding: '8px', // Changed to 8px uniform padding
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    height: '35px', // Set fixed height
-                    lineHeight: '19px' // Adjusted line height for new padding
-                  }}
-                />
-              </div>
-            </div>
-
-            {/* New Weeks Input */}
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: 'var(--rr-text2)'
-              }}>
-                Number of Weeks
-              </label>
-              <div style={{ 
-                display: 'flex',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                overflow: 'hidden',
-                height: '35px' // Match the 35px height of other inputs
-              }}>
-                <input
-                  type="text" 
-                  inputMode="numeric"
-                  pattern="[0-9]*"
-                  value={weekCount}
-                  onChange={handleWeekCountChange}
-                  style={{
-                    flex: 1,
-                    padding: '8px', // Changed from 4px 12px to 8px
-                    border: 'none',
-                    fontSize: '14px',
-                    boxSizing: 'border-box',
-                    WebkitAppearance: 'none',
-                    MozAppearance: 'textfield',
-                    height: '100%', // Take full height of parent
-                    lineHeight: '19px' // Adjusted line height for new padding
-                  }}
-                />
-                <div style={{ 
-                  display: 'flex', 
-                  flexDirection: 'column', 
-                  borderLeft: '1px solid var(--rr-border2)',
-                  height: '100%', // Take full height of parent
-                  width: '20px' // Set fixed width to 20px
-                }}>
-                  <button
-                    type="button"
-                    onClick={handleWeekIncrement}
-                    style={{
-                      padding: '0',
-                      border: 'none',
-                      backgroundColor: 'var(--rr-panel2)',
-                      cursor: 'pointer',
-                      borderBottom: '1px solid var(--rr-border2)',
-                      height: '50%', // Take half the height
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '100%' // Take full width of parent
-                    }}
-                  >
-                    <span style={{ 
-                      fontSize: '10px', 
-                      color: 'var(--rr-text2)',
-                      lineHeight: 1
-                    }}>▲</span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleWeekDecrement}
-                    style={{
-                      padding: '0',
-                      border: 'none',
-                      backgroundColor: 'var(--rr-panel2)',
-                      cursor: 'pointer',
-                      height: '50%', // Take half the height
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '100%' // Take full width of parent
-                    }}
-                  >
-                    <span style={{ 
-                      fontSize: '10px', 
-                      color: 'var(--rr-text2)',
-                      lineHeight: 1
-                    }}>▼</span>
-                  </button>
-                </div>
-              </div>
-              {/* Remove the helper text as requested */}
-            </div>
-
-            {/* Participating Squadrons - hidden flag-on: participation derives
-                from the activities' participant criteria on save */}
-            {!activitiesEnabled && (
-            <div style={{ marginBottom: '16px' }}>
-              <div style={{
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                marginBottom: '8px'
-              }}>
-                <label style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  Participating Squadrons
-                </label>
-                <div style={{ display: 'flex', gap: '6px' }}>
-                  <button 
-                    type="button"
-                    onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
-                    style={{
-                      padding: '2px 6px',
-                      backgroundColor: 'var(--rr-accent-weak)',
-                      border: '1px solid var(--rr-accent)',
-                      borderRadius: '3px',
-                      fontSize: '10px',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      color: 'var(--rr-accent-text)'
-                    }}
-                  >
-                    All
-                  </button>
-                  <button 
-                    type="button"
-                    onClick={() => setParticipatingSquadrons([])}
-                    style={{
-                      padding: '2px 6px',
-                      backgroundColor: 'rgba(224,82,78,.12)',
-                      border: '1px solid var(--rr-bad)',
-                      borderRadius: '3px',
-                      fontSize: '10px',
-                      cursor: 'pointer',
-                      fontFamily: 'inherit',
-                      color: 'var(--rr-bad)'
-                    }}
-                  >
-                    None
-                  </button>
-                </div>
-              </div>
-              <div style={{
-                maxHeight: '200px',
-                overflowY: 'auto',
-                border: '1px solid var(--rr-border)',
-                borderRadius: '4px',
-                padding: '4px',
-                backgroundColor: 'var(--rr-panel2)'
-              }}>
-                {squadrons.map(squadron => {
-                  const isSelected = participants.includes(squadron.id);
-                  return (
-                    <div
-                      key={squadron.id}
-                      onClick={() => {
-                        if (isSelected) {
-                          setParticipatingSquadrons(prev => prev.filter(id => id !== squadron.id));
-                        } else {
-                          setParticipatingSquadrons(prev => [...prev, squadron.id]);
-                        }
-                      }}
-                      style={{
-                        padding: '6px 8px',
-                        cursor: 'pointer',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '8px',
-                        backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
-                        borderRadius: '3px',
-                        transition: 'background-color 0.2s',
-                        marginBottom: '2px'
-                      }}
-                      onMouseEnter={e => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-                        }
-                      }}
-                      onMouseLeave={e => {
-                        if (!isSelected) {
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }
-                      }}
-                    >
-                      {/* Checkbox */}
-                      <div style={{
-                        width: '14px',
-                        height: '14px',
-                        border: '1px solid var(--rr-border2)',
-                        borderRadius: '3px',
-                        backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        flexShrink: 0
-                      }}>
-                        {isSelected && (
-                          <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                            <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                          </svg>
+                  {/* Add-event picker: recommends syllabus missions not yet inside the
+                      activity (portaled so nothing in the dialog clips it) */}
+                  {addEventPicker && createPortal(
+                    <>
+                      <div onClick={() => setAddEventPicker(null)} style={{ position: 'fixed', inset: 0, zIndex: 2999 }} />
+                      <div
+                        className="fixed w-[260px] max-h-[280px] overflow-y-auto bg-panel border border-border2 rounded-rr-lg shadow-rr-lg p-[6px] text-text"
+                        style={{
+                          left: `${Math.min(addEventPicker.x, window.innerWidth - 280)}px`,
+                          top: `${Math.min(addEventPicker.y, window.innerHeight - 300)}px`,
+                          zIndex: 3000,
+                        }}
+                      >
+                        <div className="rr-label px-[8px] pt-[4px] pb-[6px]">Add event · Week {addEventPicker.week}</div>
+                        {addEventPicker.missing.length === 0 ? (
+                          <div className="px-[8px] py-[4px] text-[12px] text-text3">Every lesson in this syllabus is already scheduled.</div>
+                        ) : (
+                          addEventPicker.missing.map(mission => (
+                            <button
+                              key={mission.id}
+                              type="button"
+                              onClick={async () => {
+                                const activity = cycleActivities[addEventPicker.activityIndex];
+                                setAddEventPicker(null);
+                                if (activity) await createEventForActivityWeek(activity, addEventPicker.week, mission);
+                              }}
+                              className="block w-full text-left px-[8px] py-[6px] rounded-rr-md border-0 bg-transparent text-[13px] text-text cursor-pointer hover:bg-panel2"
+                            >
+                              {mission.mission_name}
+                            </button>
+                          ))
                         )}
                       </div>
-                      
-                      {/* Squadron Insignia */}
-                      {squadron.insignia_url ? (
-                        <div style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundImage: `url(${squadron.insignia_url})`,
-                          backgroundSize: 'contain',
-                          backgroundRepeat: 'no-repeat',
-                          backgroundPosition: 'center',
-                          flexShrink: 0
-                        }} />
-                      ) : (
-                        <div style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundColor: 'var(--rr-panel3)',
-                          borderRadius: '3px',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
-                          <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
-                        </div>
-                      )}
-                      
-                      {/* Squadron Info */}
-                      <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                        <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
-                          {squadron.designation}
-                        </span>
-                        <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
-                          {squadron.name}
-                        </span>
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-              <div style={{
-                fontSize: '12px',
-                color: 'var(--rr-text2)',
-                marginTop: '4px'
-              }}>
-                {participants.length === 0 ? 
-                  'No squadrons selected. Events will not be posted to Discord.' :
-                  `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected. Events in this cycle will be posted to their Discord channels.`
-                }
-              </div>
-            </div>
-            )}
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                marginBottom: '8px',
-                fontSize: '14px',
-                fontWeight: 500,
-                color: 'var(--rr-text2)'
-              }}>
-                Description
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '8px', // Changed from 8px 12px to just 8px
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '4px',
-                  fontSize: '14px',
-                  minHeight: '120px',
-                  resize: 'none',
-                  boxSizing: 'border-box'
-                }}
-                placeholder="Enter cycle description"
-              />
-            </div>
-
-            {error && (
-              <div style={{
-                color: 'var(--rr-bad)',
-                fontSize: '14px',
-                marginBottom: '16px'
-              }}>
-                {error}
-              </div>
-            )}
-          </div>
-          )}
-
-          {/* Left-pane Options / Reminders / Publication sections (flag-on):
-              defaults for events created in this cycle, one per tab */}
-          {activitiesEnabled && (
-            <>
-              {activeTab === 'options' && (
-              <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-                <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
-                  Defaults for events created in this cycle. Each event can still override them.
-                </p>
-                {([
-                  { key: 'trackQualifications', label: 'Group responses by qualification' },
-                  { key: 'groupBySquadron', label: 'Group responses by squadron' },
-                  { key: 'showNoResponse', label: 'Show non-responders' },
-                  { key: 'allowTentativeResponse', label: 'Allow tentative responses' }
-                ] as Array<{ key: keyof CycleSettings; label: string }>).map(option => (
-                  <div key={option.key} style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-                    <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', fontFamily: 'inherit' }}>{option.label}</label>
-                    <div
-                      onClick={() => setCycleSettings(prev => ({ ...prev, [option.key]: !prev[option.key] }))}
-                      style={{
-                        width: '38px',
-                        height: '21px',
-                        backgroundColor: cycleSettings[option.key] ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                        borderRadius: '11px',
-                        position: 'relative',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s ease',
-                        flexShrink: 0
-                      }}
-                    >
-                      <div style={{
-                        width: '17px',
-                        height: '17px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: cycleSettings[option.key] ? '19px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }} />
-                    </div>
-                  </div>
-                ))}
-              </div>
-              )}
-
-              {activeTab === 'reminders' && (
-              <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-                <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
-                  Default reminders for events created in this cycle. Each event can still override them.
-                </p>
-                {([
-                  { enabledKey: 'firstReminderEnabled', timeKey: 'firstReminderTime', label: 'First' },
-                  { enabledKey: 'secondReminderEnabled', timeKey: 'secondReminderTime', label: 'Second' }
-                ] as Array<{ enabledKey: 'firstReminderEnabled' | 'secondReminderEnabled'; timeKey: 'firstReminderTime' | 'secondReminderTime'; label: string }>).map(reminder => (
-                  <div key={reminder.enabledKey} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                    <input
-                      type="checkbox"
-                      checked={cycleSettings[reminder.enabledKey] ?? false}
-                      onChange={(e) => setCycleSettings(prev => ({ ...prev, [reminder.enabledKey]: e.target.checked }))}
-                    />
-                    <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', width: '52px', fontFamily: 'inherit' }}>{reminder.label}</label>
-                    <input
-                      type="number"
-                      min={1}
-                      value={cycleSettings[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15)}
-                      onChange={(e) => setCycleSettings(prev => ({
-                        ...prev,
-                        [reminder.timeKey]: {
-                          value: Math.max(1, parseInt(e.target.value) || 1),
-                          unit: prev[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')
-                        }
-                      }))}
-                      style={{ width: '56px', padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px' }}
-                    />
-                    <select
-                      value={cycleSettings[reminder.timeKey]?.unit ?? (reminder.timeKey === 'firstReminderTime' ? 'days' : 'minutes')}
-                      onChange={(e) => setCycleSettings(prev => ({
-                        ...prev,
-                        [reminder.timeKey]: {
-                          value: prev[reminder.timeKey]?.value ?? (reminder.timeKey === 'firstReminderTime' ? 3 : 15),
-                          unit: e.target.value as 'minutes' | 'hours' | 'days'
-                        }
-                      }))}
-                      style={{ padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px', backgroundColor: 'var(--rr-panel)', flex: 1 }}
-                    >
-                      <option value="minutes">minutes</option>
-                      <option value="hours">hours</option>
-                      <option value="days">days</option>
-                    </select>
-                  </div>
-                ))}
-                <p style={{ fontSize: '11px', color: 'var(--rr-text3)', margin: 0, fontFamily: 'inherit' }}>before each event</p>
-              </div>
-              )}
-
-              {activeTab === 'publication' && (
-              <div style={{ padding: '16px', overflowY: 'auto', flex: 1 }}>
-                <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '0 0 16px 0', fontFamily: 'inherit' }}>
-                  Default publication behavior for events created in this cycle. Each event can still override it.
-                </p>
-                {/* Initial Notification roles (same UI as EventDialog's Publish step) */}
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ marginBottom: '12px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', fontFamily: 'inherit' }}>Initial Notification</span>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text3)', marginTop: '4px', fontStyle: 'italic' }}>
-                      Mention Discord roles when each event is first published
-                    </p>
-                  </div>
-
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: (cycleSettings.initialNotificationRoles?.length ?? 0) > 0 ? '12px' : '0' }}>
-                    <select
-                      value={selectedRoleId}
-                      onChange={(e) => setSelectedRoleId(e.target.value)}
-                      disabled={loadingRoles || availableDiscordRoles.length === 0}
-                      style={{
-                        flex: 1,
-                        minWidth: 0,
-                        padding: '8px',
-                        border: '1px solid var(--rr-border2)',
-                        borderRadius: '4px',
-                        fontSize: '14px',
-                        backgroundColor: loadingRoles ? 'var(--rr-panel2)' : 'var(--rr-panel)',
-                        cursor: loadingRoles ? 'not-allowed' : 'pointer'
-                      }}
-                    >
-                      <option value="">
-                        {loadingRoles ? 'Loading roles...' : availableDiscordRoles.length === 0 ? 'No mentionable roles available' : 'Select a Discord role'}
-                      </option>
-                      {availableDiscordRoles.map((role) => (
-                        <option key={role.id} value={role.id}>
-                          {role.name}
-                        </option>
-                      ))}
-                    </select>
-                    <button
-                      type="button"
-                      onClick={handleAddNotificationRole}
-                      disabled={!selectedRoleId || loadingRoles}
-                      style={{
-                        padding: '8px 16px',
-                        backgroundColor: !selectedRoleId || loadingRoles ? 'var(--rr-text3)' : 'var(--rr-accent)',
-                        color: '#FFFFFF',
-                        border: 'none',
-                        borderRadius: '4px',
-                        cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',
-                        fontSize: '14px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        gap: '4px'
-                      }}
-                    >
-                      <Icon name="plus" size={16} />
-                      Add
-                    </button>
-                  </div>
-
-                  {(cycleSettings.initialNotificationRoles?.length ?? 0) > 0 ? (
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                      {(cycleSettings.initialNotificationRoles || []).map((role) => (
-                        <div
-                          key={role.id}
-                          style={{
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '6px',
-                            padding: '4px 8px 4px 10px',
-                            borderRadius: '8px',
-                            fontSize: '12px',
-                            fontWeight: '500',
-                            height: '26px',
-                            boxSizing: 'border-box',
-                            whiteSpace: 'nowrap',
-                            backgroundColor: 'var(--rr-accent-weak)',
-                            color: 'var(--rr-accent-text)',
-                            border: '1px solid var(--rr-accent)'
-                          }}
-                        >
-                          <span>@{role.name}</span>
-                          <button
-                            type="button"
-                            onClick={() => handleRemoveNotificationRole(role.id)}
-                            style={{
-                              padding: '0',
-                              width: '14px',
-                              height: '14px',
-                              backgroundColor: 'transparent',
-                              border: 'none',
-                              cursor: 'pointer',
-                              color: 'var(--rr-accent-text)',
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              borderRadius: '50%',
-                              transition: 'background-color 0.2s'
-                            }}
-                            onMouseEnter={(e) => {
-                              e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
-                            }}
-                            onMouseLeave={(e) => {
-                              e.currentTarget.style.backgroundColor = 'transparent';
-                            }}
-                            title="Remove role"
-                          >
-                            <Icon name="close" size={12} strokeWidth={2.5} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  ) : null}
-                </div>
-
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                  <input
-                    type="checkbox"
-                    checked={cycleSettings.scheduledPublicationEnabled ?? false}
-                    onChange={(e) => setCycleSettings(prev => ({ ...prev, scheduledPublicationEnabled: e.target.checked }))}
-                  />
-                  <label style={{ fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
-                    Schedule event publication
-                  </label>
-                </div>
-                {cycleSettings.scheduledPublicationEnabled && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <span style={{ fontSize: '13px', color: 'var(--rr-text2)' }}>Publish</span>
-                    <input
-                      type="number"
-                      min={1}
-                      value={cycleSettings.scheduledPublicationOffset?.value ?? 3}
-                      onChange={(e) => setCycleSettings(prev => ({
-                        ...prev,
-                        scheduledPublicationOffset: {
-                          value: Math.max(1, parseInt(e.target.value) || 1),
-                          unit: prev.scheduledPublicationOffset?.unit ?? 'days'
-                        }
-                      }))}
-                      style={{ width: '56px', padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px' }}
-                    />
-                    <select
-                      value={cycleSettings.scheduledPublicationOffset?.unit ?? 'days'}
-                      onChange={(e) => setCycleSettings(prev => ({
-                        ...prev,
-                        scheduledPublicationOffset: {
-                          value: prev.scheduledPublicationOffset?.value ?? 3,
-                          unit: e.target.value as 'minutes' | 'hours' | 'days'
-                        }
-                      }))}
-                      style={{ padding: '5px 6px', border: '1px solid var(--rr-border2)', borderRadius: '4px', fontSize: '13px', backgroundColor: 'var(--rr-panel)', flex: 1 }}
-                    >
-                      <option value="minutes">minutes</option>
-                      <option value="hours">hours</option>
-                      <option value="days">days</option>
-                    </select>
-                    <span style={{ fontSize: '11px', color: 'var(--rr-text3)', whiteSpace: 'nowrap' }}>before start</span>
-                  </div>
-                )}
-              </div>
-              )}
-            </>
-          )}
-          </div>
-
-          {/* Right pane: activities calendar + selected activity/participants
-              panel on top (scrolls), enrollment lists filling what remains */}
-          {activitiesEnabled && (
-            <div style={{ flex: 1, padding: '16px', minWidth: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            <div style={{ flexShrink: 1, minHeight: 0, overflowY: 'auto' }}>
-              <CycleActivitiesBuilder
-                activities={cycleActivities}
-                onChange={setCycleActivities}
-                weekCount={weekCount}
-                onWeekCountChange={(weeks) => {
-                  setWeekCount(weeks);
-                  lastChanged.current = 'weeks';
-                }}
-                startDate={startDate}
-                squadrons={squadrons}
-                syllabusNames={syllabusNames}
-                syllabusMissionNames={syllabusMissionNames}
-                selection={builderSelection}
-                onSelect={setBuilderSelection}
-                participantRows={participantRows}
-                onAddParticipantRow={handleAddParticipantRow}
-                onRemoveParticipantRow={handleRemoveParticipantRow}
-                onAddActivityInRow={handleAddActivityInRow}
-                onRemoveActivity={handleRemoveActivityAt}
-                cycleEvents={cycleEventItems}
-                onMoveEvent={handleMoveEventToWeek}
-                onResetActivity={handleResetActivity}
-                onDeleteEvent={handleDeleteEventFromActivity}
-                onAddEventInWeek={handleAddEventInWeek}
-              />
-
-              {/* Add-event picker: recommends syllabus missions not yet inside
-                  the activity (portaled so nothing in the dialog clips it) */}
-              {addEventPicker && createPortal(
-                <>
-                  <div
-                    onClick={() => setAddEventPicker(null)}
-                    style={{ position: 'fixed', inset: 0, zIndex: 2999 }}
-                  />
-                  <div style={{
-                    position: 'fixed',
-                    left: `${Math.min(addEventPicker.x, window.innerWidth - 280)}px`,
-                    top: `${Math.min(addEventPicker.y, window.innerHeight - 300)}px`,
-                    width: '260px',
-                    maxHeight: '280px',
-                    overflowY: 'auto',
-                    backgroundColor: 'var(--rr-panel)',
-                    border: '1px solid var(--rr-border)',
-                    borderRadius: '10px',
-                    boxShadow: 'var(--rr-shadow)',
-                    padding: '8px',
-                    zIndex: 3000
-                  }}>
-                    <div style={{ fontSize: '11px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', fontFamily: 'inherit', padding: '2px 6px 6px 6px' }}>
-                      Add event — Week {addEventPicker.week}
-                    </div>
-                    {addEventPicker.missing.length === 0 ? (
-                      <div style={{ fontSize: '12px', color: 'var(--rr-text3)', fontFamily: 'inherit', fontStyle: 'italic', padding: '4px 6px' }}>
-                        Every lesson in this syllabus is already scheduled.
-                      </div>
-                    ) : (
-                      addEventPicker.missing.map(mission => (
-                        <button
-                          key={mission.id}
-                          type="button"
-                          onClick={async () => {
-                            const activity = cycleActivities[addEventPicker.activityIndex];
-                            setAddEventPicker(null);
-                            if (activity) await createEventForActivityWeek(activity, addEventPicker.week, mission);
-                          }}
-                          style={{
-                            display: 'block',
-                            width: '100%',
-                            textAlign: 'left',
-                            padding: '6px 8px',
-                            border: 'none',
-                            backgroundColor: 'transparent',
-                            borderRadius: '4px',
-                            fontSize: '13px',
-                            color: 'var(--rr-text)',
-                            fontFamily: 'inherit',
-                            cursor: 'pointer'
-                          }}
-                          onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = 'var(--rr-panel2)'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
-                        >
-                          {mission.mission_name}
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>,
-                document.body
-              )}
-
-              {builderSelection?.type === 'row' && (
-                <div style={{ marginTop: '16px', padding: '12px', border: '1px solid var(--rr-border2)', borderRadius: '8px', backgroundColor: 'var(--rr-panel)' }}>
-                  <h3 style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text2)', textTransform: 'uppercase', margin: '0 0 12px 0', fontFamily: 'inherit' }}>
-                    Participants
-                  </h3>
-                  <ParticipantBlocksEditor
-                    blocks={selectedRowCriteria as any}
-                    onChange={(blocks) => handleUpdateRowCriteria(blocks)}
-                    standings={standings}
-                    qualifications={qualifications}
-                    squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
-                  />
-                </div>
-              )}
-
-              {selectedActivityIndex !== null && cycleActivities[selectedActivityIndex] && (
-                <>
-                  <div style={{ marginTop: '16px' }}>
-                    <span style={{ fontSize: '13px', fontWeight: 600, color: 'var(--rr-text2)', fontFamily: 'inherit', textTransform: 'uppercase' }}>
-                      Activity — Weeks {cycleActivities[selectedActivityIndex].startWeek}–{cycleActivities[selectedActivityIndex].endWeek}
-                    </span>
-                  </div>
-                  <CycleActivityConfigPanel
-                    activity={cycleActivities[selectedActivityIndex]}
-                    onChange={handleUpdateSelectedActivity}
-                    weekCount={weekCount}
-                    onRequireWeeks={(weeks) => {
-                      if (weeks > weekCount) {
-                        setWeekCount(weeks);
-                        lastChanged.current = 'weeks'; // recalculates the end date
-                      }
-                    }}
-                  />
-
-                  {/* Enrollment renders below this scroll section so it can
-                      fill the remaining pane height */}
-                  {cycleActivities[selectedActivityIndex].kind === 'syllabus'
-                    && (!cycleId || !cycleActivities[selectedActivityIndex].id) && (
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text3)', margin: '12px 0 0 0', fontFamily: 'inherit', fontStyle: 'italic' }}>
-                      Save the cycle, then reopen it to enroll students and instructors for this activity.
-                    </p>
+                    </>,
+                    document.body
                   )}
-                </>
-              )}
-            </div>
 
-            {/* Training activities carry their own Students/Instructors
-                enrollment (rows keep cycle_id so PTR keeps working) */}
-            {selectedActivityIndex !== null
-              && cycleActivities[selectedActivityIndex]?.kind === 'syllabus'
-              && cycleId
-              && cycleActivities[selectedActivityIndex]?.id
-              && renderActivityEnrollment(cycleActivities[selectedActivityIndex])}
+                  {builderSelection?.type === 'row' && (
+                    <DlgCard title="Participants" description="Who this row of activities is for.">
+                      <ParticipantBlocksEditor
+                        blocks={selectedRowCriteria as any}
+                        onChange={(blocks) => handleUpdateRowCriteria(blocks)}
+                        standings={standings}
+                        qualifications={qualifications}
+                        squadrons={squadrons.map(s => ({ id: s.id, name: s.name, designation: s.designation, insignia_url: s.insignia_url }))}
+                      />
+                    </DlgCard>
+                  )}
+
+                  {selectedActivity && (
+                    <DlgCard
+                      title="Activity"
+                      description={`Weeks ${selectedActivity.startWeek}–${selectedActivity.endWeek}`}
+                      footer={selectedActivity.kind === 'syllabus' && (!cycleId || !selectedActivity.id)
+                        ? 'Save the cycle, then reopen it to enroll students and instructors for this activity.'
+                        : undefined}
+                    >
+                      <CycleActivityConfigPanel
+                        activity={selectedActivity}
+                        onChange={handleUpdateSelectedActivity}
+                        weekCount={weekCount}
+                        onRequireWeeks={(weeks) => {
+                          if (weeks > weekCount) {
+                            setWeekCount(weeks);
+                            lastChanged.current = 'weeks'; // recalculates the end date
+                          }
+                        }}
+                      />
+                    </DlgCard>
+                  )}
+                </div>
+
+                {/* Training activities carry their own Students/Instructors enrollment
+                    (rows keep cycle_id so PTR keeps working) */}
+                {selectedActivity?.kind === 'syllabus' && cycleId && selectedActivity.id
+                  ? renderActivityEnrollment(selectedActivity)
+                  : null}
+              </div>
             </div>
           )}
-          </div>
 
           {/* Enrollments Tab Content */}
           {activeTab === 'enrollments' && (
-            <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', height: '900px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {enrollmentError && (
                 <div style={{
                   color: 'var(--rr-bad)',
@@ -3405,7 +2650,7 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
 
           {/* Instructors Tab Content */}
           {activeTab === 'instructors' && (
-            <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', height: '900px', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            <div style={{ paddingTop: '16px', paddingLeft: '24px', paddingRight: '24px', paddingBottom: '0', flex: 1, minWidth: 0, minHeight: 0, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
               {instructorError && (
                 <div style={{
                   color: 'var(--rr-bad)',
@@ -3690,74 +2935,19 @@ export const CycleDialog: React.FC<CycleDialogProps> = ({
             </div>
           )}
 
-          <div style={{
-            display: 'flex',
-            justifyContent: 'flex-end',
-            gap: '12px',
-            borderTop: '1px solid var(--rr-border)',
-            padding: '16px 24px'
-          }}>
-            <button
-              type="button"
-              onClick={onCancel}
-              style={{
-                padding: '8px 16px',
-                border: '1px solid var(--rr-border2)',
-                borderRadius: '4px',
-                backgroundColor: 'var(--rr-panel)',
-                color: 'var(--rr-text2)',
-                cursor: 'pointer',
-                fontSize: '14px'
-              }}
-            >
-              Cancel
-            </button>
-            <button
-              type="submit"
-              disabled={isSaving}
-              style={{
-                padding: '8px 16px',
-                border: 'none',
-                borderRadius: '4px',
-                backgroundColor: 'var(--rr-accent)',
-                color: 'white',
-                cursor: isSaving ? 'not-allowed' : 'pointer',
-                fontSize: '14px',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '8px',
-                opacity: isSaving ? 0.7 : 1
-              }}
-            >
-              {isSaving && (
-                <div style={{
-                  width: '16px',
-                  height: '16px',
-                  border: '2px solid rgba(255, 255, 255, 0.3)',
-                  borderTop: '2px solid var(--rr-panel)',
-                  borderRadius: '50%',
-                  animation: 'spin 0.6s linear infinite'
-                }} />
-              )}
-              {isSaving
-                ? 'Saving...'
-                : (initialData ? 'Update Cycle' : 'Create Cycle')
-              }
-            </button>
-          </div>
-        </form>
-          </>
-        )}
-      </div>
+        </div>
 
-      {/* Add keyframes for loading spinner animation */}
-      <style dangerouslySetInnerHTML={{ __html: `
-        @keyframes spin {
-          0% { transform: rotate(0deg); }
-          100% { transform: rotate(360deg); }
-        }
-      `}} />
-    </>
+        {/* Footer */}
+        <div className="flex-none flex items-center gap-[10px] px-[18px] py-[12px] border-t border-border">
+          {error ? <div className="min-w-0 flex-1"><Toast tone="bad" onDismiss={() => setError('')}>{error}</Toast></div> : <span className="flex-1" />}
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <Button type="submit" variant="primary" icon="check" loading={isSaving} disabled={isSaving}>
+            {isSaving ? 'Saving…' : (initialData ? 'Save Cycle' : 'Create Cycle')}
+          </Button>
+        </div>
+      </form>
+      )}
+    </DialogShell>
   );
 };
 

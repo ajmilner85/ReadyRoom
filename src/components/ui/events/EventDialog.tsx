@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { CloseButton, Icon } from '../primitives';
+import { Button, Chip, CloseButton, Field, FieldLabel, Icon, NumberStepper, SegmentedControl, Select, Textarea, TextInput, Toast, Toggle, controlClass } from '../primitives';
 import { useAppSettings } from '../../../context/AppSettingsContext';
 import { fetchDiscordGuildRoles } from '../../../utils/discordService';
 import { supabase, getEventActivities, getCycleActivities } from '../../../utils/supabaseClient';
@@ -7,6 +7,7 @@ import { getUserSettings } from '../../../utils/userSettingsService';
 import ReferenceMaterialsInput from './ReferenceMaterialsInput';
 import SupportRoleRequirementsEditor from './SupportRoleRequirementsEditor';
 import EventActivitiesEditor from './EventActivitiesEditor';
+import { DialogShell, DlgCard, RolePicker, SettingRow, SquadronToggleTile, StepIntro, UNIT_OPTIONS, unitWord, type ReminderUnit } from './dialogParts';
 import type { ReferenceMaterial, TrainingSyllabusMission, EventActivity, CycleActivity, CycleSettings } from '../../../types/EventTypes';
 import type { SupportRoleRequirement } from '../../../utils/supabaseClient';
 
@@ -163,6 +164,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   // Workflow state
   const [currentStep, setCurrentStep] = useState<WorkflowStep>('details');
   const userNavigatedRef = React.useRef(false);
+  const [sectionResolved, setSectionResolved] = useState(!initialSection);
   const [completedSteps, setCompletedSteps] = useState<Set<WorkflowStep>>(new Set());
 
   // Form data state
@@ -311,6 +313,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   // Event Activities state (developer-flagged feature). When the flag is off,
   // none of this is read and the dialog behaves exactly as before.
   const [activitiesEnabled, setActivitiesEnabled] = useState(false);
+  const [flagChecked, setFlagChecked] = useState(false); // the flag decides the step list
   const [eventActivities, setEventActivities] = useState<EventActivity[]>([]);
   const [activitiesLoaded, setActivitiesLoaded] = useState(false);
   const activitiesPrefilledRef = useRef(false);
@@ -502,6 +505,8 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       if (!cancelled && result.success && result.data?.developer?.enableEventActivities) {
         setActivitiesEnabled(true);
       }
+    }).catch(() => undefined).finally(() => {
+      if (!cancelled) setFlagChecked(true);
     });
     return () => { cancelled = true; };
   }, []);
@@ -1140,7 +1145,7 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   // Jump to the step that holds the requested section. Re-resolved once the activities flag
   // loads (it changes which step holds activities/support roles) until the user navigates.
   useEffect(() => {
-    if (!initialSection || userNavigatedRef.current) return;
+    if (!initialSection || sectionResolved || !flagChecked || userNavigatedRef.current) return;
     const stepFor: Record<EventDialogSection, WorkflowStep> = {
       details: 'details',
       activities: activitiesEnabled || isTrainingEvent ? 'training' : 'details',
@@ -1151,7 +1156,21 @@ export const EventDialog: React.FC<EventDialogProps> = ({
       publish: 'publish',
     };
     setCurrentStep(stepFor[initialSection]);
-  }, [initialSection, activitiesEnabled, isTrainingEvent]);
+    setSectionResolved(true);
+  }, [initialSection, sectionResolved, flagChecked, activitiesEnabled, isTrainingEvent]);
+
+  // Deep-linking into activity content while editing: also wait for the saved activities
+  const activitiesPending = Boolean(
+    initialSection && ['activities', 'support', 'references'].includes(initialSection) &&
+    activitiesEnabled && initialData?.id && !activitiesLoaded
+  );
+  // Safety net so a failed load can never keep the dialog hidden
+  const [readyTimedOut, setReadyTimedOut] = useState(false);
+  useEffect(() => {
+    const t = window.setTimeout(() => setReadyTimedOut(true), 2000);
+    return () => window.clearTimeout(t);
+  }, []);
+  const dialogReady = readyTimedOut || (flagChecked && sectionResolved && !activitiesPending);
 
   const currentStepIndex = steps.findIndex(step => step.key === currentStep);
   const isFirstStep = currentStepIndex === 0;
@@ -1633,1677 +1652,516 @@ export const EventDialog: React.FC<EventDialogProps> = ({
   };
 
 
-  // Progress bar component
-  const ProgressBar = () => (
-    <div style={{ padding: '16px 24px' }}>
-      <nav aria-label="Progress">
-        <div style={{
-          display: 'flex',
-          alignItems: 'flex-start',
-          maxWidth: steps.length > 5 ? '645px' : '550px',
-          margin: '0 auto'
-        }}>
-          {steps.map((step, index) => {
-            const isCompleted = completedSteps.has(step.key);
-            const isCurrent = currentStep === step.key;
-            const isClickable = Boolean(initialData) || index <= currentStepIndex || isCompleted;
-            const showLine = index < steps.length - 1;
-            const lineActive = index < currentStepIndex;
+  // ---------------------------------------------------------------- view
+  // End time readout: datetime is a naive local string in the event's time zone
+  const endReadout = (() => {
+    if (!datetime) return null;
+    const m = datetime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+    d.setMinutes(d.getMinutes() + durationHours * 60 + durationMinutes);
+    const sameDay = d.getDate() === Number(m[3]) && d.getMonth() === Number(m[2]) - 1;
+    const time = d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+    return sameDay ? time : `${d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}, ${time}`;
+  })();
 
-            return (
-              <div key={step.key} style={{
-                display: 'flex',
-                alignItems: 'flex-start',
-                flex: index === steps.length - 1 ? '0 0 auto' : '1',
-                position: 'relative'
-              }}>
-                <div style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  position: 'relative',
-                  zIndex: 1
-                }}>
-                  <button
-                    onClick={() => isClickable && handleStepClick(step.key)}
-                    disabled={!isClickable}
-                    style={{
-                      display: 'flex',
-                      flexDirection: 'column',
-                      alignItems: 'center',
-                      background: 'none',
-                      border: 'none',
-                      cursor: isClickable ? 'pointer' : 'default',
-                      padding: '0'
-                    }}
-                  >
-                    {/* Rounded square */}
-                    <div
-                      style={{
-                        width: '32px',
-                        height: '32px',
-                        borderRadius: '12px',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: isCompleted ? 'var(--rr-good)' : isCurrent ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                        color: isCompleted || isCurrent ? 'white' : 'var(--rr-text2)',
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        marginBottom: '8px',
-                        border: '5px solid var(--rr-panel)',
-                        boxSizing: 'content-box'
-                      }}
-                    >
-                      {isCompleted ? <Icon name="check" size={16} /> : index + 1}
-                    </div>
+  const startReadout = (() => {
+    const m = datetime.match(/^(\d{4})-(\d{2})-(\d{2})T(\d{2}):(\d{2})/);
+    if (!m) return null;
+    const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), Number(m[4]), Number(m[5]));
+    return `${d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' })}, ${d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' })}`;
+  })();
+  const tzLabel = TZ_OPTIONS.find(t => t.value === timezone)?.label || timezone.replace(/_/g, ' ');
+  const isPublishedEvent = Boolean(initialData?.isPublished);
+  const imageCount = imagePreviews.filter(Boolean).length;
 
-                    {/* Title below */}
-                    <div style={{
-                      fontSize: '14px',
-                      fontWeight: isCurrent ? 600 : 500,
-                      color: isCurrent ? 'var(--rr-text)' : isCompleted ? 'var(--rr-text)' : 'var(--rr-text2)',
-                      textAlign: 'center',
-                      whiteSpace: 'nowrap',
-                      width: '90px',
-                      minWidth: '90px'
-                    }}>
-                      {step.title}
-                    </div>
-                  </button>
-                </div>
+  const dialogTitle = isTrainingEvent
+    ? (initialData ? 'Edit Training Event' : 'Create Training Event')
+    : (initialData ? 'Edit Event' : 'Create Event');
 
-                {/* Connecting line */}
-                {showLine && (
-                  <div style={{
-                    position: 'absolute',
-                    left: '45px',
-                    right: '-45px',
-                    top: '21px',
-                    height: '2px',
-                    backgroundColor: lineActive ? 'var(--rr-good)' : 'var(--rr-panel3)',
-                    zIndex: 0
-                  }} />
-                )}
-              </div>
-            );
-          })}
+  const renderImageSlot = (index: number) => {
+    const preview = imagePreviews[index];
+    const over = dragOverStates[index];
+    return (
+      <div key={index} className="min-w-0 flex flex-col gap-[6px]">
+        <div
+          role="button"
+          tabIndex={0}
+          aria-label={preview ? `Replace image ${index + 1}` : `Add image ${index + 1}`}
+          onDragOver={(e) => handleDragOver(e, index)}
+          onDragLeave={(e) => handleDragLeave(e, index)}
+          onDrop={(e) => handleDrop(e, index)}
+          onClick={() => document.getElementById(`image-upload-${index}`)?.click()}
+          onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); document.getElementById(`image-upload-${index}`)?.click(); } }}
+          className={`group/img relative w-full rounded-rr-md overflow-hidden cursor-pointer transition-colors ${preview ? 'border border-border2' : 'border-2 border-dashed'} ${over ? '!border-accent bg-accent-weak' : preview ? '' : 'border-border2 bg-panel2 hover:border-accent'}`}
+          style={{ aspectRatio: '16 / 9' }}
+        >
+          {preview ? (
+            <>
+              <img src={preview} alt={`Event image ${index + 1}`} className="absolute inset-0 w-full h-full object-cover block" />
+              <span className="absolute inset-0 flex items-center justify-center bg-black/45 text-white text-[11.5px] font-semibold opacity-0 group-hover/img:opacity-100 transition-opacity">
+                Replace
+              </span>
+              <button
+                type="button"
+                aria-label={`Remove image ${index + 1}`}
+                title="Remove image"
+                onClick={(e) => { e.stopPropagation(); removeImage(index); }}
+                className="absolute top-[6px] right-[6px] w-[24px] h-[24px] rounded-full flex items-center justify-center border-0 cursor-pointer text-white bg-black/65 hover:bg-bad"
+              >
+                <Icon name="close" size={12} />
+              </button>
+            </>
+          ) : (
+            <span className="absolute inset-0 flex flex-col items-center justify-center gap-[4px] text-text3">
+              <Icon name="image" size={18} />
+              <span className="text-[11px]">{over ? 'Drop to add' : 'Drop or click'}</span>
+            </span>
+          )}
         </div>
-      </nav>
-    </div>
+        <span className="text-[11px] text-text3">{index === 0 ? 'Header image' : `Image ${index + 1}`}</span>
+        <input id={`image-upload-${index}`} type="file" accept="image/*" onChange={(e) => handleFileInputChange(e, index)} className="hidden" />
+      </div>
+    );
+  };
+
+  const stepContent = (
+    <>
+      {currentStep === 'details' && (
+        <div className="flex flex-col gap-[18px]">
+          <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'minmax(0, 1.6fr) minmax(0, 1fr)' }}>
+            <Field label="Event title" required>
+              <TextInput value={title} onChange={(e) => setTitle(e.target.value)} placeholder="e.g. Cruise 26-2 Wk VI: Operation Alamo" autoFocus={!initialSection} />
+            </Field>
+            <Field label="Cycle">
+              <Select
+                value={cycleId || ''}
+                onChange={(v) => setCycleId(v || undefined)}
+                options={[{ value: '', label: 'Standalone (no cycle)' }, ...cycles.map(c => ({ value: c.id, label: c.name, description: c.type }))]}
+              />
+            </Field>
+          </div>
+
+          <DlgCard title="When">
+            <div className="grid gap-[14px] items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(190px, 1fr))' }}>
+              <Field label="Start" required>
+                <input type="datetime-local" value={datetime} onChange={handleDatetimeChange} className={`${controlClass} px-3 py-[7px] min-h-[36px]`} style={{ colorScheme: 'inherit' }} />
+              </Field>
+              <Field label="Time zone">
+                <Select value={timezone} onChange={(v) => setTimezone(v)} options={TZ_OPTIONS} />
+              </Field>
+              <Field label="Duration">
+                <div className="flex items-center gap-[8px]">
+                  <NumberStepper value={durationHours} min={0} max={48} onChange={(n) => handleDurationHoursChange({ target: { value: String(n) } } as any)} suffix="h" width={40} />
+                  <NumberStepper value={durationMinutes} min={0} max={59} step={15} onChange={(n) => handleDurationMinutesChange({ target: { value: String(n) } } as any)} suffix="m" width={40} />
+                </div>
+              </Field>
+            </div>
+            {endReadout ? (
+              <div className="mt-[10px] flex items-center gap-[6px] text-[12px] text-text2">
+                <Icon name="clock" size={13} style={{ color: 'var(--rr-text3)' }} />
+                Ends <span className="font-semibold text-text">{endReadout}</span> <span className="text-text3">· {tzLabel}</span>
+              </div>
+            ) : null}
+          </DlgCard>
+
+          <Field label="Description" hint="Shown in the Discord event post.">
+            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={6} placeholder="Briefing text for the event post" />
+          </Field>
+
+          <div>
+            <FieldLabel>Images{imageCount > 0 ? ` · ${imageCount}` : ''}</FieldLabel>
+            <div className="grid gap-[10px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+              {[0, 1, 2, 3].map(renderImageSlot)}
+            </div>
+            <div className="mt-[6px] text-[11.5px] text-text2">16:9 works best. The header image leads the Discord post; the others follow it.</div>
+          </div>
+        </div>
+      )}
+
+      {currentStep === 'training' && activitiesEnabled && (
+        <div className="flex flex-col gap-[12px]">
+          <StepIntro title="Activities" text="What happens at this event. Each activity carries its own participants, support roles, objectives and reference materials." />
+          <EventActivitiesEditor
+            activities={eventActivities}
+            onChange={setEventActivities}
+            syllabusMissions={syllabusMissions}
+            squadrons={squadrons || []}
+          />
+        </div>
+      )}
+
+      {currentStep === 'training' && !activitiesEnabled && (
+        <div className="flex flex-col gap-[16px]">
+          <StepIntro title="Training" text="Link a syllabus mission to pull in its objectives and reference materials." />
+          {syllabusMissions.length > 0 && (
+            <Field label="Syllabus mission">
+              <Select
+                value={selectedMissionId}
+                onChange={(v) => setSelectedMissionId(v)}
+                options={[{ value: '', label: 'No mission' }, ...syllabusMissions.map(m => ({ value: m.id, label: `Mission ${m.mission_number}: ${m.mission_name}` }))]}
+              />
+            </Field>
+          )}
+          {selectedMissionId && trainingObjectives.length > 0 && (
+            <DlgCard title="Training objectives (DLOs)" count={trainingObjectives.length}>
+              <ul className="m-0 p-0 list-none flex flex-col gap-[5px]">
+                {trainingObjectives.map((objective) => (
+                  <li key={objective.id} className="flex items-start gap-[7px] text-[13px] leading-[1.5] text-text">
+                    <Icon name="checkCircle" size={13} style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: 3 }} />
+                    <span>{objective.objective_text}</span>
+                  </li>
+                ))}
+              </ul>
+            </DlgCard>
+          )}
+          <ReferenceMaterialsInput value={referenceMaterials} onChange={setReferenceMaterials} inheritedMaterials={inheritedReferences} />
+        </div>
+      )}
+
+      {/* Mission step only exists when the Activities flag is off */}
+      {currentStep === 'mission' && (
+        <div className="flex flex-col gap-[16px]">
+          <StepIntro title="Mission" text="Support roles and debrief requirements for this event." />
+          <DlgCard
+            title="Mission support roles"
+            description="Each role shows in the Discord post as available/required, e.g. JTAC (1/3). Set required to 0 to list a role without requiring it. Roles appear in this order."
+          >
+            <SupportRoleRequirementsEditor requirements={supportRoleRequirements} onChange={setSupportRoleRequirements} />
+          </DlgCard>
+          <DlgCard flush>
+            <SettingRow
+              label="After Action Reports for operational squadrons only"
+              description="Only flights from operational (non-training) squadrons appear in the AAR section on Mission Debriefing."
+              checked={aarOperationalOnly}
+              onChange={setAarOperationalOnly}
+            />
+          </DlgCard>
+        </div>
+      )}
+
+      {currentStep === 'participants' && (
+        <div className="flex flex-col gap-[16px]">
+          <StepIntro
+            title={activitiesEnabled ? 'Options' : 'Participants & options'}
+            text={activitiesEnabled
+              ? 'Event-wide settings for the Discord post and reports. Who takes part is set per activity.'
+              : 'Who the event is for, and how the Discord post is laid out.'}
+          />
+
+          {!activitiesEnabled && (
+            <DlgCard
+              title="Participating squadrons"
+              count={participants.length || undefined}
+              right={
+                <div className="flex items-center gap-[2px]">
+                  <Button size="sm" variant="ghost" onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}>All</Button>
+                  <Button size="sm" variant="ghost" onClick={() => setParticipatingSquadrons([])}>None</Button>
+                  {selectedCycle?.participants ? (
+                    <Button size="sm" variant="ghost" icon="refresh" onClick={() => setParticipatingSquadrons(selectedCycle.participants || [])}>Cycle</Button>
+                  ) : null}
+                </div>
+              }
+              footer={participants.length === 0 ? 'None selected: the event inherits the cycle’s squadrons.' : `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`}
+            >
+              <div className="grid gap-[8px]" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))' }}>
+                {squadrons.map(squadron => {
+                  const on = participants.includes(squadron.id);
+                  return (
+                    <SquadronToggleTile
+                      key={squadron.id}
+                      squadron={squadron}
+                      selected={on}
+                      onToggle={() => setParticipatingSquadrons(prev => on ? prev.filter(id => id !== squadron.id) : [...prev, squadron.id])}
+                    />
+                  );
+                })}
+              </div>
+            </DlgCard>
+          )}
+
+          <DlgCard title="Discord post" flush>
+            <SettingRow label="Group responses by qualification" description="Organise the response lists in the post by pilot qualification." checked={trackQualifications} onChange={setTrackQualifications} />
+            <SettingRow label="Group by squadron" description="Divide attendance in the post by squadron." checked={groupBySquadron} onChange={setGroupBySquadron} />
+            <SettingRow label={'Show “No Response” users'} description="List active users who haven't responded yet." checked={showNoResponse} onChange={setShowNoResponse} />
+            <SettingRow label="Allow tentative responses" description={'Users can pick “Tentative” as well as Accept or Decline.'} checked={allowTentativeResponse} onChange={setAllowTentativeResponse} />
+          </DlgCard>
+
+          {cycleId && (
+            <DlgCard title="Reporting" flush>
+              <SettingRow label="Include in Cycle Attendance Report" description="When off, this event is left out of attendance statistics on the Reports page." checked={includeInAttendanceReport} onChange={setIncludeInAttendanceReport} />
+            </DlgCard>
+          )}
+        </div>
+      )}
+
+      {currentStep === 'reminders' && (
+        <div className="flex flex-col gap-[16px]">
+          <StepIntro title="Reminders" text="Automatic Discord reminders before the event starts. Only active users are notified." />
+          <ReminderCard
+            title="First reminder"
+            enabled={firstReminderEnabled}
+            onEnabled={setFirstReminderEnabled}
+            value={firstReminderValue}
+            onValue={setFirstReminderValue}
+            unit={firstReminderUnit}
+            onUnit={setFirstReminderUnit}
+            recipients={{ accepted: firstReminderAccepted, tentative: firstReminderTentative, declined: firstReminderDeclined, noResponse: firstReminderNoResponse }}
+            onRecipient={(k, v) => ({ accepted: setFirstReminderAccepted, tentative: setFirstReminderTentative, declined: setFirstReminderDeclined, noResponse: setFirstReminderNoResponse })[k](v)}
+          />
+          <ReminderCard
+            title="Second reminder"
+            enabled={secondReminderEnabled}
+            onEnabled={setSecondReminderEnabled}
+            value={secondReminderValue}
+            onValue={setSecondReminderValue}
+            unit={secondReminderUnit}
+            onUnit={setSecondReminderUnit}
+            recipients={{ accepted: secondReminderAccepted, tentative: secondReminderTentative, declined: secondReminderDeclined, noResponse: secondReminderNoResponse }}
+            onRecipient={(k, v) => ({ accepted: setSecondReminderAccepted, tentative: setSecondReminderTentative, declined: setSecondReminderDeclined, noResponse: setSecondReminderNoResponse })[k](v)}
+          />
+        </div>
+      )}
+
+      {currentStep === 'publish' && (
+        <div className="flex flex-col gap-[16px]">
+          <StepIntro title="Publish" text={isPublishedEvent ? 'This event is already on Discord. Saving with “Update Discord” refreshes the post.' : 'Publish now, schedule it, or save it as a draft.'} />
+
+          {/* Review */}
+          <div className="grid gap-x-5 gap-y-[12px] p-[14px] rounded-rr-lg border border-border bg-panel2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(150px, 1fr))' }}>
+            {[
+              { k: 'Event', v: title || '—' },
+              { k: 'Starts', v: startReadout || '—', sub: tzLabel },
+              { k: 'Duration', v: `${durationHours}h${durationMinutes ? ` ${durationMinutes}m` : ''}`, mono: true },
+              { k: 'Cycle', v: cycles.find(c => c.id === cycleId)?.name || 'Standalone' },
+              ...(activitiesEnabled ? [{ k: 'Activities', v: String(eventActivities.length), mono: true }] : []),
+              { k: 'Reminders', v: [firstReminderEnabled, secondReminderEnabled].filter(Boolean).length ? `${[firstReminderEnabled, secondReminderEnabled].filter(Boolean).length} on` : 'Off' },
+              { k: 'Images', v: String(imageCount), mono: true },
+            ].map((m: { k: string; v: string; sub?: string; mono?: boolean }) => (
+              <div key={m.k} className="min-w-0">
+                <div className="rr-label mb-[3px]">{m.k}</div>
+                <div className={`text-[13px] font-semibold text-text leading-[1.3] ${m.mono ? 'font-mono text-[12.5px]' : ''}`} style={{ overflowWrap: 'anywhere' }}>{m.v}</div>
+                {m.sub ? <div className="text-[11.5px] text-text2">{m.sub}</div> : null}
+              </div>
+            ))}
+          </div>
+
+          <DlgCard title="Initial notification" description="Discord roles to mention when the event is first published.">
+            <RolePicker
+              available={availableDiscordRoles}
+              selected={selectedNotificationRoles}
+              loading={loadingRoles}
+              pendingId={selectedRoleId}
+              onPendingChange={setSelectedRoleId}
+              onAdd={handleAddNotificationRole}
+              onRemove={handleRemoveNotificationRole}
+            />
+          </DlgCard>
+
+          <DlgCard
+            title="Schedule publication"
+            description={isPublishedEvent ? 'Already published, so scheduling isn’t available.' : 'Publish automatically at a set time instead of right away.'}
+            right={<Toggle checked={scheduledPublicationEnabled} onChange={(v) => !isPublishedEvent && setScheduledPublicationEnabled(v)} disabled={isPublishedEvent} />}
+          >
+            {scheduledPublicationEnabled ? (
+              <div className="grid gap-[14px] items-end" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))' }}>
+                <Field label="Publish at" hint={`In the event's time zone (${tzLabel}).`}>
+                  <input type="datetime-local" value={scheduledPublicationDatetime} onChange={handleScheduledPublicationDatetimeChange} className={`${controlClass} px-3 py-[7px] min-h-[36px]`} />
+                </Field>
+                <Field label="Or, before event start" hint="Both stay in sync.">
+                  <div className="flex items-center gap-[8px] flex-wrap">
+                    <NumberStepper value={scheduledPublicationOffset.value} min={1} max={999} onChange={(n) => handleScheduledPublicationOffsetChange('value', String(n))} width={44} />
+                    <SegmentedControl size="sm" value={scheduledPublicationOffset.unit} onChange={(u) => handleScheduledPublicationOffsetChange('unit', u)} options={UNIT_OPTIONS} />
+                  </div>
+                </Field>
+              </div>
+            ) : null}
+          </DlgCard>
+        </div>
+      )}
+    </>
   );
 
+  // Footer actions. Editing: save from any step. Creating: walk the steps, finish on the last one.
+  const publishLabel = initialData
+    ? (scheduledPublicationEnabled ? 'Save & Schedule' : isPublishedEvent ? 'Save & Update Discord' : 'Save & Publish')
+    : (scheduledPublicationEnabled ? 'Create & Schedule' : 'Create & Publish');
+  const showSave = Boolean(initialData) || isLastStep;
+
+  // Stay hidden until the step list (feature flag) and any deep-linked step are resolved, so the
+  // dialog opens on the right step instead of flashing Event Details first.
+  if (!dialogReady) return null;
+
   return (
-    <>
-      <div 
-        style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'var(--rr-overlay)',
-          animation: 'rrFadeIn .15s ease',
-          zIndex: 1000
-        }}
-        onClick={onCancel}
-      />
-      <div style={{
-        position: 'fixed',
-        top: '50%',
-        left: '50%',
-        transform: 'translate(-50%, -50%)',
-        width: 'min(700px, calc(100vw - 16px))',
-        height: 'min(1000px, calc(100dvh - 48px))',
-        backgroundColor: 'var(--rr-panel)',
-        boxShadow: 'var(--rr-shadow)',
-          border: '1px solid var(--rr-border2)',
-        borderRadius: '12px',
-        overflow: 'hidden',
-        zIndex: 1001,
-        display: 'flex',
-        flexDirection: 'column'
-      }}>
+    <DialogShell label={dialogTitle} onClose={onCancel} width="1040px" height="900px">
         {/* Header */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          padding: '16px 18px 16px 24px',
-          borderBottom: '1px solid var(--rr-border)',
-          flexShrink: 0
-        }}>
-          <h2 style={{
-            margin: 0,
-            fontSize: '16px',
-            fontWeight: 700,
-            color: 'var(--rr-text)'
-          }}>
-            {isTrainingEvent
-              ? (initialData ? 'Edit Training Event' : 'Create New Training Event')
-              : (initialData ? 'Edit Event' : 'Create New Event')}
-          </h2>
+        <div className="flex-none flex items-center gap-3 pl-[20px] pr-[14px] py-[14px] border-b border-border">
+          <div className="min-w-0 flex-1">
+            <div className="text-[16px] font-bold leading-[1.25] truncate">{dialogTitle}</div>
+            <div className="text-[12px] text-text2 truncate">
+              {initialData ? (title || 'Untitled event') : 'New event'}
+              {cycleId ? ` · ${cycles.find(c => c.id === cycleId)?.name || ''}` : ' · Standalone'}
+            </div>
+          </div>
+          {isPublishedEvent ? <Chip tone="good" size="sm">Published</Chip> : null}
           <CloseButton onClick={onCancel} />
         </div>
 
-        {/* Progress Bar */}
-        <ProgressBar />
-
-        {/* Step Content */}
-        <div style={{ 
-          flex: 1, 
-          overflowY: 'auto', 
-          padding: '8px 24px 24px 24px'
-        }}>
-          {currentStep === 'details' && (
-            <div>
-
-              <div style={{ marginBottom: '16px', display: 'flex', gap: '12px' }}>
-                <div style={{ flex: '0 0 60%' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--rr-text2)'
-                  }}>
-                    Event Title
-                  </label>
-                  <input
-                    type="text"
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      lineHeight: '19px'
-                    }}
-                    placeholder="Enter event title"
-                  />
-                </div>
-                <div style={{ flex: '0 0 calc(40% - 12px)' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--rr-text2)'
-                  }}>
-                    Cycle
-                  </label>
-                  <select
-                    value={cycleId || ''}
-                    onChange={(e) => setCycleId(e.target.value || undefined)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      backgroundColor: 'var(--rr-panel)',
-                      cursor: 'pointer'
-                    }}
+        <div className="flex-1 min-h-0 flex max-[760px]:flex-col">
+          {/* Step rail */}
+          <nav aria-label="Steps" className="flex-none w-[212px] border-r border-border bg-panel2 p-[10px] flex flex-col gap-[2px] overflow-y-auto max-[760px]:w-auto max-[760px]:flex-row max-[760px]:border-r-0 max-[760px]:border-b max-[760px]:overflow-x-auto">
+            {steps.map((step, index) => {
+              const isCompleted = completedSteps.has(step.key) && currentStep !== step.key;
+              const isCurrent = currentStep === step.key;
+              const isClickable = Boolean(initialData) || index <= currentStepIndex || completedSteps.has(step.key);
+              return (
+                <button
+                  key={step.key}
+                  type="button"
+                  onClick={() => isClickable && handleStepClick(step.key)}
+                  disabled={!isClickable}
+                  aria-current={isCurrent ? 'step' : undefined}
+                  className={`flex items-center gap-[10px] px-[10px] py-[9px] rounded-rr-md border-0 text-left transition-colors max-[760px]:flex-none ${isCurrent ? 'bg-panel shadow-rr' : isClickable ? 'bg-transparent hover:bg-panel cursor-pointer' : 'bg-transparent cursor-default opacity-55'}`}
+                  style={isCurrent ? { boxShadow: 'inset 2px 0 0 var(--rr-accent), var(--rr-shadow)' } : undefined}
+                >
+                  <span
+                    className="flex-none w-[24px] h-[24px] rounded-[8px] flex items-center justify-center font-mono text-[11.5px] font-semibold"
+                    style={isCurrent
+                      ? { background: 'var(--rr-accent)', color: '#fff' }
+                      : isCompleted
+                        ? { background: 'color-mix(in srgb, var(--rr-good) 18%, transparent)', color: 'var(--rr-good)' }
+                        : { background: 'var(--rr-panel3)', color: 'var(--rr-text2)' }}
                   >
-                    <option value="">Standalone</option>
-                    {cycles.map(cycle => (
-                      <option key={cycle.id} value={cycle.id}>
-                        {cycle.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+                    {isCompleted ? <Icon name="check" size={13} /> : index + 1}
+                  </span>
+                  <span className="min-w-0 flex flex-col max-[760px]:hidden">
+                    <span className={`text-[13px] leading-[1.25] ${isCurrent ? 'font-semibold text-text' : 'font-medium text-text'}`}>{step.title}</span>
+                    <span className="text-[11px] text-text3 leading-[1.3] truncate">{step.description}</span>
+                  </span>
+                  <span className="hidden max-[760px]:inline text-[12.5px] font-semibold whitespace-nowrap">{step.title}</span>
+                </button>
+              );
+            })}
+          </nav>
 
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  Start Date & Time
-                </label>
-                <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                  <input
-                    type="datetime-local"
-                    value={datetime}
-                    onChange={handleDatetimeChange}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      lineHeight: '19px'
-                    }}
-                  />
-                  <select
-                    value={timezone}
-                    onChange={(e) => setTimezone(e.target.value)}
-                    style={{
-                      width: '180px',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      backgroundColor: 'var(--rr-panel)'
-                    }}
-                  >
-                    <option value="America/New_York">Eastern Time</option>
-                    <option value="America/Chicago">Central Time</option>
-                    <option value="America/Denver">Mountain Time</option>
-                    <option value="America/Los_Angeles">Pacific Time</option>
-                    <option value="America/Anchorage">Alaska Time</option>
-                    <option value="Pacific/Honolulu">Hawaii Time</option>
-                    <option value="UTC">UTC</option>
-                    <option value="Europe/London">British Time</option>
-                    <option value="Europe/Berlin">Central European</option>
-                    <option value="Europe/Athens">Eastern European</option>
-                    <option value="Asia/Tokyo">Japan Time</option>
-                    <option value="Australia/Sydney">Australian Eastern</option>
-                  </select>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  Duration
-                </label>
-                <div style={{ display: 'flex', alignItems: 'center' }}>
-                  <Icon name="clock" size={16} color="#64748B" style={{ marginRight: '8px' }} />
-                  <input
-                    type="number"
-                    min="0"
-                    value={durationHours}
-                    onChange={handleDurationHoursChange}
-                    style={{
-                      width: '70px',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px 0 0 4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      textAlign: 'center'
-                    }}
-                  />
-                  <span style={{ padding: '0 6px', border: '1px solid var(--rr-border2)', borderLeft: 'none', borderRight: 'none', height: '35px', lineHeight: '35px', backgroundColor: 'var(--rr-panel2)' }}>h</span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="59"
-                    value={durationMinutes}
-                    onChange={handleDurationMinutesChange}
-                    style={{
-                      width: '70px',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '0 4px 4px 0',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      textAlign: 'center'
-                    }}
-                  />
-                  <span style={{ marginLeft: '6px', height: '35px', lineHeight: '35px' }}>min</span>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '8px',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)'
-                }}>
-                  Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    fontSize: '14px',
-                    minHeight: '120px',
-                    resize: 'vertical',
-                    boxSizing: 'border-box'
-                  }}
-                  placeholder="Enter event description"
-                />
-              </div>
-
-              {/* Image Upload Section */}
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{
-                  display: 'block',
-                  marginBottom: '12px',
-                  color: 'var(--rr-text2)',
-                  fontSize: '14px',
-                  fontWeight: '500'
-                }}>
-                  Event Images (Optional)
-                </label>
-                
-                <div style={{ 
-                  display: 'grid',
-                  gridTemplateColumns: '1fr 1fr',
-                  gap: '12px'
-                  }}>
-                    {[0, 1, 2, 3].map((index) => (
-                      <div
-                        key={index}
-                        onDragOver={(e) => handleDragOver(e, index)}
-                        onDragLeave={(e) => handleDragLeave(e, index)}
-                        onDrop={(e) => handleDrop(e, index)}
-                        onClick={() => document.getElementById(`image-upload-${index}`)?.click()}
-                        style={{
-                          border: `2px dashed ${dragOverStates[index] ? 'var(--rr-accent)' : 'var(--rr-border2)'}`,
-                          borderRadius: '6px',
-                          padding: imagePreviews[index] ? 0 : '12px',
-                          textAlign: 'center',
-                          cursor: 'pointer',
-                          backgroundColor: dragOverStates[index] ? 'var(--rr-accent-weak)' : 'var(--rr-panel2)',
-                          transition: 'all 0.2s ease',
-                          aspectRatio: '16 / 9',
-                          overflow: 'hidden',
-                          position: 'relative',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center'
-                        }}
-                      >
-                        {imagePreviews[index] ? (
-                          <div style={{ position: 'absolute', inset: 0 }}>
-                            <img
-                              src={imagePreviews[index]!}
-                              alt={`Image ${index + 1}`}
-                              style={{
-                                width: '100%',
-                                height: '100%',
-                                objectFit: 'cover',
-                                display: 'block'
-                              }}
-                            />
-                            <button
-                              onClick={(e) => {
-                                e.stopPropagation();
-                                removeImage(index);
-                              }}
-                              style={{
-                                position: 'absolute',
-                                top: '6px',
-                                right: '6px',
-                                background: 'rgba(0, 0, 0, 0.7)',
-                                border: 'none',
-                                borderRadius: '50%',
-                                width: '22px',
-                                height: '22px',
-                                color: '#fff',
-                                cursor: 'pointer',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center'
-                              }}
-                            >
-                              <Icon name="close" size={10} />
-                            </button>
-                          </div>
-                        ) : (
-                          <div>
-                            <Icon name="image" size={20} color="#94A3B8" style={{ margin: '0 auto 4px' }} />
-                            <p style={{ color: 'var(--rr-text3)', fontSize: '10px', margin: '0' }}>
-                              Drop image or click
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    ))}
-                    
-                    {[0, 1, 2, 3].map((index) => (
-                      <input
-                        key={index}
-                        id={`image-upload-${index}`}
-                        type="file"
-                        accept="image/*"
-                        onChange={(e) => handleFileInputChange(e, index)}
-                        style={{ display: 'none' }}
-                      />
-                    ))}
-                  </div>
-              </div>
+          {/* Step content */}
+          <div className="flex-1 min-w-0 min-h-0 overflow-y-auto">
+            <div className="max-w-[760px] mx-auto px-[24px] py-[20px] max-[760px]:px-[14px]">
+              {error ? <div className="mb-[14px]"><Toast tone="bad" onDismiss={() => setError('')}>{error}</Toast></div> : null}
+              {stepContent}
             </div>
-          )}
-
-          {currentStep === 'training' && activitiesEnabled && (
-            <div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  marginBottom: '8px',
-                  display: 'block'
-                }}>
-                  Activities
-                </label>
-                <EventActivitiesEditor
-                  activities={eventActivities}
-                  onChange={setEventActivities}
-                  syllabusMissions={syllabusMissions}
-                  squadrons={squadrons || []}
-                />
-              </div>
-            </div>
-          )}
-
-          {currentStep === 'training' && !activitiesEnabled && (
-            <div>
-              {/* Syllabus Mission Selector */}
-              {syllabusMissions.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--rr-text2)'
-                  }}>
-                    Syllabus Mission (Optional)
-                  </label>
-                  <select
-                    value={selectedMissionId}
-                    onChange={(e) => setSelectedMissionId(e.target.value)}
-                    style={{
-                      width: '100%',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      boxSizing: 'border-box',
-                      height: '35px',
-                      appearance: 'menulist'
-                    }}
-                  >
-                    <option value="">No mission</option>
-                    {syllabusMissions.map(mission => (
-                      <option key={mission.id} value={mission.id}>
-                        Mission {mission.mission_number}: {mission.mission_name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
-
-              {/* Training Objectives */}
-              {selectedMissionId && trainingObjectives.length > 0 && (
-                <div style={{ marginBottom: '20px' }}>
-                  <label style={{
-                    display: 'block',
-                    marginBottom: '8px',
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--rr-text2)'
-                  }}>
-                    Training Objectives (DLOs)
-                  </label>
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '4px' }}>
-                    {trainingObjectives.map((objective) => (
-                      <div
-                        key={objective.id}
-                        style={{ display: 'flex', alignItems: 'flex-start', gap: '6px' }}
-                      >
-                        <Icon name="checkCircle"
-                          size={13}
-                          style={{ color: 'var(--rr-text3)', flexShrink: 0, marginTop: '3px' }}
-                        />
-                        <p style={{ fontSize: '13px', color: 'var(--rr-text)', lineHeight: 1.5, margin: 0 }}>
-                          {objective.objective_text}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Reference Materials Section */}
-              <ReferenceMaterialsInput
-                value={referenceMaterials}
-                onChange={setReferenceMaterials}
-                inheritedMaterials={inheritedReferences}
-              />
-            </div>
-          )}
-
-          {/* Mission step only exists when the Activities flag is off (support
-              roles are per-activity and AAR moves to Options when it's on) */}
-          {currentStep === 'mission' && (
-            <div>
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  marginBottom: '4px',
-                  display: 'block'
-                }}>
-                  Mission Support roles
-                </label>
-                <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0 0 8px 0', fontFamily: 'inherit' }}>
-                  Supporting roles needed for this event. Each selected role is shown in the Discord post as
-                  Available/Required (e.g. JTAC (1/3)); set required to 0 to list a role without requiring it.
-                  Roles appear in this order.
-                </p>
-                <SupportRoleRequirementsEditor
-                  requirements={supportRoleRequirements}
-                  onChange={setSupportRoleRequirements}
-                />
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div style={{ flex: 1, marginRight: '16px' }}>
-                    <label style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      marginBottom: '4px',
-                      display: 'block'
-                    }}>
-                      After Action Reports required for Operational (non-Training) squadrons only
-                    </label>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
-                      When enabled, only flights from operational squadrons will appear in the AAR section on the Mission Debriefing page.
-                    </p>
-                  </div>
-                  <div style={{ flexShrink: 0 }}>
-                    <div
-                      onClick={() => setAarOperationalOnly(!aarOperationalOnly)}
-                      style={{
-                        width: '44px',
-                        height: '24px',
-                        backgroundColor: aarOperationalOnly ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                        borderRadius: '12px',
-                        position: 'relative',
-                        cursor: 'pointer',
-                        transition: 'background-color 0.2s ease'
-                      }}
-                    >
-                      <div
-                        style={{
-                          width: '20px',
-                          height: '20px',
-                          backgroundColor: 'var(--rr-panel)',
-                          borderRadius: '50%',
-                          position: 'absolute',
-                          top: '2px',
-                          left: aarOperationalOnly ? '22px' : '2px',
-                          transition: 'left 0.2s ease',
-                          boxShadow: 'var(--rr-shadow)'
-                        }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {currentStep === 'participants' && (
-            <div>
-              {/* With Event Activities on, participating squadrons are derived
-                  from each activity's Participants criteria on save */}
-              {!activitiesEnabled && (
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  marginBottom: '8px'
-                }}>
-                  <label style={{
-                    fontSize: '14px',
-                    fontWeight: 500,
-                    color: 'var(--rr-text2)'
-                  }}>
-                    Participating Squadrons
-                  </label>
-                  <div style={{ display: 'flex', gap: '6px' }}>
-                    <button 
-                      type="button"
-                      onClick={() => setParticipatingSquadrons(squadrons.map(s => s.id))}
-                      style={{
-                        padding: '2px 6px',
-                        backgroundColor: 'var(--rr-accent-weak)',
-                        border: '1px solid var(--rr-accent)',
-                        borderRadius: '3px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        color: 'var(--rr-accent-text)'
-                      }}
-                    >
-                      All
-                    </button>
-                    <button 
-                      type="button"
-                      onClick={() => setParticipatingSquadrons([])}
-                      style={{
-                        padding: '2px 6px',
-                        backgroundColor: 'rgba(224,82,78,.12)',
-                        border: '1px solid var(--rr-bad)',
-                        borderRadius: '3px',
-                        fontSize: '10px',
-                        cursor: 'pointer',
-                        fontFamily: 'inherit',
-                        color: 'var(--rr-bad)'
-                      }}
-                    >
-                      None
-                    </button>
-                    {selectedCycle?.participants && (
-                      <button 
-                        type="button"
-                        onClick={() => setParticipatingSquadrons(selectedCycle.participants || [])}
-                        style={{
-                          padding: '2px 6px',
-                          backgroundColor: 'rgba(64,168,91,.14)',
-                          border: '1px solid var(--rr-good)',
-                          borderRadius: '3px',
-                          fontSize: '10px',
-                          cursor: 'pointer',
-                          fontFamily: 'inherit',
-                          color: 'var(--rr-good)'
-                        }}
-                      >
-                        Reset to Cycle
-                      </button>
-                    )}
-                  </div>
-                </div>
-                <div style={{
-                  maxHeight: '200px',
-                  overflowY: 'auto',
-                  border: '1px solid var(--rr-border)',
-                  borderRadius: '4px',
-                  padding: '4px',
-                  backgroundColor: 'var(--rr-panel2)'
-                }}>
-                  {squadrons.map(squadron => {
-                    const isSelected = participants.includes(squadron.id);
-                    return (
-                      <div
-                        key={squadron.id}
-                        onClick={() => {
-                          if (isSelected) {
-                            setParticipatingSquadrons(prev => prev.filter(id => id !== squadron.id));
-                          } else {
-                            setParticipatingSquadrons(prev => [...prev, squadron.id]);
-                          }
-                        }}
-                        style={{
-                          padding: '6px 8px',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '8px',
-                          backgroundColor: isSelected ? 'var(--rr-accent-weak)' : 'transparent',
-                          borderRadius: '3px',
-                          transition: 'background-color 0.2s',
-                          marginBottom: '2px'
-                        }}
-                        onMouseEnter={e => {
-                          if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = 'var(--rr-panel2)';
-                          }
-                        }}
-                        onMouseLeave={e => {
-                          if (!isSelected) {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }
-                        }}
-                      >
-                        <div style={{
-                          width: '14px',
-                          height: '14px',
-                          border: '1px solid var(--rr-border2)',
-                          borderRadius: '3px',
-                          backgroundColor: isSelected ? 'var(--rr-accent)' : 'var(--rr-panel)',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          flexShrink: 0
-                        }}>
-                          {isSelected && (
-                            <svg width="8" height="8" viewBox="0 0 8 8" fill="none">
-                              <path d="M1 4L3 6L7 2" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-                            </svg>
-                          )}
-                        </div>
-                        
-                        {squadron.insignia_url ? (
-                          <div style={{
-                            width: '20px',
-                            height: '20px',
-                            backgroundImage: `url(${squadron.insignia_url})`,
-                            backgroundSize: 'contain',
-                            backgroundRepeat: 'no-repeat',
-                            backgroundPosition: 'center',
-                            flexShrink: 0
-                          }} />
-                        ) : (
-                          <div style={{
-                            width: '20px',
-                            height: '20px',
-                            backgroundColor: 'var(--rr-panel3)',
-                            borderRadius: '3px',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            flexShrink: 0
-                          }}>
-                            <span style={{ fontSize: '10px', color: 'var(--rr-text2)' }}>?</span>
-                          </div>
-                        )}
-                        
-                        <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, flex: 1 }}>
-                          <span style={{ fontSize: '12px', fontWeight: 500, fontFamily: 'inherit' }}>
-                            {squadron.designation}
-                          </span>
-                          <span style={{ fontSize: '10px', color: 'var(--rr-text2)', fontFamily: 'inherit' }}>
-                            {squadron.name}
-                          </span>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                <div style={{
-                  fontSize: '12px',
-                  color: 'var(--rr-text2)',
-                  marginTop: '4px'
-                }}>
-                  {participants.length === 0 ?
-                    'No squadrons selected. Event will inherit from cycle.' :
-                    `${participants.length} squadron${participants.length !== 1 ? 's' : ''} selected.`
-                  }
-                </div>
-              </div>
-              )}
-
-              <div style={{ marginBottom: '16px', marginTop: '24px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <label style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      marginBottom: '4px',
-                      display: 'block'
-                    }}>
-                      Group responses by qualification in Discord
-                    </label>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
-                      When enabled, Discord event responses will be organized by pilot qualifications.
-                    </p>
-                  </div>
-                  <div
-                    onClick={() => setTrackQualifications(!trackQualifications)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: trackQualifications ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      marginLeft: '16px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: trackQualifications ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <label style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      marginBottom: '4px',
-                      display: 'block'
-                    }}>
-                      Group by squadron in Discord
-                    </label>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
-                      When enabled, Discord event attendance will be divided by squadron.
-                    </p>
-                  </div>
-                  <div
-                    onClick={() => setGroupBySquadron(!groupBySquadron)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: groupBySquadron ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      marginLeft: '16px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: groupBySquadron ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <label style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      marginBottom: '4px',
-                      display: 'block'
-                    }}>
-                      Show "No Response" users in Discord
-                    </label>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
-                      When enabled, active users who haven't responded will be displayed in the event post.
-                    </p>
-                  </div>
-                  <div
-                    onClick={() => setShowNoResponse(!showNoResponse)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: showNoResponse ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      marginLeft: '16px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: showNoResponse ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              <div style={{ marginBottom: '16px' }}>
-                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <div>
-                    <label style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text2)',
-                      marginBottom: '4px',
-                      display: 'block'
-                    }}>
-                      Allow users to respond tentatively to event
-                    </label>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
-                      When enabled, users can select "Tentative" in addition to "Accept" or "Decline".
-                    </p>
-                  </div>
-                  <div
-                    onClick={() => setAllowTentativeResponse(!allowTentativeResponse)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: allowTentativeResponse ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      marginLeft: '16px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: allowTentativeResponse ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Include in Attendance Report - only show for cycle events */}
-              {cycleId && (
-                <div style={{ marginBottom: '16px' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                    <div style={{ flex: 1, marginRight: '16px' }}>
-                      <label style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        color: 'var(--rr-text2)',
-                        marginBottom: '4px',
-                        display: 'block'
-                      }}>
-                        Include in Cycle Attendance Report
-                      </label>
-                      <p style={{ fontSize: '12px', color: 'var(--rr-text2)', margin: '0', fontFamily: 'inherit' }}>
-                        When disabled, this event will be excluded from attendance statistics on the Reports page.
-                      </p>
-                    </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <div
-                        onClick={() => setIncludeInAttendanceReport(!includeInAttendanceReport)}
-                        style={{
-                          width: '44px',
-                          height: '24px',
-                          backgroundColor: includeInAttendanceReport ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                          borderRadius: '12px',
-                          position: 'relative',
-                          cursor: 'pointer',
-                          transition: 'background-color 0.2s ease'
-                        }}
-                      >
-                        <div
-                          style={{
-                            width: '20px',
-                            height: '20px',
-                            backgroundColor: 'var(--rr-panel)',
-                            borderRadius: '50%',
-                            position: 'absolute',
-                            top: '2px',
-                            left: includeInAttendanceReport ? '22px' : '2px',
-                            transition: 'left 0.2s ease',
-                            boxShadow: 'var(--rr-shadow)'
-                          }}
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
-
-          {currentStep === 'reminders' && (
-            <div>
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>First Reminder</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="999"
-                    value={firstReminderValue}
-                    onChange={(e) => setFirstReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{
-                      width: '80px',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'center'
-                    }}
-                  />
-                  <select
-                    value={firstReminderUnit}
-                    onChange={(e) => setFirstReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-                    style={{
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="minutes">minutes</option>
-                    <option value="hours">hours</option>
-                    <option value="days">days</option>
-                  </select>
-                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)', flex: 1 }}>before event start</span>
-                  <div
-                    onClick={() => setFirstReminderEnabled(!firstReminderEnabled)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: firstReminderEnabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      marginLeft: '16px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: firstReminderEnabled ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-                {firstReminderEnabled && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--rr-border)' }}>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '8px', fontWeight: 500 }}>
-                      Send to users with status:
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={firstReminderAccepted}
-                          onChange={(e) => setFirstReminderAccepted(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>Accepted</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={firstReminderTentative}
-                          onChange={(e) => setFirstReminderTentative(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>Tentative</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={firstReminderDeclined}
-                          onChange={(e) => setFirstReminderDeclined(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>Declined</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={firstReminderNoResponse}
-                          onChange={(e) => setFirstReminderNoResponse(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>No Response</span>
-                      </label>
-                    </div>
-                    <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '8px', fontStyle: 'italic' }}>
-                      Only active users will be notified
-                    </p>
-                  </div>
-                )}
-              </div>
-              
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Second Reminder</span>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
-                  <input
-                    type="number"
-                    min="1"
-                    max="999"
-                    value={secondReminderValue}
-                    onChange={(e) => setSecondReminderValue(Math.max(1, parseInt(e.target.value) || 1))}
-                    style={{
-                      width: '80px',
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      textAlign: 'center'
-                    }}
-                  />
-                  <select
-                    value={secondReminderUnit}
-                    onChange={(e) => setSecondReminderUnit(e.target.value as 'minutes' | 'hours' | 'days')}
-                    style={{
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px'
-                    }}
-                  >
-                    <option value="minutes">minutes</option>
-                    <option value="hours">hours</option>
-                    <option value="days">days</option>
-                  </select>
-                  <span style={{ fontSize: '14px', color: 'var(--rr-text2)', flex: 1 }}>before event start</span>
-                  <div
-                    onClick={() => setSecondReminderEnabled(!secondReminderEnabled)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: secondReminderEnabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: 'pointer',
-                      transition: 'background-color 0.2s ease',
-                      marginLeft: '16px'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: secondReminderEnabled ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-                {secondReminderEnabled && (
-                  <div style={{ marginTop: '12px', paddingTop: '12px', borderTop: '1px solid var(--rr-border)' }}>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginBottom: '8px', fontWeight: 500 }}>
-                      Send to users with status:
-                    </p>
-                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '12px' }}>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={secondReminderAccepted}
-                          onChange={(e) => setSecondReminderAccepted(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>Accepted</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={secondReminderTentative}
-                          onChange={(e) => setSecondReminderTentative(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>Tentative</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={secondReminderDeclined}
-                          onChange={(e) => setSecondReminderDeclined(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>Declined</span>
-                      </label>
-                      <label style={{ display: 'flex', alignItems: 'center', fontSize: '14px' }}>
-                        <input
-                          type="checkbox"
-                          checked={secondReminderNoResponse}
-                          onChange={(e) => setSecondReminderNoResponse(e.target.checked)}
-                          style={{ marginRight: '6px' }}
-                        />
-                        <span style={{ color: 'var(--rr-text2)' }}>No Response</span>
-                      </label>
-                    </div>
-                    <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '8px', fontStyle: 'italic' }}>
-                      Only active users will be notified
-                    </p>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {currentStep === 'publish' && (
-            <div>
-              {/* Initial Notification Roles - Moved from Reminders step */}
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
-                <div style={{ marginBottom: '12px' }}>
-                  <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Initial Notification</span>
-                  <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px', fontStyle: 'italic' }}>
-                    Mention Discord roles when the event is first published
-                  </p>
-                </div>
-
-                <div style={{ display: 'flex', gap: '8px', marginBottom: selectedNotificationRoles.length > 0 ? '12px' : '0' }}>
-                  <select
-                    value={selectedRoleId}
-                    onChange={(e) => setSelectedRoleId(e.target.value)}
-                    disabled={loadingRoles || availableDiscordRoles.length === 0}
-                    style={{
-                      flex: 1,
-                      padding: '8px',
-                      border: '1px solid var(--rr-border2)',
-                      borderRadius: '4px',
-                      fontSize: '14px',
-                      backgroundColor: loadingRoles ? 'var(--rr-panel2)' : 'var(--rr-panel)',
-                      cursor: loadingRoles ? 'not-allowed' : 'pointer'
-                    }}
-                  >
-                    <option value="">
-                      {loadingRoles ? 'Loading roles...' : availableDiscordRoles.length === 0 ? 'No mentionable roles available' : 'Select a Discord role'}
-                    </option>
-                    {availableDiscordRoles.map((role) => (
-                      <option key={role.id} value={role.id}>
-                        {role.name}
-                      </option>
-                    ))}
-                  </select>
-                  <button
-                    type="button"
-                    onClick={handleAddNotificationRole}
-                    disabled={!selectedRoleId || loadingRoles}
-                    style={{
-                      padding: '8px 16px',
-                      backgroundColor: !selectedRoleId || loadingRoles ? 'var(--rr-panel3)' : 'var(--rr-accent)',
-                      color: !selectedRoleId || loadingRoles ? 'var(--rr-text3)' : '#FFFFFF',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: !selectedRoleId || loadingRoles ? 'not-allowed' : 'pointer',
-                      fontSize: '14px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: '4px'
-                    }}
-                  >
-                    <Icon name="plus" size={16} />
-                    Add
-                  </button>
-                </div>
-
-                {selectedNotificationRoles.length > 0 ? (
-                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
-                    {selectedNotificationRoles.map((role) => (
-                      <div
-                        key={role.id}
-                        style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '6px',
-                          padding: '4px 8px 4px 10px',
-                          borderRadius: '8px',
-                          fontSize: '12px',
-                          fontWeight: '500',
-                          height: '26px',
-                          boxSizing: 'border-box',
-                          whiteSpace: 'nowrap',
-                          backgroundColor: 'var(--rr-accent-weak)',
-                          color: 'var(--rr-accent-text)',
-                          border: '1px solid var(--rr-accent)'
-                        }}
-                      >
-                        <span>@{role.name}</span>
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveNotificationRole(role.id)}
-                          style={{
-                            padding: '0',
-                            width: '14px',
-                            height: '14px',
-                            backgroundColor: 'transparent',
-                            border: 'none',
-                            cursor: 'pointer',
-                            color: 'var(--rr-accent-text)',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            borderRadius: '50%',
-                            transition: 'background-color 0.2s'
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.backgroundColor = 'rgba(29, 78, 216, 0.1)';
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.backgroundColor = 'transparent';
-                          }}
-                          title="Remove role"
-                        >
-                          <Icon name="close" size={12} strokeWidth={2.5} />
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                ) : null}
-              </div>
-
-              {/* Scheduled Publication - NEW */}
-              <div style={{ marginBottom: '24px', padding: '16px', border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel2)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                  <div>
-                    <span style={{ fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>Schedule Publication</span>
-                    <p style={{ fontSize: '12px', color: 'var(--rr-text2)', marginTop: '4px', fontStyle: 'italic' }}>
-                      {initialData?.isPublished
-                        ? 'Event is already published. Scheduled publication is not available.'
-                        : 'Automatically publish this event at a specific time'}
-                    </p>
-                  </div>
-                  <div
-                    onClick={() => !initialData?.isPublished && setScheduledPublicationEnabled(!scheduledPublicationEnabled)}
-                    style={{
-                      width: '44px',
-                      height: '24px',
-                      backgroundColor: scheduledPublicationEnabled ? 'var(--rr-accent)' : 'var(--rr-panel3)',
-                      borderRadius: '12px',
-                      position: 'relative',
-                      cursor: initialData?.isPublished ? 'not-allowed' : 'pointer',
-                      opacity: initialData?.isPublished ? 0.5 : 1,
-                      transition: 'background-color 0.2s ease'
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: '20px',
-                        height: '20px',
-                        backgroundColor: 'var(--rr-panel)',
-                        borderRadius: '50%',
-                        position: 'absolute',
-                        top: '2px',
-                        left: scheduledPublicationEnabled ? '22px' : '2px',
-                        transition: 'left 0.2s ease',
-                        boxShadow: 'var(--rr-shadow)'
-                      }}
-                    />
-                  </div>
-                </div>
-
-                {scheduledPublicationEnabled && (
-                  <div>
-                    <div style={{ marginBottom: '16px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '6px' }}>
-                        Publication Date & Time
-                      </label>
-                      <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                        <input
-                          type="datetime-local"
-                          value={scheduledPublicationDatetime}
-                          onChange={handleScheduledPublicationDatetimeChange}
-                          style={{
-                            flex: 1,
-                            padding: '8px',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            fontSize: '14px',
-                            backgroundColor: 'var(--rr-panel)'
-                          }}
-                        />
-                        <select
-                          value={timezone}
-                          disabled
-                          style={{
-                            padding: '8px',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            fontSize: '14px',
-                            backgroundColor: 'var(--rr-panel2)',
-                            color: 'var(--rr-text3)',
-                            cursor: 'not-allowed'
-                          }}
-                        >
-                          <option value={timezone}>{timezone.replace('_', ' ')}</option>
-                        </select>
-                      </div>
-                      <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '4px', fontStyle: 'italic' }}>
-                        Uses event timezone: {timezone}
-                      </p>
-                    </div>
-
-                    <div style={{ marginBottom: '8px' }}>
-                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '6px' }}>
-                        Or, specify as offset from event start
-                      </label>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                        <input
-                          type="number"
-                          min="1"
-                          max="999"
-                          value={scheduledPublicationOffset.value}
-                          onChange={(e) => handleScheduledPublicationOffsetChange('value', e.target.value)}
-                          style={{
-                            width: '80px',
-                            padding: '8px',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            fontSize: '14px',
-                            textAlign: 'center',
-                            backgroundColor: 'var(--rr-panel)'
-                          }}
-                        />
-                        <select
-                          value={scheduledPublicationOffset.unit}
-                          onChange={(e) => handleScheduledPublicationOffsetChange('unit', e.target.value)}
-                          style={{
-                            padding: '8px',
-                            border: '1px solid var(--rr-border2)',
-                            borderRadius: '4px',
-                            fontSize: '14px',
-                            backgroundColor: 'var(--rr-panel)'
-                          }}
-                        >
-                          <option value="minutes">minutes</option>
-                          <option value="hours">hours</option>
-                          <option value="days">days</option>
-                        </select>
-                        <span style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>before event start</span>
-                      </div>
-                      <p style={{ fontSize: '11px', color: 'var(--rr-text3)', marginTop: '4px', fontStyle: 'italic' }}>
-                        Both inputs stay synchronized automatically
-                      </p>
-                    </div>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
-
-          {error && (
-            <div style={{
-              color: 'var(--rr-bad)',
-              fontSize: '14px',
-              marginTop: '16px',
-              padding: '12px',
-              backgroundColor: 'rgba(224,82,78,.12)',
-              border: '1px solid var(--rr-bad)',
-              borderRadius: '6px'
-            }}>
-              {error}
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Footer with navigation */}
-        <div style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          borderTop: '1px solid var(--rr-border)',
-          padding: '12px 24px',
-          flexShrink: 0
-        }}>
-          <button
-            type="button"
-            onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '4px',
-              backgroundColor: 'var(--rr-panel)',
-              color: 'var(--rr-text2)',
-              cursor: 'pointer',
-              fontSize: '14px'
-            }}
-          >
-            Cancel
-          </button>
-          
-          <div style={{ display: 'flex', gap: '12px' }}>
-            {!isFirstStep && (
-              <button
-                type="button"
-                onClick={handlePreviousStep}
-                style={{
-                  padding: '8px 16px',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--rr-panel)',
-                  color: 'var(--rr-text2)',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                <Icon name="chevronLeft" size={16} />
-                Previous
-              </button>
-            )}
-            
-            {!isLastStep ? (
-              <button
-                type="button"
-                onClick={handleNextStep}
-                style={{
-                  padding: '8px 16px',
-                  border: 'none',
-                  borderRadius: '4px',
-                  backgroundColor: 'var(--rr-accent)',
-                  color: 'white',
-                  cursor: 'pointer',
-                  fontSize: '14px',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '8px'
-                }}
-              >
-                Next
-                <Icon name="chevronRight" size={16} />
-              </button>
-            ) : (
-              <div style={{ display: 'flex', gap: '8px' }}>
-                <button
-                  type="button"
-                  onClick={() => handleSubmit(false)}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '8px 16px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '4px',
-                    backgroundColor: 'var(--rr-panel)',
-                    color: 'var(--rr-text2)',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    opacity: isSubmitting ? 0.6 : 1
-                  }}
-                >
-                  {isSubmitting ? 'Creating...' : (initialData ? 'Update' : 'Create')}
-                </button>
-                
-                <button
-                  type="button"
-                  onClick={() => handleSubmit(!scheduledPublicationEnabled)}
-                  disabled={isSubmitting}
-                  style={{
-                    padding: '8px 16px',
-                    border: 'none',
-                    borderRadius: '4px',
-                    backgroundColor: 'var(--rr-good)',
-                    color: 'white',
-                    cursor: isSubmitting ? 'not-allowed' : 'pointer',
-                    fontSize: '14px',
-                    opacity: isSubmitting ? 0.6 : 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '8px'
-                  }}
-                >
-                  {isSubmitting && (
-                    <div style={{
-                      width: '16px',
-                      height: '16px',
-                      border: '2px solid #ffffff40',
-                      borderTopColor: 'var(--rr-panel)',
-                      borderRadius: '50%',
-                      animation: 'spin 1s linear infinite'
-                    }} />
-                  )}
-                  {isSubmitting
-                    ? (initialData ? (scheduledPublicationEnabled ? 'Scheduling...' : 'Publishing...') : 'Creating...')
-                    : (initialData
-                        ? (scheduledPublicationEnabled ? 'Update and Publish Per Schedule' : 'Update & Publish')
-                        : (scheduledPublicationEnabled ? 'Create and Publish Per Schedule' : 'Create & Publish')
-                      )
-                  }
-                </button>
-              </div>
-            )}
+        {/* Footer */}
+        <div className="flex-none flex items-center gap-[10px] px-[18px] py-[12px] border-t border-border flex-wrap">
+          <Button variant="ghost" onClick={onCancel}>Cancel</Button>
+          <span className="flex-1" />
+          {!isFirstStep ? <Button variant="secondary" icon="chevronLeft" onClick={handlePreviousStep}>Back</Button> : null}
+          {!isLastStep ? (
+            <Button variant={initialData ? 'secondary' : 'primary'} iconRight="chevronRight" onClick={handleNextStep}>Next</Button>
+          ) : null}
+          {showSave ? (
+            <>
+              <span className="w-px h-[22px] bg-border mx-[2px]" />
+              <Button variant="secondary" onClick={() => handleSubmit(false)} disabled={isSubmitting}>
+                {initialData ? 'Save' : 'Create draft'}
+              </Button>
+              <Button variant="primary" icon={scheduledPublicationEnabled ? 'clock' : 'send'} onClick={() => handleSubmit(!scheduledPublicationEnabled)} loading={isSubmitting} disabled={isSubmitting}>
+                {isSubmitting ? (scheduledPublicationEnabled ? 'Scheduling…' : 'Saving…') : publishLabel}
+              </Button>
+            </>
+          ) : null}
+        </div>
+    </DialogShell>
+  );
+};
+
+/* ------------------------------------------------------------------ */
+/* Dialog building blocks                                              */
+/* ------------------------------------------------------------------ */
+
+const TZ_OPTIONS: Array<{ value: string; label: string }> = [
+  { value: 'America/New_York', label: 'Eastern Time' },
+  { value: 'America/Chicago', label: 'Central Time' },
+  { value: 'America/Denver', label: 'Mountain Time' },
+  { value: 'America/Los_Angeles', label: 'Pacific Time' },
+  { value: 'America/Anchorage', label: 'Alaska Time' },
+  { value: 'Pacific/Honolulu', label: 'Hawaii Time' },
+  { value: 'UTC', label: 'UTC' },
+  { value: 'Europe/London', label: 'British Time' },
+  { value: 'Europe/Berlin', label: 'Central European' },
+  { value: 'Europe/Athens', label: 'Eastern European' },
+  { value: 'Asia/Tokyo', label: 'Japan Time' },
+  { value: 'Australia/Sydney', label: 'Australian Eastern' },
+];
+
+type RecipientKey = 'accepted' | 'tentative' | 'declined' | 'noResponse';
+const RECIPIENTS: Array<{ key: RecipientKey; label: string; color: string }> = [
+  { key: 'accepted', label: 'Accepted', color: 'var(--rr-good)' },
+  { key: 'tentative', label: 'Tentative', color: 'var(--rr-warn)' },
+  { key: 'declined', label: 'Declined', color: 'var(--rr-bad)' },
+  { key: 'noResponse', label: 'No response', color: 'var(--rr-text3)' },
+];
+
+const ReminderCard: React.FC<{
+  title: string;
+  enabled: boolean;
+  onEnabled: (v: boolean) => void;
+  value: number;
+  onValue: (v: number) => void;
+  unit: ReminderUnit;
+  onUnit: (u: ReminderUnit) => void;
+  recipients: Record<RecipientKey, boolean>;
+  onRecipient: (k: RecipientKey, v: boolean) => void;
+}> = ({ title, enabled, onEnabled, value, onValue, unit, onUnit, recipients, onRecipient }) => {
+  const unitLabel = unitWord(value, unit);
+  const chosen = RECIPIENTS.filter(r => recipients[r.key]);
+  return (
+    <section className={`rounded-rr-lg border bg-panel overflow-hidden transition-colors ${enabled ? 'border-border2' : 'border-border'}`}>
+      <div className="flex items-center gap-3 px-[14px] py-[12px] cursor-pointer" onClick={(e) => { if (!(e.target as HTMLElement).closest('button')) onEnabled(!enabled); }}>
+        <Toggle checked={enabled} onChange={onEnabled} />
+        <div className="flex-1 min-w-0">
+          <div className={`text-[13.5px] font-semibold ${enabled ? 'text-text' : 'text-text2'}`}>{title}</div>
+          <div className="text-[12px] text-text2">
+            {enabled
+              ? <>{value} {unitLabel} before start{chosen.length ? <> &middot; {chosen.map(c => c.label).join(', ')}</> : <span className="text-warn"> &middot; no recipients selected</span>}</>
+              : 'Off'}
           </div>
         </div>
       </div>
-    </>
+      {enabled ? (
+        <div className="border-t border-border px-[14px] py-[12px] flex flex-col gap-[12px] bg-panel2">
+          <div className="flex items-center gap-[10px] flex-wrap">
+            <span className="rr-label w-[78px]">Send</span>
+            <NumberStepper value={value} min={1} max={999} onChange={onValue} width={44} />
+            <SegmentedControl size="sm" value={unit} onChange={onUnit} options={UNIT_OPTIONS} />
+            <span className="text-[12.5px] text-text2">before event start</span>
+          </div>
+          <div className="flex items-center gap-[10px] flex-wrap">
+            <span className="rr-label w-[78px]">Recipients</span>
+            <div className="flex flex-wrap gap-[6px]">
+              {RECIPIENTS.map(r => {
+                const on = recipients[r.key];
+                return (
+                  <button
+                    key={r.key}
+                    type="button"
+                    aria-pressed={on}
+                    onClick={() => onRecipient(r.key, !on)}
+                    className={`inline-flex items-center gap-[6px] h-[28px] px-[10px] rounded-rr-ctl border text-[12.5px] font-semibold cursor-pointer transition-colors ${on ? 'text-text' : 'text-text3 border-border2 bg-transparent hover:border-accent hover:text-text2'}`}
+                    style={on ? { background: `color-mix(in srgb, ${r.color} 16%, transparent)`, borderColor: `color-mix(in srgb, ${r.color} 55%, transparent)` } : undefined}
+                  >
+                    <span className="w-[7px] h-[7px] rounded-full" style={on ? { background: r.color } : { boxShadow: `inset 0 0 0 1.5px ${r.color}` }} />
+                    {r.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </div>
+      ) : null}
+    </section>
   );
 };
 
