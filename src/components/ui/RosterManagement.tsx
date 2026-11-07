@@ -3,6 +3,7 @@ import { UNASSIGN_SQUADRON } from './roster/SquadronSelector';
 import { usePageLoading } from '../../context/PageLoadingContext';
 import { usePermissions } from '../../hooks/usePermissions';
 import StandardPageLoader from './StandardPageLoader';
+import { Button, Dialog, Toast } from './primitives';
 import type { Pilot } from '../../utils/pilotTypes';
 import {
   getAllPilots,
@@ -2989,156 +2990,64 @@ const RosterManagement: React.FC = () => {
         onComplete={handleDiscordSyncComplete}
       />
       
-      {/* Squadron conflict warning dialog */}
-      {squadronConflictWarning.show && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--rr-panel)',
-              padding: '24px',
-              borderRadius: '8px',
-              width: '500px',
-              textAlign: 'center',
-            }}
-          >
-            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
-              Role Conflict Detected
-            </h2>
-            <p style={{ marginBottom: '16px', color: 'var(--rr-text)', lineHeight: '1.5' }}>
-              The pilot <strong>{squadronConflictWarning.conflictingPilot}</strong> already has the{' '}
-              <strong>{squadronConflictWarning.conflictingRole}</strong> role in the target squadron.
-            </p>
-            <p style={{ marginBottom: '24px', color: 'var(--rr-text2)', fontSize: '14px' }}>
-              How would you like to proceed?
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'space-between', gap: '8px' }}>
-              <button
-                onClick={() => {
-                  squadronConflictWarning.onCancel?.();
-                  setSquadronConflictWarning({ show: false, pilotData: null });
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--rr-border2)',
-                  backgroundColor: 'var(--rr-panel2)',
-                  color: 'var(--rr-text)',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 500
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={() => {
-                  squadronConflictWarning.onAcceptDuplicate?.();
-                  setSquadronConflictWarning({ show: false, pilotData: null });
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--rr-accent)',
-                  backgroundColor: 'var(--rr-accent)',
-                  color: '#FFFFFF',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 500
-                }}
-              >
-                Accept Duplicate Roles
-              </button>
-              <button
-                onClick={() => {
-                  squadronConflictWarning.onReplaceIncumbent?.();
-                  setSquadronConflictWarning({ show: false, pilotData: null });
-                }}
-                style={{
-                  flex: 1,
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--rr-bad)',
-                  backgroundColor: 'var(--rr-bad)',
-                  color: '#FFFFFF',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 500
-                }}
-              >
-                Replace Incumbent
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-      
-      {/* Board number conflict dialog */}
-      {boardNumberConflict.show && (
-        <div
-          style={{
-            position: 'fixed',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            backgroundColor: 'rgba(0, 0, 0, 0.5)',
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            zIndex: 1000,
-          }}
-        >
-          <div
-            style={{
-              backgroundColor: 'var(--rr-panel)',
-              padding: '24px',
-              borderRadius: '8px',
-              width: '500px',
-              textAlign: 'center',
-            }}
-          >
-            <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
-              Board Number Conflict
-            </h2>
-            <p style={{ marginBottom: '24px', color: 'var(--rr-text)', lineHeight: '1.5', whiteSpace: 'pre-line', textAlign: 'left' }}>
-              {boardNumberConflict.message}
-            </p>
-            <div style={{ display: 'flex', justifyContent: 'center' }}>
-              <button
-                onClick={() => setBoardNumberConflict({ show: false, message: '' })}
-                style={{
-                  minWidth: '120px',
-                  padding: '10px 12px',
-                  borderRadius: '6px',
-                  border: '1px solid var(--rr-accent)',
-                  backgroundColor: 'var(--rr-accent)',
-                  color: '#FFFFFF',
-                  cursor: 'pointer',
-                  fontSize: '13px',
-                  fontWeight: 500
-                }}
-              >
-                OK
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Billet conflict: the target squadron already has someone in this exclusive billet */}
+      <Dialog
+        open={squadronConflictWarning.show}
+        onClose={() => {
+          squadronConflictWarning.onCancel?.();
+          setSquadronConflictWarning({ show: false, pilotData: null });
+        }}
+        title="Billet conflict"
+        width={500}
+        footer={
+          <>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                squadronConflictWarning.onCancel?.();
+                setSquadronConflictWarning({ show: false, pilotData: null });
+              }}
+            >
+              Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                squadronConflictWarning.onAcceptDuplicate?.();
+                setSquadronConflictWarning({ show: false, pilotData: null });
+              }}
+            >
+              Keep both
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                squadronConflictWarning.onReplaceIncumbent?.();
+                setSquadronConflictWarning({ show: false, pilotData: null });
+              }}
+            >
+              Replace incumbent
+            </Button>
+          </>
+        }
+      >
+        <p className="m-0 text-[13px] text-text leading-[1.55]">
+          <strong>{squadronConflictWarning.conflictingPilot}</strong> already holds the{' '}
+          <strong>{squadronConflictWarning.conflictingRole}</strong> billet in the target squadron.
+        </p>
+        <p className="m-0 mt-2 text-[12.5px] text-text2">Keep both pilots in the billet, or move the incumbent out of it?</p>
+      </Dialog>
+
+      {/* Board number conflict */}
+      <Dialog
+        open={boardNumberConflict.show}
+        onClose={() => setBoardNumberConflict({ show: false, message: '' })}
+        title="Board number conflict"
+        width={500}
+        footer={<Button variant="primary" onClick={() => setBoardNumberConflict({ show: false, message: '' })}>OK</Button>}
+      >
+        <p className="m-0 text-[13px] text-text leading-[1.55] whitespace-pre-line">{boardNumberConflict.message}</p>
+      </Dialog>
 
       {loading && !pilots.length ? (
         <StandardPageLoader message="Loading roster data..." />
@@ -3146,34 +3055,11 @@ const RosterManagement: React.FC = () => {
         <div className="flex-1 min-h-0 flex flex-col">
           {/* Sync message */}
           {syncMessage && (
-            <div 
-              style={{
-                padding: '10px 16px',
-                marginBottom: '16px',
-                borderRadius: '4px',
-                backgroundColor: syncMessage.type === 'success' ? 'rgba(64,168,91,.14)' : 'rgba(224,82,78,.12)',
-                color: syncMessage.type === 'success' ? 'var(--rr-good)' : 'var(--rr-bad)',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between'
-              }}
-            >
-              <span>{syncMessage.text}</span>
-              <button 
-                onClick={() => setSyncMessage(null)}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  cursor: 'pointer',
-                  fontSize: '18px',
-                  padding: '0 5px'
-                }}
-              >
-                ×
-              </button>
+            <div className="rr-page w-full flex-none mb-3">
+              <Toast tone={syncMessage.type === 'success' ? 'good' : 'bad'} onDismiss={() => setSyncMessage(null)}>{syncMessage.text}</Toast>
             </div>
           )}
-          
+
           <div data-m="row" className="rr-page flex-1 min-h-0 flex gap-[14px]">
             {/* Left column - Squadron Roster List */}
             <PilotList

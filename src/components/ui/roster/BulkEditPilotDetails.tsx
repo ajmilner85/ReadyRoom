@@ -1,16 +1,12 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Card } from '../card';
-import { pilotDetailsStyles } from '../../../styles/RosterManagementStyles';
 import type { Pilot } from '../../../utils/pilotTypes';
 import { Status } from '../../../utils/statusService';
 import { Standing } from '../../../utils/standingService';
 import { Squadron } from '../../../utils/squadronService';
 import { Qualification } from '../../../utils/qualificationService';
 import type { Team, PilotTeam } from '../../../types/TeamTypes';
-import StatusSelector from './StatusSelector';
-import StandingSelector from './StandingSelector';
-import SquadronSelector from './SquadronSelector';
-import { Icon } from '../primitives';
+import { UNASSIGN_SQUADRON } from './SquadronSelector';
+import { Button, Chip, Dialog, EmptyState, Field, IconButton, SectionCard, Select, SquadronInsignia, TextInput, controlClass } from '../primitives';
 import QualificationBadge from '../QualificationBadge';
 
 interface BulkEditPilotDetailsProps {
@@ -85,105 +81,35 @@ const ConfirmationDialog: React.FC<ConfirmationDialogProps> = ({
   const [inputValue, setInputValue] = useState('');
 
   useEffect(() => {
-    if (!isOpen) {
-      setInputValue('');
-    }
+    if (!isOpen) setInputValue('');
   }, [isOpen]);
-
-  if (!isOpen) return null;
 
   const isConfirmEnabled = inputValue.toLowerCase() === 'yes';
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        backgroundColor: 'rgba(0, 0, 0, 0.5)',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        zIndex: 1000
-      }}
-      onClick={onCancel}
+    <Dialog
+      open={isOpen}
+      onClose={onCancel}
+      title={title}
+      width={440}
+      footer={
+        <>
+          <Button variant="secondary" onClick={onCancel}>Cancel</Button>
+          <Button variant="danger" onClick={() => { if (isConfirmEnabled) onConfirm(); }} disabled={!isConfirmEnabled}>{confirmText}</Button>
+        </>
+      }
     >
-      <div
-        style={{
-          backgroundColor: 'var(--rr-panel)',
-          borderRadius: '8px',
-          padding: '24px',
-          minWidth: '400px',
-          maxWidth: '500px',
-          boxShadow: 'var(--rr-shadow-lg)'
-        }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
-          {title}
-        </h2>
-        <p style={{ marginBottom: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>
-          {message}
-        </p>
-        <p style={{ marginBottom: '8px', color: 'var(--rr-text)', fontSize: '14px', fontWeight: 500 }}>
-          Type "yes" to confirm:
-        </p>
-        <input
-          type="text"
+      <p className="m-0 mb-[14px] text-[13px] text-text2 leading-[1.55]">{message}</p>
+      <Field label={<>Type <span className="text-text">yes</span> to confirm</>}>
+        <TextInput
           value={inputValue}
-          onChange={(e) => setInputValue(e.target.value)}
-          placeholder="Type yes"
+          onChange={e => setInputValue(e.target.value)}
+          placeholder="yes"
           autoFocus
-          style={{
-            width: '100%',
-            padding: '8px 12px',
-            border: '1px solid var(--rr-border2)',
-            borderRadius: '6px',
-            fontSize: '14px',
-            marginBottom: '20px',
-            boxSizing: 'border-box'
-          }}
+          onKeyDown={e => { if (e.key === 'Enter' && isConfirmEnabled) onConfirm(); }}
         />
-        <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-          <button
-            onClick={onCancel}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: 'var(--rr-panel)',
-              color: 'var(--rr-text2)',
-              border: '1px solid var(--rr-border2)',
-              borderRadius: '6px',
-              fontSize: '14px',
-              cursor: 'pointer'
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={() => {
-              if (isConfirmEnabled) {
-                onConfirm();
-              }
-            }}
-            disabled={!isConfirmEnabled}
-            style={{
-              padding: '8px 16px',
-              backgroundColor: isConfirmEnabled ? 'var(--rr-bad)' : '#FCA5A5',
-              color: '#FFFFFF',
-              border: 'none',
-              borderRadius: '6px',
-              fontSize: '14px',
-              cursor: isConfirmEnabled ? 'pointer' : 'not-allowed',
-              opacity: isConfirmEnabled ? 1 : 0.6
-            }}
-          >
-            {confirmText}
-          </button>
-        </div>
-      </div>
-    </div>
+      </Field>
+    </Dialog>
   );
 };
 
@@ -230,25 +156,6 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     teamId?: string;
     enrollmentId?: string;
   } | null>(null);
-
-  const exportButtonStyle = {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-    padding: '8px 16px',
-    backgroundColor: 'var(--rr-panel)',
-    color: 'var(--rr-text2)',
-    borderRadius: '8px',
-    border: '1px solid var(--rr-border2)',
-    cursor: 'pointer',
-    transition: 'background-color 0.2s ease',
-    fontFamily: 'inherit',
-    fontSize: '14px',
-    fontWeight: 400,
-    minWidth: '120px',
-    justifyContent: 'center',
-    height: '35px',
-  };
 
   // Calculate common qualifications across all selected pilots
   const commonQualifications = useMemo((): CommonQualification[] => {
@@ -412,8 +319,6 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     return Array.from(enrollmentMap.values());
   }, [selectedPilots, allPilotEnrollments]);
 
-  // Calculate common Discord roles
-  const hasDiscordLinked = selectedPilots.every(p => p.discord_username);
 
   const handleAddQualification = async () => {
     console.log('[BulkEditPilotDetails] handleAddQualification called with:', { selectedQualification, achievedDate });
@@ -495,1204 +400,280 @@ const BulkEditPilotDetails: React.FC<BulkEditPilotDetailsProps> = ({
     setHasUnsavedChanges(false);
   };
 
+  // ---- View -----------------------------------------------------------------------------------
+  const n = selectedPilots.length;
+  const plural = (word: string) => `${word}${n === 1 ? '' : 's'}`;
+  const fmt = (iso?: string) => (iso ? new Date(iso).toLocaleDateString() : '—');
+  const range = (a?: string, b?: string) => (!a ? '—' : !b || a === b ? fmt(a) : `${fmt(a)} – ${fmt(b)}`);
+
+  const statusOptions = [...statuses].sort((a, b) => a.order - b.order).map(s => ({ value: s.id, label: s.name }));
+  const standingOptions = [...standings].sort((a, b) => a.order - b.order).map(s => ({ value: s.id, label: s.name }));
+  const squadronOptions = [
+    { value: UNASSIGN_SQUADRON, label: 'Unassigned', description: 'Remove squadron affiliation', searchText: 'Unassigned' },
+    ...[...squadrons]
+      .filter(sq => !sq.deactivated_date)
+      .sort((a, b) => a.designation.localeCompare(b.designation))
+      .map(sq => ({ value: sq.id, label: sq.designation, description: sq.name, searchText: `${sq.designation} ${sq.name}`, icon: <SquadronInsignia squadron={sq as any} size={18} /> })),
+  ];
+  const linkedCount = selectedPilots.filter(p => p.discord_username).length;
+  const COL = 'grid items-center gap-x-3 px-[14px]';
+  const headCls = 'py-[7px] bg-panel2 border-b border-border font-mono text-[9.5px] tracking-[.1em] uppercase text-text2';
+  const removeBtn = (label: string, onClick: () => void) => (
+    <IconButton icon="close" size={24} iconSize={12} label={label} className="hover:!text-bad" onClick={onClick} />
+  );
+  const dateInput = (value: string, onChange: (v: string) => void) => (
+    <input type="date" value={value} onChange={e => onChange(e.target.value)} className={`${controlClass} px-3 h-[36px]`} />
+  );
+
+  const confirmProps = (() => {
+    switch (confirmDialog?.type) {
+      case 'delete_pilots':
+        return { title: `Delete ${n} ${plural('pilot')}`, message: `Delete ${n} pilot ${plural('record')}? This can't be undone.`, confirmText: 'Delete', run: onBulkDeletePilots };
+      case 'clear_discord':
+        return { title: 'Unlink Discord accounts', message: `Clear the linked Discord account from ${n} ${plural('pilot')}?`, confirmText: 'Unlink', run: onBulkClearDiscord };
+      case 'remove_qualification':
+        return { title: 'Remove qualification', message: `Remove this qualification from all ${n} selected ${plural('pilot')}?`, confirmText: 'Remove', run: async () => { if (confirmDialog.qualificationId) await onBulkRemoveQualification(confirmDialog.qualificationId); } };
+      case 'remove_team':
+        return { title: 'Remove from team', message: `Remove all ${n} selected ${plural('pilot')} from this team?`, confirmText: 'Remove', run: async () => { if (confirmDialog.teamId) await onBulkRemoveTeam(confirmDialog.teamId); } };
+      case 'remove_enrollment':
+        return { title: 'Remove training enrollment', message: `Remove this training enrollment from all ${n} selected ${plural('pilot')}?`, confirmText: 'Remove', run: async () => { if (confirmDialog.enrollmentId && onBulkRemoveEnrollment) await onBulkRemoveEnrollment(confirmDialog.enrollmentId); } };
+      default:
+        return null;
+    }
+  })();
+
   return (
-    <div style={{
-      ...pilotDetailsStyles.container,
-      overflow: 'hidden',
-      display: 'flex',
-      flexDirection: 'column',
-      padding: 0
-    }}>
-      <div style={{
-        flex: 1,
-        overflowY: 'auto',
-        padding: '24px'
-      }}>
-        <div style={pilotDetailsStyles.header}>
-          <h1 style={pilotDetailsStyles.headerTitle}>
-            Bulk Editing {selectedPilots.length} Pilots
-          </h1>
+    <div className="flex-1 min-w-0 min-h-0 flex flex-col bg-panel border border-border rounded-rr-xl shadow-rr overflow-hidden">
+      {/* Header: count + who is selected */}
+      <div className="flex-none flex items-center gap-3 px-4 py-3 border-b border-border">
+        <span className="w-10 h-10 flex-none rounded-rr-lg bg-accent-weak text-accent-text flex items-center justify-center font-mono text-[15px] font-bold">{n}</span>
+        <div className="min-w-0 flex-1">
+          <div className="text-[18px] font-semibold">Editing {n} {plural('pilot')}</div>
+          <div className="text-[12px] text-text2 truncate" title={selectedPilots.map(p => `${p.boardNumber} ${p.callsign}`).join(', ')}>
+            {selectedPilots.slice(0, 8).map(p => p.callsign).join(', ')}{n > 8 ? ` +${n - 8} more` : ''}
+          </div>
         </div>
-
-        {/* Basic Information Card */}
-        <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-            Bulk Actions
-          </h2>
-
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '24px', marginTop: '20px' }}>
-            <div>
-              <div style={{ marginBottom: '24px' }}>
-                <StatusSelector
-                  statuses={statuses}
-                  selectedStatusId={pendingStatusId}
-                  updatingStatus={false}
-                  handleStatusChange={handleStatusChange}
-                  placeholder="Change Status..."
-                />
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <StandingSelector
-                  standings={standings}
-                  selectedStandingId={pendingStandingId}
-                  updatingStanding={false}
-                  handleStandingChange={handleStandingChange}
-                  placeholder="Change Standing..."
-                />
-              </div>
-            </div>
-
-            <div>
-              <div style={{ marginBottom: '24px' }}>
-                <SquadronSelector
-                  squadrons={squadrons}
-                  selectedSquadronId={pendingSquadronId}
-                  updatingSquadron={false}
-                  handleSquadronChange={handleSquadronChange}
-                  placeholder="Change Squadron..."
-                  showUnassignOption
-                />
-              </div>
-            </div>
-          </div>
-        </Card>
-
-        {/* Discord Section */}
-        <Card className="p-4" style={{ marginTop: '24px' }}>
-          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-            Discord Information
-          </h2>
-          <div style={{ marginBottom: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>
-            {hasDiscordLinked
-              ? `All ${selectedPilots.length} selected pilots have Discord accounts linked`
-              : `Some selected pilots do not have Discord accounts linked`}
-          </div>
-          {hasDiscordLinked && (
-            <button
-              onClick={() => setConfirmDialog({ type: 'clear_discord' })}
-              style={{
-                ...exportButtonStyle,
-                backgroundColor: 'rgba(224,82,78,.12)',
-                color: 'var(--rr-bad)',
-                border: '1px solid var(--rr-bad)',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
-              }}
-            >
-              Clear Discord Usernames
-            </button>
-          )}
-        </Card>
-
-        {/* Qualifications Card */}
-        <Card className="p-4" style={{ marginTop: '24px' }}>
-          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-            Common Qualifications
-          </h2>
-
-          <div style={{ marginBottom: '16px' }}>
-            <button
-              onClick={() => setShowAddQualDialog(true)}
-              style={{
-                ...exportButtonStyle,
-                backgroundColor: 'var(--rr-accent)',
-                color: '#FFFFFF',
-                border: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }}
-            >
-              <Icon name="plus" size={16} />
-              Bulk Add Qualification
-            </button>
-          </div>
-
-          {commonQualifications.length > 0 ? (
-            <div style={{
-              marginTop: '16px',
-              border: '1px solid var(--rr-border)',
-              borderRadius: '6px',
-              backgroundColor: 'var(--rr-panel)',
-              width: 'fit-content',
-            maxWidth: '100%',
-            overflowX: 'auto'
-            }}>
-              {/* Table Header */}
-              <div style={{
-                display: 'flex',
-                backgroundColor: 'var(--rr-panel2)',
-                borderBottom: '1px solid var(--rr-border)',
-                borderRadius: '6px 6px 0 0'
-              }}>
-                <div style={{
-                  padding: '8px 12px',
-                  width: '50px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  minWidth: '250px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  Qualification
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  minWidth: '200px',
-                  borderRight: '1px solid var(--rr-border)',
-                  textAlign: 'center'
-                }}>
-                  Achieved
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  minWidth: '200px',
-                  borderRight: '1px solid var(--rr-border)',
-                  textAlign: 'center'
-                }}>
-                  Expires
-                </div>
-                <div style={{
-                  width: '30px',
-                  padding: '8px 12px'
-                }}>
-                </div>
-              </div>
-
-              {/* Table Body */}
-              {commonQualifications.map((qual, index) => {
-                const achievedRange = qual.earliestAchieved === qual.latestAchieved
-                  ? new Date(qual.earliestAchieved).toLocaleDateString('en-US', {
-                      month: '2-digit',
-                      day: '2-digit',
-                      year: 'numeric'
-                    })
-                  : `${new Date(qual.earliestAchieved).toLocaleDateString('en-US', {
-                      month: '2-digit',
-                      day: '2-digit',
-                      year: 'numeric'
-                    })} - ${new Date(qual.latestAchieved).toLocaleDateString('en-US', {
-                      month: '2-digit',
-                      day: '2-digit',
-                      year: 'numeric'
-                    })}`;
-
-                const expiryRange = qual.earliestExpiry && qual.latestExpiry
-                  ? (qual.earliestExpiry === qual.latestExpiry
-                    ? new Date(qual.earliestExpiry).toLocaleDateString('en-US', {
-                        month: '2-digit',
-                        day: '2-digit',
-                        year: 'numeric'
-                      })
-                    : `${new Date(qual.earliestExpiry).toLocaleDateString('en-US', {
-                        month: '2-digit',
-                        day: '2-digit',
-                        year: 'numeric'
-                      })} - ${new Date(qual.latestExpiry).toLocaleDateString('en-US', {
-                        month: '2-digit',
-                        day: '2-digit',
-                        year: 'numeric'
-                      })}`)
-                  : '-';
-
-                return (
-                  <div
-                    key={qual.id}
-                    style={{
-                      display: 'flex',
-                      borderBottom: index < commonQualifications.length - 1 ? '1px solid var(--rr-border)' : 'none',
-                      backgroundColor: 'var(--rr-panel)',
-                      height: '34px'
-                    }}
-                  >
-                    {/* Badge Column */}
-                    <div style={{
-                      padding: '5px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '50px',
-                      borderRight: '1px solid var(--rr-border)'
-                    }}>
-                      <QualificationBadge
-                        type={qual.name as any}
-                        qualifications={availableQualifications}
-                        size="normal"
-                      />
-                    </div>
-
-                    {/* Qualification Name Column */}
-                    <div style={{
-                      padding: '5px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      minWidth: '250px',
-                      borderRight: '1px solid var(--rr-border)'
-                    }}>
-                      <span style={{
-                        fontSize: '14px',
-                        fontWeight: 500,
-                        color: 'var(--rr-text)'
-                      }}>
-                        {qual.name}
-                      </span>
-                    </div>
-
-                    {/* Achieved Date Column */}
-                    <div style={{
-                      padding: '5px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '200px',
-                      borderRight: '1px solid var(--rr-border)'
-                    }}>
-                      <span style={{
-                        fontSize: '13px',
-                        color: 'var(--rr-text2)'
-                      }}>
-                        {achievedRange}
-                      </span>
-                    </div>
-
-                    {/* Expires Column */}
-                    <div style={{
-                      padding: '5px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      minWidth: '200px',
-                      borderRight: '1px solid var(--rr-border)'
-                    }}>
-                      <span style={{
-                        fontSize: '13px',
-                        color: 'var(--rr-text2)'
-                      }}>
-                        {expiryRange}
-                      </span>
-                    </div>
-
-                    {/* Actions Column */}
-                    <div style={{
-                      width: '30px',
-                      padding: '5px 12px',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center'
-                    }}>
-                      <button
-                        onClick={() => setConfirmDialog({ type: 'remove_qualification', qualificationId: qual.id })}
-                        title="Remove qualification from all selected pilots"
-                        style={{
-                          width: '16px',
-                          height: '16px',
-                          padding: '0',
-                          borderRadius: '4px',
-                          background: 'none',
-                          border: 'none',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                          cursor: 'pointer',
-                          color: 'var(--rr-text3)'
-                        }}
-                        onMouseEnter={(e) => {
-                          e.currentTarget.style.color = 'var(--rr-bad)';
-                          e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
-                        }}
-                        onMouseLeave={(e) => {
-                          e.currentTarget.style.color = 'var(--rr-text3)';
-                          e.currentTarget.style.backgroundColor = 'transparent';
-                        }}
-                      >
-                        <Icon name="close" size={12} strokeWidth={2.5} />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
-              No qualifications common to all selected pilots
-            </div>
-          )}
-        </Card>
-
-        {/* Common Training Enrollments */}
-        <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-            Common Training Enrollments
-          </h2>
-
-          {/* Table and Button Container */}
-          <div style={{ width: 'fit-content', maxWidth: '100%', overflowX: 'auto' }}>
-            <div style={{ marginBottom: '16px' }}>
-              <button
-                onClick={() => setShowAddEnrollmentDialog(true)}
-                disabled={!onBulkAddEnrollment || availableTrainingCycles.length === 0}
-                style={{
-                  ...exportButtonStyle,
-                  backgroundColor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? '#93C5FD' : 'var(--rr-accent)',
-                  color: '#FFFFFF',
-                  border: 'none',
-                  cursor: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? 'not-allowed' : 'pointer',
-                  opacity: !onBulkAddEnrollment || availableTrainingCycles.length === 0 ? 0.6 : 1
-                }}
-                onMouseEnter={(e) => {
-                  if (onBulkAddEnrollment && availableTrainingCycles.length > 0) {
-                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-                  }
-                }}
-                onMouseLeave={(e) => {
-                  if (onBulkAddEnrollment && availableTrainingCycles.length > 0) {
-                    e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-                  }
-                }}
-              >
-                <Icon name="plus" size={16} />
-                Bulk Add Training Enrollment
-              </button>
-            </div>
-
-            {commonEnrollments.length > 0 ? (
-              <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel)' }}>
-              {/* Table Header */}
-              <div style={{
-                display: 'flex',
-                backgroundColor: 'var(--rr-panel2)',
-                borderBottom: '1px solid var(--rr-border)',
-                borderRadius: '6px 6px 0 0'
-              }}>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  width: '300px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  Cycle / Training
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  width: '100px',
-                  borderRight: '1px solid var(--rr-border)',
-                  textAlign: 'center'
-                }}>
-                  Status
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  width: '220px',
-                  borderRight: '1px solid var(--rr-border)',
-                  textAlign: 'center'
-                }}>
-                  Enrolled
-                </div>
-                <div style={{
-                  width: '30px',
-                  padding: '8px 12px'
-                }}>
-                </div>
-              </div>
-
-              {/* Table Body */}
-              {commonEnrollments.map((enrollment, index) => (
-                <div
-                  key={enrollment.cycleId}
-                  style={{
-                    display: 'flex',
-                    borderBottom: index < commonEnrollments.length - 1 ? '1px solid var(--rr-border)' : 'none',
-                    backgroundColor: 'var(--rr-panel)',
-                    height: '34px'
-                  }}
-                >
-                  {/* Cycle Name Column */}
-                  <div style={{
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: '300px',
-                    borderRight: '1px solid var(--rr-border)'
-                  }}>
-                    <span style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text)'
-                    }}>
-                      {enrollment.cycleName}
-                    </span>
-                  </div>
-
-                  {/* Status Column */}
-                  <div style={{
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100px',
-                    borderRight: '1px solid var(--rr-border)'
-                  }}>
-                    <span style={{
-                      display: 'inline-block',
-                      padding: '2px 8px',
-                      borderRadius: '4px',
-                      fontSize: '12px',
-                      fontWeight: 500,
-                      color: '#FFFFFF',
-                      backgroundColor: 'var(--rr-good)',
-                      textTransform: 'capitalize'
-                    }}>
-                      {enrollment.status}
-                    </span>
-                  </div>
-
-                  {/* Enrolled Date Column */}
-                  <div style={{
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '220px',
-                    borderRight: '1px solid var(--rr-border)',
-                    flexDirection: 'column',
-                    gap: '2px'
-                  }}>
-                    <span style={{
-                      fontSize: '13px',
-                      color: 'var(--rr-text2)'
-                    }}>
-                      {enrollment.earliestEnrolled === enrollment.latestEnrolled
-                        ? new Date(enrollment.earliestEnrolled).toLocaleDateString()
-                        : `${new Date(enrollment.earliestEnrolled).toLocaleDateString()} - ${new Date(enrollment.latestEnrolled).toLocaleDateString()}`}
-                    </span>
-                  </div>
-
-                  {/* Actions Column */}
-                  <div style={{
-                    width: '30px',
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <button
-                      onClick={() => setConfirmDialog({ type: 'remove_enrollment', enrollmentId: enrollment.enrollmentId })}
-                      title="Remove enrollment from all selected pilots"
-                      style={{
-                        width: '16px',
-                        height: '16px',
-                        padding: '0',
-                        borderRadius: '4px',
-                        background: 'none',
-                        border: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: 'var(--rr-text3)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = 'var(--rr-bad)';
-                        e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = 'var(--rr-text3)';
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      <Icon name="close" size={12} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
-              No training enrollments common to all selected pilots
-            </div>
-          )}
-          </div>
-        </Card>
-
-        {/* Common Teams */}
-        <Card className="p-4">
-          <h2 className="text-lg font-semibold mb-4" style={pilotDetailsStyles.sectionTitle}>
-            Common Teams
-          </h2>
-
-          <div style={{ marginBottom: '16px' }}>
-            <button
-              onClick={() => setShowAddTeamDialog(true)}
-              style={{
-                ...exportButtonStyle,
-                backgroundColor: 'var(--rr-accent)',
-                color: '#FFFFFF',
-                border: 'none',
-              }}
-              onMouseEnter={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }}
-              onMouseLeave={(e) => {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }}
-            >
-              <Icon name="plus" size={16} />
-              Bulk Add Team
-            </button>
-          </div>
-
-          {commonTeams.length > 0 ? (
-            <div style={{ border: '1px solid var(--rr-border)', borderRadius: '6px', backgroundColor: 'var(--rr-panel)' }}>
-              {/* Table Header */}
-              <div style={{
-                display: 'flex',
-                backgroundColor: 'var(--rr-panel2)',
-                borderBottom: '1px solid var(--rr-border)',
-                borderRadius: '6px 6px 0 0'
-              }}>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  width: '300px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  Team
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  width: '100px',
-                  borderRight: '1px solid var(--rr-border)',
-                  textAlign: 'center'
-                }}>
-                  Scope
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '12px',
-                  fontWeight: 500,
-                  color: 'var(--rr-text2)',
-                  textTransform: 'uppercase',
-                  width: '150px',
-                  borderRight: '1px solid var(--rr-border)',
-                  textAlign: 'center'
-                }}>
-                  Joined
-                </div>
-                <div style={{
-                  width: '30px',
-                  padding: '8px 12px'
-                }}>
-                </div>
-              </div>
-
-              {/* Table Body */}
-              {commonTeams.map((team, index) => (
-                <div
-                  key={team.id}
-                  style={{
-                    display: 'flex',
-                    borderBottom: index < commonTeams.length - 1 ? '1px solid var(--rr-border)' : 'none',
-                    backgroundColor: 'var(--rr-panel)',
-                    height: '34px'
-                  }}
-                >
-                  {/* Team Name Column */}
-                  <div style={{
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    width: '300px',
-                    borderRight: '1px solid var(--rr-border)'
-                  }}>
-                    <span style={{
-                      fontSize: '14px',
-                      fontWeight: 500,
-                      color: 'var(--rr-text)'
-                    }}>
-                      {team.name}
-                    </span>
-                  </div>
-
-                  {/* Scope Column */}
-                  <div style={{
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '100px',
-                    borderRight: '1px solid var(--rr-border)'
-                  }}>
-                    <span style={{
-                      fontSize: '13px',
-                      color: 'var(--rr-text2)',
-                      textTransform: 'capitalize'
-                    }}>
-                      {team.scope}
-                    </span>
-                  </div>
-
-                  {/* Joined Date Column */}
-                  <div style={{
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    width: '150px',
-                    borderRight: '1px solid var(--rr-border)',
-                    flexDirection: 'column',
-                    gap: '2px'
-                  }}>
-                    <span style={{
-                      fontSize: '13px',
-                      color: 'var(--rr-text2)'
-                    }}>
-                      {team.earliestJoined === team.latestJoined
-                        ? new Date(team.earliestJoined).toLocaleDateString()
-                        : `${new Date(team.earliestJoined).toLocaleDateString()} - ${new Date(team.latestJoined).toLocaleDateString()}`}
-                    </span>
-                  </div>
-
-                  {/* Actions Column */}
-                  <div style={{
-                    width: '30px',
-                    padding: '5px 12px',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center'
-                  }}>
-                    <button
-                      onClick={() => setConfirmDialog({ type: 'remove_team', teamId: team.id })}
-                      title="Remove team from all selected pilots"
-                      style={{
-                        width: '16px',
-                        height: '16px',
-                        padding: '0',
-                        borderRadius: '4px',
-                        background: 'none',
-                        border: 'none',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        cursor: 'pointer',
-                        color: 'var(--rr-text3)'
-                      }}
-                      onMouseEnter={(e) => {
-                        e.currentTarget.style.color = 'var(--rr-bad)';
-                        e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
-                      }}
-                      onMouseLeave={(e) => {
-                        e.currentTarget.style.color = 'var(--rr-text3)';
-                        e.currentTarget.style.backgroundColor = 'transparent';
-                      }}
-                    >
-                      <Icon name="close" size={12} strokeWidth={2.5} />
-                    </button>
-                  </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div style={{ color: 'var(--rr-text3)', fontSize: '14px', textAlign: 'center', padding: '16px' }}>
-              No teams common to all selected pilots
-            </div>
-          )}
-        </Card>
+        <IconButton icon="trash" size={30} iconSize={14} label={`Delete ${n} ${plural('pilot')}`} className="hover:!text-bad" onClick={() => setConfirmDialog({ type: 'delete_pilots' })} />
       </div>
 
-      {/* Footer with action buttons */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'space-between',
-        alignItems: 'center',
-        padding: '18px',
-        borderTop: '1px solid var(--rr-border)'
-      }}>
-        <button
-          onClick={() => setConfirmDialog({ type: 'delete_pilots' })}
-          style={{
-            ...exportButtonStyle,
-            backgroundColor: 'rgba(224,82,78,.12)',
-            color: 'var(--rr-bad)',
-            border: '1px solid var(--rr-bad)',
-          }}
-          onMouseEnter={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.24)';
-          }}
-          onMouseLeave={(e) => {
-            e.currentTarget.style.backgroundColor = 'rgba(224,82,78,.12)';
-          }}
-        >
-          <Icon name="trash" size={16} />
-          Delete {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
-        </button>
-
-        <div style={{ display: 'flex', gap: '12px' }}>
-          <button
-            onClick={handleCancelChanges}
-            disabled={!hasUnsavedChanges}
-            style={{
-              ...exportButtonStyle,
-              backgroundColor: 'var(--rr-panel)',
-              color: hasUnsavedChanges ? 'var(--rr-text2)' : 'var(--rr-text3)',
-              border: '1px solid var(--rr-border2)',
-              cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed',
-              opacity: hasUnsavedChanges ? 1 : 0.6
-            }}
-          >
-            Cancel
-          </button>
-          <button
-            onClick={handleSaveChanges}
-            disabled={!hasUnsavedChanges}
-            style={{
-              ...exportButtonStyle,
-              backgroundColor: hasUnsavedChanges ? 'var(--rr-accent)' : '#93C5FD',
-              color: '#FFFFFF',
-              border: 'none',
-              cursor: hasUnsavedChanges ? 'pointer' : 'not-allowed'
-            }}
-            onMouseEnter={(e) => {
-              if (hasUnsavedChanges) {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }
-            }}
-            onMouseLeave={(e) => {
-              if (hasUnsavedChanges) {
-                e.currentTarget.style.backgroundColor = 'var(--rr-accent)';
-              }
-            }}
-          >
-            Save Changes
-          </button>
-        </div>
-      </div>
-
-      {/* Add Qualification Dialog */}
-      {showAddQualDialog && (
-        <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000
-            }}
-            onClick={() => setShowAddQualDialog(false)}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--rr-panel)',
-                borderRadius: '8px',
-                padding: '24px',
-                minWidth: '400px',
-                maxWidth: '500px',
-                boxShadow: 'var(--rr-shadow-lg)'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h2 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '16px', color: 'var(--rr-text)' }}>
-                Bulk Add Qualification
-              </h2>
-              <p style={{ marginBottom: '16px', color: 'var(--rr-text2)', fontSize: '14px' }}>
-                Add a qualification to all {selectedPilots.length} selected pilots
-              </p>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
-                  Qualification
-                </label>
-                <select
-                  value={selectedQualification}
-                  onChange={(e) => setSelectedQualification(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="">Select qualification...</option>
-                  {availableQualifications.map(qual => (
-                    <option key={qual.id} value={qual.id}>
-                      {qual.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', marginBottom: '8px', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text)' }}>
-                  Achieved Date
-                </label>
-                <input
-                  type="date"
-                  value={achievedDate}
-                  onChange={(e) => setAchievedDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setShowAddQualDialog(false)}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: 'var(--rr-panel)',
-                    color: 'var(--rr-text2)',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddQualification}
-                  disabled={!selectedQualification}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: selectedQualification ? 'var(--rr-accent)' : '#93C5FD',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: selectedQualification ? 'pointer' : 'not-allowed'
-                  }}
-                >
-                  Add to All
-                </button>
-              </div>
+      <div className="flex-1 min-h-0 overflow-y-auto p-4">
+        <div className="grid gap-[14px] items-start" style={{ gridTemplateColumns: 'repeat(auto-fit, minmax(min(400px, 100%), 1fr))' }}>
+          {/* Assignment changes (staged; applied with Save) */}
+          <SectionCard title="Set for all" footer="Leave a field empty to keep each pilot's current value.">
+            <div className="grid grid-cols-2 gap-[14px] p-[14px] max-[560px]:grid-cols-1">
+              <Field label="Status">
+                <Select value={pendingStatusId} onChange={handleStatusChange} options={statusOptions} placeholder="Keep current" />
+              </Field>
+              <Field label="Standing">
+                <Select value={pendingStandingId} onChange={handleStandingChange} options={standingOptions} placeholder="Keep current" />
+              </Field>
+              <Field label="Squadron" className="col-span-2 max-[560px]:col-span-1">
+                <Select value={pendingSquadronId} onChange={handleSquadronChange} options={squadronOptions} placeholder="Keep current" searchable={squadronOptions.length > 8} />
+              </Field>
             </div>
-          </div>
-        )}
+          </SectionCard>
 
-        {/* Confirmation Dialogs */}
-        <ConfirmationDialog
-          isOpen={confirmDialog?.type === 'delete_pilots'}
-          title="Delete Multiple Pilots"
-          message={`Are you sure you want to delete ${selectedPilots.length} pilot record${selectedPilots.length > 1 ? 's' : ''}? This action cannot be undone.`}
-          confirmText="Delete"
-          onConfirm={async () => {
-            await onBulkDeletePilots();
-            setConfirmDialog(null);
-          }}
-          onCancel={() => setConfirmDialog(null)}
-        />
-
-        <ConfirmationDialog
-          isOpen={confirmDialog?.type === 'clear_discord'}
-          title="Clear Discord Usernames"
-          message={`Are you sure you want to clear Discord usernames from ${selectedPilots.length} pilot${selectedPilots.length > 1 ? 's' : ''}?`}
-          confirmText="Clear"
-          onConfirm={async () => {
-            await onBulkClearDiscord();
-            setConfirmDialog(null);
-          }}
-          onCancel={() => setConfirmDialog(null)}
-        />
-
-        <ConfirmationDialog
-          isOpen={confirmDialog?.type === 'remove_qualification'}
-          title="Remove Qualification"
-          message={`Are you sure you want to remove this qualification from all ${selectedPilots.length} selected pilot${selectedPilots.length > 1 ? 's' : ''}?`}
-          confirmText="Remove"
-          onConfirm={async () => {
-            if (confirmDialog?.qualificationId) {
-              await onBulkRemoveQualification(confirmDialog.qualificationId);
-            }
-            setConfirmDialog(null);
-          }}
-          onCancel={() => setConfirmDialog(null)}
-        />
-
-        {/* Add Team Dialog */}
-        {showAddTeamDialog && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000
-            }}
-            onClick={() => setShowAddTeamDialog(false)}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--rr-panel)',
-                borderRadius: '8px',
-                padding: '24px',
-                minWidth: '500px',
-                maxWidth: '600px',
-                boxShadow: 'var(--rr-shadow-lg)'
-              }}
-              onClick={(e) => e.stopPropagation()}
-            >
-              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text)' }}>
-                Add Team to {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
-              </h3>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
-                  Team *
-                </label>
-                <select
-                  value={selectedTeam}
-                  onChange={(e) => setSelectedTeam(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    backgroundColor: 'var(--rr-panel)',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="">Select a team</option>
-                  {availableTeams.filter(t => t.active).map(team => (
-                    <option key={team.id} value={team.id}>
-                      {team.name} ({team.scope})
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div style={{ marginBottom: '24px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
-                  Start Date
-                </label>
-                <input
-                  type="date"
-                  value={teamStartDate}
-                  onChange={(e) => setTeamStartDate(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    boxSizing: 'border-box'
-                  }}
-                />
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setShowAddTeamDialog(false)}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: 'var(--rr-panel)',
-                    color: 'var(--rr-text2)',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddTeam}
-                  disabled={!selectedTeam}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: !selectedTeam ? 'var(--rr-text3)' : 'var(--rr-accent)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: !selectedTeam ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Add to {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
-                </button>
-              </div>
+          {/* Discord */}
+          <SectionCard title="Discord">
+            <div className="p-[14px] flex items-center gap-3">
+              <span className="flex-1 text-[13px] text-text2">
+                <span className="font-mono font-semibold text-text">{linkedCount}</span> of {n} selected {plural('pilot')} have a Discord account linked.
+              </span>
+              <Button size="sm" variant="danger" icon="close" disabled={linkedCount === 0} onClick={() => setConfirmDialog({ type: 'clear_discord' })}>Unlink all</Button>
             </div>
-          </div>
-        )}
+          </SectionCard>
 
-        {showAddEnrollmentDialog && (
-          <div
-            style={{
-              position: 'fixed',
-              top: 0,
-              left: 0,
-              right: 0,
-              bottom: 0,
-              backgroundColor: 'rgba(0, 0, 0, 0.5)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              zIndex: 1000
-            }}
-            onClick={() => setShowAddEnrollmentDialog(false)}
-          >
-            <div
-              style={{
-                backgroundColor: 'var(--rr-panel)',
-                borderRadius: '8px',
-                padding: '24px',
-                minWidth: '500px',
-                maxWidth: '600px',
-                boxShadow: 'var(--rr-shadow-lg)'
-              }}
-              onClick={(e) => e.stopPropagation()}
+          {/* Common qualifications */}
+          <div className="col-span-full">
+            <SectionCard
+              title="Qualifications in common"
+              count={commonQualifications.length}
+              action={<Button size="sm" variant="ghost" icon="plus" onClick={() => setShowAddQualDialog(true)}>Add to all</Button>}
             >
-              <h3 style={{ fontSize: '18px', fontWeight: 600, marginBottom: '20px', color: 'var(--rr-text)' }}>
-                Enroll {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''} in Training
-              </h3>
-
-              <div style={{ marginBottom: '16px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 500, color: 'var(--rr-text2)', marginBottom: '8px' }}>
-                  Training Cycle *
-                </label>
-                <select
-                  value={selectedCycle}
-                  onChange={(e) => setSelectedCycle(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '8px 12px',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    backgroundColor: 'var(--rr-panel)',
-                    boxSizing: 'border-box'
-                  }}
-                >
-                  <option value="">Select a training cycle</option>
-                  {availableTrainingCycles
-                    .filter(cycle => cycle.type === 'Training')
-                    .map(cycle => (
-                      <option key={cycle.id} value={cycle.id}>
-                        {cycle.name} ({cycle.status})
-                      </option>
+              {commonQualifications.length === 0 ? (
+                <EmptyState compact icon="award" title="None in common" message="No qualification is held by every selected pilot." />
+              ) : (
+                <>
+                  <div className={`${COL} grid-cols-[52px_minmax(0,1fr)_minmax(0,170px)_minmax(0,170px)_28px] ${headCls}`}>
+                    <span /><span>Qualification</span><span>Achieved</span><span>Expires</span><span />
+                  </div>
+                  <div className="divide-y divide-border">
+                    {commonQualifications.map(q => (
+                      <div key={q.id} className={`${COL} grid-cols-[52px_minmax(0,1fr)_minmax(0,170px)_minmax(0,170px)_28px] min-h-[40px] py-[5px]`}>
+                        <span className="flex justify-center"><QualificationBadge type={q.name} code={q.code} color={q.color} size="normal" /></span>
+                        <span className="text-[13px] font-medium text-text truncate">{q.name}</span>
+                        <span className="font-mono text-[11.5px] text-text2">{range(q.earliestAchieved, q.latestAchieved)}</span>
+                        <span className="font-mono text-[11.5px] text-text2">{range(q.earliestExpiry, q.latestExpiry)}</span>
+                        {removeBtn('Remove from all', () => setConfirmDialog({ type: 'remove_qualification', qualificationId: q.id }))}
+                      </div>
                     ))}
-                </select>
-              </div>
-
-              <div style={{ display: 'flex', gap: '12px', justifyContent: 'flex-end' }}>
-                <button
-                  onClick={() => setShowAddEnrollmentDialog(false)}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: 'var(--rr-panel)',
-                    color: 'var(--rr-text2)',
-                    border: '1px solid var(--rr-border2)',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: 'pointer'
-                  }}
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleAddEnrollment}
-                  disabled={!selectedCycle}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: !selectedCycle ? 'var(--rr-text3)' : 'var(--rr-accent)',
-                    color: '#FFFFFF',
-                    border: 'none',
-                    borderRadius: '6px',
-                    fontSize: '14px',
-                    cursor: !selectedCycle ? 'not-allowed' : 'pointer'
-                  }}
-                >
-                  Enroll {selectedPilots.length} Pilot{selectedPilots.length > 1 ? 's' : ''}
-                </button>
-              </div>
-            </div>
+                  </div>
+                </>
+              )}
+            </SectionCard>
           </div>
-        )}
 
-        <ConfirmationDialog
-          isOpen={confirmDialog?.type === 'remove_team'}
-          title="Remove Team"
-          message={`Are you sure you want to remove this team from all ${selectedPilots.length} selected pilot${selectedPilots.length > 1 ? 's' : ''}?`}
-          confirmText="Remove"
-          onConfirm={async () => {
-            if (confirmDialog?.teamId) {
-              await onBulkRemoveTeam(confirmDialog.teamId);
-            }
-            setConfirmDialog(null);
-          }}
-          onCancel={() => setConfirmDialog(null)}
-        />
+          {/* Common enrollments */}
+          <SectionCard
+            title="Enrollments in common"
+            count={commonEnrollments.length}
+            action={onBulkAddEnrollment ? <Button size="sm" variant="ghost" icon="plus" onClick={() => setShowAddEnrollmentDialog(true)}>Enroll all</Button> : null}
+          >
+            {commonEnrollments.length === 0 ? (
+              <EmptyState compact icon="training" title="None in common" message="No active enrollment shared by every selected pilot." />
+            ) : (
+              <>
+                <div className={`${COL} grid-cols-[minmax(0,1fr)_minmax(0,160px)_28px] ${headCls}`}>
+                  <span>Cycle</span><span>Enrolled</span><span />
+                </div>
+                <div className="divide-y divide-border">
+                  {commonEnrollments.map(e => (
+                    <div key={e.cycleId} className={`${COL} grid-cols-[minmax(0,1fr)_minmax(0,160px)_28px] min-h-[40px] py-[5px]`}>
+                      <span className="flex items-center gap-2 min-w-0">
+                        <span className="text-[13px] font-medium text-text truncate">{e.cycleName}</span>
+                        <Chip size="sm" tone="good">Active</Chip>
+                      </span>
+                      <span className="font-mono text-[11.5px] text-text2">{range(e.earliestEnrolled, e.latestEnrolled)}</span>
+                      {removeBtn('Remove from all', () => setConfirmDialog({ type: 'remove_enrollment', enrollmentId: e.enrollmentId }))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </SectionCard>
 
-        <ConfirmationDialog
-          isOpen={confirmDialog?.type === 'remove_enrollment'}
-          title="Remove Training Enrollment"
-          message={`Are you sure you want to remove this training enrollment from all ${selectedPilots.length} selected pilot${selectedPilots.length > 1 ? 's' : ''}?`}
-          confirmText="Remove"
-          onConfirm={async () => {
-            if (confirmDialog?.enrollmentId && onBulkRemoveEnrollment) {
-              await onBulkRemoveEnrollment(confirmDialog.enrollmentId);
-            }
-            setConfirmDialog(null);
-          }}
-          onCancel={() => setConfirmDialog(null)}
-        />
+          {/* Common teams */}
+          <SectionCard
+            title="Teams in common"
+            count={commonTeams.length}
+            action={<Button size="sm" variant="ghost" icon="plus" onClick={() => setShowAddTeamDialog(true)}>Add all to team</Button>}
+          >
+            {commonTeams.length === 0 ? (
+              <EmptyState compact icon="layers" title="None in common" message="No team includes every selected pilot." />
+            ) : (
+              <>
+                <div className={`${COL} grid-cols-[minmax(0,1fr)_80px_minmax(0,150px)_28px] ${headCls}`}>
+                  <span>Team</span><span>Scope</span><span>Joined</span><span />
+                </div>
+                <div className="divide-y divide-border">
+                  {commonTeams.map(t => (
+                    <div key={t.id} className={`${COL} grid-cols-[minmax(0,1fr)_80px_minmax(0,150px)_28px] min-h-[40px] py-[5px]`}>
+                      <span className="text-[13px] font-medium text-text truncate">{t.name}</span>
+                      <span className="text-[12px] text-text2">{t.scope.charAt(0).toUpperCase() + t.scope.slice(1)}</span>
+                      <span className="font-mono text-[11.5px] text-text2">{range(t.earliestJoined, t.latestJoined)}</span>
+                      {removeBtn('Remove all from team', () => setConfirmDialog({ type: 'remove_team', teamId: t.id }))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </SectionCard>
+        </div>
+      </div>
+
+      {/* Save bar (always present so the body never resizes) */}
+      <div className="flex-none flex items-center gap-[10px] px-4 py-[10px] border-t border-border bg-panel2">
+        <span className="flex items-center gap-[7px] flex-1 min-w-0 text-[12px] text-text2 whitespace-nowrap" title="Qualifications, enrollments and teams apply as soon as you add or remove them.">
+          <span className="flex-none w-[7px] h-[7px] rounded-full" style={hasUnsavedChanges ? { background: 'var(--rr-warn)' } : { boxShadow: 'inset 0 0 0 1.5px var(--rr-text3)' }} />
+          <span className="truncate">{hasUnsavedChanges ? `Unsaved changes for ${n} ${plural('pilot')}` : 'No unsaved changes'}</span>
+        </span>
+        <Button variant="secondary" onClick={handleCancelChanges} disabled={!hasUnsavedChanges}>Discard</Button>
+        <Button variant="primary" icon="save" onClick={handleSaveChanges} disabled={!hasUnsavedChanges}>Apply to {n}</Button>
+      </div>
+
+      {/* Add qualification to all */}
+      <Dialog
+        open={showAddQualDialog}
+        onClose={() => setShowAddQualDialog(false)}
+        title={`Add qualification to ${n} ${plural('pilot')}`}
+        width={500}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowAddQualDialog(false)}>Cancel</Button>
+            <Button variant="primary" icon="plus" onClick={handleAddQualification} disabled={!selectedQualification}>Add to all</Button>
+          </>
+        }
+      >
+        <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'minmax(0, 1fr) 160px' }}>
+          <Field label="Qualification" required>
+            <Select
+              value={selectedQualification}
+              onChange={setSelectedQualification}
+              placeholder="Select qualification"
+              searchable
+              options={availableQualifications.map(q => ({
+                value: q.id,
+                label: q.name,
+                searchText: `${q.name} ${(q as any).code || ''}`,
+                icon: <QualificationBadge type={q.name as any} qualifications={availableQualifications} size="small" />,
+              }))}
+            />
+          </Field>
+          <Field label="Achieved">{dateInput(achievedDate, setAchievedDate)}</Field>
+        </div>
+      </Dialog>
+
+      {/* Add all to team */}
+      <Dialog
+        open={showAddTeamDialog}
+        onClose={() => setShowAddTeamDialog(false)}
+        title={`Add ${n} ${plural('pilot')} to a team`}
+        width={500}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowAddTeamDialog(false)}>Cancel</Button>
+            <Button variant="primary" icon="plus" onClick={handleAddTeam} disabled={!selectedTeam}>Add to team</Button>
+          </>
+        }
+      >
+        <div className="grid gap-[14px]" style={{ gridTemplateColumns: 'minmax(0, 1fr) 160px' }}>
+          <Field label="Team" required>
+            <Select
+              value={selectedTeam}
+              onChange={setSelectedTeam}
+              placeholder="Select team"
+              options={availableTeams.filter(t => t.active).map(t => ({ value: t.id, label: t.name, description: t.scope.charAt(0).toUpperCase() + t.scope.slice(1), searchText: t.name }))}
+            />
+          </Field>
+          <Field label="Start date">{dateInput(teamStartDate, setTeamStartDate)}</Field>
+        </div>
+      </Dialog>
+
+      {/* Enroll all */}
+      <Dialog
+        open={showAddEnrollmentDialog}
+        onClose={() => setShowAddEnrollmentDialog(false)}
+        title={`Enroll ${n} ${plural('pilot')}`}
+        width={440}
+        footer={
+          <>
+            <Button variant="secondary" onClick={() => setShowAddEnrollmentDialog(false)}>Cancel</Button>
+            <Button variant="primary" icon="plus" onClick={handleAddEnrollment} disabled={!selectedCycle}>Enroll all</Button>
+          </>
+        }
+      >
+        <Field label="Training cycle" required>
+          <Select
+            value={selectedCycle}
+            onChange={setSelectedCycle}
+            placeholder="Choose a cycle…"
+            options={availableTrainingCycles.filter((c: any) => c.type === 'Training').map((c: any) => ({ value: c.id, label: c.name, description: c.status, searchText: c.name }))}
+          />
+        </Field>
+      </Dialog>
+
+      {/* Type-"yes" confirmation for destructive bulk actions */}
+      <ConfirmationDialog
+        isOpen={Boolean(confirmProps)}
+        title={confirmProps?.title || ''}
+        message={confirmProps?.message || ''}
+        confirmText={confirmProps?.confirmText || 'Confirm'}
+        onConfirm={async () => {
+          await confirmProps?.run();
+          setConfirmDialog(null);
+        }}
+        onCancel={() => setConfirmDialog(null)}
+      />
     </div>
   );
 };

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { Icon } from '../ui/primitives';
 import { useAuth } from '../../context/AuthContext';
 import { usePermissions } from '../../hooks/usePermissions';
@@ -54,7 +55,9 @@ const PilotDossier: React.FC = () => {
 
   // Pilot selection
   const [pilotOptions, setPilotOptions] = useState<DossierPilotOption[]>([]);
-  const [selectedPilotId, setSelectedPilotId] = useState<string | null>(ownPilotId || null);
+  // ?pilot=<id> (e.g. Roster -> Dossier) preselects that pilot; the viewable check below falls back to your own
+  const [searchParams] = useSearchParams();
+  const [selectedPilotId, setSelectedPilotId] = useState<string | null>(searchParams.get('pilot') || ownPilotId || null);
 
   // Selected pilot data
   const [profile, setProfile] = useState<DossierProfile | null>(null);
