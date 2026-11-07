@@ -13,6 +13,7 @@ import { Avatar, AvatarStack } from '../ui/primitives/Display';
 import { SegmentedControl } from '../ui/primitives/Controls';
 import { PopoverMenu } from '../ui/primitives/Select';
 import { StatusDot } from '../ui/primitives/Chip';
+import { tameAccent } from '../ui/primitives/color';
 import { NAV_GROUP_ORDER, NAV_MODULES, NavModule, moduleIdForPath } from './navConfig';
 
 /* ------------------------------------------------------------------ */
@@ -25,10 +26,6 @@ function hexToRgb(hex: string): [number, number, number] | null {
   const n = parseInt(full, 16);
   return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
 }
-function luminance([r, g, b]: [number, number, number]) {
-  const f = (c: number) => { const s = c / 255; return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4); };
-  return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
-}
 
 /**
  * Applies the signed-in user's squadron primary colour as the app accent (when the
@@ -36,6 +33,8 @@ function luminance([r, g, b]: [number, number, number]) {
  * lifted in dark theme (and very light ones darkened in light theme) so accent text
  * stays legible.
  */
+const DEFAULT_ACCENT = '#F15822'; // tokens.css default accent
+
 function useSquadronBranding() {
   const { userProfile } = useAuth();
   const { settings } = useAppSettings();
@@ -43,20 +42,17 @@ function useSquadronBranding() {
   const primary = settings.accentColor || (settings.interfaceThemeUsesSquadronColors ? palette?.primary : undefined);
   useEffect(() => {
     const root = document.documentElement;
-    const rgb = primary ? hexToRgb(primary) : null;
-    if (!primary || !rgb) {
+    // Personal accent > squadron colour > the default accent. Every source goes through
+    // tameAccent so bright colours (e.g. #FF4715) can't glare as fills; text gets its own band.
+    const base = primary && hexToRgb(primary) ? primary : DEFAULT_ACCENT;
+    const tamed = tameAccent(base, settings.theme === 'light' ? 'light' : 'dark');
+    if (!tamed) {
       root.style.removeProperty('--rr-accent');
       root.style.removeProperty('--rr-accent-text');
       return;
     }
-    // Fills keep the true squadron colour; text/underline/icon uses get a lifted variant
-    // when the colour is too dark (dark theme) or too light (light theme) to read.
-    const L = luminance(rgb);
-    let text = primary;
-    if (settings.theme === 'dark' && L < 0.12) text = `color-mix(in oklab, ${primary} 55%, white)`;
-    else if (settings.theme === 'light' && L > 0.55) text = `color-mix(in oklab, ${primary} 60%, black)`;
-    root.style.setProperty('--rr-accent', primary);
-    root.style.setProperty('--rr-accent-text', text);
+    root.style.setProperty('--rr-accent', tamed.fill);
+    root.style.setProperty('--rr-accent-text', tamed.text);
   }, [primary, settings.theme]);
   useEffect(() => {
     const root = document.documentElement;
