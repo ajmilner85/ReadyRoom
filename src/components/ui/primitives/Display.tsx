@@ -275,7 +275,8 @@ export const SectionCard: React.FC<{
       {action}
       {onEdit ? <IconButton icon="edit" size={26} iconSize={13} label={editLabel ?? (typeof title === 'string' ? `Edit ${title.toLowerCase()}` : 'Edit')} onClick={onEdit} /> : null}
     </div>
-    <div className="flex-1">{children}</div>
+    {/* min-h-0: a height-constrained card (className h-full) can scroll its body */}
+    <div className="flex-1 min-h-0">{children}</div>
     {footer ? <div className="px-[14px] py-[8px] text-[11px] text-text3 border-t border-border">{footer}</div> : null}
   </section>
 );

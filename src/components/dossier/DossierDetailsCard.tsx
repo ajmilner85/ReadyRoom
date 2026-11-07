@@ -1,7 +1,8 @@
 import React from 'react';
-import { Icon } from '../ui/primitives';
+import { Chip, SectionCard, SectionLabel, Select, SquadronInsignia, StatusChip, legibleColor } from '../ui/primitives';
+import type { Tone } from '../ui/primitives';
 import QualificationBadge from '../ui/QualificationBadge';
-import { dossierStyles, formatDossierDate } from './dossierStyles';
+import { formatDossierDate } from './dossierStyles';
 import type { DossierProfile, DossierPilotOption } from '../../utils/dossierService';
 
 interface DossierDetailsCardProps {
@@ -16,21 +17,9 @@ interface DossierDetailsCardProps {
   onSelectPilot: (pilotId: string) => void;
 }
 
-const fieldRowStyle: React.CSSProperties = {
-  display: 'flex',
-  alignItems: 'baseline',
-  padding: '8px 0',
-  borderBottom: '1px solid var(--rr-border)'
-};
+const ENROLLMENT_TONE: Record<string, Tone> = { active: 'accent', graduated: 'good', completed: 'good', withdrawn: 'muted', dropped: 'bad' };
 
-const fieldRowLabelStyle: React.CSSProperties = {
-  width: '160px',
-  flexShrink: 0,
-  fontSize: '14px',
-  fontWeight: 500,
-  color: 'var(--rr-text2)'
-};
-
+/** Identity, assignment and current qualifications (Roster detail header pattern). */
 const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
   callsign,
   boardNumber,
@@ -39,233 +28,120 @@ const DossierDetailsCard: React.FC<DossierDetailsCardProps> = ({
   loading,
   viewablePilots,
   selectedPilotId,
-  onSelectPilot
+  onSelectPilot,
 }) => {
-  // Group picker options by squadron designation, sorted by board number
-  const pilotGroups = viewablePilots.reduce<Record<string, DossierPilotOption[]>>((groups, pilot) => {
-    const label = pilot.squadronDesignation || 'No Squadron';
-    if (!groups[label]) groups[label] = [];
-    groups[label].push(pilot);
-    return groups;
-  }, {});
-  Object.values(pilotGroups).forEach(group => {
-    group.sort((a, b) =>
-      String(a.boardNumber).localeCompare(String(b.boardNumber), undefined, { numeric: true })
-    );
-  });
-  const renderField = (label: string, value: React.ReactNode) => (
-    <div style={fieldRowStyle}>
-      <span style={fieldRowLabelStyle}>{label}</span>
-      <span style={dossierStyles.fieldValue}>{value || '—'}</span>
-    </div>
-  );
+  // Picker options grouped by squadron designation, board-number order
+  const pickerOptions = [...viewablePilots]
+    .sort((a, b) =>
+      (a.squadronDesignation || 'zz').localeCompare(b.squadronDesignation || 'zz') ||
+      String(a.boardNumber).localeCompare(String(b.boardNumber), undefined, { numeric: true }))
+    .map(p => ({
+      value: p.id,
+      label: `${p.boardNumber} ${p.callsign}`,
+      group: p.squadronDesignation || 'No squadron',
+      searchText: `${p.boardNumber} ${p.callsign} ${p.squadronDesignation || ''}`,
+    }));
 
-  const enrollmentStatusChip = (status: string | null) => {
-    const colors: Record<string, { bg: string; fg: string }> = {
-      active: { bg: 'var(--rr-accent-weak)', fg: 'var(--rr-accent-text)' },
-      graduated: { bg: 'rgba(64,168,91,.14)', fg: 'var(--rr-good)' },
-      completed: { bg: 'rgba(64,168,91,.14)', fg: 'var(--rr-good)' },
-      withdrawn: { bg: 'var(--rr-panel2)', fg: 'var(--rr-text2)' }
-    };
-    const style = colors[(status || '').toLowerCase()] || { bg: 'var(--rr-panel2)', fg: 'var(--rr-text2)' };
-    return (
-      <span style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        padding: '0 8px',
-        height: '20px',
-        borderRadius: '8px',
-        fontSize: '11px',
-        fontWeight: 500,
-        backgroundColor: style.bg,
-        color: style.fg,
-        textTransform: 'capitalize'
-      }}>
-        {status || 'Unknown'}
-      </span>
-    );
-  };
+  const sq = profile?.squadron || null;
+  const boardColor = legibleColor(sq?.color_palette?.primary, 'var(--rr-text2)');
+  const billet = profile?.roleName ? `${profile.roleName}${profile.roleIsActing ? ' (Acting)' : ''}` : null;
+
+  const meta: Array<{ k: string; v: React.ReactNode }> = [
+    { k: 'Status', v: profile?.statusName ? <StatusChip status={profile.statusName} size="sm" /> : '—' },
+    { k: 'Standing', v: profile?.standingName ? <Chip size="sm" tone="neutral">{profile.standingName}</Chip> : '—' },
+    { k: 'Billet', v: billet || '—' },
+    { k: 'Discord', v: discordUsername ? <span className="font-mono text-[12px]">@{discordUsername}</span> : '—' },
+  ];
 
   return (
-    <div style={{ ...dossierStyles.card, flex: 1 }}>
-      <div style={dossierStyles.cardHeader}>
-        <span style={dossierStyles.cardHeaderText}>Pilot Details</span>
-      </div>
-      <div style={dossierStyles.cardContent}>
-        {viewablePilots.length > 1 && (
-          <div style={{ position: 'relative', width: '320px', marginBottom: '16px' }}>
-            <select
-              value={selectedPilotId}
-              onChange={(e) => onSelectPilot(e.target.value)}
-              style={dossierStyles.selector}
-            >
-              {Object.entries(pilotGroups).map(([groupLabel, pilots]) => (
-                <optgroup key={groupLabel} label={groupLabel}>
-                  {pilots.map(pilot => (
-                    <option key={pilot.id} value={pilot.id}>
-                      {pilot.boardNumber} {pilot.callsign}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <div style={{
-              position: 'absolute',
-              top: '50%',
-              right: '12px',
-              transform: 'translateY(-50%)',
-              pointerEvents: 'none'
-            }}>
-              <Icon name="chevronDown" size={16} color={'var(--rr-text2)'} />
-            </div>
-          </div>
-        )}
-
+    <SectionCard
+      title="Pilot"
+      className="h-full min-h-0"
+      action={viewablePilots.length > 1 ? (
+        <div className="w-[210px]">
+          <Select size="sm" value={selectedPilotId} onChange={onSelectPilot} options={pickerOptions} searchable placeholder="Select pilot" />
+        </div>
+      ) : null}
+    >
+      <div className="h-full overflow-y-auto">
         {loading ? (
-          <div style={dossierStyles.emptyState}>Loading pilot details...</div>
+          <div className="py-6 text-center text-[12.5px] text-text2">Loading pilot details…</div>
         ) : (
           <>
-            {/* Identity header — mirrors the Roster Management details header */}
-            <div style={{ marginBottom: '16px', display: 'flex', alignItems: 'baseline', gap: '12px' }}>
-              <h2 style={{
-                fontSize: '24px',
-                fontWeight: 700,
-                color: 'var(--rr-text)',
-                display: 'flex',
-                alignItems: 'baseline',
-                gap: '12px',
-                margin: 0
-              }}>
-                <span style={{ fontWeight: 400, color: 'var(--rr-text2)' }}>{boardNumber}</span>
-                {callsign}
-              </h2>
-              {profile?.roleName && (
-                <span style={{ fontSize: '18px', fontWeight: 400, color: 'var(--rr-text2)' }}>
-                  {profile.roleName}{profile.roleIsActing ? ' (Acting)' : ''}
-                </span>
-              )}
+            {/* Identity */}
+            <div className="flex items-center gap-3 px-[14px] py-[14px] border-b border-border">
+              <SquadronInsignia squadron={sq as any} size={52} />
+              <div className="min-w-0">
+                <div className="flex items-baseline gap-[10px] min-w-0">
+                  <span className="font-mono text-[20px] font-semibold" style={{ color: boardColor }}>{boardNumber}</span>
+                  <span className="text-[20px] font-semibold truncate">{callsign}</span>
+                </div>
+                <div className="text-[12px] text-text2 truncate">
+                  {sq ? `${sq.designation} ${sq.name || ''}`.trim() : 'No squadron assignment'}
+                </div>
+              </div>
             </div>
 
-            {/* Squadron block */}
-            <div style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '16px',
-              padding: '16px',
-              backgroundColor: 'var(--rr-panel2)',
-              border: '1px solid var(--rr-border)',
-              borderRadius: '8px',
-              marginBottom: '8px'
-            }}>
-              {profile?.squadron?.insignia_url ? (
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  flexShrink: 0,
-                  backgroundImage: `url(${profile.squadron.insignia_url})`,
-                  backgroundSize: 'contain',
-                  backgroundRepeat: 'no-repeat',
-                  backgroundPosition: 'center'
-                }} />
-              ) : (
-                <div style={{
-                  width: '64px',
-                  height: '64px',
-                  flexShrink: 0,
-                  borderRadius: '50%',
-                  backgroundColor: 'var(--rr-panel3)',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: 'var(--rr-text2)',
-                  fontSize: '12px'
-                }}>
-                  N/A
+            {/* Assignment */}
+            <div className="grid grid-cols-2 gap-x-4 gap-y-[12px] px-[14px] py-[12px] border-b border-border">
+              {meta.map(m => (
+                <div key={m.k} className="min-w-0">
+                  <div className="rr-label mb-[4px]">{m.k}</div>
+                  <div className="text-[13px] font-semibold text-text truncate">{m.v}</div>
                 </div>
-              )}
+              ))}
+            </div>
+
+            <div className="px-[14px] py-[12px] flex flex-col gap-[16px]">
               <div>
-                <div style={{ fontSize: '18px', fontWeight: 600, color: 'var(--rr-text)' }}>
-                  {profile?.squadron?.designation || 'No Squadron Assignment'}
-                </div>
-                <div style={{ fontSize: '14px', color: 'var(--rr-text2)' }}>
-                  {profile?.squadron?.name || ''}
-                </div>
+                <SectionLabel right={<span className="font-mono text-[10px] text-text3">{profile?.qualifications.length || 0}</span>}>Qualifications</SectionLabel>
+                {profile && profile.qualifications.length > 0 ? (
+                  <div className="flex flex-col gap-[6px]">
+                    {profile.qualifications.map(q => (
+                      <div key={q.id} className="flex items-center gap-[10px] min-w-0">
+                        <QualificationBadge type={q.name} code={q.code || undefined} color={q.color || undefined} />
+                        <span className="flex-1 min-w-0 truncate text-[13px] text-text">{q.name}</span>
+                        <span className="font-mono text-[10.5px] text-text3 whitespace-nowrap">{formatDossierDate(q.achieved_date)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[12.5px] text-text3">No qualifications recorded.</div>
+                )}
+              </div>
+
+              <div>
+                <SectionLabel>Training enrollments</SectionLabel>
+                {profile && profile.enrollments.length > 0 ? (
+                  <div className="flex flex-col gap-[6px]">
+                    {profile.enrollments.map(e => (
+                      <div key={e.id} className="flex items-center gap-[10px] min-w-0">
+                        <span className="flex-1 min-w-0 truncate text-[13px] text-text">{e.cycleName}</span>
+                        <Chip size="sm" tone={ENROLLMENT_TONE[(e.status || '').toLowerCase()] || 'muted'} className="capitalize">{e.status || 'Unknown'}</Chip>
+                        <span className="font-mono text-[10.5px] text-text3 whitespace-nowrap">{formatDossierDate(e.enrolledAt)}</span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="text-[12.5px] text-text3">No training enrollments.</div>
+                )}
+              </div>
+
+              <div>
+                <SectionLabel>Teams</SectionLabel>
+                {profile && profile.teams.length > 0 ? (
+                  <div className="flex flex-wrap gap-[6px]">
+                    {profile.teams.map(t => <Chip key={t.id} tone="good">{t.name}</Chip>)}
+                  </div>
+                ) : (
+                  <div className="text-[12.5px] text-text3">No team memberships.</div>
+                )}
               </div>
             </div>
-
-            {renderField('Status', profile?.statusName)}
-            {renderField('Standing', profile?.standingName)}
-            {renderField('Role', profile?.roleName ? `${profile.roleName}${profile?.roleIsActing ? ' (Acting)' : ''}` : null)}
-            {renderField('Discord Username', discordUsername)}
-
-            {/* Qualifications */}
-            <div style={dossierStyles.sectionLabel}>Qualifications</div>
-            {profile && profile.qualifications.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {profile.qualifications.map(qual => (
-                  <div key={qual.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <QualificationBadge
-                      type={qual.name}
-                      code={qual.code || undefined}
-                      color={qual.color || undefined}
-                    />
-                    <span style={{ fontSize: '14px', color: 'var(--rr-text)', flex: 1 }}>{qual.name}</span>
-                    <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
-                      {formatDossierDate(qual.achieved_date)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: '14px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No qualifications recorded</div>
-            )}
-
-            {/* Training Enrollments */}
-            <div style={dossierStyles.sectionLabel}>Training Enrollments</div>
-            {profile && profile.enrollments.length > 0 ? (
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                {profile.enrollments.map(enrollment => (
-                  <div key={enrollment.id} style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-                    <span style={{ fontSize: '14px', color: 'var(--rr-text)', flex: 1 }}>{enrollment.cycleName}</span>
-                    {enrollmentStatusChip(enrollment.status)}
-                    <span style={{ fontSize: '12px', color: 'var(--rr-text3)' }}>
-                      {formatDossierDate(enrollment.enrolledAt)}
-                    </span>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: '14px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No training enrollments</div>
-            )}
-
-            {/* Teams */}
-            <div style={dossierStyles.sectionLabel}>Teams</div>
-            {profile && profile.teams.length > 0 ? (
-              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
-                {profile.teams.map(team => (
-                  <span key={team.id} style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    padding: '0 10px',
-                    height: '24px',
-                    borderRadius: '8px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    backgroundColor: 'rgba(64,168,91,.14)',
-                    color: 'var(--rr-good)',
-                    border: '1px solid var(--rr-good)'
-                  }}>
-                    {team.name}
-                  </span>
-                ))}
-              </div>
-            ) : (
-              <div style={{ fontSize: '14px', color: 'var(--rr-text3)', fontStyle: 'italic' }}>No team memberships</div>
-            )}
           </>
         )}
       </div>
-    </div>
+    </SectionCard>
   );
 };
 
