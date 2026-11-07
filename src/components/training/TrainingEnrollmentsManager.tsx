@@ -1,5 +1,7 @@
 import React, { useState } from 'react';
 import { Cycle } from '../../types/EventTypes';
+import { Button, Chip, Dialog, EmptyState, Field, IconButton, SectionCard, Select } from '../ui/primitives';
+import type { Tone } from '../ui/primitives';
 
 // Enrollment with cycle data from getPilotEnrollmentHistory
 interface EnrollmentWithCycle {
@@ -27,7 +29,25 @@ interface TrainingEnrollmentsManagerProps {
   onRemoveEnrollment: (enrollmentId: string) => Promise<void>;
   isLoading?: boolean;
   isUpdating?: boolean;
+  className?: string;
 }
+
+type ComputedStatus = 'active' | 'completed' | 'dropped' | 'graduated' | 'upcoming';
+const STATUS_TONE: Record<ComputedStatus, Tone> = { active: 'good', completed: 'info', graduated: 'info', dropped: 'bad', upcoming: 'warn' };
+
+const COLS = 'grid grid-cols-[minmax(0,1fr)_92px_100px_100px_28px] items-center gap-x-3';
+
+const fmt = (iso: string) => new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+
+/** Dropped / graduated are manual; otherwise status follows the cycle dates. */
+const computedStatus = (e: EnrollmentWithCycle): ComputedStatus => {
+  if (e.status === 'dropped' || e.status === 'graduated') return e.status;
+  if (!e.cycles) return e.status;
+  const now = new Date();
+  if (now < new Date(e.cycles.start_date)) return 'upcoming';
+  if (now > new Date(e.cycles.end_date)) return 'completed';
+  return 'active';
+};
 
 const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
   pilotEnrollments,
@@ -36,29 +56,25 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
   onRemoveEnrollment,
   isLoading = false,
   isUpdating = false,
+  className,
 }) => {
   const [showAddDialog, setShowAddDialog] = useState(false);
   const [selectedCycleId, setSelectedCycleId] = useState<string>('');
   const [isAdding, setIsAdding] = useState(false);
 
-  const handleAddClick = () => {
-    setShowAddDialog(true);
-    setSelectedCycleId('');
-  };
+  const trainingCycles = availableTrainingCycles.filter(c => c.type === 'Training');
 
-  const handleCancelAdd = () => {
+  const closeDialog = () => {
     setShowAddDialog(false);
     setSelectedCycleId('');
   };
 
-  const handleConfirmAdd = async () => {
+  const confirmAdd = async () => {
     if (!selectedCycleId) return;
-
     setIsAdding(true);
     try {
       await onAddEnrollment(selectedCycleId);
-      setShowAddDialog(false);
-      setSelectedCycleId('');
+      closeDialog();
     } catch (error) {
       console.error('Failed to add enrollment:', error);
     } finally {
@@ -66,413 +82,90 @@ const TrainingEnrollmentsManager: React.FC<TrainingEnrollmentsManagerProps> = ({
     }
   };
 
-  const handleRemoveEnrollment = async (enrollmentId: string) => {
+  const remove = async (id: string) => {
     try {
-      await onRemoveEnrollment(enrollmentId);
+      await onRemoveEnrollment(id);
     } catch (error) {
       console.error('Failed to remove enrollment:', error);
     }
   };
 
-  const getStatusBadgeColor = (status: string) => {
-    switch (status) {
-      case 'active':
-        return '#10B981'; // green
-      case 'completed':
-      case 'graduated':
-        return '#3B82F6'; // blue
-      case 'dropped':
-        return '#EF4444'; // red
-      case 'upcoming':
-        return '#F59E0B'; // amber/orange
-      default:
-        return '#6B7280'; // gray
-    }
-  };
-
-  const formatStatus = (status: string) => {
-    return status.charAt(0).toUpperCase() + status.slice(1);
-  };
-
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return date.toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
-  };
-
-  // Get cycle name for an enrollment
-  const getCycleName = (enrollment: EnrollmentWithCycle) => {
-    return enrollment.cycles?.name || 'Unknown Cycle';
-  };
-
-  // Compute enrollment status based on cycle dates and stored status
-  const getComputedStatus = (enrollment: EnrollmentWithCycle): 'active' | 'completed' | 'dropped' | 'graduated' | 'upcoming' => {
-    // If manually set to dropped or graduated, keep that status
-    if (enrollment.status === 'dropped' || enrollment.status === 'graduated') {
-      return enrollment.status;
-    }
-
-    // Otherwise compute based on cycle dates
-    if (!enrollment.cycles) {
-      return enrollment.status; // Fallback to stored status
-    }
-
-    const now = new Date();
-    const startDate = new Date(enrollment.cycles.start_date);
-    const endDate = new Date(enrollment.cycles.end_date);
-
-    if (now < startDate) {
-      return 'upcoming' as any; // Cycle hasn't started yet
-    } else if (now > endDate) {
-      // Cycle has concluded - check if they completed or just ended
-      return enrollment.status === 'completed' ? 'completed' : 'completed';
-    } else {
-      return 'active'; // Cycle is currently running
-    }
-  };
-
   return (
-    <div>
-      {/* Table and Add Button Container */}
-      <div style={{
-        width: 'fit-content',
-      maxWidth: '100%',
-      overflowX: 'auto'
-      }}>
-        {/* Enrollments Table */}
-        <div style={{
-          border: '1px solid var(--rr-border)',
-          borderRadius: '6px',
-          backgroundColor: 'var(--rr-panel)'
-        }}>
-        {/* Table Header */}
-        <div style={{
-          display: 'flex',
-          backgroundColor: 'var(--rr-panel2)',
-          borderBottom: '1px solid var(--rr-border)',
-          borderRadius: '6px 6px 0 0'
-        }}>
-          <div style={{
-            padding: '8px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase',
-            width: '300px',
-            borderRight: '1px solid var(--rr-border)'
-          }}>
-            Cycle / Training
-          </div>
-          <div style={{
-            padding: '8px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase',
-            width: '100px',
-            borderRight: '1px solid var(--rr-border)'
-          }}>
-            Status
-          </div>
-          <div style={{
-            padding: '8px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase',
-            width: '120px',
-            borderRight: '1px solid var(--rr-border)'
-          }}>
-            Enrolled
-          </div>
-          <div style={{
-            padding: '8px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase',
-            width: '120px',
-            borderRight: '1px solid var(--rr-border)'
-          }}>
-            Completed
-          </div>
-          <div style={{
-            padding: '8px 12px',
-            fontSize: '12px',
-            fontWeight: 500,
-            color: 'var(--rr-text2)',
-            textTransform: 'uppercase',
-            width: '60px',
-            textAlign: 'center'
-          }}>
-            {/* Empty header for action column */}
-          </div>
-        </div>
-
-        {/* Table Body */}
+    <>
+      <SectionCard
+        title="Training enrollments"
+        count={isLoading ? undefined : pilotEnrollments.length}
+        className={className}
+        action={
+          <Button size="sm" variant="ghost" icon="plus" onClick={() => { setSelectedCycleId(''); setShowAddDialog(true); }} disabled={isUpdating || availableTrainingCycles.length === 0}>
+            Enroll
+          </Button>
+        }
+      >
         {isLoading ? (
-          <div style={{
-            padding: '16px',
-            textAlign: 'center',
-            color: 'var(--rr-text2)',
-            fontSize: '14px'
-          }}>
-            Loading enrollments...
-          </div>
+          <div className="px-[14px] py-6 text-center text-[12.5px] text-text2">Loading enrollments…</div>
         ) : pilotEnrollments.length === 0 ? (
-          <div style={{
-            padding: '16px',
-            textAlign: 'center',
-            color: 'var(--rr-text2)',
-            fontSize: '14px'
-          }}>
-            No training enrollments
-          </div>
+          <EmptyState compact icon="training" title="No enrollments" message="Not enrolled in any training cycle." />
         ) : (
-          <>
-            {pilotEnrollments.map((enrollment) => (
-              <div
-                key={enrollment.id}
-                style={{
-                  display: 'flex',
-                  borderBottom: '1px solid var(--rr-border)'
-                }}
-              >
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  color: 'var(--rr-text)',
-                  width: '300px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  {getCycleName(enrollment)}
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  width: '100px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  <span style={{
-                    display: 'inline-block',
-                    padding: '2px 8px',
-                    borderRadius: '4px',
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: '#FFFFFF',
-                    backgroundColor: getStatusBadgeColor(getComputedStatus(enrollment))
-                  }}>
-                    {formatStatus(getComputedStatus(enrollment))}
-                  </span>
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  color: 'var(--rr-text2)',
-                  width: '120px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  {formatDate(enrollment.enrolled_at)}
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  fontSize: '14px',
-                  color: 'var(--rr-text2)',
-                  width: '120px',
-                  borderRight: '1px solid var(--rr-border)'
-                }}>
-                  {(enrollment.status === 'graduated' || enrollment.status === 'completed') && enrollment.status_changed_at
-                    ? formatDate(enrollment.status_changed_at)
-                    : '—'}
-                </div>
-                <div style={{
-                  padding: '8px 12px',
-                  width: '60px',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center'
-                }}>
-                  <button
-                    onClick={() => handleRemoveEnrollment(enrollment.id)}
-                    disabled={isUpdating}
-                    style={{
-                      background: 'none',
-                      border: 'none',
-                      cursor: isUpdating ? 'not-allowed' : 'pointer',
-                      padding: '4px',
-                      color: 'var(--rr-bad)',
-                      fontSize: '16px',
-                      opacity: isUpdating ? 0.5 : 1
-                    }}
-                    title="Remove enrollment"
-                  >
-                    ×
-                  </button>
-                </div>
-              </div>
-            ))}
-          </>
-        )}
-      </div>
-
-      {/* Add Button */}
-      <div style={{
-        display: 'flex',
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: '8px 0'
-      }}>
-        <button
-          onClick={handleAddClick}
-          disabled={isUpdating || availableTrainingCycles.length === 0}
-          style={{
-            width: '119px',
-            height: '30px',
-            background: 'var(--rr-panel)',
-            borderRadius: '8px',
-            border: 'none',
-            cursor: isUpdating || availableTrainingCycles.length === 0 ? 'not-allowed' : 'pointer',
-            transition: 'box-shadow 0.2s ease-in-out',
-            fontFamily: 'inherit',
-            fontStyle: 'normal',
-            fontWeight: 400,
-            fontSize: '20px',
-            lineHeight: '24px',
-            color: 'var(--rr-text2)',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            opacity: isUpdating || availableTrainingCycles.length === 0 ? 0.5 : 1
-          }}
-          onMouseEnter={(e) => {
-            if (!isUpdating && availableTrainingCycles.length > 0) {
-              e.currentTarget.style.boxShadow = '0px 10px 15px -3px rgba(0, 0, 0, 0.25), 0px 4px 6px -4px rgba(0, 0, 0, 0.1)';
-            }
-          }}
-          onMouseLeave={(e) => {
-            if (!isUpdating && availableTrainingCycles.length > 0) {
-              e.currentTarget.style.boxShadow = 'none';
-            }
-          }}
-        >
-          +
-        </button>
-      </div>
-      </div>
-
-      {/* Add Enrollment Dialog */}
-      {showAddDialog && (
-        <div style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          backgroundColor: 'rgba(0, 0, 0, 0.5)',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          zIndex: 9999
-        }}>
-          <div style={{
-            backgroundColor: 'var(--rr-panel)',
-            borderRadius: '8px',
-            padding: '20px',
-            width: '400px',
-            maxWidth: '90%',
-            boxShadow: 'var(--rr-shadow-lg)'
-          }}>
-            <div style={{
-              fontSize: '18px',
-              fontWeight: 600,
-              marginBottom: '16px',
-              color: 'var(--rr-text)'
-            }}>
-              Add Training Enrollment
+          <div>
+            <div className={`${COLS} px-[14px] py-[7px] bg-panel2 border-b border-border font-mono text-[9.5px] tracking-[.1em] uppercase text-text2`}>
+              <span>Cycle</span>
+              <span>Status</span>
+              <span>Enrolled</span>
+              <span>Completed</span>
+              <span />
             </div>
-
-            <div style={{ marginBottom: '16px' }}>
-              <label style={{
-                display: 'block',
-                fontSize: '14px',
-                fontWeight: 500,
-                marginBottom: '6px',
-                color: 'var(--rr-text)'
-              }}>
-                Select Training Cycle
-              </label>
-              <select
-                value={selectedCycleId}
-                onChange={(e) => setSelectedCycleId(e.target.value)}
-                disabled={isAdding}
-                style={{
-                  width: '100%',
-                  padding: '8px 12px',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  fontSize: '14px',
-                  color: 'var(--rr-text)',
-                  backgroundColor: 'var(--rr-panel)',
-                  cursor: isAdding ? 'not-allowed' : 'pointer'
-                }}
-              >
-                <option value="">Choose a cycle...</option>
-                {availableTrainingCycles
-                  .filter(cycle => cycle.type === 'Training')
-                  .map((cycle) => (
-                    <option key={cycle.id} value={cycle.id}>
-                      {cycle.name} ({cycle.status})
-                    </option>
-                  ))}
-              </select>
-            </div>
-
-            <div style={{
-              display: 'flex',
-              gap: '8px',
-              justifyContent: 'flex-end'
-            }}>
-              <button
-                onClick={handleCancelAdd}
-                disabled={isAdding}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: 'var(--rr-panel)',
-                  border: '1px solid var(--rr-border2)',
-                  borderRadius: '6px',
-                  color: 'var(--rr-text)',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  cursor: isAdding ? 'not-allowed' : 'pointer',
-                  opacity: isAdding ? 0.5 : 1
-                }}
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmAdd}
-                disabled={!selectedCycleId || isAdding}
-                style={{
-                  padding: '8px 16px',
-                  backgroundColor: !selectedCycleId || isAdding ? 'var(--rr-text3)' : 'var(--rr-accent)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  color: '#FFFFFF',
-                  fontSize: '14px',
-                  fontWeight: 500,
-                  cursor: !selectedCycleId || isAdding ? 'not-allowed' : 'pointer'
-                }}
-              >
-                {isAdding ? 'Adding...' : 'Add Enrollment'}
-              </button>
+            <div className="divide-y divide-border">
+              {pilotEnrollments.map(e => {
+                const st = computedStatus(e);
+                return (
+                  <div key={e.id} className={`${COLS} px-[14px] min-h-[40px] py-[5px]`}>
+                    <span className="text-[13px] font-medium text-text truncate">{e.cycles?.name || 'Unknown cycle'}</span>
+                    <span><Chip size="sm" tone={STATUS_TONE[st]}>{st.charAt(0).toUpperCase() + st.slice(1)}</Chip></span>
+                    <span className="font-mono text-[11.5px] text-text2">{fmt(e.enrolled_at)}</span>
+                    <span className="font-mono text-[11.5px] text-text2">
+                      {(e.status === 'graduated' || e.status === 'completed') && e.status_changed_at ? fmt(e.status_changed_at) : '—'}
+                    </span>
+                    <IconButton
+                      icon="close"
+                      size={24}
+                      iconSize={12}
+                      label="Remove enrollment"
+                      className="hover:!text-bad"
+                      disabled={isUpdating}
+                      onClick={() => remove(e.id)}
+                    />
+                  </div>
+                );
+              })}
             </div>
           </div>
-        </div>
-      )}
-    </div>
+        )}
+      </SectionCard>
+
+      <Dialog
+        open={showAddDialog}
+        onClose={closeDialog}
+        title="Add training enrollment"
+        width={440}
+        footer={
+          <>
+            <Button variant="secondary" onClick={closeDialog} disabled={isAdding}>Cancel</Button>
+            <Button variant="primary" icon="plus" onClick={confirmAdd} disabled={!selectedCycleId || isAdding} loading={isAdding}>Add enrollment</Button>
+          </>
+        }
+      >
+        <Field label="Training cycle" required hint={trainingCycles.length === 0 ? 'No training cycles available.' : undefined}>
+          <Select
+            value={selectedCycleId}
+            onChange={setSelectedCycleId}
+            placeholder="Choose a cycle…"
+            disabled={isAdding}
+            options={trainingCycles.map(c => ({ value: c.id, label: c.name, description: c.status, searchText: c.name }))}
+          />
+        </Field>
+      </Dialog>
+    </>
   );
 };
 
