@@ -147,6 +147,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
                 <path d="M20 248 A45 45 0 0 0 110 248" />
                 <line x1="110" y1="58" x2="110" y2="355" />
                 <line x1="104" y1="70" x2="110" y2="70" />
+                <line x1="104" y1={yOf(0)} x2="110" y2={yOf(0)} />
                 <line x1="104" y1="215" x2="110" y2="215" />
                 <line x1="104" y1="262" x2="110" y2="262" />
                 <line x1="104" y1="300" x2="110" y2="300" />
@@ -165,10 +166,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
               {focus && (
                 <path
                   d={SHIP}
-                  fill="#050607"
-                  stroke="#B8CC5C"
-                  strokeWidth="1.4"
-                  strokeLinejoin="miter"
+                  fill="#B8CC5C"
                   transform={`translate(${xOf(0)} ${yOf(0).toFixed(1)}) rotate(${(((focus.ship.brc - fb + 540) % 360) - 180).toFixed(1)})`}
                 />
               )}
