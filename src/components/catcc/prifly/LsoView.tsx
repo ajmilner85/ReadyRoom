@@ -26,14 +26,17 @@ function patternPos(t: ScopeTrack, fb: number): { s: number; l: number } {
 /** Pattern-view y for a distance astern (mockup marks: 2 NM 215, 4 NM 262, 6 NM 300). */
 function yOf(s: number): number {
   const k: Pt[] = [[-4, 70], [0, 128], [2, 215], [4, 262], [6, 300], [8, 352]];
-  if (s <= k[0][0]) return k[0][1];
-  for (let i = 1; i < k.length; i++) if (s <= k[i][0]) return k[i - 1][1] + ((s - k[i - 1][0]) / (k[i][0] - k[i - 1][0])) * (k[i][1] - k[i - 1][1]);
-  return k[k.length - 1][1];
+  // beyond the end marks the end segments continue (no clamping, so a wide bolter keeps moving)
+  let i = 1;
+  while (i < k.length - 1 && s > k[i][0]) i++;
+  return k[i - 1][1] + ((s - k[i - 1][0]) / (k[i][0] - k[i - 1][0])) * (k[i][1] - k[i - 1][1]);
 }
 
 /** Pattern-view x for a lateral offset to port (NM): final at 110, a ~1.2 NM downwind at the drawn leg (20). */
 const X_PER_NM = 75;
-const xOf = (l: number): number => Math.max(6, Math.min(168, 110 - l * X_PER_NM));
+const xOf = (l: number): number => 110 - l * X_PER_NM;
+/** the pattern view's frame (viewBox): ~2 NM to port, ~1.3 NM to starboard, ~10 NM ahead to ~9.5 NM astern */
+const VIEW = { x0: -45, y0: -20, w: 255, h: 410 };
 
 /**
  * Screen rotation (deg, clockwise from up) of an aircraft at distance s astern flying heading hdg,
@@ -91,7 +94,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
 
   const pattern = recovering
     .map((t) => ({ t, ...patternPos(t, fb) }))
-    .filter(({ s, l }) => s > -5 && s < 9 && Math.abs(l) < 3);
+    .filter(({ s, l }) => s > -11 && s < 10 && Math.abs(l) < 3);
   const onFinal = pattern.filter(({ t, l, s }) => Math.abs(l) < 0.7 && s > 0 && Math.abs(((t.crs ?? t.hdg ?? 0) - fb + 540) % 360 - 180) < 40).sort((a, b) => a.s - b.s);
   const current = onFinal[0];
   const posL = ['X', 'IM', 'IC', 'AR', 'IW'];
@@ -133,7 +136,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
             </div>
           </div>
           <div style={{ flex: '2 1 280px', minWidth: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg viewBox="0 6 175 384" style={{ width: '100%', height: 'auto', maxHeight: 720, overflow: 'visible' }} role="img" aria-label="Pattern view: final bearing with distance marks, the bolter pattern, and aircraft">
+            <svg viewBox={`${VIEW.x0} ${VIEW.y0} ${VIEW.w} ${VIEW.h}`} style={{ width: '100%', height: 'auto', maxHeight: 760 }} role="img" aria-label="Pattern view: final bearing with distance marks, the bolter pattern, and aircraft">
               <g fill="none" stroke="#B8CC5C" strokeWidth="1.6">
                 <path d="M110 58 A45 45 0 0 0 20 58 L20 300 A45 45 0 0 0 110 300" />
                 <path d="M20 248 A45 45 0 0 0 110 248" />
@@ -159,6 +162,8 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
                     const hdg = t.crs ?? t.hdg ?? fb;
                     const x = xOf(l);
                     const y = yOf(s);
+                    // outside the frame: not drawn (rather than pinned to the edge)
+                    if (x < VIEW.x0 + 4 || x > VIEW.x0 + VIEW.w - 30 || y < VIEW.y0 + 6 || y > VIEW.y0 + VIEW.h - 16) return null;
                     const rot = screenHeading(s, hdg, fb);
                     return (
                       <g key={t.id}>
