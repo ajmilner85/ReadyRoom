@@ -264,7 +264,7 @@ const CoordRow: React.FC<{ hull: string; g: CoordGeom; readOnly: boolean; placin
       </div>
       {placing && (
         <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px 8px', fontSize: 11.5 }}>
-          <span style={{ flex: 1, color: '#FFB08F' }}>Move to set · wheel rotates (Ctrl 1°) · click</span>
+          <span style={{ flex: 1, color: '#FFB08F' }}>Point at where the line crosses our radial · click to set</span>
           <button onClick={onCancel} style={btn}>Cancel</button>
         </div>
       )}

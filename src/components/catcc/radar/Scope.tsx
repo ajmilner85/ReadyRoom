@@ -341,16 +341,22 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  /** coordination-line placement: the line passes through the cursor at the current bearing */
-  const coordAt = (q: Pt, brg: number) => {
+  /**
+   * Coordination-line placement: the line is perpendicular to the bearing from our carrier to the
+   * cursor, at the cursor's range (1° / 0.1 NM).
+   */
+  const coordAt = (q: Pt) => {
     const pc = placement.coord;
     const c = pc && pic.carriers.find((x) => x.track.hull === pc.hull);
     if (!pc || !c) return null;
+    const theta = Math.round(bearingOf(q)) % 360;
+    const range = Math.round(len(q) * 10) / 10;
+    const brg = (theta + 90) % 180;
     const g = coordGeom({ brg, off: 0 }, [0, 0], c.track.p);
-    return { hull: pc.hull, brg: ((brg % 180) + 180) % 180, off: q[0] * g.n[0] + q[1] * g.n[1] };
+    const toward = dir(theta);
+    const sign = toward[0] * g.n[0] + toward[1] * g.n[1] >= 0 ? 1 : -1;
+    return { hull: pc.hull, brg, off: sign * range };
   };
-  const latestCoord = useRef({ coordAt, placement, onCoordPreview: props.onCoordPreview, cur });
-  latestCoord.current = { coordAt, placement, onCoordPreview: props.onCoordPreview, cur };
 
   const latest = useRef({ VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy });
   latest.current = { VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy };
@@ -361,14 +367,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       e.preventDefault();
       const L = latest.current;
       const up = e.deltaY < 0 ? 1 : -1;
-      const LC = latestCoord.current;
-      if (LC.placement.placing === 'coord' && LC.placement.coord) {
-        const q = svgPoint(e) ?? LC.cur;
-        const nb = LC.placement.coord.brg + up * (e.ctrlKey ? 1 : 5);
-        const c = q ? LC.coordAt(q, nb) : null;
-        if (c) LC.onCoordPreview(c);
-        return;
-      }
       if (L.fmHov && !L.placing) {
         const f = L.formations.find((x) => x.id === L.fmHov);
         if (f) {
@@ -447,7 +445,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const q = svgPoint(e);
     if (!q) return;
     if (placement.placing === 'coord') {
-      const c = coordAt(q, placement.coord?.brg ?? 0);
+      const c = coordAt(q);
       if (c) props.onCoordCommit(c);
       return;
     }
@@ -489,7 +487,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (!q) return;
     setCur(q);
     if (placement.placing === 'coord') {
-      const c = coordAt(q, placement.coord?.brg ?? 0);
+      const c = coordAt(q);
       if (c) props.onCoordPreview(c);
       return;
     }
@@ -1134,11 +1132,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 const stroke = pv ? '#FFB08F' : 'rgba(111,182,230,.8)';
                 return (
                   <g key={`coord${c.track.id}`}>
+                    {pv && <line style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x1="0" y1="0" x2={f2(g.p0[0])} y2={f2(g.p0[1])} stroke="#FFB08F" strokeDasharray="2 3" />}
                     <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(p1[0])} y1={f2(p1[1])} x2={f2(p2[0])} y2={f2(p2[1])} stroke={stroke} strokeDasharray={pv ? '6 4' : '2 3'} />
                     <g className="zs" transform={`${zs(m, zkT)} rotate(${f2(ang)} ${f2(m[0])} ${f2(m[1])})`}>
                       <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(m[0] - w / 2)} y={f2(m[1] - 0.72)} width={f2(w)} height="1.44" rx="0.72" fill="#0F1A24" stroke={pv ? '#FFB08F' : 'rgba(111,182,230,.9)'} />
                       <text x={f2(m[0])} y={f2(m[1] + 0.3)} textAnchor="middle" className="tg tgb" style={pv ? { fill: '#FFB08F' } : undefined}>
-                        {pv ? `${r3(g.brg)}° · ${g.off.toFixed(1)} NM` : label}
+                        {pv ? `${r3(bearingOf(g.p0))}° · ${Math.abs(g.off).toFixed(1)} NM` : label}
                       </text>
                     </g>
                   </g>
