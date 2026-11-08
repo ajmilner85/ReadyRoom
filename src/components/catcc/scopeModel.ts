@@ -241,6 +241,11 @@ export function phaseOf(f: Formation, marshalled: Set<string>): Phase {
 }
 
 /** Default stack when none is configured: CV-1 marshal 180° relative to the FB, angels 6. */
+/** Stack label with the carrier's hull number: CVN-71 stack A → "71A" (E and H likewise). */
+export const stackLabel = (hull: string | undefined, id: string): string => `${hull?.match(/(\d+)$/)?.[1] ?? ''}${id}`;
+/** free ids for new stacks (E and H are the emergency and helo stacks) */
+export const STACK_IDS = ['A', 'B', 'C', 'D', 'F', 'G', 'J', 'K'];
+
 export const defaultStack = (ship: ShipRef) => ({ id: 'A', r: Math.round(defaultMarshalRadial(ship)), base: 6 });
 
 /** 30 s of travel, capped at 2.5 NM (handoff §5.2). */

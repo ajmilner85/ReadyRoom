@@ -3,6 +3,8 @@ import type { AcmiEvent } from '../../src/catcc/core/acmi/parser.ts';
 import type { HookEnv, HookFrame, HookUnit } from '../../src/catcc/core/dcs/hookProtocol.ts';
 import { destination, M_PER_FT, MS_PER_KT } from '../../src/catcc/core/geo.ts';
 import { TrackStore, type Track } from '../../src/catcc/core/tracks/trackStore.ts';
+import { THEATRE_UTC_OFFSET_H } from '../../src/catcc/core/dcs/aircraft.ts';
+import { theatreAt } from '../../src/catcc/core/dcs/theatres.ts';
 
 /**
  * Development stand-in for the DCS export hook: replays ACMI events into a TrackStore and
@@ -91,22 +93,38 @@ export class FakeHookServer {
       const u = trackToHookUnit(t, id, this.store.t);
       if (u) units.push(u);
     }
-    const utc = this.store.utc;
+    const { theatre, local } = this.localTime();
     return {
       type: 'frame',
       seq: ++this.seq,
       mt: this.store.t,
-      abs: utc ? utc.getUTCHours() * 3600 + utc.getUTCMinutes() * 60 + utc.getUTCSeconds() : 0,
-      date: utc ? utc.toISOString().slice(0, 10) : null,
-      theatre: 'Normandy', // UTC+0 in THEATRE_UTC_OFFSET_H, so abs above is already UTC
+      abs: local ? local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds() : 0,
+      date: local ? local.toISOString().slice(0, 10) : null,
+      theatre: theatre ?? null,
       unitErrors: 0,
       units,
     };
   }
 
+  /**
+   * DCS reports mission time in the theatre's local zone; a Tacview replay carries UTC. The theatre
+   * is inferred from where the units are, and the clock shifted to it.
+   */
+  private localTime(): { theatre?: string; local?: Date } {
+    const utc = this.store.utc;
+    const any = [...this.store.tracks.values()].find((t) => t.kind === 'carrier') ?? this.store.tracks.values().next().value;
+    let theatre = any ? theatreAt(any.lat, any.lon) : undefined;
+    let off = theatre ? THEATRE_UTC_OFFSET_H[theatre] : undefined;
+    if (off === undefined) {
+      theatre = 'Normandy'; // UTC+0: the clock passes through as UTC
+      off = 0;
+    }
+    return { theatre, local: utc ? new Date(utc.getTime() + off * 3_600_000) : undefined };
+  }
+
   /** Synthetic environment: broken layer at 800 ft, 4 NM in rain; carriers hold course 30 min, then turn 35° right. */
   buildEnv(): HookEnv {
-    const utc = this.store.utc;
+    const { theatre, local } = this.localTime();
     const now = this.store.t;
     const routes = [...this.store.tracks.values()]
       .filter((t) => t.kind === 'carrier')
@@ -127,9 +145,9 @@ export class FakeHookServer {
         };
       });
     return {
-      start: utc ? utc.getUTCHours() * 3600 + utc.getUTCMinutes() * 60 + utc.getUTCSeconds() - Math.round(now) : 0,
-      date: utc ? utc.toISOString().slice(0, 10) : null,
-      theatre: 'Normandy',
+      start: local ? local.getUTCHours() * 3600 + local.getUTCMinutes() * 60 + local.getUTCSeconds() - Math.round(now) : 0,
+      date: local ? local.toISOString().slice(0, 10) : null,
+      theatre: theatre ?? null,
       wx: { cb: 244, ct: 900, cd: 7, cp: 'RainyPreset1', pr: 1, vis: 7400, fog: null, dust: null },
       routes,
     };

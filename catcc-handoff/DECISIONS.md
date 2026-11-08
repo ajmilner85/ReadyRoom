@@ -216,3 +216,18 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Display settings → Radar. Hits repaint only when the antenna sweep passes their bearing from the reference carrier: AN/SPN-43 (the CATCC marshal/approach search radar on Nimitz-class), 15 RPM, 4 s scan. Own ship always current; new contacts appear on first paint; lost contacts drop when the sweep passes their last position; history dots are past paints (one per scan).
 - Driven by the wall clock (performance.now) so the painter and the optional green sweep line agree. Radar module only; LSO/Boss keep the live picture.
 - Telemetry arrives at 1 Hz, so a paint shows the newest frame (up to 1 s old), not an interpolated position.
+
+## Stack names carry the hull number
+- Stack A on CVN-71 is "71A" (E and H likewise: 71E, 71H) on the scope, panel and assignment tags. Stored ids stay single letters. New-stack ids skip E and H (they were colliding with the helo stack).
+
+## Marine layer (coastline + bathymetry)
+- Layers → Marine: Coastline (land shaded, shoreline stroked) and Bathymetry (a few depth contours per theatre, deeper = slightly stronger). Shared, not per carrier.
+- Data built offline by `scripts/catcc-marine.mjs` into `public/catcc/marine/<Theatre>.json` from Natural Earth 10m land + minor islands and NOAA ETOPO1 (1 arc-minute, via the CoastWatch ERDDAP), both public domain. Contours by marching squares, light Chaikin smoothing, Douglas-Peucker 0.004°, lines < 3 NM dropped. Levels chosen per theatre (Gulf 20/50/200/1000/2000 m; open-ocean theatres deeper).
+- Theatre from the source; if absent or the carrier is outside that theatre's box, inferred from position (`core/dcs/theatres.ts`). Nevada and Afghanistan have no file.
+- Paths are projected about an origin near our carrier and re-projected only after it moves 10 NM.
+
+## Tacview replay clock
+- The replay fake hook used to report theatre "Normandy" (UTC+0) so its clock passed as UTC, which made every local time read as Zulu. It now infers the theatre from unit positions and sends local time like DCS does.
+
+## Light chart
+- Elevation axis is linear (one scale fitted to the day's extremes) so the sun path is the true curve; the old power-law mapping had infinite slope at the horizon and clamped the night.

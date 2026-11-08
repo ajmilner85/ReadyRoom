@@ -130,13 +130,12 @@ const LightPanel: React.FC<{ focus: Carrier; utc: Date; offH: number; ceiling: n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, lat, lon, offH]);
   const X = (t: Date) => 10 + ((t.getTime() - data.from.getTime()) / 86_400_000) * 240;
-  // One smooth monotone mapping (power law fitted to the mockup's bands: horizon 58,
-  // −6° 66.5, −12° 73.2, −18° ≈ 78.5; noon ≈ 24 for ~48°), so the sun path reads as a smooth curve.
-  const Y = (e: number) => {
-    const m = Math.pow(Math.abs(e), 0.838);
-    const y = e >= 0 ? 58 - 1.33 * m : 58 + 1.89 * m;
-    return Math.max(8, Math.min(118, y));
-  };
+  // Linear in elevation (one scale above and below the horizon), so the sun path is the true
+  // smooth curve; the scale fits the day's highest and lowest sun into the plot (horizon at 58).
+  const els = data.day.samples.map((s) => s.sun);
+  const k = Math.min((58 - 16) / Math.max(10, ...els), (100 - 58) / Math.max(18, ...els.map((e) => -e)));
+  const Y = (e: number) => 58 - k * e;
+  const [y6, y12, y18] = [Y(-6), Y(-12), Y(-18)];
   const path = 'M' + data.day.samples.map((s) => `${X(s.t).toFixed(1)} ${Y(s.sun).toFixed(1)}`).join(' L');
   const loc = (t: Date) => hhmm(new Date(t.getTime() + offH * 3_600_000));
   const ss = data.day.sunset;
@@ -155,9 +154,9 @@ const LightPanel: React.FC<{ focus: Carrier; utc: Date; offH: number; ceiling: n
     <section className="pnl" aria-label="Light and case">
       <svg viewBox="0 0 260 132" style={{ width: '100%', height: 'auto', display: 'block' }} role="img" aria-label="Sun elevation from noon to noon with the Case III window">
         <rect x="10" y="14" width="240" height="44" fill="rgba(111,143,179,.10)" />
-        <rect x="10" y="58" width="240" height="8.5" fill="rgba(61,88,120,.30)" />
-        <rect x="10" y="66.5" width="240" height="6.7" fill="rgba(38,58,84,.38)" />
-        <rect x="10" y="73.2" width="240" height="5.3" fill="rgba(24,38,58,.45)" />
+        <rect x="10" y="58" width="240" height={y6 - 58} fill="rgba(61,88,120,.30)" />
+        <rect x="10" y={y6} width="240" height={y12 - y6} fill="rgba(38,58,84,.38)" />
+        <rect x="10" y={y12} width="240" height={y18 - y12} fill="rgba(24,38,58,.45)" />
         {c3a && c3b && c3b > c3a && (
           <>
             <rect x={X(c3a)} y="14" width={X(c3b) - X(c3a)} height="88" fill="rgba(241,88,34,.07)" />
@@ -170,12 +169,12 @@ const LightPanel: React.FC<{ focus: Carrier; utc: Date; offH: number; ceiling: n
           </>
         )}
         <line x1="10" y1="58" x2="250" y2="58" stroke="#5E6A78" strokeWidth="1" />
-        <line x1="10" y1="66.5" x2="250" y2="66.5" stroke="rgba(147,161,176,.35)" strokeWidth="0.6" strokeDasharray="1.5 2" />
-        <line x1="10" y1="73.2" x2="250" y2="73.2" stroke="rgba(147,161,176,.35)" strokeWidth="0.6" strokeDasharray="1.5 2" />
+        <line x1="10" y1={y6} x2="250" y2={y6} stroke="rgba(147,161,176,.35)" strokeWidth="0.6" strokeDasharray="1.5 2" />
+        <line x1="10" y1={y12} x2="250" y2={y12} stroke="rgba(147,161,176,.35)" strokeWidth="0.6" strokeDasharray="1.5 2" />
         <g fontFamily="IBM Plex Mono, monospace" fontSize="6" fill="#7D8896">
           <text x="252" y="60">0°</text>
-          <text x="252" y="68.5">−6</text>
-          <text x="252" y="75.2">−12</text>
+          {y6 - 58 >= 6 && <text x="252" y={y6 + 2}>−6</text>}
+          <text x="252" y={y12 + 2}>−12</text>
         </g>
         <path d={path} fill="none" stroke="#C9D3DD" strokeWidth="1.6" strokeLinejoin="round" />
         {ss && (

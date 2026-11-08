@@ -10,7 +10,7 @@ import { nextPimTurn } from '../../../catcc/core/env/weather.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import type { RoomState } from '../useCatccRoom.ts';
-import { defaultStack, fuelK, phaseOf, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
+import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
@@ -176,7 +176,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       const ed = placement.editing;
       if (placement.placing === 'dep') {
         const others = plan.deps.filter((r) => !(ed?.k === 'dep' && ed.r === r));
-        const stacks = plan.stacks.filter((m) => !(ed?.k === 'm' && ed.id === m.id)).map((m) => ({ r: m.r, name: `stack ${m.id}` }));
+        const stacks = plan.stacks.filter((m) => !(ed?.k === 'm' && ed.id === m.id)).map((m) => ({ r: m.r, name: `stack ${stackLabel(hull, m.id)}` }));
         return checkDepartureRadial(b, ship, others, stacks);
       }
       return checkStackRadial(b, ship, plan.deps, plan.stacks.filter((m) => !(ed?.k === 'm' && ed.id === m.id)));
@@ -190,7 +190,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
     else if (editing?.k === 'm') setPlan((p) => ({ ...p, stacks: p.stacks.map((m) => (m.id === editing.id ? { ...m, r: b } : m)) }));
     else if (placing === 'dep') setPlan((p) => ({ ...p, deps: [...p.deps, b].sort((x, y) => x - y) }));
     else if (placing === 'm') {
-      const id = ['B', 'C', 'D', 'F', 'G', 'H'].find((k) => !plan.stacks.some((m) => m.id === k)) ?? 'J';
+      const id = STACK_IDS.find((k) => !plan.stacks.some((m) => m.id === k)) ?? 'L';
       setPlan((p) => ({ ...p, stacks: [...p.stacks, { id, r: b, base: 6 }] }));
     }
     setPlacement({ placing: null, editing: null, hov: null });
@@ -351,6 +351,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       {/* ---------------- scope */}
       <Scope
         sweepLine={conflict.sweep && conflict.sweepLine}
+        theatre={state.theatre}
         pic={pic}
         nowS={nowS}
         ui={ui}

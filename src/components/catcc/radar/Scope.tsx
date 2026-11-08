@@ -22,6 +22,8 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { sweepAngle } from './sweep.ts';
+import { useMarine } from './marine.ts';
+import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
 /** SPN-43 antenna bearing as a green line with a short fading afterglow; animated without re-rendering. */
 const SweepLine: React.FC = () => {
@@ -46,7 +48,7 @@ const SweepLine: React.FC = () => {
     </g>
   );
 };
-import { tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcBra, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
@@ -72,6 +74,8 @@ export interface ScopeProps {
   placement: Placement;
   /** resolved coordination lines toward each other carrier, and the one being placed */
   coordLines: Record<string, CoordGeom>;
+  /** DCS theatre, for the marine layer (inferred from position when absent) */
+  theatre?: string;
   /** draw the SPN-43 sweep line (realistic radar update rate) */
   sweepLine?: boolean;
   coordPreview: { hull: string; g: CoordGeom } | null;
@@ -124,6 +128,11 @@ const MOCK_BRC = 345;
 
 export const Scope: React.FC<ScopeProps> = (props) => {
   const { pic, ui, ov, ov2, tool, hookedId, onHook, plans, assignments, placement, hl, fit, onFit } = props;
+  const fTrack = pic.focus?.track;
+  // the reported theatre wins unless the carrier is outside its box (e.g. a replay that does not know it)
+  const tBox = props.theatre ? THEATRE_BOXES[props.theatre] : undefined;
+  const inBox = !!tBox && !!fTrack && fTrack.lat >= tBox[0] && fTrack.lat <= tBox[2] && fTrack.lon >= tBox[1] && fTrack.lon <= tBox[3];
+  const marine = useMarine(inBox ? props.theatre : fTrack ? theatreAt(fTrack.lat, fTrack.lon) : undefined, fTrack?.lat, fTrack?.lon, !!(ov.coast || ov.bathy));
   const boxRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [box, setBox] = useState({ w: 900, h: 675 });
@@ -818,12 +827,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       for (const m of pl.stacks) {
         if (pl.off?.includes(m.id)) continue;
         const ed = c.focus && placement.editing?.k === 'm' && placement.editing.id === m.id;
-        flags.push(flag(m.r, m.base + 15 + 2.1, false, `${m.id} ${r3(m.r)}`, c.track.p, ed ? DIM[0] : sc, ed ? DIM[1] : tc));
+        flags.push(flag(m.r, m.base + 15 + 2.1, false, `${stackLabel(c.track.hull, m.id)} ${r3(m.r)}`, c.track.p, ed ? DIM[0] : sc, ed ? DIM[1] : tc));
       }
       const er = emergencyMarshalRadial(c.ship);
       const hr = heloMarshalRadial(c.ship);
-      if (!pl.off?.includes('E')) flags.push(flag(er, 23.1, false, `E ${r3(er)}`, c.track.p, sc, tc));
-      if (!pl.off?.includes('H')) flags.push(flag(hr, 6, false, `H ${r3(hr)}`, c.track.p, sc, tc));
+      if (!pl.off?.includes('E')) flags.push(flag(er, 23.1, false, `${stackLabel(c.track.hull, 'E')} ${r3(er)}`, c.track.p, sc, tc));
+      if (!pl.off?.includes('H')) flags.push(flag(hr, 6, false, `${stackLabel(c.track.hull, 'H')} ${r3(hr)}`, c.track.p, sc, tc));
     }
   }
   if (placement.placing && placement.hov != null && ship) {
@@ -831,8 +840,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const cc = ck.err ? '#FF8A85' : ck.warn ? '#E7B04F' : '#7FD397';
     if (placement.placing === 'm') {
       const em = placement.editing?.k === 'm' ? plan.stacks.find((m) => m.id === (placement.editing as { id: string }).id) : undefined;
-      const id = em?.id ?? ['B', 'C', 'D', 'F', 'G', 'H'].find((k) => !plan.stacks.some((m) => m.id === k)) ?? '?';
-      flags.push(flag(placement.hov, (em?.base ?? 6) + 15 + 2.1, false, `${id} ${r3(placement.hov)}`, [0, 0], cc, cc));
+      const id = em?.id ?? STACK_IDS.find((k) => !plan.stacks.some((m) => m.id === k)) ?? '?';
+      flags.push(flag(placement.hov, (em?.base ?? 6) + 15 + 2.1, false, `${stackLabel(hull, id)} ${r3(placement.hov)}`, [0, 0], cc, cc));
     } else flags.push(flag(placement.hov, 35, true, `DR ${r3(placement.hov)}`, [0, 0], cc, cc));
   }
   const sFl = (sO * 0.8 * 860) / 97 / 10.5;
@@ -993,7 +1002,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       const fx = P(st.r, fixDme(a.angels));
       const q = toPx(fx);
       const route = marshalRoute(t.p, t.crs ?? t.hdg ?? 0, Math.max(150, Math.round((t.gs ?? 300) / 10) * 10), st.r, fixDme(a.angels), st.rh ? 'right' : 'left');
-      return { id, st, a, fx, route, x: q[0] + 12, y: q[1] + 8, t: `${t.bd ?? t.cs ?? t.pi ?? id} · ${st.id}${a.angels} · EAT ${hms(a.eatS).slice(0, 5)}` };
+      return { id, st, a, fx, route, x: q[0] + 12, y: q[1] + 8, t: `${t.bd ?? t.cs ?? t.pi ?? id} · ${stackLabel(hull, st.id)}·${a.angels} · EAT ${hms(a.eatS).slice(0, 5)}` };
     })
     .filter((x): x is NonNullable<typeof x> => !!x);
 
@@ -1038,6 +1047,24 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       <div ref={boxRef} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {/* ---------------- background */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
+          {marine && pic.proj && (() => {
+            const o = pic.proj.toScope(marine.lat, marine.lon);
+            const n = marine.depth.length;
+            return (
+              <g transform={`translate(${f2(o[0])} ${f2(o[1])})`} style={{ pointerEvents: 'none' }}>
+                {ov.bathy &&
+                  marine.depth.map((x, i) => (
+                    <path key={x.d} d={x.path} fill="none" stroke="#4F86B8" strokeOpacity={0.16 + (0.14 * i) / Math.max(1, n - 1)} strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
+                  ))}
+                {ov.coast && (
+                  <>
+                    <path d={marine.land} fill="#1A2119" fillOpacity="0.85" fillRule="evenodd" stroke="none" />
+                    <path d={marine.coast} fill="none" stroke="#A9B4A0" strokeOpacity="0.5" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                  </>
+                )}
+              </g>
+            );
+          })()}
           {ov.latlon && (
             <g>
               <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(frame.x0)} y={f2(frame.y0)} width={f2(frame.x1 - frame.x0)} height={f2(frame.y1 - frame.y0)} fill="none" stroke="rgba(147,161,176,.4)" />

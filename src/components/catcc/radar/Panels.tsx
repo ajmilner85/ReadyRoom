@@ -9,7 +9,7 @@ import { IcChevron, IcEdit, IcGoTo, IcPopOut, IcX } from '../icons.tsx';
 import { Icon } from '../../ui/primitives';
 import type { CoordGeom, CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
 import { CONFLICT_DEF, LAYER_GROUPS, LW_STEPS, OV2_DEFAULT, OV_DEFAULT, UI_DEF, UI_STEPS, type ConflictCfg, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
-import type { ScopeTrack } from '../scopeModel.ts';
+import { stackLabel, type ScopeTrack } from '../scopeModel.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const iconBtn: React.CSSProperties = { width: 24, height: 24, border: 0, borderRadius: 4, background: 'transparent', color: '#93A1B0', cursor: 'pointer', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' };
@@ -187,7 +187,7 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
           {p.plan.stacks.map((m) =>
             row({
               key: `m${m.id}`,
-              name: `Stack ${m.id}`,
+              name: `Stack ${stackLabel(p.hull, m.id)}`,
               fg: '#FFB08F',
               r: `${r3(m.r)}R`,
               alt: `A${m.base}+`,
@@ -335,7 +335,7 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
 
 // ---------------------------------------------------------------- layers
 
-const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true };
+const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true, coast: true, bathy: true };
 /** layers that only show while another layer is on */
 const DEPENDS: Record<string, string> = { arr: 'marshal' };
 
