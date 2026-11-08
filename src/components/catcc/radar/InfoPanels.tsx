@@ -130,12 +130,12 @@ const LightPanel: React.FC<{ focus: Carrier; utc: Date; offH: number; ceiling: n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, lat, lon, offH]);
   const X = (t: Date) => 10 + ((t.getTime() - data.from.getTime()) / 86_400_000) * 240;
+  // One smooth monotone mapping (power law fitted to the mockup's bands: horizon 58,
+  // −6° 66.5, −12° 73.2, −18° ≈ 78.5; noon ≈ 24 for ~48°), so the sun path reads as a smooth curve.
   const Y = (e: number) => {
-    if (e >= 0) return Math.max(14, 58 - e * 0.78);
-    if (e >= -6) return 58 - e * 1.417;
-    if (e >= -12) return 66.5 + (-6 - e) * 1.117;
-    if (e >= -18) return 73.2 + (-12 - e) * 0.883;
-    return Math.min(100, 78.5 + (-18 - e) * 0.6);
+    const m = Math.pow(Math.abs(e), 0.838);
+    const y = e >= 0 ? 58 - 1.33 * m : 58 + 1.89 * m;
+    return Math.max(8, Math.min(118, y));
   };
   const path = 'M' + data.day.samples.map((s) => `${X(s.t).toFixed(1)} ${Y(s.sun).toFixed(1)}`).join(' L');
   const loc = (t: Date) => hhmm(new Date(t.getTime() + offH * 3_600_000));

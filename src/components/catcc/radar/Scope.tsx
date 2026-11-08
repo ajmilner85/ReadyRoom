@@ -21,6 +21,7 @@ import { add, bearingOf, dir, len, mul, P, rot, sub, type Pt } from '../../../ca
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcBra, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
 import { LW_STEPS, UI_STEPS, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
@@ -102,6 +103,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const [bra, setBra] = useState<{ a: Pt | string; b: Pt | string | null } | null>(null);
   const [probe, setProbe] = useState<{ a: string; b: string | null } | null>(null);
   const dragged = useRef(false);
+  const prevPlaces = useRef<Map<string, TagPlace>>(new Map());
 
   useLayoutEffect(() => {
     const el = boxRef.current;
@@ -121,6 +123,17 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     setBra(null);
     setProbe(null);
   }, [tool]);
+  // Escape drops the hook (and any half-drawn BRA ruler / CPA probe)
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      onHook(null);
+      setBra(null);
+      setProbe(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [onHook]);
 
   const asp = Math.min(2, Math.max(0.4, box.h / box.w));
   const focus = pic.focus;
@@ -775,37 +788,46 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     });
 
   // ------------------------------------------------ tags
-  const quadrant = (t: ScopeTrack): Pt => {
-    const v = dir(t.crs ?? t.hdg ?? 0);
-    const qs: Pt[] = [
-      [1, -1],
-      [1, 1],
-      [-1, 1],
-      [-1, -1],
-    ];
-    let best = qs[0];
-    let bd = Infinity;
-    for (const q of qs) {
-      const d = q[0] * v[0] + q[1] * v[1];
-      if (d < bd) {
-        bd = d;
-        best = q;
-      }
+  type TagItem = { t: ScopeTrack; rows: string[]; color: 'own' | 'red' | 'blue' };
+  const tagItems: TagItem[] = [];
+  for (const t of pic.air) {
+    if (hidden.has(t.id)) continue;
+    if (pic.formations.some((f) => f.collapsible && f.lead !== t && f.members.includes(t) && (fmSel[f.id] ?? 0) > 0)) continue;
+    const fi = fmInfo.get(t.id);
+    const color = conflictIds.has(t.id) ? 'red' : isBlue(t) ? 'blue' : 'own';
+    let rows = tagRows(t);
+    if (fi && !fi.sel) rows = tagRows(t, fi.f, true);
+    else if (fi) {
+      const m = fi.f.members[fi.sel - 1] ?? t;
+      const r = tagRows(m);
+      rows = [r[0], r[1], `${m.cs ?? m.pi ?? m.id} · ${fi.sel}/${fi.f.members.length}`];
     }
-    if (best[0] > 0 && t.p[0] > vx + VW - 12 * zkT) best = [-1, best[1]];
-    if (best[0] < 0 && t.p[0] < vx + 12 * zkT) best = [1, best[1]];
-    return best;
-  };
-  const renderTag = (t: ScopeTrack, rowsIn: string[], color: 'own' | 'red' | 'blue') => {
-    const q = quadrant(t);
-    const s = Math.SQRT1_2;
-    const L0: Pt = [q[0] * 0.7 * s, q[1] * 0.7 * s];
-    const L1: Pt = [q[0] * 2.4 * s, q[1] * 2.4 * s];
+    tagItems.push({ t, rows, color });
+  }
+  const tagGeom = (rowsIn: string[]) => {
     const arrow = rowsIn[1]?.[0] === '↑' || rowsIn[1]?.[0] === '↓' ? rowsIn[1][0] : '';
     const rows = arrow ? [rowsIn[0], rowsIn[1].slice(1), ...rowsIn.slice(2)] : rowsIn;
     const inset = arrow ? 0.85 : 0.3;
-    const w = Math.max(...rows.map((r) => r.length)) * 0.54 + inset + 0.3;
-    const h = rows.length + 0.35;
+    return { arrow, rows, inset, w: Math.max(...rows.map((r) => r.length)) * 0.54 + inset + 0.3, h: rows.length + 0.35 };
+  };
+  const places = layoutTags(
+    tagItems.map(({ t, rows, color }) => ({
+      id: t.id,
+      p: t.p,
+      ...tagGeom(rows),
+      v: t.gs && t.gs > 20 ? dir(t.crs ?? t.hdg ?? 0) : undefined,
+      priority: color === 'red' ? 0 : t.id === hookedId ? 1 : 2 + t.rng / 100,
+    })),
+    { k: zkT, hitK: zkH, view: { x0: vx, y0: vy, x1: vx + VW, y1: vy + VH }, prev: prevPlaces.current, obstacles: pic.air.filter((t) => !hidden.has(t.id)).map((t) => t.p) },
+  );
+  prevPlaces.current = places;
+  const renderTag = ({ t, rows: rowsIn, color }: TagItem) => {
+    const pl = places.get(t.id) ?? { q: [1, -1] as Pt, L: 2.4 };
+    const q = pl.q;
+    const s = Math.SQRT1_2;
+    const L0: Pt = [q[0] * 0.7 * s, q[1] * 0.7 * s];
+    const L1: Pt = [q[0] * pl.L * s, q[1] * pl.L * s];
+    const { arrow, rows, inset, w, h } = tagGeom(rowsIn);
     const rx = q[0] > 0 ? L1[0] + 0.05 : L1[0] - 0.05 - w;
     const ty = L1[1] + 0.32;
     const cls = color === 'red' ? 'tg tgr' : color === 'blue' ? 'tg tgb' : 'tg';
@@ -983,9 +1005,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <circle key={r} cx="0" cy="0" r={r} className="ring" />
               ))}
               {[10, 20, 30, 40].map((r) => {
-                const q = P(205, r);
+                // stacked straight up from the carrier (top of the screen), just outside each ring
+                const q: Pt = [0.4 * zkO, -r - 0.3 * zkO];
                 return (
-                  <text key={`rl${r}`} x={f2(q[0])} y={f2(q[1])} textAnchor="middle">
+                  <text key={`rl${r}`} x={f2(q[0])} y={f2(q[1])} textAnchor="start">
                     {r} NM
                   </text>
                 );
@@ -1157,6 +1180,13 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           onMouseDown={onDown}
           onMouseMove={onMove}
           onMouseLeave={onLeave}
+          onContextMenu={(e) => {
+            // right click drops the hook
+            e.preventDefault();
+            onHook(null);
+            setBra(null);
+            setProbe(null);
+          }}
           style={
             {
               position: 'absolute',
@@ -1251,21 +1281,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   </g>
                 )),
             )}
-          {/* tags */}
-          {pic.air
-            .filter((t) => !hidden.has(t.id))
-            .map((t) => {
-              const fi = fmInfo.get(t.id);
-              if (pic.formations.some((f) => f.collapsible && f.lead !== t && f.members.includes(t) && (fmSel[f.id] ?? 0) > 0)) return null;
-              const color = conflictIds.has(t.id) ? 'red' : isBlue(t) ? 'blue' : 'own';
-              if (fi) {
-                if (!fi.sel) return renderTag(t, tagRows(t, fi.f, true), color);
-                const m = fi.f.members[fi.sel - 1] ?? t;
-                const r = tagRows(m);
-                return renderTag(t, [r[0], r[1], `${m.cs ?? m.pi ?? m.id} · ${fi.sel}/${fi.f.members.length}`], color);
-              }
-              return renderTag(t, tagRows(t), color);
-            })}
+          {/* tags (deconflicted) */}
+          {tagItems.map(renderTag)}
           {/* hooked tools */}
           {hk && hk.kind === 'marshal' && (
             <g fill="none" stroke="#E45BEA" strokeLinejoin="round" style={{ pointerEvents: 'none' }}>

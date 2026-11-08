@@ -158,7 +158,7 @@ const CatccApp: React.FC = () => {
   );
 
   return (
-    <div className="cc-root" data-theme="dark">
+    <div className="cc-root" data-theme="dark" onContextMenu={(e) => e.preventDefault()}>
       {mod === 'radar' ? (
         <header style={headerStyle}>
           {logo(<IcCatcc />, 'CATCC')}
