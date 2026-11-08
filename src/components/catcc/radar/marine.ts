@@ -13,7 +13,21 @@ export interface MarineData {
   nav?: { d: number; fill: number[][] };
   /** contour lines at d metres, region shallower than d, label anchors [lon, lat, lon2, lat2] */
   depth: { d: number; lines: number[][]; fill?: number[][]; labels?: number[][] }[];
+  /** place names; r = 0 (major) .. 3 (minor) */
+  places?: { n: string; lat: number; lon: number; r: number }[];
+  /** large/medium airports and military fields */
+  airports?: { id: string; n: string; lat: number; lon: number; r: number; mil: boolean }[];
 }
+
+/** "Antonio B. Won Pat International Airport" → "ANTONIO B. WON PAT INTL" */
+const shortName = (n: string) =>
+  n
+    .replace(/International/gi, 'Intl')
+    .replace(/\s+Airport$/i, '')
+    .replace(/Air Force Base/gi, 'AFB')
+    .replace(/Air Base/gi, 'AB')
+    .replace(/Naval Air Station/gi, 'NAS')
+    .toUpperCase();
 
 const cache = new Map<string, Promise<MarineData | null>>();
 export function loadMarine(theatre: string): Promise<MarineData | null> {
@@ -36,6 +50,8 @@ export interface MarinePaths {
   nav: string;
   depth: { d: number; path: string; fill: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
+  places: { x: number; y: number; n: string; r: number }[];
+  airports: { x: number; y: number; id: string; n: string; r: number; mil: boolean }[];
 }
 
 /**
@@ -94,6 +110,14 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
       nav: d(data.nav?.fill ?? [], true),
       depth: data.depth.map((x) => ({ d: x.d, path: d(x.lines, false), fill: d(x.fill ?? [], true) })),
       labels,
+      places: (data.places ?? []).map((p) => {
+        const [x, y] = pr.toScope(p.lat, p.lon);
+        return { x, y, n: p.n, r: p.r };
+      }),
+      airports: (data.airports ?? []).map((a) => {
+        const [x, y] = pr.toScope(a.lat, a.lon);
+        return { x, y, id: a.id, n: shortName(a.n), r: a.r, mil: a.mil };
+      }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, stale]);

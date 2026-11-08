@@ -2,13 +2,16 @@
 /**
  * Builds the CATCC marine layer data (coastline + bathymetry) per DCS theatre.
  *
- *   node scripts/catcc-marine.mjs <GSHHS_f_L1.shp> <cache-dir> [Theatre ...]
+ *   node scripts/catcc-marine.mjs <GSHHS_f_L1.shp> <cache-dir> --places <ne_10m_populated_places_simple.geojson>
+ *        --airports <ourairports airports.csv> [Theatre ...]
  *
  * Inputs:
  *  - GSHHG full-resolution shoreline, level 1 (land/ocean), shapefile (LGPL; Wessel & Smith,
  *    https://www.soest.hawaii.edu/pwessel/gshhg/)
  *  - NOAA ETOPO 2022 relief (15 arc-second grid), fetched per theatre box from the NOAA CoastWatch
  *    ERDDAP server (public domain); responses are cached in <cache-dir>
+ *  - Natural Earth 10m populated places (public domain) and OurAirports airports.csv (public domain,
+ *    https://ourairports.com/data/)
  *
  * Output: public/catcc/marine/<Theatre>.json (format v2)
  *   land:  rings (even-odd fill)
@@ -17,6 +20,8 @@
  *   depth: [{ d, lines, fill, labels }] contour lines at d metres, the closed region shallower than d
  *          (even-odd fill), and label anchors [lon, lat, lon2, lat2] (a point on the line and one
  *          about 1 NM further along, for the label angle)
+ *   places:   [{ n, lat, lon, r }] place names, r = 0 (major) .. 3 (minor), for zoom-dependent display
+ *   airports: [{ id, n, lat, lon, r, mil }] large/medium airports and military fields
  *   Every ring/line is a flat [lon, lat, lon, lat, ...] array.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -40,9 +45,9 @@ const THEATRES = {
 const NAV_M = 15;
 const COAST_TOL = 0.0012; // deg, ~0.07 NM
 const LINE_TOL = 0.002; // ~0.12 NM
-const FILL_TOL = 0.003;
 const MIN_LINE_NM = 2;
-const LABEL_EVERY_NM = 30;
+const LABEL_EVERY_NM = 40;
+const CLOSED_LABEL_NM = 120;
 const r4 = (n) => Math.round(n * 10000) / 10000;
 const r3 = (n) => Math.round(n * 1000) / 1000;
 
@@ -327,12 +332,18 @@ function coastOf(ring, box) {
   return pieces;
 }
 
-/** label anchors every LABEL_EVERY_NM along a line (the first half that far in, or a third of a short line) */
-function labelsOf(l) {
+/**
+ * Label anchors along a contour. Open lines: one every LABEL_EVERY_NM. Closed loops: by perimeter,
+ * one per CLOSED_LABEL_NM (at least one), evenly spaced; loops under 10 NM get none.
+ */
+function labelsOf(l, closed) {
   const L = lengthNm(l);
   if (L < 10) return [];
   const want = [];
-  for (let d = Math.min(LABEL_EVERY_NM / 2, L / 3); d < L - 2; d += LABEL_EVERY_NM) want.push(d);
+  if (closed) {
+    const n = Math.max(1, Math.floor(L / CLOSED_LABEL_NM));
+    for (let k = 0; k < n; k++) want.push((L * (k + 0.5)) / n);
+  } else for (let d = Math.min(LABEL_EVERY_NM / 2, L / 3); d < L - 2; d += LABEL_EVERY_NM) want.push(d);
   const out = [];
   let acc = 0;
   let k = 0;
@@ -356,11 +367,81 @@ const flat4 = (l) => l.flatMap((p) => [r4(p[0]), r4(p[1])]);
 
 // ---------------------------------------------------------------- main
 
-const [, , shpPath, cacheDir, ...only] = process.argv;
+const args = process.argv.slice(2);
+const opt = (k) => {
+  const i = args.indexOf(k);
+  if (i < 0) return undefined;
+  const v = args[i + 1];
+  args.splice(i, 2);
+  return v;
+};
+const placesPath = opt('--places');
+const airportsPath = opt('--airports');
+const [shpPath, cacheDir, ...only] = args;
 if (!shpPath || !cacheDir) {
-  console.error('usage: node scripts/catcc-marine.mjs <GSHHS_f_L1.shp> <cache-dir> [Theatre ...]');
+  console.error('usage: node scripts/catcc-marine.mjs <GSHHS_f_L1.shp> <cache-dir> [--places <geojson>] [--airports <csv>] [Theatre ...]');
   process.exit(1);
 }
+
+/** minimal CSV parser (quoted fields, embedded commas) */
+function parseCsv(text) {
+  const rows = [];
+  let row = [];
+  let f = '';
+  let q = false;
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i];
+    if (q) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          f += '"';
+          i++;
+        } else q = false;
+      } else f += ch;
+    } else if (ch === '"') q = true;
+    else if (ch === ',') {
+      row.push(f);
+      f = '';
+    } else if (ch === '\n' || ch === '\r') {
+      if (ch === '\r' && text[i + 1] === '\n') i++;
+      row.push(f);
+      rows.push(row);
+      row = [];
+      f = '';
+    } else f += ch;
+  }
+  if (f || row.length) {
+    row.push(f);
+    rows.push(row);
+  }
+  return rows;
+}
+
+const PLACES = placesPath
+  ? JSON.parse(readFileSync(placesPath, 'utf8')).features.map((ft) => {
+      const p = ft.properties;
+      const sr = p.scalerank ?? 10;
+      return { n: p.nameascii || p.name, lat: r4(p.latitude), lon: r4(p.longitude), r: sr <= 3 ? 0 : sr <= 6 ? 1 : sr <= 8 ? 2 : 3 };
+    })
+  : [];
+const MIL = /air ?base|air force|\bAFB\b|\bAB\b|naval air|air station|\bNAS\b|military|airfield/i;
+const AIRPORTS = (() => {
+  if (!airportsPath) return [];
+  const rows = parseCsv(readFileSync(airportsPath, 'utf8'));
+  const h = rows[0];
+  const c = (k) => h.indexOf(k);
+  const [iT, iN, iLa, iLo, iId, iIcao, iGps, iSch] = ['type', 'name', 'latitude_deg', 'longitude_deg', 'ident', 'icao_code', 'gps_code', 'scheduled_service'].map(c);
+  const out = [];
+  for (const r of rows.slice(1)) {
+    const type = r[iT];
+    const name = r[iN] ?? '';
+    const mil = MIL.test(name);
+    if (!(type === 'large_airport' || type === 'medium_airport' || (type === 'small_airport' && mil))) continue;
+    out.push({ id: r[iIcao] || r[iGps] || r[iId], n: name, lat: r4(+r[iLa]), lon: r4(+r[iLo]), r: type === 'large_airport' || (type === 'medium_airport' && mil) ? 0 : type === 'medium_airport' && r[iSch] === 'yes' ? 1 : 2, mil });
+  }
+  return out;
+})();
+const inBox = (x, [s, w, n, e]) => x.lat >= s && x.lat <= n && x.lon >= w && x.lon <= e;
 mkdirSync(cacheDir, { recursive: true });
 const outDir = join(process.cwd(), 'public', 'catcc', 'marine');
 mkdirSync(outDir, { recursive: true });
@@ -376,35 +457,70 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
     const sr = simplify(c, COAST_TOL);
     if (sr.length < 4) continue;
     land.push(flat4(sr));
-    for (const piece of coastOf(c, box)) {
-      const sp = simplify(piece, COAST_TOL);
-      if (sp.length >= 2 && lengthNm(sp) > 0.1) coast.push(flat4(sp));
-    }
+    // the shoreline is the simplified land ring itself (minus the cut along the box), so the two match
+    for (const piece of coastOf(sr, box)) if (piece.length >= 2) coast.push(flat4(piece));
   }
   const grid = await fetchGrid(name, box, cfg.stride, cacheDir);
   const padded = padDeep(grid);
-  const fillOf = (d) =>
-    contour(padded, -d)
-      .map((l) => simplify(chaikin(l), FILL_TOL))
-      .filter((l) => l.length >= 4 && lengthNm(l) >= 1)
-      .map(flat3);
-  const depth = cfg.levels.map((d) => {
-    const lines = contour(grid, -d)
-      .map((l) => simplify(chaikin(l), LINE_TOL))
-      .filter((l) => l.length >= 3 && lengthNm(l) >= (d >= 1000 ? 5 : MIN_LINE_NM)); // deep-water speckle dropped
-    return { d, lines: lines.map(flat3), fill: fillOf(d), labels: lines.flatMap(labelsOf) };
-  });
+  // Every contour comes from the deep-padded grid, so it is a closed ring: the ring fills the region
+  // shallower than d, and the same ring minus its run along the data border is the stroked line.
+  // One geometry for both, so shading and line always coincide.
+  const { lats, lons } = grid;
+  const dl = Math.abs(lats[1] - lats[0]) * 0.3;
+  const dn = Math.abs(lons[1] - lons[0]) * 0.3;
+  const [la0, la1] = [Math.min(lats[0], lats[lats.length - 1]), Math.max(lats[0], lats[lats.length - 1])];
+  const [lo0, lo1] = [Math.min(lons[0], lons[lons.length - 1]), Math.max(lons[0], lons[lons.length - 1])];
+  const onBorder = (p) => p[1] < la0 + dl || p[1] > la1 - dl || p[0] < lo0 + dn || p[0] > lo1 - dn;
+  const level = (d, minNm) => {
+    const fill = [];
+    const lines = [];
+    const labels = [];
+    for (const raw of contour(padded, -d)) {
+      const ring = simplify(chaikin(raw), LINE_TOL);
+      if (ring.length < 4 || lengthNm(ring) < 1) continue;
+      fill.push(flat3(ring));
+      const pts = ring.slice(0, -1);
+      const k0 = pts.findIndex(onBorder);
+      if (k0 < 0) {
+        if (lengthNm(ring) >= minNm) {
+          lines.push(flat3(ring));
+          labels.push(...labelsOf(ring, true));
+        }
+        continue;
+      }
+      // rotate to start on a border point, then cut out the border runs
+      const rot = [...pts.slice(k0), ...pts.slice(0, k0), pts[k0]];
+      let cur = [];
+      const flush = () => {
+        if (cur.length >= 2 && lengthNm(cur) >= minNm) {
+          lines.push(flat3(cur));
+          labels.push(...labelsOf(cur, false));
+        }
+        cur = [];
+      };
+      for (const p of rot) {
+        if (onBorder(p)) flush();
+        else cur.push(p);
+      }
+      flush();
+    }
+    return { fill, lines, labels };
+  };
+  const depth = cfg.levels.map((d) => ({ d, ...level(d, d >= 1000 ? 5 : MIN_LINE_NM) })); // deep-water speckle dropped
+  const nav = level(NAV_M, MIN_LINE_NM);
   const out = {
-    v: 2,
+    v: 3,
     theatre: name,
     bbox: box,
-    src: 'GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith); NOAA ETOPO 2022 15 arc-second relief',
+    src: 'GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith); NOAA ETOPO 2022 15 arc-second relief; Natural Earth populated places; OurAirports',
     land,
     coast,
-    nav: { d: NAV_M, fill: fillOf(NAV_M) },
+    nav: { d: NAV_M, fill: nav.fill },
+    places: PLACES.filter((x) => inBox(x, box)),
+    airports: AIRPORTS.filter((x) => inBox(x, box)),
     depth,
   };
   const json = JSON.stringify(out);
   writeFileSync(join(outDir, `${name}.json`), json);
-  console.log(name, `${(json.length / 1024).toFixed(0)} KB`, 'land', land.length, 'coast', coast.length, depth.map((x) => `${x.d}m:${x.lines.length}/${x.labels.length}`).join(' '));
+  console.log(name, `${(json.length / 1024).toFixed(0)} KB`, 'places', out.places.length, 'airports', out.airports.length, 'land', land.length, 'coast', coast.length, depth.map((x) => `${x.d}m:${x.lines.length}/${x.labels.length}`).join(' '));
 }

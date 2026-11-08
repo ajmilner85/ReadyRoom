@@ -233,3 +233,8 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 
 ## Light chart
 - Elevation axis is linear (one scale fitted to the day's extremes) so the sun path is the true curve; the old power-law mapping had infinite slope at the horizon and clamped the night.
+
+## Marine layer fixes + Geography layer
+- Contour lines are now the depth-fill rings minus their run along the data border (one geometry), so shading and lines coincide; the shoreline is cut from the simplified land ring itself (no stray stubs).
+- Depth labels: open lines every 40 NM; closed loops by perimeter (one per 120 NM, at least one; none under 10 NM), evenly spaced.
+- Layers → Geography: Place names (Natural Earth 10m populated places) and Airports / airbases (OurAirports: large and medium airports, plus military fields by name). Aerodrome symbol (ring + four ticks; military gold with a filled centre), ICAO id and short name. Decluttered by view width (major only beyond 250 NM, all within 60 NM). Both sources public domain; stored in the same per-theatre file (format v3, `--places`/`--airports` generator options).

@@ -132,7 +132,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   // the reported theatre wins unless the carrier is outside its box (e.g. a replay that does not know it)
   const tBox = props.theatre ? THEATRE_BOXES[props.theatre] : undefined;
   const inBox = !!tBox && !!fTrack && fTrack.lat >= tBox[0] && fTrack.lat <= tBox[2] && fTrack.lon >= tBox[1] && fTrack.lon <= tBox[3];
-  const marine = useMarine(inBox ? props.theatre : fTrack ? theatreAt(fTrack.lat, fTrack.lon) : undefined, fTrack?.lat, fTrack?.lon, !!(ov.coast || ov.bathy));
+  const marine = useMarine(inBox ? props.theatre : fTrack ? theatreAt(fTrack.lat, fTrack.lon) : undefined, fTrack?.lat, fTrack?.lon, !!(ov.coast || ov.bathy || ov.places || ov.airports));
   const boxRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [box, setBox] = useState({ w: 900, h: 675 });
@@ -1076,6 +1076,48 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     <path d={marine.coast} fill="none" stroke="#A9B4A0" strokeOpacity="0.55" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
                   </>
                 )}
+                {(ov.places || ov.airports) &&
+                  (() => {
+                    // declutter by zoom: minor places and fields only appear as the view narrows
+                    const maxR = VW > 250 ? 0 : VW > 120 ? 1 : VW > 60 ? 2 : 3;
+                    const k = zkO;
+                    return (
+                      <g>
+                        {ov.places &&
+                          marine.places
+                            .filter((p) => p.r <= maxR)
+                            .map((p, i) => (
+                              <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
+                                <circle cx={f2(p.x)} cy={f2(p.y)} r="0.22" fill="#8E99A6" />
+                                <text x={f2(p.x + 0.5)} y={f2(p.y + 0.28)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '0.86px' : '0.74px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                  {p.n}
+                                </text>
+                              </g>
+                            ))}
+                        {ov.airports &&
+                          marine.airports
+                            .filter((a) => a.r <= maxR)
+                            .map((a, i) => {
+                              const c = a.mil ? '#C8B07A' : '#A7B3C0';
+                              const [x, y] = [a.x, a.y];
+                              return (
+                                <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }}>
+                                  {/* aerodrome symbol: ring with four ticks (military: filled centre) */}
+                                  <circle cx={f2(x)} cy={f2(y)} r="0.42" />
+                                  {a.mil && <circle cx={f2(x)} cy={f2(y)} r="0.16" fill={c} stroke="none" />}
+                                  <path d={`M${f2(x)} ${f2(y - 0.42)}v-0.28M${f2(x)} ${f2(y + 0.42)}v0.28M${f2(x - 0.42)} ${f2(y)}h-0.28M${f2(x + 0.42)} ${f2(y)}h0.28`} />
+                                  <text x={f2(x + 0.95)} y={f2(y - 0.1)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.74px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {a.id}
+                                  </text>
+                                  <text x={f2(x + 0.95)} y={f2(y + 0.72)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.75, fontSize: '0.6px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {a.n}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                      </g>
+                    );
+                  })()}
                 {ov.bathy &&
                   marine.labels.map((l, i) => (
                     <text
