@@ -87,7 +87,7 @@ export function buildPicture(
   focusHull: string | undefined,
   history: Map<string, Trail[]>,
   nowT: number,
-  opts: { conflictLookAheadS?: number } = {},
+  opts: { conflictLookAheadS?: number; vertCapS?: number; floors?: Map<string, number> } = {},
 ): Picture {
   const cvs = tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
   const focusTrack = cvs.find((c) => c.hull === focusHull) ?? cvs[0];
@@ -109,7 +109,7 @@ export function buildPicture(
   }
   const formations = groupFormations(air);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
-  const conflicts = findConflicts(air, fb, opts.conflictLookAheadS ?? 120);
+  const conflicts = findConflicts(air, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors);
   return { proj, focus: carriers.find((c) => c.focus), carriers, air, formations, conflicts };
 }
 
@@ -147,21 +147,32 @@ export function groupFormations(air: ScopeTrack[], joinNm = 3): Formation[] {
   return out;
 }
 
-export function findConflicts(air: ScopeTrack[], fb: number, lookAheadS: number): Conflict[] {
+/** Flying in company (tanker join-up, loose formation across groups): close, level and matched. */
+export function inCompany(a: ScopeTrack, b: ScopeTrack): boolean {
+  const lat = Math.hypot(a.p[0] - b.p[0], a.p[1] - b.p[1]);
+  return lat < 1.5 && Math.abs(a.alt - b.alt) < 1500 && angDiff(a.crs ?? a.hdg ?? 0, b.crs ?? b.hdg ?? 0) < 30 && Math.abs((a.gs ?? 0) - (b.gs ?? 0)) < 60;
+}
+
+export function findConflicts(air: ScopeTrack[], fb: number, lookAheadS: number, vertCapS = 30, floors?: Map<string, number>): Conflict[] {
   const cand = air.filter((t) => t.air !== false && t.rng <= 60 && (t.gs ?? 0) > 60);
-  const out: Conflict[] = [];
+  const best = new Map<string, Conflict>();
   for (let i = 0; i < cand.length; i++) {
     for (let j = i + 1; j < cand.length; j++) {
       const a = cand[i];
       const b = cand[j];
       // members of one flight fly formation: not a conflict
       if (a.g && a.g === b.g) continue;
-      const k = (t: ScopeTrack) => ({ p: t.p, crs: t.crs ?? t.hdg ?? 0, gs: t.gs ?? 0, altFt: t.alt, vsFpm: t.vs });
-      const c = predictConflict(k(a), k(b), { lookAheadS, fb });
-      if (c) out.push({ a, b, cpa: c });
+      if (inCompany(a, b)) continue;
+      const k = (t: ScopeTrack) => ({ p: t.p, crs: t.crs ?? t.hdg ?? 0, gs: t.gs ?? 0, altFt: t.alt, vsFpm: t.vs, floorFt: floors?.get(t.id) });
+      const c = predictConflict(k(a), k(b), { lookAheadS, fb, vertCapS });
+      if (!c) continue;
+      // one alert per pair of flights: keep the worst (closest) member pair
+      const key = [a.g ?? a.id, b.g ?? b.id].sort().join('|');
+      const prev = best.get(key);
+      if (!prev || c.latNm < prev.cpa.latNm) best.set(key, { a, b, cpa: c });
     }
   }
-  return out;
+  return [...best.values()];
 }
 
 // ---------------------------------------------------------------- tags

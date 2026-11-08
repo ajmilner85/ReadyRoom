@@ -18,6 +18,13 @@ export const UI_STEPS = [1.15, 1.3, 1.45, 1.6, 1.8];
 export const LW_STEPS = [1.15, 1.5, 1.9, 2.4, 3];
 export const UI_DEF: UiScale = { h: 2, t: 2, l: 2, o: 2 };
 
+/** Conflict alert tuning (handoff §5.4 left the look-ahead open; user asked for it to be configurable). */
+export interface ConflictCfg {
+  lookAheadS: number;
+  vertCapS: number;
+}
+export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30 };
+
 export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3']]],
   ['Airspace', [['cca', 'CCA 50 NM', '#40A85B'], ['coord', 'Coordination lines', '#3E9BD4'], ['sar', 'Helo restrictions', '#DE9A1F']]],

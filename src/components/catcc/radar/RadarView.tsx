@@ -12,7 +12,7 @@ import { defaultStack, fuelK, phaseOf, type Formation, type Phase, type Picture 
 import { InfoPanels } from './InfoPanels.tsx';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
-import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
+import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const hhmm = (d: Date) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
@@ -80,6 +80,8 @@ export interface RadarViewProps {
   sendPlan: (carrier: string, plan: CarrierPlan) => void;
   assign: (trackId: string, a: Assignment | null) => void;
   uiOpen: boolean;
+  conflict: ConflictCfg;
+  setConflict: (c: ConflictCfg) => void;
   setUiOpen: (b: boolean) => void;
   refOpen: boolean;
   setRefOpen: (b: boolean) => void;
@@ -87,7 +89,7 @@ export interface RadarViewProps {
   envCase: { ceiling: number | null; vis: number | null };
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, refOpen, setRefOpen, deckClear, envCase }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, refOpen, setRefOpen, deckClear, envCase, conflict, setConflict }) => {
   const [tool, setTool] = useState<Tool>('marshal');
   const [ov, setOv] = useState<Record<string, boolean>>(() => load('catcc.ov', OV_DEFAULT));
   const [ov2, setOv2] = useState<Record<string, boolean>>(() => load('catcc.ov2', OV2_DEFAULT));
@@ -376,8 +378,10 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         <DisplaySettings
           ui={ui}
           onClose={() => setUiOpen(false)}
-          onApply={(u) => {
+          conflict={conflict}
+          onApply={(u, c) => {
             setUi(u);
+            setConflict(c);
             setUiOpen(false);
           }}
         />

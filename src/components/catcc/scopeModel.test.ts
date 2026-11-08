@@ -44,7 +44,7 @@ describe('buildPicture', () => {
       0,
     );
     const ids = pic.conflicts.map((c) => [c.a.id, c.b.id].sort().join('-')).sort();
-    expect(ids).toEqual(['a-b', 'b-c']);
+    expect(ids).toEqual(['a-b']); // a and c are one flight: one alert for the pair of flights
   });
 
   it('builds trail dots from history at ~6 s spacing', () => {
@@ -52,6 +52,47 @@ describe('buildPicture', () => {
     const pic = buildPicture([carrier, jet('a', 90, 14)], 'CVN-72', new Map([['a', h]]), 39);
     expect(pic.air[0].trail).toHaveLength(5);
     expect(pic.air[0].trail[0][0]).toBeCloseTo(13.3, 1);
+  });
+});
+
+describe('conflict predictor tuning', () => {
+  it('does not extrapolate climb/descent for the whole window (screenshot case: 13,400 ft climbing vs 20,900 ft descending)', () => {
+    // head-on 40 NM apart at 420 kt each: CPA in ~171 s. Rates chosen so full extrapolation
+    // would close the 7,500 ft gap exactly at CPA.
+    const a = { crs: 90, alt: 13400, vs: 1400, g: 'A' };
+    const b = { crs: 270, alt: 20900, vs: -1300, g: 'B' };
+    const pic = (cap: number) => buildPicture([carrier, jet('a', 270, 20, a), jet('b', 90, 20, b)], 'CVN-72', new Map(), 0, { vertCapS: cap, conflictLookAheadS: 240 });
+    expect(pic(30).conflicts).toHaveLength(0);
+    expect(pic(240).conflicts).toHaveLength(1);
+  });
+
+  it('ignores aircraft joined on a tanker (close, level, matched course and speed)', () => {
+    const pic = buildPicture(
+      [carrier, jet('tk', 90, 20, { ty: 'S-3B Tanker', g: 'Arco', crs: 270, gs: 250, alt: 6000 }), jet('rx', 90, 20.05, { g: 'Volt 3', crs: 272, gs: 255, alt: 6050 })],
+      'CVN-72',
+      new Map(),
+      0,
+    );
+    expect(pic.conflicts).toHaveLength(0);
+  });
+
+  it('reports one alert per pair of flights', () => {
+    const pic = buildPicture(
+      [carrier, jet('a1', 0, 20, { crs: 90, g: 'A' }), jet('a2', 0, 20.3, { crs: 90, g: 'A' }), jet('b1', 30, 20, { crs: 270, g: 'B' })],
+      'CVN-72',
+      new Map(),
+      0,
+    );
+    expect(pic.conflicts).toHaveLength(1);
+  });
+
+  it('does not predict an assigned aircraft below its marshal level', () => {
+    const a = { crs: 90, alt: 9500, vs: -4000, g: 'A' };
+    const b = { crs: 270, alt: 7000, vs: 0, g: 'B' };
+    const free = buildPicture([carrier, jet('a', 0, 20, a), jet('b', 30, 20, b)], 'CVN-72', new Map(), 0, { vertCapS: 120 });
+    const held = buildPicture([carrier, jet('a', 0, 20, a), jet('b', 30, 20, b)], 'CVN-72', new Map(), 0, { vertCapS: 120, floors: new Map([['a', 9000]]) });
+    expect(free.conflicts).toHaveLength(1);
+    expect(held.conflicts).toHaveLength(0);
   });
 });
 

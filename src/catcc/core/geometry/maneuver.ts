@@ -69,6 +69,8 @@ export interface Kinematic {
   altFt: number;
   /** vertical speed, ft/min */
   vsFpm?: number;
+  /** assigned altitude a descending aircraft will not go below (marshal level), ft */
+  floorFt?: number;
 }
 
 export interface Cpa {
@@ -115,6 +117,10 @@ export const VERTICAL_STANDARD_FT = 1000;
 
 export interface ConflictOptions {
   lookAheadS?: number;
+  /** climb/descent is extrapolated for at most this long, then the aircraft is assumed level */
+  vertCapS?: number;
+  /** vertical speeds below this are treated as level (noise) */
+  minVsFpm?: number;
   /** final bearing, to recognise aircraft on final */
   fb?: number;
 }
@@ -125,7 +131,16 @@ export interface ConflictOptions {
  */
 export function predictConflict(A: Kinematic, B: Kinematic, opts: ConflictOptions = {}): (Cpa & { latStd: number }) | null {
   const look = opts.lookAheadS ?? 120;
-  const c = cpa(A, B, look);
+  const cap = opts.vertCapS ?? 30;
+  const minVs = opts.minVsFpm ?? 500;
+  const c = cpa({ ...A, vsFpm: 0 }, { ...B, vsFpm: 0 }, look);
+  const altAt = (k: Kinematic, t: number) => {
+    const vs = Math.abs(k.vsFpm ?? 0) < minVs ? 0 : (k.vsFpm ?? 0);
+    let alt = k.altFt + (vs * Math.min(t, cap)) / 60;
+    if (vs < 0 && k.floorFt !== undefined) alt = Math.max(alt, Math.min(k.floorFt, k.altFt));
+    return alt;
+  };
+  c.vertFt = Math.abs(altAt(A, c.tS) - altAt(B, c.tS));
   const range = Math.min(Math.hypot(...A.p), Math.hypot(...B.p));
   const onFinal =
     opts.fb !== undefined && [A, B].every((k) => angDiff(k.crs, opts.fb!) < 15 && Math.hypot(...k.p) < 6);
@@ -230,19 +245,63 @@ export interface MarshalRoute {
   path: Pt[];
   /** NM flown until established inbound at the fix */
   dist: number;
+  /** NM flown to reach the fix (at transit speed) and in the entry manoeuvre (at hold speed) */
+  transitNm: number;
+  entryNm: number;
+  /** index in `path` where the entry manoeuvre starts (the fix crossing) */
+  entryIdx: number;
   entry: HoldEntry;
   fix: Pt;
 }
 
+/** 250 KIAS hold: 1-minute legs (4.2 NM), 2-minute 180° turns (R 2.65 NM), as drawn on the scope. */
+const HOLD = { legNm: 4.2, turnNm: 2.65 };
+
+/**
+ * Join the inbound course to the fix: intercept at ≤ 45° (30° when a new intercept is needed),
+ * lead-turn onto the course, then straight to the fix.
+ */
+function joinInbound(s: FlyState, fix: Pt, C: number, R: number): boolean {
+  const u = dir(C);
+  const xteOf = () => u[0] * (s.p[1] - fix[1]) - u[1] * (s.p[0] - fix[0]); // + = right of course
+  for (let i = 0; i < 3; i++) {
+    const xte = xteOf();
+    if (Math.abs(xte) < 0.03) break;
+    const toward = xte > 0 ? -1 : 1; // turn left when right of course
+    const conv = signedDiff(s.h, C) * toward; // > 0 when already converging
+    if (!(conv >= 15 && conv <= 60)) turnShort(s, norm(C + toward * 30), R);
+    const x2 = xteOf();
+    if (Math.sign(x2) !== Math.sign(xte) || Math.abs(x2) < 0.03) break; // crossed in the turn
+    const a = angDiff(s.h, C) * D2R;
+    const run = Math.abs(x2) / Math.sin(a) - R * Math.tan(a / 2);
+    if (run > 0) straight(s, run);
+    turnShort(s, C, R);
+  }
+  const remaining = -((s.p[0] - fix[0]) * u[0] + (s.p[1] - fix[1]) * u[1]);
+  const ok = remaining > 0.3 && Math.abs(xteOf()) < 0.06 && angDiff(s.h, C) < 3;
+  if (remaining > DS) straight(s, remaining - DS);
+  s.dist += dist(s.p, fix);
+  s.path.push([fix[0], fix[1]]);
+  s.p = [fix[0], fix[1]];
+  s.h = C;
+  return ok;
+}
+
 /**
  * Route from an aircraft to a marshal fix, arriving established on the inbound course (handoff
- * §5.6 backlog: "account for the manoeuvring needed to arrive at the fix on the inbound course").
- * Entry by the standard sectors relative to the inbound course and the hold side: direct 180°,
- * teardrop 70°, parallel 110° (the 70° line), mirrored for left-hand patterns. 1-minute legs.
+ * §5.6 backlog). The transit to the fix is flown at the aircraft's speed; the entry is a
+ * textbook direct / parallel / offset (teardrop) entry chosen by the standard sectors (the 70°
+ * line: direct 180°, offset 70°, parallel 110°; mirrored for left-hand patterns), flown with the
+ * hold's own turn radius and 1-minute legs:
+ *   direct    turn in the hold direction to outbound, outbound to 1 min past abeam, turn inbound
+ *   parallel  turn to outbound on the non-hold side, 1 min, turn > 180° toward the hold side to
+ *             intercept the inbound course at 45°
+ *   offset    turn 30° into the hold side from outbound, 1 min, turn in the hold direction to inbound
  */
-export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, fixNm: number, hand: 'left' | 'right'): MarshalRoute {
-  const R = turnRadiusNm(tasKt);
-  const L = tasKt / 60;
+export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, fixNm: number, hand: 'left' | 'right', hold = HOLD): MarshalRoute {
+  const Rt = turnRadiusNm(tasKt);
+  const Rh = hold.turnNm;
+  const Lh = hold.legNm;
   const C = norm(radial + 180); // inbound course (toward the ship)
   const O = norm(radial); // outbound heading
   const sense: 1 | -1 = hand === 'right' ? 1 : -1;
@@ -252,39 +311,38 @@ export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, 
   // Straight-in: already behind the fix and roughly lined up with the inbound course.
   const u = dir(C);
   const behind = -((p0[0] - fix[0]) * u[0] + (p0[1] - fix[1]) * u[1]);
-  if (behind > 2 * R && angDiff(bearingTo(p0, fix), C) < 50 && angDiff(h0, C) < 100) {
-    trackTo(s, fix, C, R);
-    return { path: s.path, dist: s.dist, entry: 'straight-in', fix };
+  if (behind > 2 * Rt && angDiff(bearingTo(p0, fix), C) < 50 && angDiff(h0, C) < 100) {
+    trackTo(s, fix, C, Rt);
+    return { path: s.path, dist: s.dist, transitNm: s.dist, entryNm: 0, entryIdx: s.path.length - 1, entry: 'straight-in', fix };
   }
 
-  pursue(s, fix, R);
+  pursue(s, fix, Rt);
+  const transitNm = s.dist;
+  const entryIdx = s.path.length - 1;
   const f = norm(sense * signedDiff(s.h, C) + 180); // 0..360 in the hold's own frame
-  const side = dir(C + sense * 90); // toward the holding side
   const out = dir(O);
-  let entry: HoldEntry;
-  if (f >= 70 && f <= 250) {
-    // Direct: turn in the hold direction and join the outbound leg (2R to the hold side),
-    // fly it to 1 minute past abeam the fix, then the 180° inbound turn rolls out on course.
-    entry = 'direct';
-    const outEnd: Pt = [fix[0] + side[0] * 2 * R + out[0] * L, fix[1] + side[1] * 2 * R + out[1] * L];
-    turnTo(s, norm(bearingTo(s.p, outEnd)), sense, R);
-    trackTo(s, outEnd, O, R);
-    turnTo(s, C, sense, R);
-  } else if (f < 70) {
-    // Teardrop: 30° into the hold side for 1 minute, then turn in the hold direction to inbound.
-    entry = 'teardrop';
-    turnShort(s, norm(O - sense * 30), R);
-    straight(s, Math.max(L, 3 * R));
-    turnTo(s, C, sense, R);
-  } else {
-    // Parallel: outbound along the inbound track on the non-hold side for 1 minute, then turn
-    // toward the hold side through ~225° to intercept the inbound course at 45°.
-    entry = 'parallel';
-    turnShort(s, O, R);
-    const pl = L + 2 * R;
-    trackTo(s, [fix[0] + out[0] * pl, fix[1] + out[1] * pl], O, R);
-    turnTo(s, norm(C - sense * 45), (-sense) as 1 | -1, R);
-  }
-  trackTo(s, fix, C, R);
-  return { path: s.path, dist: s.dist, entry, fix };
+  const entry: HoldEntry = f >= 70 && f <= 250 ? 'direct' : f < 70 ? 'teardrop' : 'parallel';
+  const fly = (leg: number): { st: FlyState; ok: boolean } => {
+    const st: FlyState = { p: [s.p[0], s.p[1]], h: s.h, path: [...s.path], dist: s.dist };
+    if (entry === 'direct') {
+      turnTo(st, O, sense, Rh);
+      const pastAbeam = (st.p[0] - fix[0]) * out[0] + (st.p[1] - fix[1]) * out[1];
+      straight(st, Math.max(0.5, leg - pastAbeam));
+      turnTo(st, C, sense, Rh);
+    } else if (entry === 'teardrop') {
+      turnShort(st, norm(O - sense * 30), Rh);
+      straight(st, leg);
+      turnTo(st, C, sense, Rh);
+    } else {
+      turnShort(st, O, Rh);
+      straight(st, leg);
+      turnTo(st, norm(C - sense * 45), (-sense) as 1 | -1, Rh);
+    }
+    return { st, ok: joinInbound(st, fix, C, Rh) };
+  };
+  // The timed leg is 1 minute; extend it (as a pilot would) only if needed to roll out established.
+  let res = fly(Lh);
+  for (let extra = 1; !res.ok && extra <= 8; extra++) res = fly(Lh + extra);
+  Object.assign(s, res.st);
+  return { path: s.path, dist: s.dist, transitNm, entryNm: s.dist - transitNm, entryIdx, entry, fix };
 }

@@ -272,7 +272,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (st) {
       const ang = asg && asg.id === st.id ? asg.ang : st.def;
       const route = marshalRoute(hooked.p, hdg, spd, st.r, fixDme(ang), st.rh ? 'right' : 'left');
-      const fixS = nowS + (route.dist / spd) * 3600;
+      // transit at the aircraft's speed, entry manoeuvre at hold speed (250 KIAS)
+      const fixS = nowS + (route.transitNm / spd + route.entryNm / 250) * 3600;
       const prev = [...assignments.entries()].filter(([id, a]) => a.stackId === st.id && a.carrier === hull && id !== hooked.id).map(([, a]) => a.eatS);
       const eatS = eatOf(fixS, prev.length ? Math.max(...prev) : undefined);
       return { kind: 'marshal' as const, st, ang, route, fixS, eatS, spd };

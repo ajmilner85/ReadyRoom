@@ -13,6 +13,7 @@ import { useDeckLog } from './prifly/useDeckLog.ts';
 import { envSummary } from './radar/InfoPanels.tsx';
 import RadarView from './radar/RadarView.tsx';
 import { buildPicture } from './scopeModel.ts';
+import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
 import './catcc.css';
 
@@ -33,7 +34,27 @@ const CatccApp: React.FC = () => {
     return () => clearInterval(t);
   }, []);
 
-  const pic = useMemo(() => buildPicture(state.tracks, focusHull, history, state.mt), [state.tracks, focusHull, history, state.mt]);
+  const [conflict, setConflictState] = useState<ConflictCfg>(() => {
+    try {
+      return { ...CONFLICT_DEF, ...JSON.parse(localStorage.getItem('catcc.conflict') ?? '{}') };
+    } catch {
+      return CONFLICT_DEF;
+    }
+  });
+  const setConflict = (c: ConflictCfg) => {
+    setConflictState(c);
+    try {
+      localStorage.setItem('catcc.conflict', JSON.stringify(c));
+    } catch {
+      /* private mode */
+    }
+  };
+  // aircraft assigned to a marshal level are not predicted to descend below it
+  const floors = useMemo(() => new Map(Object.entries(state.assignments).map(([id, a]) => [id, a.angels * 1000])), [state.assignments]);
+  const pic = useMemo(
+    () => buildPicture(state.tracks, focusHull, history, state.mt, { conflictLookAheadS: conflict.lookAheadS, vertCapS: conflict.vertCapS, floors }),
+    [state.tracks, focusHull, history, state.mt, conflict, floors],
+  );
   const hull = pic.focus?.track.hull;
   useEffect(() => {
     if (!focusHull && hull) setFocusHull(hull);
@@ -237,6 +258,8 @@ const CatccApp: React.FC = () => {
           setRefOpen={setRefOpen}
           deckClear={deckClear}
           envCase={{ ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }}
+          conflict={conflict}
+          setConflict={setConflict}
         />
       )}
       {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}

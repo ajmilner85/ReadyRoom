@@ -206,6 +206,22 @@ describe('marshalRoute (hold entry, established inbound)', () => {
     // continuous: no jumps along the flown path
     expect(maxStep(r.path)).toBeLessThan(0.08);
     expect(r.dist).toBeGreaterThan(dist(p0, [0, 21]));
+    // the entry stays a compact hold-sized manoeuvre around the fix (no loops or S-curves)
+    const entryPts = r.path.slice(r.entryIdx);
+    expect(Math.max(...entryPts.map((q) => dist(q, [0, 21])))).toBeLessThan(16);
+  });
+
+  it('flies the screenshot case (right-hand stack, arrival from the non-hold side) as a clean parallel entry', () => {
+    // emergency stack on 211R at 21 DME, aircraft north-west of the fix heading south-east
+    const fix = P(211, 21);
+    const r = marshalRoute([fix[0] - 14, fix[1] - 8], 120, 280, 211, 21, 'right');
+    expect(r.entry).toBe('parallel');
+    const entryPts = r.path.slice(r.entryIdx);
+    expect(Math.max(...entryPts.map((q) => dist(q, fix)))).toBeLessThan(16);
+    // total heading change in the entry is about one turn (parallel: ~180° + ~225° + 45°), not repeated loops
+    let turned = 0;
+    for (let i = 2; i < entryPts.length; i++) turned += angDiff(bearingTo(entryPts[i - 2], entryPts[i - 1]), bearingTo(entryPts[i - 1], entryPts[i]));
+    expect(turned).toBeLessThan(560);
   });
 
   it('mirrors for right-hand patterns', () => {
@@ -217,8 +233,8 @@ describe('marshalRoute (hold entry, established inbound)', () => {
     const straightIn = marshalRoute([0, 45], 0, 250, 180, 21, 'left');
     const direct = marshalRoute([-24, 21], 90, 250, 180, 21, 'left');
     expect(straightIn.dist).toBeCloseTo(24, 0);
-    // 24 NM to the fix + ~ (2 legs + 2 half-turns) of a 250 kt hold ≈ 8.4 + 16.6
+    // 24 NM to the fix + a direct entry from the hold side: 270° turn, outbound, 180° turn, join
     expect(direct.dist).toBeGreaterThan(24 + 15);
-    expect(direct.dist).toBeLessThan(24 + 32);
+    expect(direct.dist).toBeLessThan(24 + 42);
   });
 });

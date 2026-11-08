@@ -6,7 +6,7 @@ import { normalizeCommsEntries } from '../../../types/CommsTypes';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import { IcChevron, IcEdit, IcGoTo, IcPopOut, IcX } from '../icons.tsx';
-import { LAYER_GROUPS, LW_STEPS, UI_DEF, UI_STEPS, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
+import { CONFLICT_DEF, LAYER_GROUPS, LW_STEPS, UI_DEF, UI_STEPS, type ConflictCfg, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
 import type { ScopeTrack } from '../scopeModel.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
@@ -370,8 +370,22 @@ export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string
 
 // ---------------------------------------------------------------- display settings
 
-export const DisplaySettings: React.FC<{ ui: UiScale; onApply: (u: UiScale) => void; onClose: () => void }> = ({ ui, onApply, onClose }) => {
+export const DisplaySettings: React.FC<{ ui: UiScale; conflict: ConflictCfg; onApply: (u: UiScale, c: ConflictCfg) => void; onClose: () => void }> = ({ ui, conflict, onApply, onClose }) => {
   const [d, setD] = useState<UiScale>(ui);
+  const [cf, setCf] = useState<ConflictCfg>(conflict);
+  const sel = (label: string, hint: string, value: number, opts: number[], fmt: (n: number) => string, set: (n: number) => void) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px', gap: 14, alignItems: 'center', padding: '8px 0' }}>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</div>
+        <div className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{hint}</div>
+      </div>
+      <select value={value} onChange={(e) => set(+e.target.value)} style={{ background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '5px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>
+        {opts.map((o) => (
+          <option key={o} value={o}>{fmt(o)}</option>
+        ))}
+      </select>
+    </div>
+  );
   const RP = 860 / 97;
   const x = (k: keyof UiScale) => (k === 'l' ? LW_STEPS : UI_STEPS)[d[k] - 1];
   const row = (k: keyof UiScale, label: string, preview: React.ReactNode) => (
@@ -445,12 +459,15 @@ export const DisplaySettings: React.FC<{ ui: UiScale; onApply: (u: UiScale) => v
               </div>
             </>,
           )}
+          <div className="lbl" style={{ margin: '12px 0 2px' }}>Conflict alerts</div>
+          {sel('Look-ahead', 'Alert when both standards are lost within this time', cf.lookAheadS, [60, 90, 120, 180, 240], (n) => `${n} s`, (n) => setCf({ ...cf, lookAheadS: n }))}
+          {sel('Vertical prediction', 'Climb/descent extrapolated this long, then level', cf.vertCapS, [0, 15, 30, 60, 120], (n) => (n ? `${n} s` : 'Off'), (n) => setCf({ ...cf, vertCapS: n }))}
         </div>
         <div style={{ display: 'flex', gap: 8, padding: '12px 14px' }}>
-          <button onClick={() => setD(UI_DEF)} style={{ height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>Reset</button>
+          <button onClick={() => { setD(UI_DEF); setCf(CONFLICT_DEF); }} style={{ height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>Reset</button>
           <div style={{ flex: 1 }} />
           <button onClick={onClose} style={{ height: 32, padding: '0 14px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>Cancel</button>
-          <button onClick={() => onApply(d)} style={{ height: 32, padding: '0 16px', border: '1px solid #F15822', borderRadius: 5, background: '#F15822', color: '#0E1116', fontFamily: "'Saira', sans-serif", fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Apply</button>
+          <button onClick={() => onApply(d, cf)} style={{ height: 32, padding: '0 16px', border: '1px solid #F15822', borderRadius: 5, background: '#F15822', color: '#0E1116', fontFamily: "'Saira', sans-serif", fontSize: 12.5, fontWeight: 700, cursor: 'pointer' }}>Apply</button>
         </div>
       </div>
     </div>
