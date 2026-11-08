@@ -8,7 +8,7 @@ import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.
 import { IcChevron, IcEdit, IcGoTo, IcPopOut, IcX } from '../icons.tsx';
 import { Icon } from '../../ui/primitives';
 import type { CoordGeom, CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
-import { CONFLICT_DEF, LAYER_GROUPS, LW_STEPS, UI_DEF, UI_STEPS, type ConflictCfg, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
+import { CONFLICT_DEF, LAYER_GROUPS, LW_STEPS, OV2_DEFAULT, OV_DEFAULT, UI_DEF, UI_STEPS, type ConflictCfg, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
 import type { ScopeTrack } from '../scopeModel.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
@@ -336,6 +336,8 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
 // ---------------------------------------------------------------- layers
 
 const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true };
+/** layers that only show while another layer is on */
+const DEPENDS: Record<string, string> = { arr: 'marshal' };
 
 export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<string, boolean>; set: (ov: Record<string, boolean>, ov2: Record<string, boolean>) => void; hull: string; other?: string }> = ({ ov, ov2, set, hull, other }) => {
   const labels = LAYER_GROUPS.flatMap((g) => g[1]);
@@ -353,9 +355,14 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
     <section aria-label="Layers" style={{ width: 290, background: 'rgba(21,26,33,.97)', border: '1px solid #374250', borderRadius: 8, padding: 10, boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
         <span className="lbl">Layers</span>
-        <button onClick={toggleAll} style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
-          {allOn ? 'All off' : 'All on'}
-        </button>
+        <span style={{ display: 'flex', gap: 6 }}>
+          <button onClick={() => set({ ...OV_DEFAULT }, { ...OV2_DEFAULT })} title="Restore the default layers" style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
+            Reset
+          </button>
+          <button onClick={toggleAll} style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
+            {allOn ? 'All off' : 'All on'}
+          </button>
+        </span>
       </div>
       <div className="lrow" style={{ marginTop: 4 }}>
         <span />
@@ -367,14 +374,21 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
           <div className="lbl" style={{ fontSize: 9.5, color: '#6B7683', margin: '8px 0 2px 2px' }}>{t}</div>
           {items.map(([k, l, c]) => {
             const has2 = !SHARED[k];
+            // arrival paths follow the marshal stacks: hidden (and locked) while stacks are off, their own setting kept
+            const dep = DEPENDS[k];
+            const off1 = !!dep && !ov[dep];
+            const off2 = !!dep && !ov2[dep];
+            const on1 = ov[k] && !off1;
+            const on2 = has2 && ov2[k] && !off2;
+            const lock = (o: boolean): React.CSSProperties => (o ? { opacity: 0.35, cursor: 'default' } : {});
             return (
-              <div key={k} className="lrow" style={{ color: ov[k] || (has2 && ov2[k]) ? '#E6EDF3' : '#93A1B0' }}>
+              <div key={k} className="lrow" style={{ color: on1 || on2 ? '#E6EDF3' : '#93A1B0' }}>
                 <span style={{ paddingLeft: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l}</span>
-                <button className="lcb" onClick={() => set({ ...ov, [k]: !ov[k] }, ov2)} aria-pressed={!!ov[k]} aria-label={`${l} · ${hull}`}>
+                <button className="lcb" disabled={off1} style={lock(off1)} title={off1 ? 'Shown with marshal stacks' : undefined} onClick={() => set({ ...ov, [k]: !ov[k] }, ov2)} aria-pressed={!!ov[k]} aria-label={`${l} · ${hull}`}>
                   <span style={{ borderColor: c, background: ov[k] ? c : 'transparent' }} />
                 </button>
                 {has2 ? (
-                  <button className="lcb" onClick={() => set(ov, { ...ov2, [k]: !ov2[k] })} aria-pressed={!!ov2[k]} aria-label={`${l} · ${other ?? 'other carriers'}`}>
+                  <button className="lcb" disabled={off2} style={lock(off2)} title={off2 ? 'Shown with marshal stacks' : undefined} onClick={() => set(ov, { ...ov2, [k]: !ov2[k] })} aria-pressed={!!ov2[k]} aria-label={`${l} · ${other ?? 'other carriers'}`}>
                     <span style={{ borderColor: '#3E9BD4', background: ov2[k] ? '#3E9BD4' : 'transparent' }} />
                   </button>
                 ) : (
