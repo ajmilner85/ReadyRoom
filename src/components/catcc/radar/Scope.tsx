@@ -170,6 +170,10 @@ const BLUE_TRAIL = '#2F6F99';
 
 /** Mockup ship-relative overlays were drawn for BRC 345 / FB 336; they are rotated by (BRC − 345). */
 const MOCK_BRC = 345;
+/** unit vector astern along the final bearing in the mockup frame (the drawn final runs to 6.1, 13.7) */
+const FB_U: Pt = [6.1 / Math.hypot(6.1, 13.7), 13.7 / Math.hypot(6.1, 13.7)];
+/** IFLOLS / LSO handover: 3/4 SM astern, NM */
+const IFLOLS_NM = 0.75 * 0.868976;
 
 // ---------------------------------------------------------------- component
 
@@ -868,32 +872,31 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         {o.brc && (
           <g transform={T}>
             <g transform="rotate(345)">
-              <line style={lw(1)} x1="0.1735" y1="-1.4" x2="0.1735" y2="-9" stroke={col('rgba(230,237,243,.45)', 'rgba(62,155,212,.45)')} />
-              <g className="zs" transform={`translate(0.173 -9) scale(${zkO.toFixed(4)}) translate(-0.173 9)`}>
-                <path style={lw(1)} d="M-0.1765 -8.35 L0.1735 -9 L0.5235 -8.35" fill="none" stroke={col('rgba(230,237,243,.45)', 'rgba(62,155,212,.45)')} strokeLinejoin="round" strokeLinecap="round" />
-              </g>
+              <line style={lw(1)} x1={f2(0.1735 * zkH)} y1={f2(-1.4 * zkH)} x2={f2(0.1735 * zkH)} y2="-9" stroke={col('rgba(230,237,243,.6)', 'rgba(62,155,212,.6)')} />
             </g>
-            {!blue && (
-              <text x="-1.5" y="-9.4" transform={cr(-1.5, -9.4)} style={{ fill: '#93A1B0' }}>
-                BRC {r3(c.ship.brc)}
-              </text>
-            )}
           </g>
         )}
         {o.fb && (
           <g transform={T}>
             <line style={lw(1)} x1="0" y1="0" x2="-4.47" y2="-10.05" stroke={col('rgba(230,237,243,.45)', 'rgba(62,155,212,.45)')} strokeDasharray="2 3" />
-            <line style={lw(1.2)} x1="0.31" y1="0.69" x2="6.1" y2="13.7" stroke={col('rgba(230,237,243,.55)', 'rgba(62,155,212,.55)')} />
+            <line style={lw(1.2)} x1={f2(FB_U[0] * IFLOLS_NM)} y1={f2(FB_U[1] * IFLOLS_NM)} x2="6.1" y2="13.7" stroke={col('rgba(230,237,243,.55)', 'rgba(62,155,212,.55)')} />
+            {(() => {
+              // IFLOLS: the ball (dot) with the green datum lights either side, perpendicular to the final bearing
+              const q: Pt = [FB_U[0] * IFLOLS_NM, FB_U[1] * IFLOLS_NM];
+              const n: Pt = [-FB_U[1], FB_U[0]];
+              const seg = (a: number, b: number) => `M${f2(q[0] + n[0] * a)} ${f2(q[1] + n[1] * a)}L${f2(q[0] + n[0] * b)} ${f2(q[1] + n[1] * b)}`;
+              return (
+                <g className="zs" transform={`translate(${f2(q[0])} ${f2(q[1])}) scale(${zkO.toFixed(4)}) translate(${f2(-q[0])} ${f2(-q[1])})`}>
+                  <path style={lw(1.4)} d={seg(0.32, 0.85) + seg(-0.32, -0.85)} stroke={col('rgba(230,237,243,.85)', 'rgba(62,155,212,.85)')} strokeLinecap="round" />
+                  <circle cx={f2(q[0])} cy={f2(q[1])} r="0.17" fill={col('#E6EDF3', '#3E9BD4')} />
+                </g>
+              );
+            })()}
             <g style={lw(1)} stroke={col('rgba(230,237,243,.7)', 'rgba(62,155,212,.7)')}>
               <g className="zs" transform={`translate(1.22 2.74) scale(${zkO.toFixed(4)}) translate(-1.22 -2.74)`}><line x1="0.95" y1="2.86" x2="1.49" y2="2.62" /></g>
               <g className="zs" transform={`translate(2.44 5.48) scale(${zkO.toFixed(4)}) translate(-2.44 -5.48)`}><line x1="2.17" y1="5.6" x2="2.71" y2="5.36" /></g>
               <g className="zs" transform={`translate(4.07 9.14) scale(${zkO.toFixed(4)}) translate(-4.07 -9.14)`}><line x1="3.8" y1="9.26" x2="4.34" y2="9.02" /></g>
             </g>
-            {!blue && (
-              <text x="-5" y="-10.6" textAnchor="end" transform={cr(-5, -10.6)} style={{ fill: '#C9D3DD' }}>
-                FB {r3(c.ship.fb)}
-              </text>
-            )}
           </g>
         )}
         {o.bolter && (
@@ -1104,6 +1107,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const pl = plans[c.track.hull ?? ''] ?? { deps: [], stacks: [] };
     const [sc, tc] = c.focus ? ['#93A1B0', '#E6EDF3'] : ['#3E9BD4', '#6FB6E6'];
     const DIM = ['#4A5562', '#6B7683'];
+    if (o.brc) flags.push(flag(c.ship.brc, 9, true, `BRC ${r3(c.ship.brc)}`, c.track.p, sc, tc));
+    if (o.fb) flags.push(flag(norm360(c.ship.fb + 180), 12, false, `FB ${r3(c.ship.fb)}`, c.track.p, sc, tc));
     if (o.dep)
       for (const r of pl.deps) {
         const ed = c.focus && placement.editing?.k === 'dep' && placement.editing.r === r;
@@ -1346,8 +1351,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         })}
         {pp && pim && (
           <g className="zs" transform={zs(pp, zkO)}>
-            <path d={`M${f2(pp[0])} ${f2(pp[1] - 0.7)}L${f2(pp[0] + 0.7)} ${f2(pp[1])}L${f2(pp[0])} ${f2(pp[1] + 0.7)}L${f2(pp[0] - 0.7)} ${f2(pp[1])}Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
-            <circle cx={f2(pp[0])} cy={f2(pp[1])} r="0.14" fill={col} />
+            {!(ship && len(sub(ship, pp)) < 1.6 * zkH) && <path d={`M${f2(pp[0])} ${f2(pp[1] - 0.7)}L${f2(pp[0] + 0.7)} ${f2(pp[1])}L${f2(pp[0])} ${f2(pp[1] + 0.7)}L${f2(pp[0] - 0.7)} ${f2(pp[1])}Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
+            {!(ship && len(sub(ship, pp)) < 1.6 * zkH) && <circle cx={f2(pp[0])} cy={f2(pp[1])} r="0.14" fill={col} />}
             <text x={f2(pp[0] + 0.95)} y={f2(pp[1] - 0.55)} stroke="#0B0E12" style={txt({ fontWeight: 600 })}>
               {`${r.label} PIM${pim.crs != null ? ` ${r3(pim.crs)}` : ''}${pim.leg > 0 && pim.leg < r.pts.length && legKt(pim.leg) != null ? `/${legKt(pim.leg)} KT` : ''}${ship ? ` · ${Math.max(0, len(sub(ship, pp))).toFixed(1)} NM` : ''}`}
             </text>
@@ -1581,9 +1586,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   </g>
                 );
               })}
+          {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
-          {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
           {ov.bulls &&
             pic.proj &&
             (props.bulls ?? []).map((b) => {

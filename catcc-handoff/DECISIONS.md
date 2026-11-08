@@ -271,7 +271,11 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Territorial limit v2: 12 NM from a baseline approximation (land closed by 12 NM: grow then shrink, bridging bays and island gaps up to 24 NM, the UNCLOS bay closing limit) instead of from the raw shoreline, so island groups get straight runs instead of overlapping-circle cusps. Simplified (~0.3 NM) rather than smoothed, like a charted limit; "12 NM" labels along it (perimeter-limited on closed loops).
 
 ## PIM / waypoints overlay
-- Source: the hook `env` routes (every live ship group's mission route, already used for "Next PIM turn"). Friendly side only (the focus carrier's coalition), groups with at least 2 points.
-- Layers → PIM / waypoints: one toggle per ship group, labelled with the carrier hull when a carrier is in the group, else the DCS group name. Default: own carrier on, others off; stored per browser (`catcc.pim`). Reset and All on/off include them.
-- Drawing: completed legs dim dotted, remaining legs dashed; waypoints numbered as in the ME (WP0 = start) with local ETA and the outbound course; PIM is a diamond interpolated along the leg whose ETAs bracket mission time (`pimAt` in core/env/weather.ts, tested), labelled with leg course/speed (speed from distance over ETA difference) and the carrier's distance off PIM, with a dotted line from the carrier to it. A waypoint label next to the PIM is hidden.
+- Source: the hook `env` routes (every live ship group's mission route, already used for "Next PIM turn"); carrier groups on the focus carrier's side with at least 2 points.
+- Layers → Ship → PIM / waypoints, own and other-carrier columns like the other ship layers (own on, others off by default). Radar sweep moved to the Ship group too (own ship only).
+- Drawing: completed legs dim dotted, remaining legs dashed, drawn under the BRC line; waypoints numbered as in the ME (WP0 = start) with local ETA and the outbound course; PIM is a diamond interpolated along the leg whose ETAs bracket mission time (`pimAt` in core/env/weather.ts, tested), labelled with leg course/speed (speed from distance over ETA difference) and the carrier's distance off PIM, with a dotted line from the carrier to it. The diamond is not drawn while it sits under the ship symbol; a waypoint label next to the PIM is hidden.
 - The replay hook's synthetic routes restart at the carrier every 30 s, so PIM sits on the ship there; real DCS missions use the planned ETAs.
+
+## BRC / FB
+- BRC starts at the bow of the (screen-constant) ship symbol, so it touches the ship at every zoom; FB's final approach ends at the IFLOLS, 3/4 SM astern on the final bearing (LSO handover), drawn as the ball with datum bars perpendicular to the FB.
+- BRC and FB labels are radial flags like departure radials and marshal stacks (BRC outbound at 9 NM, FB inbound at 12 NM), for both carriers; the arrowhead and loose text labels are gone.

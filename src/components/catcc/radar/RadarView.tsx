@@ -96,8 +96,6 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const [tool, setTool] = useState<Tool>('marshal');
   const [ov, setOv] = useState<Record<string, boolean>>(() => load('catcc.ov', OV_DEFAULT));
   const [ov2, setOv2] = useState<Record<string, boolean>>(() => load('catcc.ov2', OV2_DEFAULT));
-  // PIM / waypoints per ship group; unset groups follow the default (own carrier on, others off)
-  const [pimOn, setPimOn] = useState<Record<string, boolean>>(() => load('catcc.pim', {}));
   const [ui, setUi] = useState<UiScale>(() => load('catcc.ui', UI_DEF));
   const [layersOpen, setLayersOpen] = useState(false);
   const [freqOpen, setFreqOpen] = useState(false);
@@ -115,7 +113,6 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
 
   useEffect(() => save('catcc.ov', ov), [ov]);
   useEffect(() => save('catcc.ov2', ov2), [ov2]);
-  useEffect(() => save('catcc.pim', pimOn), [pimOn]);
   useEffect(() => save('catcc.ui', ui), [ui]);
 
   const focus = pic.focus;
@@ -129,28 +126,18 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const plan = useMemo(() => plans[hull] ?? { deps: [], stacks: [] }, [plans, hull]);
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
 
-  // ------------------------------------------------ PIM / waypoints: friendly ship groups with a planned route
+  // ------------------------------------------------ PIM / waypoints: carrier groups with a planned route
   const routes = state.env?.routes;
   const pimShips = useMemo<PimShip[]>(() => {
     const side = focus?.track.sd ?? 'blue';
     return (routes ?? [])
-      .filter((r) => r.side === side && r.pts.length >= 2)
+      .filter((r) => r.side === side && r.pts.length >= 2 && pic.carriers.some((x) => x.track.g === r.g))
       .map((r) => {
         const c = pic.carriers.find((x) => x.track.g === r.g);
         return { g: r.g, label: c?.track.hull ?? r.g, own: !!c?.focus, carrierId: c?.track.id, pts: r.pts };
       })
       .sort((a, b) => Number(b.own) - Number(a.own) || Number(!!b.carrierId) - Number(!!a.carrierId) || a.label.localeCompare(b.label));
   }, [routes, pic.carriers, focus?.track.sd]);
-  const pimShown = useCallback((s: PimShip) => pimOn[s.g] ?? s.own, [pimOn]);
-  const pimToggles = {
-    ships: pimShips,
-    shown: pimShown,
-    toggle: (g: string) => {
-      const s = pimShips.find((x) => x.g === g);
-      if (s) setPimOn((o) => ({ ...o, [g]: !pimShown(s) }));
-    },
-    setAll: (on: boolean | null) => setPimOn(on === null ? {} : Object.fromEntries(pimShips.map((s) => [s.g, on]))),
-  };
 
   // ------------------------------------------------ coordination lines (ours, theirs reframed, or automatic)
   const protectedAreas = (c: Carrier): CoordArea[] => {
@@ -381,7 +368,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       <Scope
         theatre={state.theatre}
         bulls={state.env?.bulls}
-        pimRoutes={pimShips.filter(pimShown)}
+        pimRoutes={pimShips.filter((s) => (s.own ? ov.pim : ov2.pim))}
         mt={state.mt}
         dayStart={state.env?.start}
         pic={pic}
@@ -414,7 +401,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         goTo={goTo}
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((o) => !o)}
-        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} pim={pimToggles} />}
+        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} />}
         freqOpen={freqOpen}
         onToggleFreq={() => setFreqOpen((o) => !o)}
         freqPanel={<FreqPanel plan={comms.plan} source={comms.source} />}
