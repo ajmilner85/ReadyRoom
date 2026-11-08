@@ -25,14 +25,16 @@ import { SCAN_S, sweepAngle } from './sweep.ts';
 import { buildPaths, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
+const IS_GECKO = typeof navigator !== 'undefined' && /Gecko\/|Firefox\//.test(navigator.userAgent) && !/like Gecko/.test(navigator.userAgent);
+
 /** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
-const SweepLine: React.FC<{ x: number; y: number; w: number; len: number }> = ({ x, y, w, len }) => {
-  // A CSS animation runs on the compositor, so the sweep keeps turning smoothly while the main
-  // thread is busy redrawing the scope (a JS-driven rotation hitched on every heavy render).
-  // The negative delay puts it in phase with sweepAngle(), which the hit painter uses.
-  // The animated element IS the line (rotating about its bottom end at the carrier), sized to just
-  // reach the farthest scope corner: Firefox clipped a line hanging outside a zero-size rotating
-  // box to that box's layer bounds, so the sweep split and stuttered there.
+const SweepLine: React.FC<{ x: number; y: number; w: number; len: number }> = (p) => (IS_GECKO ? <SweepLineRaf {...p} /> : <SweepLineCss {...p} />);
+
+// Chrome/Safari: a CSS animation runs on the compositor, so the sweep keeps turning smoothly while
+// the main thread is busy redrawing the scope. The negative delay puts it in phase with
+// sweepAngle(), which the hit painter uses. The animated element IS the line, rotating about its
+// bottom end at the carrier.
+const SweepLineCss: React.FC<{ x: number; y: number; w: number; len: number }> = ({ x, y, w, len }) => {
   const [delay] = useState(() => -(sweepAngle(performance.now()) / 360) * SCAN_S);
   return (
     <div
@@ -51,6 +53,38 @@ const SweepLine: React.FC<{ x: number; y: number; w: number; len: number }> = ({
         willChange: 'transform',
       }}
     />
+  );
+};
+
+// Firefox: WebRender rasterises a long, thin, compositor-rotated layer in tiles, and the tiles are
+// sampled with a sub-pixel offset at many angles, so the line visibly breaks into offset pieces.
+// Instead an SVG line's end point is set every frame (no React render), so the geometry itself is
+// rotated and rasterised in one piece.
+const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number }> = ({ x, y, w, len }) => {
+  const ref = useRef<SVGLineElement>(null);
+  const geo = useRef({ x, y, len });
+  geo.current = { x, y, len };
+  useEffect(() => {
+    let id = 0;
+    const tick = () => {
+      const el = ref.current;
+      if (el) {
+        const g = geo.current;
+        const a = (sweepAngle(performance.now()) * Math.PI) / 180;
+        el.setAttribute('x1', g.x.toFixed(2));
+        el.setAttribute('y1', g.y.toFixed(2));
+        el.setAttribute('x2', (g.x + Math.sin(a) * g.len).toFixed(2));
+        el.setAttribute('y2', (g.y - Math.cos(a) * g.len).toFixed(2));
+      }
+      id = requestAnimationFrame(tick);
+    };
+    id = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(id);
+  }, []);
+  return (
+    <svg aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'hidden' }}>
+      <line ref={ref} x1={x} y1={y} x2={x} y2={y - len} stroke="rgba(64, 168, 91, .55)" strokeWidth={w} />
+    </svg>
   );
 };
 import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
