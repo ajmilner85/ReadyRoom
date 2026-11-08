@@ -14,9 +14,9 @@ export interface MarineData {
   /** contour lines at d metres, region shallower than d, label anchors [lon, lat, lon2, lat2] */
   depth: { d: number; lines: number[][]; fill?: number[][]; labels?: number[][] }[];
   /** place names; r = 0 (major) .. 3 (minor) */
-  places?: { n: string; lat: number; lon: number; r: number }[];
+  places?: { n: string; lat: number; lon: number; r: number; k?: 'island' }[];
   /** large/medium airports and military fields */
-  airports?: { id: string; n: string; lat: number; lon: number; r: number; mil: boolean }[];
+  airports?: { id: string; n: string; lat: number; lon: number; r: number; mil: boolean; rw?: number[][] }[];
 }
 
 /** "Antonio B. Won Pat International Airport" → "ANTONIO B. WON PAT INTL" */
@@ -50,8 +50,9 @@ export interface MarinePaths {
   nav: string;
   depth: { d: number; path: string; fill: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
-  places: { x: number; y: number; n: string; r: number }[];
-  airports: { x: number; y: number; id: string; n: string; r: number; mil: boolean }[];
+  places: { x: number; y: number; n: string; r: number; island: boolean }[];
+  /** rw: runways as [dx1, dy1, dx2, dy2] NM from the airport point; long: longest runway >= 8069 ft */
+  airports: { x: number; y: number; id: string; n: string; r: number; mil: boolean; rw: number[][]; ext: number; long: boolean }[];
 }
 
 /**
@@ -112,11 +113,18 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
       labels,
       places: (data.places ?? []).map((p) => {
         const [x, y] = pr.toScope(p.lat, p.lon);
-        return { x, y, n: p.n, r: p.r };
+        return { x, y, n: p.n, r: p.r, island: p.k === 'island' };
       }),
       airports: (data.airports ?? []).map((a) => {
         const [x, y] = pr.toScope(a.lat, a.lon);
-        return { x, y, id: a.id, n: shortName(a.n), r: a.r, mil: a.mil };
+        const rw = (a.rw ?? []).map(([la1, lo1, la2, lo2]) => {
+          const [x1, y1] = pr.toScope(la1, lo1);
+          const [x2, y2] = pr.toScope(la2, lo2);
+          return [x1 - x, y1 - y, x2 - x, y2 - y];
+        });
+        const ext = Math.max(0, ...rw.flatMap(([a1, b1, a2, b2]) => [Math.hypot(a1, b1), Math.hypot(a2, b2)]));
+        const long = rw.some(([a1, b1, a2, b2]) => Math.hypot(a2 - a1, b2 - b1) >= 8069 / 6076);
+        return { x, y, id: a.id, n: shortName(a.n), r: a.r, mil: a.mil, rw, ext, long };
       }),
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps

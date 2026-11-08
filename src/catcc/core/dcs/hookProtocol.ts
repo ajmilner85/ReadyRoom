@@ -103,6 +103,8 @@ export interface HookEnv {
   theatre: string | null;
   wx: MissionWx;
   routes: ShipRoute[];
+  /** coalition bullseyes (absent from older hooks) */
+  bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
 }
 
 export type HookMessage =

@@ -130,11 +130,14 @@ const LightPanel: React.FC<{ focus: Carrier; utc: Date; offH: number; ceiling: n
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [key, lat, lon, offH]);
   const X = (t: Date) => 10 + ((t.getTime() - data.from.getTime()) / 86_400_000) * 240;
-  // Linear in elevation (one scale above and below the horizon), so the sun path is the true
-  // smooth curve; the scale fits the day's highest and lowest sun into the plot (horizon at 58).
-  const els = data.day.samples.map((s) => s.sun);
-  const k = Math.min((58 - 16) / Math.max(10, ...els), (100 - 58) / Math.max(18, ...els.map((e) => -e)));
-  const Y = (e: number) => 58 - k * e;
+  // Plotted as sin(elevation): that is exactly A + B·cos(hour angle), a smooth sine wave all day.
+  // Elevation in degrees is not: where the sun passes near the zenith or nadir (low latitudes) it
+  // reverses sharply, which read as a V. Near the horizon sin(e) ≈ e, so twilight bands keep their
+  // spacing. The scale fits the day's highest and lowest sun (horizon at 58).
+  const sinD = (e: number) => Math.sin((e * Math.PI) / 180);
+  const els = data.day.samples.map((s) => sinD(s.sun));
+  const k = Math.min((58 - 16) / Math.max(sinD(10), ...els), (100 - 58) / Math.max(sinD(18), ...els.map((e) => -e)));
+  const Y = (e: number) => 58 - k * sinD(e);
   const [y6, y12, y18] = [Y(-6), Y(-12), Y(-18)];
   const path = 'M' + data.day.samples.map((s) => `${X(s.t).toFixed(1)} ${Y(s.sun).toFixed(1)}`).join(' L');
   const loc = (t: Date) => hhmm(new Date(t.getTime() + offH * 3_600_000));

@@ -82,6 +82,8 @@ describe('CATCC DCS hook', () => {
     expect(e).toMatchObject({ start: 64800, date: '2026-11-08', theatre: 'PersianGulf' });
     expect(e.wx).toMatchObject({ cb: 244, ct: 400, cd: 7, cp: 'Preset14', pr: 1, vis: 7400, fog: null });
     expect(e.routes).toHaveLength(1); // the group that no longer exists is skipped
+    expect(e.bulls).toHaveLength(1); // blue only (red has no reference point here)
+    expect(e.bulls[0].side).toBe('blue');
     expect(e.routes[0]).toMatchObject({ g: 'CSG-1', side: 'blue' });
     expect(e.routes[0].pts[1]).toMatchObject({ spd: 12.9, eta: 1600 });
     expect(e.routes[0].pts[1].lat).toBeGreaterThan(26);

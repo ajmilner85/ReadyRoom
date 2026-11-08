@@ -65,6 +65,8 @@ export interface ScopeProps {
   placement: Placement;
   /** resolved coordination lines toward each other carrier, and the one being placed */
   coordLines: Record<string, CoordGeom>;
+  /** coalition bullseyes from the mission environment */
+  bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
   /** DCS theatre, for the marine layer (inferred from position when absent) */
   theatre?: string;
   coordPreview: { hull: string; g: CoordGeom } | null;
@@ -126,6 +128,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const [box, setBox] = useState({ w: 900, h: 675 });
   const [view, setView] = useState({ zx: -2, zy: 4, zw: 97 });
+  // Scope coordinates are carrier-centred, so a plain view follows the carrier ("locked"). Panning or
+  // wheel-zooming unlocks it: the view centre is then pinned to a geographic point until the
+  // centre-on-carrier button or a range preset locks it again.
+  const [lock, setLock] = useState(true);
+  const anchor = useRef<{ lat: number; lon: number } | null>(null);
+  const unlockAt = (zx: number, zy: number) => {
+    anchor.current = pic.proj ? pic.proj.toLatLon([zx, zy]) : null;
+    setLock(false);
+  };
+  const anc = !lock && anchor.current && pic.proj ? pic.proj.toScope(anchor.current.lat, anchor.current.lon) : null;
   const [cur, setCur] = useState<Pt | null>(null);
   const [panning, setPanning] = useState(false);
   const [fmSel, setFmSel] = useState<Record<string, number>>({});
@@ -206,8 +218,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   };
   const FIT = fit ? fits[fit]() : null;
   const VW = FIT ? FIT.zw : view.zw;
-  const VX = FIT ? FIT.zx : view.zx;
-  const VY = FIT ? FIT.zy : view.zy;
+  const VX = FIT ? FIT.zx : anc ? anc[0] : view.zx;
+  const VY = FIT ? FIT.zy : anc ? anc[1] : view.zy;
   const VH = VW * asp;
   const vx = VX - VW / 2;
   const vy = VY - VH / 2;
@@ -229,14 +241,20 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   };
   const zoomBy = (k: number, about?: Pt) => {
     const nw = clampW(VW * k);
-    const c = about ?? [VX, VY];
-    setView({ zw: nw, ...clampC(c[0] + ((VX - c[0]) * nw) / VW, c[1] + ((VY - c[1]) * nw) / VW) });
+    // locked on the carrier: zoom about the view centre so the lock holds (only panning unlocks);
+    // unlocked: zoom about the cursor and re-pin the new centre
+    const c = lock ? [VX, VY] : (about ?? [VX, VY]);
+    const nc = clampC(c[0] + ((VX - c[0]) * nw) / VW, c[1] + ((VY - c[1]) * nw) / VW);
+    setView({ zw: nw, ...nc });
+    if (!lock) unlockAt(nc.zx, nc.zy);
     onFit(null);
   };
   useEffect(() => {
     if (!props.goTo) return;
     onFit(null);
-    setView((v) => ({ ...v, ...clampC(props.goTo!.p[0], props.goTo!.p[1]) }));
+    const nc = clampC(props.goTo!.p[0], props.goTo!.p[1]);
+    setView((v) => ({ ...v, ...nc }));
+    unlockAt(nc.zx, nc.zy);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.goTo]);
 
@@ -435,7 +453,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         setPanning(true);
       }
       onFit(null);
-      setView({ zw: w, ...clampC(cx - dx / k, cy - dy / k) });
+      const nc = clampC(cx - dx / k, cy - dy / k);
+      setView({ zw: w, ...nc });
+      unlockAt(nc.zx, nc.zy);
     };
     const upH = () => {
       window.removeEventListener('mousemove', mv);
@@ -1010,7 +1030,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           const dg = Math.floor(a);
           return `${String(dg).padStart(w, '0')}°${((a - dg) * 60).toFixed(1).padStart(4, '0')}'${x >= 0 ? pos : neg}`;
         };
-        return `CURSOR ${r3(bearingOf(cur))}° / ${len(cur).toFixed(1)} NM · ${f(ll.lat, 2, 'N', 'S')} ${f(ll.lon, 3, 'E', 'W')}`;
+        const be = props.bulls?.find((b) => b.side === 'blue');
+        const bp = be ? pic.proj!.toScope(be.lat, be.lon) : null;
+        const beTxt = bp ? ` · BE ${r3(bearingOf(sub(cur, bp)))}/${Math.round(len(sub(cur, bp)))}` : '';
+        return `CURSOR ${r3(bearingOf(cur))}° / ${len(cur).toFixed(1)} NM${beTxt} · ${f(ll.lat, 2, 'N', 'S')} ${f(ll.lon, 3, 'E', 'W')}`;
       })()
     : null;
   const toolDefs: [Tool, string, React.ReactNode][] = [
@@ -1051,11 +1074,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   <>
                     {/* water lightens toward the shore: each level fills the region shallower than it */}
                     {[...marine.depth].reverse().map((x) => (
-                      <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.045" fillRule="evenodd" stroke="none" />
+                      <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.032" fillRule="evenodd" stroke="none" />
                     ))}
-                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.12" fillRule="evenodd" stroke="none" />
+                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.09" fillRule="evenodd" stroke="none" />
                     {marine.depth.map((x, i) => (
-                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.32" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
+                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.22" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
                     ))}
                   </>
                 )}
@@ -1075,30 +1098,54 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                         {ov.places &&
                           marine.places
                             .filter((p) => p.r <= maxR)
-                            .map((p, i) => (
-                              <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
-                                <circle cx={f2(p.x)} cy={f2(p.y)} r="0.22" fill="#8E99A6" />
-                                <text x={f2(p.x + 0.5)} y={f2(p.y + 0.28)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '0.86px' : '0.74px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                                  {p.n}
-                                </text>
-                              </g>
-                            ))}
+                            .map((p, i) =>
+                              p.island ? (
+                                <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
+                                  <text x={f2(p.x)} y={f2(p.y)} textAnchor="middle" dominantBaseline="central" style={{ fill: '#8FB4D6', fontStyle: 'italic', letterSpacing: '0.04em', fontSize: p.r === 0 ? '1.15px' : '1px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {p.n.toUpperCase()}
+                                  </text>
+                                </g>
+                              ) : (
+                                <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
+                                  <circle cx={f2(p.x)} cy={f2(p.y)} r="0.24" fill="#8E99A6" />
+                                  <text x={f2(p.x + 0.55)} y={f2(p.y + 0.32)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '1.05px' : '0.92px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {p.n}
+                                  </text>
+                                </g>
+                              ),
+                            )}
                         {ov.airports &&
                           marine.airports
                             .filter((a) => a.r <= maxR)
                             .map((a, i) => {
                               const c = a.mil ? '#C8B07A' : '#A7B3C0';
                               const [x, y] = [a.x, a.y];
+                              // Sectional style: the runway layout at its true orientation. Small fields sit in a
+                              // ring; fields with a runway of 8069 ft or more are drawn as the pattern alone. The
+                              // pattern is enlarged to symbol size, or drawn true to scale once it is bigger.
+                              const R = 0.75;
+                              const m = a.ext > 0 ? Math.max(1, (0.82 * R * k) / a.ext) / k : 0; // ref units per NM
+                              const lx = x + (a.rw.length ? Math.max(R, a.ext * m) : 0.42) + 0.45;
                               return (
-                                <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }}>
-                                  {/* aerodrome symbol: ring with four ticks (military: filled centre) */}
-                                  <circle cx={f2(x)} cy={f2(y)} r="0.42" />
-                                  {a.mil && <circle cx={f2(x)} cy={f2(y)} r="0.16" fill={c} stroke="none" />}
-                                  <path d={`M${f2(x)} ${f2(y - 0.42)}v-0.28M${f2(x)} ${f2(y + 0.42)}v0.28M${f2(x - 0.42)} ${f2(y)}h-0.28M${f2(x + 0.42)} ${f2(y)}h0.28`} />
-                                  <text x={f2(x + 0.95)} y={f2(y - 0.1)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.74px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none">
+                                  {a.rw.length ? (
+                                    <>
+                                      {!a.long && <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />}
+                                      {a.rw.map(([x1, y1, x2, y2], j) => (
+                                        <line key={j} x1={f2(x + x1 * m)} y1={f2(y + y1 * m)} x2={f2(x + x2 * m)} y2={f2(y + y2 * m)} strokeLinecap="butt" style={{ strokeWidth: 'calc(3px * var(--lw, 1))' }} />
+                                      ))}
+                                    </>
+                                  ) : (
+                                    <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }}>
+                                      <circle cx={f2(x)} cy={f2(y)} r="0.42" />
+                                      {a.mil && <circle cx={f2(x)} cy={f2(y)} r="0.16" fill={c} stroke="none" />}
+                                      <path d={`M${f2(x)} ${f2(y - 0.42)}v-0.28M${f2(x)} ${f2(y + 0.42)}v0.28M${f2(x - 0.42)} ${f2(y)}h-0.28M${f2(x + 0.42)} ${f2(y)}h0.28`} />
+                                    </g>
+                                  )}
+                                  <text x={f2(lx)} y={f2(y - 0.12)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.92px', fontWeight: 600, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                                     {a.id}
                                   </text>
-                                  <text x={f2(x + 0.95)} y={f2(y + 0.72)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.75, fontSize: '0.6px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                  <text x={f2(lx)} y={f2(y + 0.85)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.8, fontSize: '0.78px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                                     {a.n}
                                   </text>
                                 </g>
@@ -1117,7 +1164,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                       textAnchor="middle"
                       dominantBaseline="central"
                       transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
-                      style={{ fill: '#7FA8CC', fillOpacity: 0.75, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
+                      style={{ fill: '#7FA8CC', fillOpacity: 0.6, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
                     >
                       {l.t}
                     </text>
@@ -1262,6 +1309,23 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
           {ov.sweep && pic.focus && <SweepLine />}
+          {ov.bulls &&
+            pic.proj &&
+            (props.bulls ?? []).map((b) => {
+              const p = pic.proj!.toScope(b.lat, b.lon);
+              const c = b.side === 'blue' ? '#6FB6E6' : '#FF8A85';
+              return (
+                <g key={b.side} className="zs" transform={zs(p, zkO)} stroke={c} fill="none" style={{ pointerEvents: 'none', strokeWidth: 'calc(1.1px * var(--lw, 1))' }}>
+                  {[0.55, 1.1, 1.65].map((r) => (
+                    <circle key={r} cx={f2(p[0])} cy={f2(p[1])} r={r} strokeOpacity={r === 0.55 ? 0.95 : 0.6} />
+                  ))}
+                  <path d={`M${f2(p[0] - 2.3)} ${f2(p[1])}h4.6M${f2(p[0])} ${f2(p[1] - 2.3)}v4.6`} strokeOpacity="0.6" />
+                  <text x={f2(p[0] + 1.95)} y={f2(p[1] - 1.75)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                    BULLSEYE
+                  </text>
+                </g>
+              );
+            })}
           {tool === 'bra' && braA && (braB || cur) && (() => {
             const b = braB ?? (cur ? { p: cur } : null);
             if (!b) return null;
@@ -1544,10 +1608,33 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <IcZoomIn />
             </button>
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+            <button
+              className="tbtn"
+              aria-label="Centre on carrier"
+              aria-pressed={lock}
+              title={lock ? 'Locked on the carrier (pan to unlock)' : 'Centre on the carrier and follow it'}
+              onClick={() => {
+                setView({ zw: VW, zx: 0, zy: 0 });
+                anchor.current = null;
+                setLock(true);
+                onFit(null);
+              }}
+              style={{ color: lock ? '#FFB08F' : '#E6EDF3', background: lock ? 'rgba(241,88,34,.18)' : undefined }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="6.5" />
+                <circle cx="12" cy="12" r="1.6" fill="currentColor" />
+                <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" />
+              </svg>
+            </button>
             {fitDefs.map(([k, l, t]) => (
               <button
                 key={k}
-                onClick={() => onFit(k)}
+                onClick={() => {
+                  anchor.current = null;
+                  setLock(true);
+                  onFit(k);
+                }}
                 title={t}
                 style={{ height: 32, padding: '0 9px', borderRadius: 5, border: `1px solid ${fit === k ? '#F15822' : '#374250'}`, background: fit === k ? 'rgba(241,88,34,.18)' : 'transparent', color: fit === k ? '#FFB08F' : '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, cursor: 'pointer' }}
               >

@@ -238,3 +238,12 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Contour lines are now the depth-fill rings minus their run along the data border (one geometry), so shading and lines coincide; the shoreline is cut from the simplified land ring itself (no stray stubs).
 - Depth labels: open lines every 40 NM; closed loops by perimeter (one per 120 NM, at least one; none under 10 NM), evenly spaced.
 - Layers → Geography: Place names (Natural Earth 10m populated places) and Airports / airbases (OurAirports: large and medium airports, plus military fields by name). Aerodrome symbol (ring + four ticks; military gold with a filled centre), ICAO id and short name. Decluttered by view width (major only beyond 250 NM, all within 60 NM). Both sources public domain; stored in the same per-theatre file (format v3, `--places`/`--airports` generator options).
+
+## Bullseye, runways, island names, carrier lock
+- Bullseye: hook env carries `bulls` (DCS `coalition.getMainRefPoint`, blue and red); the Tacview replay hook reads the Navaid Bullseye objects. Layers → Reference → Bullseye (on). Cursor readout adds `BE brg/rng` from the blue bullseye.
+- Airports drawn sectional-style from OurAirports runways.csv: the runway layout at true orientation, in a ring unless the field has a runway ≥ 8069 ft; enlarged to symbol size, true scale once larger. Fields without runway data keep the ring-and-ticks symbol.
+- Island names from Wikidata (CC0; island, island group, atoll with ≥ 8 sitelinks; ranked by sitelinks), italic chart blue. Place/airport label sizes raised; they follow the "Other scope text" scale.
+- Shoreline simplification tightened to ~30 m (it was ~130 m and looked blocky at full zoom). Data is now ~15 MB across theatres (Falklands 4.6 MB, Kola 3.5 MB); only the current theatre loads.
+- Bathymetry slightly more transparent (fills, shallow tint, lines, labels).
+- Centre-on-carrier toolbar button. Range presets and the button lock the view to the carrier; panning unlocks it (the view centre is then pinned to a lat/lon). Wheel zoom keeps the lock and zooms about the carrier view centre while locked.
+- Light chart plots sin(elevation): exactly a sinusoid in hour angle. Degrees of elevation reverse sharply where the sun passes near the nadir (low latitudes), which drew a V at midnight.

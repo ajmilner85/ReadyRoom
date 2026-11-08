@@ -351,6 +351,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       {/* ---------------- scope */}
       <Scope
         theatre={state.theatre}
+        bulls={state.env?.bulls}
         pic={pic}
         nowS={nowS}
         ui={ui}

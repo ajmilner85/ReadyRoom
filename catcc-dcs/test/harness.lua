@@ -99,7 +99,11 @@ local function newMissionEnv()
     tostring = tostring, tonumber = tonumber, type = type,
     Group = { Category = { AIRPLANE = 0, HELICOPTER = 1, GROUND = 2, SHIP = 3, TRAIN = 4 },
       getByName = function(n) if n == 'CSG-1' then return {} end return nil end },
-    coalition = { getGroups = function(side, cat) return (GROUPS[side] or {})[cat] or {} end },
+    coalition = {
+      side = { NEUTRAL = 0, RED = 1, BLUE = 2 },
+      getGroups = function(side, cat) return (GROUPS[side] or {})[cat] or {} end,
+      getMainRefPoint = function(side) return side == 2 and { x = 1000, y = 0, z = 2000 } or nil end,
+    },
     coord = { LOtoLL = LOtoLL, LLtoLO = LLtoLO },
     atmosphere = {
       getWind = function(p) local d = gridDir(250); local s = p.y < 100 and 10 or 20; return { x = d.x * s, y = 0, z = d.z * s } end,

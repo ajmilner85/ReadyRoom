@@ -10,8 +10,9 @@
  *    https://www.soest.hawaii.edu/pwessel/gshhg/)
  *  - NOAA ETOPO 2022 relief (15 arc-second grid), fetched per theatre box from the NOAA CoastWatch
  *    ERDDAP server (public domain); responses are cached in <cache-dir>
- *  - Natural Earth 10m populated places (public domain) and OurAirports airports.csv (public domain,
- *    https://ourairports.com/data/)
+ *  - Natural Earth 10m populated places (public domain); OurAirports airports.csv + runways.csv
+ *    (public domain, https://ourairports.com/data/); island names from Wikidata (CC0), queried per
+ *    theatre box and cached in <cache-dir>
  *
  * Output: public/catcc/marine/<Theatre>.json (format v2)
  *   land:  rings (even-odd fill)
@@ -21,7 +22,9 @@
  *          (even-odd fill), and label anchors [lon, lat, lon2, lat2] (a point on the line and one
  *          about 1 NM further along, for the label angle)
  *   places:   [{ n, lat, lon, r }] place names, r = 0 (major) .. 3 (minor), for zoom-dependent display
- *   airports: [{ id, n, lat, lon, r, mil }] large/medium airports and military fields
+ *   airports: [{ id, n, lat, lon, r, mil, rw }] large/medium airports and military fields;
+ *             rw = runways [[lat1, lon1, lat2, lon2], ...] (threshold to threshold, open runways >= 1500 ft)
+ *   places entries with k: 'island' are island / island-group names (Wikidata, CC0)
  *   Every ring/line is a flat [lon, lat, lon, lat, ...] array.
  */
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
@@ -43,7 +46,7 @@ const THEATRES = {
 
 /** water shallower than this is shaded as not navigable (a CVN draws about 12 m) */
 const NAV_M = 15;
-const COAST_TOL = 0.0012; // deg, ~0.07 NM
+const COAST_TOL = 0.0003; // deg, ~30 m: keeps the full-resolution shoreline smooth at max zoom
 const LINE_TOL = 0.002; // ~0.12 NM
 const MIN_LINE_NM = 2;
 const LABEL_EVERY_NM = 40;
@@ -377,6 +380,7 @@ const opt = (k) => {
 };
 const placesPath = opt('--places');
 const airportsPath = opt('--airports');
+const runwaysPath = opt('--runways');
 const [shpPath, cacheDir, ...only] = args;
 if (!shpPath || !cacheDir) {
   console.error('usage: node scripts/catcc-marine.mjs <GSHHS_f_L1.shp> <cache-dir> [--places <geojson>] [--airports <csv>] [Theatre ...]');
@@ -437,11 +441,87 @@ const AIRPORTS = (() => {
     const name = r[iN] ?? '';
     const mil = MIL.test(name);
     if (!(type === 'large_airport' || type === 'medium_airport' || (type === 'small_airport' && mil))) continue;
-    out.push({ id: r[iIcao] || r[iGps] || r[iId], n: name, lat: r4(+r[iLa]), lon: r4(+r[iLo]), r: type === 'large_airport' || (type === 'medium_airport' && mil) ? 0 : type === 'medium_airport' && r[iSch] === 'yes' ? 1 : 2, mil });
+    out.push({ ident: r[iId], id: r[iIcao] || r[iGps] || r[iId], n: name, lat: r4(+r[iLa]), lon: r4(+r[iLo]), r: type === 'large_airport' || (type === 'medium_airport' && mil) ? 0 : type === 'medium_airport' && r[iSch] === 'yes' ? 1 : 2, mil });
   }
   return out;
 })();
 const inBox = (x, [s, w, n, e]) => x.lat >= s && x.lat <= n && x.lon >= w && x.lon <= e;
+
+/** runways by airport ident: [[lat1, lon1, lat2, lon2]] */
+const RUNWAYS = (() => {
+  const m = new Map();
+  if (!runwaysPath) return m;
+  const rows = parseCsv(readFileSync(runwaysPath, 'utf8'));
+  const h = rows[0];
+  const c = (k) => h.indexOf(k);
+  const ix = Object.fromEntries(['airport_ident', 'length_ft', 'closed', 'le_latitude_deg', 'le_longitude_deg', 'le_heading_degT', 'he_latitude_deg', 'he_longitude_deg', 'le_ident'].map((k) => [k, c(k)]));
+  for (const r of rows.slice(1)) {
+    if (r[ix.closed] === '1') continue;
+    const len = +r[ix.length_ft];
+    if (!(len >= 1500)) continue;
+    const ap = r[ix.airport_ident];
+    let a = [+r[ix.le_latitude_deg], +r[ix.le_longitude_deg], +r[ix.he_latitude_deg], +r[ix.he_longitude_deg]];
+    let rel = false;
+    if (!a.every((v) => Number.isFinite(v) && v !== 0)) {
+      // no threshold coordinates: centre on the airport later, from the heading (or the runway number) and length
+      let hdg = +r[ix.le_heading_degT];
+      if (!Number.isFinite(hdg) || r[ix.le_heading_degT] === '') hdg = (parseInt(r[ix.le_ident], 10) || NaN) * 10;
+      if (!Number.isFinite(hdg)) continue;
+      a = [hdg, len];
+      rel = true;
+    }
+    if (!m.has(ap)) m.set(ap, []);
+    m.get(ap).push({ a, rel });
+  }
+  return m;
+})();
+function runwaysOf(ap) {
+  return (RUNWAYS.get(ap.ident) ?? []).map(({ a, rel }) => {
+    if (!rel) return a.map(r4);
+    const [hdg, len] = a;
+    const half = (len * 0.3048) / 2 / 1852 / 60; // deg of latitude
+    const k = Math.cos((ap.lat * Math.PI) / 180);
+    const dy = half * Math.cos((hdg * Math.PI) / 180);
+    const dx = (half * Math.sin((hdg * Math.PI) / 180)) / k;
+    return [ap.lat - dy, ap.lon - dx, ap.lat + dy, ap.lon + dx].map(r4);
+  });
+}
+
+/** Wikidata islands in a box; big boxes time out, so on failure the box is split into quarters */
+async function wikidataIslands([s, w, n, e], depth = 0) {
+  const q = `SELECT ?i ?name ?c ?sl WHERE { SERVICE wikibase:box { ?i wdt:P625 ?c . bd:serviceParam wikibase:cornerSouthWest "Point(${w} ${s})"^^geo:wktLiteral . bd:serviceParam wikibase:cornerNorthEast "Point(${e} ${n})"^^geo:wktLiteral . } ?i wdt:P31 ?t . VALUES ?t { wd:Q23442 wd:Q1402592 wd:Q42523 } ?i wikibase:sitelinks ?sl . FILTER(?sl >= 8) ?i rdfs:label ?name . FILTER(lang(?name) = "en") }`;
+  for (let tries = 0; tries < 2; tries++) {
+    const res = await fetch(`https://query.wikidata.org/sparql?query=${encodeURIComponent(q)}`, { headers: { Accept: 'application/sparql-results+json', 'User-Agent': 'CATCC-marine-builder/1.0 (offline data build)' } });
+    if (res.ok) {
+      return (await res.json()).results.bindings.map((b) => {
+        const m = /Point\(([-\d.]+) ([-\d.]+)\)/.exec(b.c.value);
+        return { n: b.name.value, lon: +m[1], lat: +m[2], sl: +b.sl.value };
+      });
+    }
+    await new Promise((r) => setTimeout(r, 5000));
+  }
+  if (depth >= 3) throw new Error('Wikidata keeps timing out');
+  const [ms, mw] = [(s + n) / 2, (w + e) / 2];
+  const parts = [];
+  for (const bx of [[s, w, ms, mw], [s, mw, ms, e], [ms, w, n, mw], [ms, mw, n, e]]) parts.push(...(await wikidataIslands(bx, depth + 1)));
+  return parts;
+}
+
+/** island names in a box from Wikidata (CC0); rank by sitelinks */
+async function islandsIn(name, box, cacheDir) {
+  const file = join(cacheDir, `${name}-islands.json`);
+  let rows;
+  if (existsSync(file)) rows = JSON.parse(readFileSync(file, 'utf8'));
+  else {
+    rows = await wikidataIslands(box);
+    writeFileSync(file, JSON.stringify(rows));
+  }
+  const seen = new Set();
+  return rows
+    .sort((a, b) => b.sl - a.sl)
+    .filter((x) => !seen.has(x.n) && seen.add(x.n))
+    .map((x) => ({ n: x.n, lat: r4(x.lat), lon: r4(x.lon), r: x.sl >= 60 ? 0 : x.sl >= 25 ? 1 : x.sl >= 12 ? 2 : 3, k: 'island' }));
+}
 mkdirSync(cacheDir, { recursive: true });
 const outDir = join(process.cwd(), 'public', 'catcc', 'marine');
 mkdirSync(outDir, { recursive: true });
@@ -509,15 +589,15 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
   const depth = cfg.levels.map((d) => ({ d, ...level(d, d >= 1000 ? 5 : MIN_LINE_NM) })); // deep-water speckle dropped
   const nav = level(NAV_M, MIN_LINE_NM);
   const out = {
-    v: 3,
+    v: 4,
     theatre: name,
     bbox: box,
     src: 'GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith); NOAA ETOPO 2022 15 arc-second relief; Natural Earth populated places; OurAirports',
     land,
     coast,
     nav: { d: NAV_M, fill: nav.fill },
-    places: PLACES.filter((x) => inBox(x, box)),
-    airports: AIRPORTS.filter((x) => inBox(x, box)),
+    places: [...(await islandsIn(name, box, cacheDir)), ...PLACES.filter((x) => inBox(x, box))],
+    airports: AIRPORTS.filter((x) => inBox(x, box)).map(({ ident, ...a }) => ({ ...a, rw: runwaysOf({ ident, ...a }) })),
     depth,
   };
   const json = JSON.stringify(out);

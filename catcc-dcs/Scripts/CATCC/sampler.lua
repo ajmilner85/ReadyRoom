@@ -178,6 +178,18 @@ local function envBody()
     end
   end
   parts[#parts + 1] = table.concat(routes, ',')
+  -- coalition bullseyes
+  local bulls = {}
+  local sides = (coalition.side and coalition.getMainRefPoint) and { { 'blue', coalition.side.BLUE }, { 'red', coalition.side.RED } } or {}
+  for _, sd in ipairs(sides) do
+    local okB, p = pcall(coalition.getMainRefPoint, sd[2])
+    if okB and p then
+      local lat, lon = coord.LOtoLL(p)
+      bulls[#bulls + 1] = '{"side":' .. str(sd[1]) .. ',"lat":' .. num(lat, 5) .. ',"lon":' .. num(lon, 5) .. '}'
+    end
+  end
+  parts[#parts + 1] = '],"bulls":['
+  parts[#parts + 1] = table.concat(bulls, ',')
   parts[#parts + 1] = ']}'
   return table.concat(parts)
 end

@@ -65,8 +65,28 @@ export class FakeHookServer {
     this.opts = { rateHz: 1, name: 'CATCC-fake-hook', ...opts };
   }
 
-  /** Feed replayed ACMI events (e.g. from replayAcmi). */
-  apply = (ev: AcmiEvent): void => this.store.apply(ev);
+  private ref = { lat: 0, lon: 0 };
+  private readonly bulls = new Map<string, { side: 'blue' | 'red'; lat: number; lon: number }>();
+
+  /** Feed replayed ACMI events (e.g. from replayAcmi). Bullseyes (Navaid objects) are kept for env. */
+  apply = (ev: AcmiEvent): void => {
+    if (ev.kind === 'header') {
+      if (ev.key === 'ReferenceLatitude') this.ref.lat = Number(ev.value) || 0;
+      if (ev.key === 'ReferenceLongitude') this.ref.lon = Number(ev.value) || 0;
+    } else if (ev.kind === 'update') {
+      const b = this.bulls.get(ev.id);
+      const isBulls = ev.props.Type?.includes('Bullseye');
+      const side = ev.props.Color === 'Blue' ? 'blue' : ev.props.Color === 'Red' ? 'red' : undefined;
+      if ((isBulls && side) || b) {
+        const [lo, la] = (ev.props.T ?? '').split('|');
+        const cur = b ?? { side: side!, lat: NaN, lon: NaN };
+        if (lo) cur.lon = this.ref.lon + Number(lo);
+        if (la) cur.lat = this.ref.lat + Number(la);
+        this.bulls.set(ev.id, cur);
+      }
+    }
+    this.store.apply(ev);
+  };
 
   listen(): Promise<number> {
     this.server = net.createServer((sock) => this.accept(sock));
@@ -150,6 +170,7 @@ export class FakeHookServer {
       theatre: theatre ?? null,
       wx: { cb: 244, ct: 900, cd: 7, cp: 'RainyPreset1', pr: 1, vis: 7400, fog: null, dust: null },
       routes,
+      bulls: [...this.bulls.values()].filter((b) => Number.isFinite(b.lat) && Number.isFinite(b.lon)),
     };
   }
 
