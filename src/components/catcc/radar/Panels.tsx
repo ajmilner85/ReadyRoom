@@ -73,23 +73,23 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
   }) => (
     <div key={o.key} style={{ borderRadius: 5, background: o.sel ? 'rgba(241,88,34,.14)' : o.lit ? '#2E3946' : '#222C37', border: `1px solid ${o.sel ? '#F15822' : o.lit ? '#E6EDF3' : 'transparent'}` }}>
       <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 30, padding: '0 4px 0 0', fontSize: 12.5 }}>
-        <button onClick={o.onPick} aria-pressed={o.lit} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 28, padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}>
-          <span style={{ width: 74, color: o.fg, opacity: o.toggleId && p.plan.off?.includes(o.toggleId) ? 0.45 : 1 }}>{o.name}</span>
-          <span style={{ fontWeight: 600 }}>{o.r}</span>
-          <span style={{ color: '#93A1B0' }}>{o.alt}</span>
-        </button>
-        <span style={{ flex: 1 }} />
         {o.toggleId && (
           <button
             onClick={() => p.onToggleStack(o.toggleId!)}
             disabled={p.readOnly}
             aria-pressed={!p.plan.off?.includes(o.toggleId)}
             title={p.plan.off?.includes(o.toggleId) ? 'Stack off · click to enable' : 'Stack on · click to disable'}
-            style={{ ...iconBtn, cursor: p.readOnly ? 'default' : 'pointer', color: p.plan.off?.includes(o.toggleId) ? '#5E6A78' : '#93A1B0' }}
+            style={{ ...iconBtn, marginLeft: 4, marginRight: -6, cursor: p.readOnly ? 'default' : 'pointer', color: p.plan.off?.includes(o.toggleId) ? '#5E6A78' : '#93A1B0' }}
           >
             <Icon name={p.plan.off?.includes(o.toggleId) ? 'eyeOff' : 'eye'} size={13} />
           </button>
         )}
+        <button onClick={o.onPick} aria-pressed={o.lit} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 28, padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}>
+          <span style={{ width: 74, color: o.fg, opacity: o.toggleId && p.plan.off?.includes(o.toggleId) ? 0.45 : 1 }}>{o.name}</span>
+          <span style={{ fontWeight: 600 }}>{o.r}</span>
+          <span style={{ color: '#93A1B0' }}>{o.alt}</span>
+        </button>
+        <span style={{ flex: 1 }} />
         {o.levels !== undefined && (
           <button onClick={() => setExp((e) => ({ ...e, [o.key]: !e[o.key] }))} aria-expanded={!!exp[o.key]} title="Levels" style={iconBtn}>
             <IcChevron rot={exp[o.key] ? 180 : 0} />

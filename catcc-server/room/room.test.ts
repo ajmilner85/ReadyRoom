@@ -155,6 +155,10 @@ describe('room service with fake DCS hook', () => {
     a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { deps: [285], stacks: [{ id: 'A', r: 156, base: 6 }] } });
     await b.waitFor('plans', (m) => m.plans['CVN-72']?.deps[0] === 285);
 
+    // switching a stack off round-trips through the room
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { deps: [285], stacks: [{ id: 'A', r: 156, base: 6 }], off: ['E'] } });
+    await b.waitFor('plans', (m) => m.plans['CVN-72']?.off?.[0] === 'E');
+
     // invalid plans are refused
     a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { deps: [400], stacks: [] } });
     expect((await a.waitFor('error', (e) => e.error === 'invalid plan')).error).toBe('invalid plan');

@@ -265,7 +265,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       while (used.has(def) && def < st.base + 12) def++;
       return { ...st, def };
     });
-  }, [plan.stacks, ship, assignments, hull, hookedId]);
+  }, [plan.stacks, plan.off, ship, assignments, hull, hookedId]);
   const hitStack = (q: Pt | null) => {
     if (!q) return null;
     for (const st of stacks) {
