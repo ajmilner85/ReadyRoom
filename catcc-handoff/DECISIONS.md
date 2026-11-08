@@ -259,3 +259,11 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Ship datalink (Display settings → Radar, needs realistic updates): every friendly carrier's SPN-43 (own phase) plus escorts within 30 NM of a friendly carrier with a known air-search radar (Aegis SPY-1 ~1 s revisit; Perry SPS-49 6 RPM) paint hits.
 - Tag layout: covering any part of another aircraft costs far more than a longer leader; stickiness only for a still-clear placement; a 4th leader length.
 - Bathymetry at the full ETOPO 2022 15" grid (fetched in 2° tiles), line tolerance ~0.07 NM. Data ~18 MB over all theatres; only the current theatre loads.
+
+## Map performance, unnavigable outline, territorial limit
+- Measured: panning with bathymetry on ran ~25 fps (40 steps in 2.2 s) vs ~160 fps off; zoom similar. The depth layers (7 stacked translucent full-map fills, lines, hatch) were re-rasterised on every view change and every carrier update.
+- The marine layer (depth, land, places, airports, territorial limit) now renders in its own memoised SVG in the layer's origin frame with a 35 % overscan margin, snapshotted with its scale-dependent props. Pans and carrier drift move it with a compositor transform; wheel zoom scales the snapshot and redraws ~250 ms after the last step (or beyond 2.5x). Re-snapshot also when the view leaves the margin. Pan and zoom now match the marine-off frame rate (~165 fps in the test).
+- Land fill opaque (the hatch showed through at 0.92).
+- Unnavigable (< 15 m) areas outlined in light blue as well as hatched.
+- Geography → 12 NM territorial limit (off by default): dashed violet line 12 NM from the shoreline, from a ~0.5 NM land raster and an exact distance transform. Approximate: the legal limit is measured from baselines (closing bays, straight baselines along island chains), which no open dataset provides.
+- LSO pattern view: viewBox now includes the upper turn (it started below the arc's top).

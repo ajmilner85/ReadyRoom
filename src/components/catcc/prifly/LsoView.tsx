@@ -116,7 +116,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
             </div>
           </div>
           <div style={{ flex: '2 1 280px', minWidth: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <svg viewBox="0 30 170 345" style={{ width: '100%', height: 'auto', maxHeight: 680 }} role="img" aria-label="Pattern view: final bearing with distance marks, the bolter pattern, and aircraft">
+            <svg viewBox="0 6 175 362" style={{ width: '100%', height: 'auto', maxHeight: 700 }} role="img" aria-label="Pattern view: final bearing with distance marks, the bolter pattern, and aircraft">
               <g fill="none" stroke="#B8CC5C" strokeWidth="1.6">
                 <path d="M110 58 A45 45 0 0 0 20 58 L20 300 A45 45 0 0 0 110 300" />
                 <path d="M20 248 A45 45 0 0 0 110 248" />

@@ -17,7 +17,8 @@
  * Output: public/catcc/marine/<Theatre>.json (format v2)
  *   land:  rings (even-odd fill)
  *   coast: shoreline polylines (the cut along the data box is left out)
- *   nav:   { d, fill } water shallower than d, i.e. not navigable by a carrier
+ *   nav:   { d, fill, lines } water shallower than d (not navigable by a carrier) and its outline
+ *   terr:  12 NM-from-shore lines (approximate territorial limit)
  *   depth: [{ d, lines, fill, labels }] contour lines at d metres, the closed region shallower than d
  *          (even-odd fill), and label anchors [lon, lat, lon2, lat2] (a point on the line and one
  *          about 1 NM further along, for the label angle)
@@ -371,6 +372,101 @@ function labelsOf(l, closed) {
 const flat3 = (l) => l.flatMap((p) => [r3(p[0]), r3(p[1])]);
 const flat4 = (l) => l.flatMap((p) => [r4(p[0]), r4(p[1])]);
 
+// ---------------------------------------------------------------- 12 NM territorial limit
+
+/**
+ * Lines 12 NM from the shoreline (an approximation: the legal limit runs from official baselines,
+ * which close bays and follow outer islands; no open dataset has them). Land rings are rasterised
+ * onto a ~0.5 NM grid, an exact Euclidean distance transform (Felzenszwalb, with the east-west
+ * spacing scaled by cos(lat)) gives the distance to land, and the 12 NM level is contoured.
+ */
+function territorialLines(landRings, [s, w, n, e]) {
+  const res = 0.0083; // deg, ~0.5 NM
+  const nj = Math.ceil((e - w) / res) + 1;
+  const ni = Math.ceil((n - s) / res) + 1;
+  const lats = Array.from({ length: ni }, (_, i) => s + i * res);
+  const lons = Array.from({ length: nj }, (_, j) => w + j * res);
+  const land = new Uint8Array(ni * nj);
+  // even-odd scanline fill of every ring
+  for (let i = 0; i < ni; i++) {
+    const y = lats[i];
+    const xs = [];
+    for (const r of landRings) {
+      for (let k = 0; k + 3 < r.length; k += 2) {
+        const [x1, y1, x2, y2] = [r[k], r[k + 1], r[k + 2], r[k + 3]];
+        if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) xs.push(x1 + ((y - y1) * (x2 - x1)) / (y2 - y1));
+      }
+    }
+    xs.sort((a, b) => a - b);
+    for (let q = 0; q + 1 < xs.length; q += 2) {
+      const j0 = Math.max(0, Math.ceil((xs[q] - w) / res));
+      const j1 = Math.min(nj - 1, Math.floor((xs[q + 1] - w) / res));
+      for (let j = j0; j <= j1; j++) land[i * nj + j] = 1;
+    }
+  }
+  const INF = 1e12;
+  const sy = res * 60; // NM per row
+  const sx = res * 60 * Math.cos((((s + n) / 2) * Math.PI) / 180); // NM per column
+  // 1-D squared distance transform with sample spacing h
+  const edt1 = (f, h) => {
+    const N = f.length;
+    const d = new Float64Array(N);
+    const v = new Int32Array(N);
+    const z = new Float64Array(N + 1);
+    let k = 0;
+    v[0] = 0;
+    z[0] = -Infinity;
+    z[1] = Infinity;
+    for (let q = 1; q < N; q++) {
+      let sv;
+      for (;;) {
+        const p = v[k];
+        sv = (f[q] + (q * h) ** 2 - (f[p] + (p * h) ** 2)) / (2 * h * (q - p));
+        if (sv <= z[k] && k > 0) k--;
+        else break;
+      }
+      if (sv <= z[k]) {
+        v[0] = q;
+        z[0] = -Infinity;
+        z[1] = Infinity;
+        k = 0;
+        continue;
+      }
+      k++;
+      v[k] = q;
+      z[k] = sv;
+      z[k + 1] = Infinity;
+    }
+    k = 0;
+    for (let q = 0; q < N; q++) {
+      while (z[k + 1] < q * h) k++;
+      d[q] = (q * h - v[k] * h) ** 2 + f[v[k]];
+    }
+    return d;
+  };
+  const D = new Float64Array(ni * nj);
+  for (let i = 0; i < ni; i++) {
+    const f = new Float64Array(nj);
+    for (let j = 0; j < nj; j++) f[j] = land[i * nj + j] ? 0 : INF;
+    D.set(edt1(f, sx), i * nj);
+  }
+  for (let j = 0; j < nj; j++) {
+    const f = new Float64Array(ni);
+    for (let i = 0; i < ni; i++) f[i] = D[i * nj + j];
+    const d = edt1(f, sy);
+    for (let i = 0; i < ni; i++) D[i * nj + j] = d[i];
+  }
+  const z = Array.from({ length: ni }, (_, i) => {
+    const row = new Float32Array(nj);
+    for (let j = 0; j < nj; j++) row[j] = -Math.sqrt(Math.min(D[i * nj + j], 1e8));
+    return row;
+  });
+  return contour({ lats, lons, z }, -12)
+    .map((l) => simplify(chaikin(l), LINE_TOL))
+    .filter((l) => l.length >= 3 && lengthNm(l) >= 2)
+    .map(flat3);
+}
+
 // ---------------------------------------------------------------- main
 
 const args = process.argv.slice(2);
@@ -592,13 +688,14 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
   const depth = cfg.levels.map((d) => ({ d, ...level(d, d >= 1000 ? 5 : MIN_LINE_NM) })); // deep-water speckle dropped
   const nav = level(NAV_M, MIN_LINE_NM);
   const out = {
-    v: 4,
+    v: 5,
     theatre: name,
     bbox: box,
     src: 'GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith); NOAA ETOPO 2022 15 arc-second relief; Natural Earth populated places; OurAirports',
     land,
     coast,
-    nav: { d: NAV_M, fill: nav.fill },
+    nav: { d: NAV_M, fill: nav.fill, lines: nav.lines },
+    terr: territorialLines(land, box),
     places: [...(await islandsIn(name, box, cacheDir)), ...PLACES.filter((x) => inBox(x, box))],
     airports: AIRPORTS.filter((x) => inBox(x, box)).map(({ ident, ...a }) => ({ ...a, rw: runwaysOf({ ident, ...a }) })),
     depth,

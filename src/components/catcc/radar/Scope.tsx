@@ -22,7 +22,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
-import { useMarine } from './marine.ts';
+import { useMarine, type MarinePaths } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
 /** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
@@ -115,13 +115,198 @@ const MOCK_BRC = 345;
 
 // ---------------------------------------------------------------- component
 
+
+/**
+ * The marine layer (depth shading, contours, land, places, airports) in its own SVG, drawn in the
+ * layer's origin frame with an overscan margin. It is memoised on a snapshot of the view, so pans
+ * and carrier drift only slide it with a compositor transform; it re-renders on zoom or once the
+ * view moves past the margin. (Redrawing it on every pan step was the main cause of pan lag.)
+ */
+const MarineLayer = React.memo(function MarineLayer(props: {
+  marine: MarinePaths;
+  vb: string;
+  bathy: boolean;
+  coast: boolean;
+  places: boolean;
+  airports: boolean;
+  terr: boolean;
+  KX: number;
+  VW: number;
+  k: number;
+  sL: number;
+}) {
+  const { marine, bathy, coast, places, airports, terr, KX, VW, k, sL } = props;
+  return (
+    <svg className="scope" viewBox={props.vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', '--z': k.toFixed(4), '--lw': sL } as React.CSSProperties}>
+      {(() => {
+            const n = marine.depth.length;
+            // shallow → deep: lines go from light to dark blue
+            const lineC = (i: number) => {
+              const f = n > 1 ? i / (n - 1) : 0;
+              const mix = (a: number, b: number) => Math.round(a + (b - a) * f);
+              return `rgb(${mix(150, 46)},${mix(196, 92)},${mix(232, 140)})`;
+            };
+            return (
+              <g style={{ pointerEvents: 'none' }}>
+                {bathy && (
+                  <>
+                    {/* water lightens toward the shore: each level fills the region shallower than it */}
+                    {[...marine.depth].reverse().map((x) => (
+                      <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.032" fillRule="evenodd" stroke="none" />
+                    ))}
+                    {/* not navigable by a CVN: faint tint plus a screen-constant diagonal hatch */}
+                    <defs>
+                      <pattern id="catccNavHatch" patternUnits="userSpaceOnUse" width={f2(7 / KX)} height={f2(7 / KX)} patternTransform="rotate(45)">
+                        <line x1="0" y1="0" x2="0" y2={f2(7 / KX)} stroke="#A9D6F5" strokeOpacity="0.32" strokeWidth={(1 / KX).toFixed(4)} style={{ vectorEffect: 'none' }} />
+                      </pattern>
+                    </defs>
+                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.06" fillRule="evenodd" stroke="none" />
+                    <path d={marine.nav} fill="url(#catccNavHatch)" fillRule="evenodd" stroke="none" />
+                    <path d={marine.navLine} fill="none" stroke="#A9D6F5" strokeOpacity="0.5" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.9px * var(--lw, 1))' }} />
+                    {marine.depth.map((x, i) => (
+                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.22" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
+                    ))}
+                  </>
+                )}
+                {terr && (
+                  // territorial limit: dashed, chart violet (approximate: 12 NM from the shoreline, not baselines)
+                  <path d={marine.terr} fill="none" stroke="#B48AD9" strokeOpacity="0.7" strokeDasharray="6 4" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                )}
+                {coast && (
+                  <>
+                    <path d={marine.land} fill="#1A2119" fillRule="evenodd" stroke="none" />
+                    <path d={marine.coast} fill="none" stroke="#A9B4A0" strokeOpacity="0.55" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                  </>
+                )}
+                {(places || airports) &&
+                  (() => {
+                    // declutter by zoom: minor places and fields only appear as the view narrows
+                    const maxR = VW > 250 ? 0 : VW > 120 ? 1 : VW > 60 ? 2 : 3;
+                    return (
+                      <g>
+                        {places &&
+                          marine.places
+                            .filter((p) => p.r <= maxR)
+                            .map((p, i) =>
+                              p.island ? (
+                                <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
+                                  <text x={f2(p.x)} y={f2(p.y)} textAnchor="middle" dominantBaseline="central" style={{ fill: '#8FB4D6', fontStyle: 'italic', letterSpacing: '0.04em', fontSize: p.r === 0 ? '1.15px' : '1px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {p.n.toUpperCase()}
+                                  </text>
+                                </g>
+                              ) : (
+                                <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
+                                  <circle cx={f2(p.x)} cy={f2(p.y)} r="0.24" fill="#8E99A6" />
+                                  <text x={f2(p.x + 0.55)} y={f2(p.y + 0.32)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '1.05px' : '0.92px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {p.n}
+                                  </text>
+                                </g>
+                              ),
+                            )}
+                        {airports &&
+                          marine.airports
+                            .filter((a) => a.r <= maxR)
+                            .map((a, i) => {
+                              const c = a.mil ? '#C8B07A' : '#A7B3C0';
+                              const [x, y] = [a.x, a.y];
+                              // Sectional style: the runway layout at its true orientation. Small fields sit in a
+                              // ring; fields with a runway of 8069 ft or more are drawn as the pattern alone. The
+                              // pattern is enlarged to symbol size, or drawn true to scale once it is bigger.
+                              const R = 0.75;
+                              const m = a.ext > 0 ? Math.max(1, (0.6 * R * k) / a.ext) / k : 0; // ref units per NM
+                              // the ring belongs to the enlarged symbol only; at true scale it would be a stray circle
+                              const schem = a.ext > 0 && (0.6 * R * k) / a.ext > 1;
+                              const lx = x + (a.rw.length ? Math.max(R, a.ext * m) : 0.42) + 0.45;
+                              // Drawn runways in ref units. Parallels closer than one outlined runway width
+                              // (1.5 px + 1 px outline each side + 1 px gap) are pushed apart along their normal,
+                              // so two runways stay two runways at any zoom.
+                              const pxPerRef = k * KX;
+                              const minSep = (1.5 * sL + 3) / pxPerRef;
+                              const rws = a.rw.map(([x1, y1, x2, y2]) => [x1 * m, y1 * m, x2 * m, y2 * m]);
+                              for (let p1 = 0; p1 < rws.length; p1++)
+                                for (let p2 = p1 + 1; p2 < rws.length; p2++) {
+                                  const [a1, b1, a2, b2] = rws[p1];
+                                  const [c1, d1, c2, d2] = rws[p2];
+                                  const L1 = Math.hypot(a2 - a1, b2 - b1) || 1;
+                                  const ux = (a2 - a1) / L1;
+                                  const uy = (b2 - b1) / L1;
+                                  const L2 = Math.hypot(c2 - c1, d2 - d1) || 1;
+                                  if (Math.abs(ux * (c2 - c1) / L2 + uy * (d2 - d1) / L2) < Math.cos((10 * Math.PI) / 180)) continue;
+                                  const [nx, ny] = [-uy, ux];
+                                  const sep = ((c1 + c2) / 2 - (a1 + a2) / 2) * nx + ((d1 + d2) / 2 - (b1 + b2) / 2) * ny;
+                                  if (Math.abs(sep) >= minSep) continue;
+                                  const push = ((Math.sign(sep) || 1) * (minSep - Math.abs(sep))) / 2;
+                                  rws[p1] = [a1 - nx * push, b1 - ny * push, a2 - nx * push, b2 - ny * push];
+                                  rws[p2] = [c1 + nx * push, d1 + ny * push, c2 + nx * push, d2 + ny * push];
+                                }
+                              return (
+                                <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none">
+                                  {a.rw.length ? (
+                                    <>
+                                      {/* Jeppesen-style: every element carries a 1 px black outline (drawn first, 2 px wider) */}
+                                      {!a.long && schem && (
+                                        <>
+                                          <circle cx={f2(x)} cy={f2(y)} r={R} stroke="#000" style={{ strokeWidth: 'calc(1.1px * var(--lw, 1) + 2px)' }} />
+                                          <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
+                                        </>
+                                      )}
+                                      {/* outline + fill per runway, so each runway's outline cuts across the one before:
+                                          close parallels read as two runways, not one wide bar */}
+                                      {rws.map(([x1, y1, x2, y2], j) => (
+                                        <g key={j}>
+                                          <line x1={f2(x + x1)} y1={f2(y + y1)} x2={f2(x + x2)} y2={f2(y + y2)} stroke="#000" strokeLinecap="square" style={{ strokeWidth: 'calc(1.5px * var(--lw, 1) + 2px)' }} />
+                                          <line x1={f2(x + x1)} y1={f2(y + y1)} x2={f2(x + x2)} y2={f2(y + y2)} strokeLinecap="square" style={{ strokeWidth: 'calc(1.5px * var(--lw, 1))' }} />
+                                        </g>
+                                      ))}
+                                    </>
+                                  ) : (
+                                    <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }}>
+                                      <circle cx={f2(x)} cy={f2(y)} r="0.42" />
+                                      {a.mil && <circle cx={f2(x)} cy={f2(y)} r="0.16" fill={c} stroke="none" />}
+                                      <path d={`M${f2(x)} ${f2(y - 0.42)}v-0.28M${f2(x)} ${f2(y + 0.42)}v0.28M${f2(x - 0.42)} ${f2(y)}h-0.28M${f2(x + 0.42)} ${f2(y)}h0.28`} />
+                                    </g>
+                                  )}
+                                  <text x={f2(lx)} y={f2(y - 0.12)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.92px', fontWeight: 600, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {a.id}
+                                  </text>
+                                  <text x={f2(lx)} y={f2(y + 0.85)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.8, fontSize: '0.78px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                    {a.n}
+                                  </text>
+                                </g>
+                              );
+                            })}
+                      </g>
+                    );
+                  })()}
+                {bathy &&
+                  marine.labels.map((l, i) => (
+                    <text
+                      key={i}
+                      x={f2(l.x)}
+                      y={f2(l.y)}
+                      className="geo"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
+                      style={{ fill: '#7FA8CC', fillOpacity: 0.6, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
+                    >
+                      {l.t}
+                    </text>
+                  ))}
+              </g>
+            );
+      })()}
+    </svg>
+  );
+});
+
 export const Scope: React.FC<ScopeProps> = (props) => {
   const { pic, ui, ov, ov2, tool, hookedId, onHook, plans, assignments, placement, hl, fit, onFit } = props;
   const fTrack = pic.focus?.track;
   // the reported theatre wins unless the carrier is outside its box (e.g. a replay that does not know it)
   const tBox = props.theatre ? THEATRE_BOXES[props.theatre] : undefined;
   const inBox = !!tBox && !!fTrack && fTrack.lat >= tBox[0] && fTrack.lat <= tBox[2] && fTrack.lon >= tBox[1] && fTrack.lon <= tBox[3];
-  const marine = useMarine(inBox ? props.theatre : fTrack ? theatreAt(fTrack.lat, fTrack.lon) : undefined, fTrack?.lat, fTrack?.lon, !!(ov.coast || ov.bathy || ov.places || ov.airports));
+  const marine = useMarine(inBox ? props.theatre : fTrack ? theatreAt(fTrack.lat, fTrack.lon) : undefined, fTrack?.lat, fTrack?.lon, !!(ov.coast || ov.bathy || ov.places || ov.airports || ov.terr));
   const boxRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
   const [box, setBox] = useState({ w: 900, h: 675 });
@@ -130,6 +315,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   // wheel-zooming unlocks it: the view centre is then pinned to a geographic point until the
   // centre-on-carrier button or a range preset locks it again.
   const [lock, setLock] = useState(true);
+  // wheel/zoom-button activity: the marine layer is scaled as an image meanwhile and redrawn once idle
+  const zoomedAt = useRef(0);
+  const zoomIdleT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [, setZoomIdle] = useState(0);
   const anchor = useRef<{ lat: number; lon: number } | null>(null);
   const unlockAt = (zx: number, zy: number) => {
     anchor.current = pic.proj ? pic.proj.toLatLon([zx, zy]) : null;
@@ -238,6 +427,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     return { zx: x * k, zy: y * k };
   };
   const zoomBy = (k: number, about?: Pt) => {
+    zoomedAt.current = performance.now();
+    clearTimeout(zoomIdleT.current);
+    zoomIdleT.current = setTimeout(() => setZoomIdle((n) => n + 1), 260);
     const nw = clampW(VW * k);
     // locked on the carrier: zoom about the view centre so the lock holds (only panning unlocks);
     // unlocked: zoom about the cursor and re-pin the new centre
@@ -1061,6 +1253,30 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   ];
   const trailPx = (0.32 * KX * zkH).toFixed(2);
   const vb = `${f2(vx)} ${f2(vy)} ${f2(VW)} ${f2(VH)}`;
+  // marine layer snapshot (see MarineLayer): view top-left in the layer's origin frame
+  const MO = 0.35;
+  const oM = marine && pic.proj ? pic.proj.toScope(marine.lat, marine.lon) : null;
+  const curM = oM ? { x: vx - oM[0], y: vy - oM[1] } : null;
+  const [mSnap, setMSnap] = useState<{ x: number; y: number; w: number; h: number; m: MarinePaths; kx: number; k: number } | null>(null);
+  const offOf = (sn: { x: number; y: number } | null) => (sn && curM ? [(sn.x - curM.x) * KX, (sn.y - curM.y) * KX] : [0, 0]);
+  const zooming = performance.now() - zoomedAt.current < 250;
+  const scaleChanged = !!mSnap && (Math.abs(mSnap.w - VW) > 1e-9 || Math.abs(mSnap.h - VH) > 1e-9);
+  const stale =
+    !!curM &&
+    !!marine &&
+    (!mSnap ||
+      mSnap.m !== marine ||
+      (scaleChanged && (!zooming || mSnap.w / VW > 2.5 || mSnap.w / VW < 0.4)) ||
+      (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * box.w * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * box.h * 0.8)));
+  // the snapshot also freezes the scale-dependent props, so the memoised layer does not re-render mid-zoom
+  const snap = stale && curM && marine ? { x: curM.x, y: curM.y, w: VW, h: VH, m: marine, kx: KX, k: zkO } : mSnap;
+  useEffect(() => {
+    if (stale && snap) setMSnap(snap);
+  });
+  // Map the snapshot onto the current view: scale by snap.w / VW about the layer's top-left corner,
+  // then translate so the snapshot's view corner lands where it belongs on screen.
+  const mScale = snap ? snap.w / VW : 1;
+  const mT = snap && curM ? [(snap.x - curM.x - MO * snap.w) * KX + MO * box.w, (snap.y - curM.y - MO * snap.h) * KX + MO * box.h] : [0, 0];
   const svgStyle = (lw: number, extra: React.CSSProperties = {}) =>
     ({ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', '--z': zkO.toFixed(4), '--lw': lw, ...extra }) as React.CSSProperties;
 
@@ -1071,163 +1287,25 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           const c = toPx([0, 0]);
           return <SweepLine x={c[0]} y={c[1]} w={sL} />;
         })()}
+        {marine && snap && snap.m === marine && (
+          <div style={{ position: 'absolute', left: -MO * box.w, top: -MO * box.h, width: (1 + 2 * MO) * box.w, height: (1 + 2 * MO) * box.h, transformOrigin: '0 0', transform: `translate(${mT[0].toFixed(1)}px, ${mT[1].toFixed(1)}px) scale(${mScale.toFixed(5)})`, willChange: 'transform', pointerEvents: 'none' }}>
+            <MarineLayer
+              marine={marine}
+              vb={`${(snap.x - MO * snap.w).toFixed(4)} ${(snap.y - MO * snap.h).toFixed(4)} ${((1 + 2 * MO) * snap.w).toFixed(4)} ${((1 + 2 * MO) * snap.h).toFixed(4)}`}
+              bathy={!!ov.bathy}
+              coast={!!ov.coast}
+              places={!!ov.places}
+              airports={!!ov.airports}
+              terr={!!ov.terr}
+              KX={snap.kx}
+              VW={snap.w}
+              k={snap.k}
+              sL={sL}
+            />
+          </div>
+        )}
         {/* ---------------- background */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
-          {marine && pic.proj && (() => {
-            const o = pic.proj.toScope(marine.lat, marine.lon);
-            const n = marine.depth.length;
-            // shallow → deep: lines go from light to dark blue
-            const lineC = (i: number) => {
-              const f = n > 1 ? i / (n - 1) : 0;
-              const mix = (a: number, b: number) => Math.round(a + (b - a) * f);
-              return `rgb(${mix(150, 46)},${mix(196, 92)},${mix(232, 140)})`;
-            };
-            return (
-              <g transform={`translate(${f2(o[0])} ${f2(o[1])})`} style={{ pointerEvents: 'none' }}>
-                {ov.bathy && (
-                  <>
-                    {/* water lightens toward the shore: each level fills the region shallower than it */}
-                    {[...marine.depth].reverse().map((x) => (
-                      <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.032" fillRule="evenodd" stroke="none" />
-                    ))}
-                    {/* not navigable by a CVN: faint tint plus a screen-constant diagonal hatch */}
-                    <defs>
-                      <pattern id="catccNavHatch" patternUnits="userSpaceOnUse" width={f2(7 / KX)} height={f2(7 / KX)} patternTransform="rotate(45)">
-                        <line x1="0" y1="0" x2="0" y2={f2(7 / KX)} stroke="#A9D6F5" strokeOpacity="0.32" strokeWidth={(1 / KX).toFixed(4)} style={{ vectorEffect: 'none' }} />
-                      </pattern>
-                    </defs>
-                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.06" fillRule="evenodd" stroke="none" />
-                    <path d={marine.nav} fill="url(#catccNavHatch)" fillRule="evenodd" stroke="none" />
-                    {marine.depth.map((x, i) => (
-                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.22" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
-                    ))}
-                  </>
-                )}
-                {ov.coast && (
-                  <>
-                    <path d={marine.land} fill="#1A2119" fillOpacity="0.92" fillRule="evenodd" stroke="none" />
-                    <path d={marine.coast} fill="none" stroke="#A9B4A0" strokeOpacity="0.55" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
-                  </>
-                )}
-                {(ov.places || ov.airports) &&
-                  (() => {
-                    // declutter by zoom: minor places and fields only appear as the view narrows
-                    const maxR = VW > 250 ? 0 : VW > 120 ? 1 : VW > 60 ? 2 : 3;
-                    const k = zkO;
-                    return (
-                      <g>
-                        {ov.places &&
-                          marine.places
-                            .filter((p) => p.r <= maxR)
-                            .map((p, i) =>
-                              p.island ? (
-                                <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
-                                  <text x={f2(p.x)} y={f2(p.y)} textAnchor="middle" dominantBaseline="central" style={{ fill: '#8FB4D6', fontStyle: 'italic', letterSpacing: '0.04em', fontSize: p.r === 0 ? '1.15px' : '1px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                                    {p.n.toUpperCase()}
-                                  </text>
-                                </g>
-                              ) : (
-                                <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
-                                  <circle cx={f2(p.x)} cy={f2(p.y)} r="0.24" fill="#8E99A6" />
-                                  <text x={f2(p.x + 0.55)} y={f2(p.y + 0.32)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '1.05px' : '0.92px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                                    {p.n}
-                                  </text>
-                                </g>
-                              ),
-                            )}
-                        {ov.airports &&
-                          marine.airports
-                            .filter((a) => a.r <= maxR)
-                            .map((a, i) => {
-                              const c = a.mil ? '#C8B07A' : '#A7B3C0';
-                              const [x, y] = [a.x, a.y];
-                              // Sectional style: the runway layout at its true orientation. Small fields sit in a
-                              // ring; fields with a runway of 8069 ft or more are drawn as the pattern alone. The
-                              // pattern is enlarged to symbol size, or drawn true to scale once it is bigger.
-                              const R = 0.75;
-                              const m = a.ext > 0 ? Math.max(1, (0.6 * R * k) / a.ext) / k : 0; // ref units per NM
-                              // the ring belongs to the enlarged symbol only; at true scale it would be a stray circle
-                              const schem = a.ext > 0 && (0.6 * R * k) / a.ext > 1;
-                              const lx = x + (a.rw.length ? Math.max(R, a.ext * m) : 0.42) + 0.45;
-                              // Drawn runways in ref units. Parallels closer than one outlined runway width
-                              // (1.5 px + 1 px outline each side + 1 px gap) are pushed apart along their normal,
-                              // so two runways stay two runways at any zoom.
-                              const pxPerRef = k * KX;
-                              const minSep = (1.5 * sL + 3) / pxPerRef;
-                              const rws = a.rw.map(([x1, y1, x2, y2]) => [x1 * m, y1 * m, x2 * m, y2 * m]);
-                              for (let p1 = 0; p1 < rws.length; p1++)
-                                for (let p2 = p1 + 1; p2 < rws.length; p2++) {
-                                  const [a1, b1, a2, b2] = rws[p1];
-                                  const [c1, d1, c2, d2] = rws[p2];
-                                  const L1 = Math.hypot(a2 - a1, b2 - b1) || 1;
-                                  const ux = (a2 - a1) / L1;
-                                  const uy = (b2 - b1) / L1;
-                                  const L2 = Math.hypot(c2 - c1, d2 - d1) || 1;
-                                  if (Math.abs(ux * (c2 - c1) / L2 + uy * (d2 - d1) / L2) < Math.cos((10 * Math.PI) / 180)) continue;
-                                  const [nx, ny] = [-uy, ux];
-                                  const sep = ((c1 + c2) / 2 - (a1 + a2) / 2) * nx + ((d1 + d2) / 2 - (b1 + b2) / 2) * ny;
-                                  if (Math.abs(sep) >= minSep) continue;
-                                  const push = ((Math.sign(sep) || 1) * (minSep - Math.abs(sep))) / 2;
-                                  rws[p1] = [a1 - nx * push, b1 - ny * push, a2 - nx * push, b2 - ny * push];
-                                  rws[p2] = [c1 + nx * push, d1 + ny * push, c2 + nx * push, d2 + ny * push];
-                                }
-                              return (
-                                <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none">
-                                  {a.rw.length ? (
-                                    <>
-                                      {/* Jeppesen-style: every element carries a 1 px black outline (drawn first, 2 px wider) */}
-                                      {!a.long && schem && (
-                                        <>
-                                          <circle cx={f2(x)} cy={f2(y)} r={R} stroke="#000" style={{ strokeWidth: 'calc(1.1px * var(--lw, 1) + 2px)' }} />
-                                          <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
-                                        </>
-                                      )}
-                                      {/* outline + fill per runway, so each runway's outline cuts across the one before:
-                                          close parallels read as two runways, not one wide bar */}
-                                      {rws.map(([x1, y1, x2, y2], j) => (
-                                        <g key={j}>
-                                          <line x1={f2(x + x1)} y1={f2(y + y1)} x2={f2(x + x2)} y2={f2(y + y2)} stroke="#000" strokeLinecap="square" style={{ strokeWidth: 'calc(1.5px * var(--lw, 1) + 2px)' }} />
-                                          <line x1={f2(x + x1)} y1={f2(y + y1)} x2={f2(x + x2)} y2={f2(y + y2)} strokeLinecap="square" style={{ strokeWidth: 'calc(1.5px * var(--lw, 1))' }} />
-                                        </g>
-                                      ))}
-                                    </>
-                                  ) : (
-                                    <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }}>
-                                      <circle cx={f2(x)} cy={f2(y)} r="0.42" />
-                                      {a.mil && <circle cx={f2(x)} cy={f2(y)} r="0.16" fill={c} stroke="none" />}
-                                      <path d={`M${f2(x)} ${f2(y - 0.42)}v-0.28M${f2(x)} ${f2(y + 0.42)}v0.28M${f2(x - 0.42)} ${f2(y)}h-0.28M${f2(x + 0.42)} ${f2(y)}h0.28`} />
-                                    </g>
-                                  )}
-                                  <text x={f2(lx)} y={f2(y - 0.12)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.92px', fontWeight: 600, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                                    {a.id}
-                                  </text>
-                                  <text x={f2(lx)} y={f2(y + 0.85)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.8, fontSize: '0.78px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                                    {a.n}
-                                  </text>
-                                </g>
-                              );
-                            })}
-                      </g>
-                    );
-                  })()}
-                {ov.bathy &&
-                  marine.labels.map((l, i) => (
-                    <text
-                      key={i}
-                      x={f2(l.x)}
-                      y={f2(l.y)}
-                      className="geo"
-                      textAnchor="middle"
-                      dominantBaseline="central"
-                      transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
-                      style={{ fill: '#7FA8CC', fillOpacity: 0.6, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
-                    >
-                      {l.t}
-                    </text>
-                  ))}
-              </g>
-            );
-          })()}
           {ov.latlon && (
             <g>
               <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(frame.x0)} y={f2(frame.y0)} width={f2(frame.x1 - frame.x0)} height={f2(frame.y1 - frame.y0)} fill="none" stroke="rgba(147,161,176,.4)" />

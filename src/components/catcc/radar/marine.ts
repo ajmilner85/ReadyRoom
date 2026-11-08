@@ -10,7 +10,9 @@ export interface MarineData {
   land: number[][];
   coast: number[][];
   /** water shallower than d metres (not navigable by a carrier) */
-  nav?: { d: number; fill: number[][] };
+  nav?: { d: number; fill: number[][]; lines?: number[][] };
+  /** ~12 NM from shore (approximate territorial limit) */
+  terr?: number[][];
   /** contour lines at d metres, region shallower than d, label anchors [lon, lat, lon2, lat2] */
   depth: { d: number; lines: number[][]; fill?: number[][]; labels?: number[][] }[];
   /** place names; r = 0 (major) .. 3 (minor) */
@@ -48,6 +50,8 @@ export interface MarinePaths {
   land: string;
   coast: string;
   nav: string;
+  navLine: string;
+  terr: string;
   depth: { d: number; path: string; fill: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
   places: { x: number; y: number; n: string; r: number; island: boolean }[];
@@ -109,6 +113,8 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
       land: d(data.land, true),
       coast: d(data.coast, false),
       nav: d(data.nav?.fill ?? [], true),
+      navLine: d(data.nav?.lines ?? [], false),
+      terr: d(data.terr ?? [], false),
       depth: data.depth.map((x) => ({ d: x.d, path: d(x.lines, false), fill: d(x.fill ?? [], true) })),
       labels,
       places: (data.places ?? []).map((p) => {
