@@ -214,7 +214,7 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 
 ## Realistic radar update rate (option, off by default)
 - Display settings → Radar. Hits repaint only when the antenna sweep passes their bearing from the reference carrier: AN/SPN-43 (the CATCC marshal/approach search radar on Nimitz-class), 15 RPM, 4 s scan. Own ship always current; new contacts appear on first paint; lost contacts drop when the sweep passes their last position; history dots are past paints (one per scan).
-- Driven by the wall clock (performance.now) so the painter and the optional green sweep line agree. Radar module only; LSO/Boss keep the live picture.
+- Driven by the wall clock (performance.now) so the painter and the sweep line agree. The sweep line is a Layers toggle (Reference → Radar sweep, off by default), independent of the update-rate option: one thin line at range-ring weight.
 - Telemetry arrives at 1 Hz, so a paint shows the newest frame (up to 1 s old), not an interpolated position.
 
 ## Stack names carry the hull number

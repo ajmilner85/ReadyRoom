@@ -335,7 +335,7 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
 
 // ---------------------------------------------------------------- layers
 
-const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true, coast: true, bathy: true, places: true, airports: true };
+const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true, sweep: true, coast: true, bathy: true, places: true, airports: true };
 /** layers that only show while another layer is on */
 const DEPENDS: Record<string, string> = { arr: 'marshal' };
 
@@ -583,7 +583,6 @@ export const DisplaySettings: React.FC<{ ui: UiScale; conflict: ConflictCfg; onA
           {sel('Vertical prediction', 'Climb/descent extrapolated this long, then level', cf.vertCapS, [0, 15, 30, 60, 120], (n) => (n ? `${n} s` : 'Off'), (n) => setCf({ ...cf, vertCapS: n }))}
           <div className="lbl" style={{ margin: '12px 0 2px' }}>Radar</div>
           {tog('Realistic radar update rate', `Hits repaint only as the AN/SPN-43 sweep passes them (15 RPM, every 4 s)`, cf.sweep, (b) => setCf({ ...cf, sweep: b }))}
-          {tog('Show sweep line', 'Green antenna line on the scope', cf.sweepLine, (b) => setCf({ ...cf, sweepLine: b }), !cf.sweep)}
         </div>
         <div style={{ display: 'flex', gap: 8, padding: '12px 14px' }}>
           <button onClick={() => { setD(UI_DEF); setCf(CONFLICT_DEF); }} style={{ height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>Reset</button>

@@ -25,9 +25,9 @@ import { sweepAngle } from './sweep.ts';
 import { useMarine } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
-/** SPN-43 antenna bearing as a green line with a short fading afterglow; animated without re-rendering. */
+/** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
 const SweepLine: React.FC = () => {
-  const ref = useRef<SVGGElement>(null);
+  const ref = useRef<SVGLineElement>(null);
   useEffect(() => {
     let id = 0;
     const f = () => {
@@ -37,16 +37,7 @@ const SweepLine: React.FC = () => {
     f();
     return () => cancelAnimationFrame(id);
   }, []);
-  const R = 400;
-  const glow = [2, 4, 6, 9, 12];
-  return (
-    <g ref={ref} style={{ pointerEvents: 'none' }}>
-      {glow.map((d, i) => (
-        <line key={d} x1="0" y1="0" x2={f2(R * Math.sin((-d * Math.PI) / 180))} y2={f2(-R * Math.cos((-d * Math.PI) / 180))} stroke="#40A85B" strokeOpacity={0.22 - i * 0.04} style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
-      ))}
-      <line x1="0" y1="0" x2="0" y2={-R} stroke="#5FD068" strokeOpacity="0.85" style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} />
-    </g>
-  );
+  return <line ref={ref} x1="0" y1="0" x2="0" y2="-400" className="ring" style={{ stroke: 'rgba(64, 168, 91, .55)', pointerEvents: 'none' }} />;
 };
 import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
@@ -76,8 +67,6 @@ export interface ScopeProps {
   coordLines: Record<string, CoordGeom>;
   /** DCS theatre, for the marine layer (inferred from position when absent) */
   theatre?: string;
-  /** draw the SPN-43 sweep line (realistic radar update rate) */
-  sweepLine?: boolean;
   coordPreview: { hull: string; g: CoordGeom } | null;
   onCoordPreview: (c: { hull: string; brg: number; off: number }) => void;
   onCoordCommit: (c: { hull: string; brg: number; off: number }) => void;
@@ -1272,7 +1261,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               })}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
-          {props.sweepLine && pic.focus && <SweepLine />}
+          {ov.sweep && pic.focus && <SweepLine />}
           {tool === 'bra' && braA && (braB || cur) && (() => {
             const b = braB ?? (cur ? { p: cur } : null);
             if (!b) return null;

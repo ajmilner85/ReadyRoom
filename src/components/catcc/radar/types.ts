@@ -26,10 +26,8 @@ export interface ConflictCfg {
   vertCapS: number;
   /** realistic radar update rate: hits repaint as the SPN-43 sweep passes (radar/sweep.ts) */
   sweep: boolean;
-  /** draw the sweep line while `sweep` is on */
-  sweepLine: boolean;
 }
-export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false, sweepLine: true };
+export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false };
 
 export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3']]],
@@ -39,7 +37,7 @@ export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Recovery', [['bolter', 'Bolter pattern', '#DE9A1F'], ['tanker', 'Tanker pattern', '#93A1B0']]],
   ['Marine', [['coast', 'Coastline', '#A9B4A0'], ['bathy', 'Bathymetry (m)', '#4F86B8']]],
   ['Geography', [['places', 'Place names', '#8E99A6'], ['airports', 'Airports / airbases', '#C8B07A']]],
-  ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['latlon', 'Lat / lon marks', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
+  ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['sweep', 'Radar sweep', '#5E9A6C'], ['latlon', 'Lat / lon marks', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
 ];
-export const OV_DEFAULT = { places: true, airports: true, coast: true, bathy: true, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
+export const OV_DEFAULT = { sweep: false, places: true, airports: true, coast: true, bathy: true, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
 export const OV2_DEFAULT = { cca: true, rings: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: false, sar: false, cv1: false, cv2: false, cv3: false };

@@ -350,7 +350,6 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
 
       {/* ---------------- scope */}
       <Scope
-        sweepLine={conflict.sweep && conflict.sweepLine}
         theatre={state.theatre}
         pic={pic}
         nowS={nowS}
