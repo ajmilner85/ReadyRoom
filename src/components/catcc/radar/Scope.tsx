@@ -1110,9 +1110,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               )
             ) : (
               <g key={`cca${c.track.id}`}>
-                <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} fill="none" strokeDasharray="10 5">
-                  <circle cx={f2(c.track.p[0])} cy={f2(c.track.p[1])} r="50" stroke="rgba(62,155,212,.55)" />
-                </g>
+                {ov2.cca && (
+                  <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} fill="none" strokeDasharray="10 5">
+                    <circle cx={f2(c.track.p[0])} cy={f2(c.track.p[1])} r="50" stroke="rgba(62,155,212,.55)" />
+                  </g>
+                )}
                 {ov2.rings && (
                   <g fill="none" stroke="rgba(62,155,212,.22)" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }}>
                     {[10, 20, 30, 40].map((r) => (

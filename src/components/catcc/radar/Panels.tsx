@@ -339,13 +339,13 @@ const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true };
 
 export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<string, boolean>; set: (ov: Record<string, boolean>, ov2: Record<string, boolean>) => void; hull: string; other?: string }> = ({ ov, ov2, set, hull, other }) => {
   const labels = LAYER_GROUPS.flatMap((g) => g[1]);
-  const allOn = labels.every(([k]) => ov[k] && (SHARED[k] || k === 'cca' || ov2[k]));
+  const allOn = labels.every(([k]) => ov[k] && (SHARED[k] || ov2[k]));
   const toggleAll = () => {
     const n: Record<string, boolean> = {};
     const n2: Record<string, boolean> = {};
     labels.forEach(([k]) => {
       n[k] = !allOn;
-      if (!SHARED[k] && k !== 'cca') n2[k] = !allOn;
+      if (!SHARED[k]) n2[k] = !allOn;
     });
     set(n, n2);
   };
@@ -366,7 +366,7 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
         <React.Fragment key={t}>
           <div className="lbl" style={{ fontSize: 9.5, color: '#6B7683', margin: '8px 0 2px 2px' }}>{t}</div>
           {items.map(([k, l, c]) => {
-            const has2 = !SHARED[k] && k !== 'cca';
+            const has2 = !SHARED[k];
             return (
               <div key={k} className="lrow" style={{ color: ov[k] || (has2 && ov2[k]) ? '#E6EDF3' : '#93A1B0' }}>
                 <span style={{ paddingLeft: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l}</span>
