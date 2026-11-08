@@ -1006,7 +1006,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               ))}
               {[10, 20, 30, 40].map((r) => {
                 // stacked straight up from the carrier (top of the screen), just outside each ring
-                const q: Pt = [0, -r - 0.3 * zkO];
+                // the 30 NM label clears the 000 compass tick (which spans ±1 ref unit about the ring)
+                const q: Pt = [0, -r - (r === 30 ? 1.25 : 0.3) * zkO];
                 return (
                   <text key={`rl${r}`} x={f2(q[0])} y={f2(q[1])} textAnchor="middle">
                     {r} NM
@@ -1014,8 +1015,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 );
               })}
               <g className="tick">
-                {/* no tick at 000: the stacked range labels sit on the north line */}
-                {Array.from({ length: 11 }, (_, i) => (i + 1) * 30).map((b) => {
+                {Array.from({ length: 12 }, (_, i) => i * 30).map((b) => {
                   const c = P(b, 30);
                   const a = P(b, 29);
                   const e = P(b, 31);
