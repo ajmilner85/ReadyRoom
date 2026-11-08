@@ -24,6 +24,8 @@ import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordina
 import { SCAN_S, sweepAngle } from './sweep.ts';
 import { buildPaths, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
+import { pimAt } from '../../../catcc/core/env/weather.ts';
+import { distanceNm } from '../../../catcc/core/geo.ts';
 
 const IS_GECKO = typeof navigator !== 'undefined' && /Gecko\/|Firefox\//.test(navigator.userAgent) && !/like Gecko/.test(navigator.userAgent);
 
@@ -91,7 +93,7 @@ import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formati
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcBra, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
-import { LW_STEPS, UI_STEPS, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
+import { LW_STEPS, UI_STEPS, type PimShip, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
 
 export type { Editing, Fit, Highlight, Placement, Tool, UiScale };
 
@@ -115,6 +117,12 @@ export interface ScopeProps {
   coordLines: Record<string, CoordGeom>;
   /** coalition bullseyes from the mission environment */
   bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
+  /** planned routes to draw (PIM / waypoints overlay), already filtered to the ones switched on */
+  pimRoutes?: PimShip[];
+  /** mission time, s (route ETAs are on this clock) */
+  mt?: number;
+  /** mission start, s after local midnight, for waypoint times */
+  dayStart?: number;
   /** DCS theatre, for the marine layer (inferred from position when absent) */
   theatre?: string;
   coordPreview: { hull: string; g: CoordGeom } | null;
@@ -1290,6 +1298,65 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     return `M${f2(cq[0] - n[0])} ${f2(cq[1] - n[1])}L${f2(cq[0] + n[0])} ${f2(cq[1] + n[1])}`;
   };
 
+  // ------------------------------------------------ PIM / waypoints
+  const pimOverlay = (r: PimShip) => {
+    const pr = pic.proj!;
+    const col = r.own ? '#7FD1C7' : '#5FB3C9';
+    const P = r.pts.map((q) => pr.toScope(q.lat, q.lon));
+    const pim = props.mt != null ? pimAt(r.pts, props.mt) : null;
+    const leg = pim?.leg ?? 0;
+    const pp = pim ? pr.toScope(pim.lat, pim.lon) : null;
+    const past = pp && leg > 0 ? [...P.slice(0, leg), pp] : [];
+    const future = pp && leg > 0 ? (leg < P.length ? [pp, ...P.slice(leg)] : []) : P;
+    const hhmm = (eta: number) => {
+      if (props.dayStart == null) return '';
+      const s = (((props.dayStart + eta) % 86400) + 86400) % 86400;
+      return ` ${String(Math.floor(s / 3600)).padStart(2, '0')}:${String(Math.floor((s % 3600) / 60)).padStart(2, '0')}`;
+    };
+    // leg speed from distance over time (unambiguous, unlike the per-point speed field)
+    const legKt = (i: number) => {
+      const a = r.pts[i - 1];
+      const b = r.pts[i];
+      const dt = b.eta - a.eta;
+      return dt > 0 ? Math.round((distanceNm(a.lat, a.lon, b.lat, b.lon) / dt) * 3600) : null;
+    };
+    const ship = r.carrierId ? pic.carriers.find((c) => c.track.id === r.carrierId)?.track.p : undefined;
+    const txt = (extra: React.CSSProperties = {}): React.CSSProperties => ({ fill: col, fontSize: '0.85px', fontWeight: 500, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round', ...extra });
+    return (
+      <g key={`pim${r.g}`} style={{ pointerEvents: 'none' }}>
+        {past.length > 1 && <path d={pts(past)} fill="none" stroke={col} strokeOpacity={0.35} strokeDasharray="2 3" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />}
+        {future.length > 1 && <path d={pts(future)} fill="none" stroke={col} strokeOpacity={0.8} strokeDasharray="7 3" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} />}
+        {ship && pp && len(sub(ship, pp)) > 0.05 && (
+          <line x1={f2(ship[0])} y1={f2(ship[1])} x2={f2(pp[0])} y2={f2(pp[1])} stroke={col} strokeOpacity={0.55} strokeDasharray="1 2" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+        )}
+        {P.map((q, i) => {
+          const done = i < leg;
+          const next = i + 1 < r.pts.length ? r.pts[i + 1] : null;
+          const out = next ? r3(bearingOf(sub(P[i + 1], q))) : null;
+          return (
+            <g key={i} className="zs" transform={zs(q, zkO)} opacity={done ? 0.4 : 1}>
+              <circle cx={f2(q[0])} cy={f2(q[1])} r="0.42" fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
+              {!done && !(pp && len(sub(q, pp)) < 1.6 * zkO) && (
+                <text x={f2(q[0] + 0.75)} y={f2(q[1] + 0.3)} stroke="#0B0E12" style={txt()}>
+                  {`${r.own ? '' : `${r.label} `}WP${i}${hhmm(r.pts[i].eta)}${out ? ` → ${out}` : ''}`}
+                </text>
+              )}
+            </g>
+          );
+        })}
+        {pp && pim && (
+          <g className="zs" transform={zs(pp, zkO)}>
+            <path d={`M${f2(pp[0])} ${f2(pp[1] - 0.7)}L${f2(pp[0] + 0.7)} ${f2(pp[1])}L${f2(pp[0])} ${f2(pp[1] + 0.7)}L${f2(pp[0] - 0.7)} ${f2(pp[1])}Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
+            <circle cx={f2(pp[0])} cy={f2(pp[1])} r="0.14" fill={col} />
+            <text x={f2(pp[0] + 0.95)} y={f2(pp[1] - 0.55)} stroke="#0B0E12" style={txt({ fontWeight: 600 })}>
+              {`${r.label} PIM${pim.crs != null ? ` ${r3(pim.crs)}` : ''}${pim.leg > 0 && pim.leg < r.pts.length && legKt(pim.leg) != null ? `/${legKt(pim.leg)} KT` : ''}${ship ? ` · ${Math.max(0, len(sub(ship, pp))).toFixed(1)} NM` : ''}`}
+            </text>
+          </g>
+        )}
+      </g>
+    );
+  };
+
   // ------------------------------------------------ render
   const cursorReadout = cur && pic.proj
     ? (() => {
@@ -1516,6 +1583,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               })}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
+          {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
           {ov.bulls &&
             pic.proj &&
             (props.bulls ?? []).map((b) => {

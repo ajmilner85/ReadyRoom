@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import { destination } from '../geo.ts';
+import { destination, distanceNm } from '../geo.ts';
 import { lightDay, moon, sunAltitude } from './astro.ts';
-import { ceilingFt, cloudsText, coverageOf, nextPimTurn, recoveryCase, visibilityNm } from './weather.ts';
+import { ceilingFt, cloudsText, coverageOf, nextPimTurn, pimAt, recoveryCase, visibilityNm } from './weather.ts';
 
 describe('astro', () => {
   it('sun is high at local noon and below the horizon at midnight (Persian Gulf, 21 Jun)', () => {
@@ -54,5 +54,24 @@ describe('weather', () => {
     ];
     expect(nextPimTurn(pts, 600)).toEqual({ brc: 20, etaS: 1800 });
     expect(nextPimTurn(pts, 2000)).toBeNull();
+  });
+
+  it('interpolates the PIM along the leg whose ETAs bracket now', () => {
+    const b = destination(26, 56, 90, 12);
+    const c = destination(b.lat, b.lon, 0, 12);
+    const pts = [
+      { lat: 26, lon: 56, spd: 12, eta: 100 },
+      { ...b, spd: 12, eta: 3700 },
+      { ...c, spd: 12, eta: 7300 },
+    ];
+    expect(pimAt(pts, 0)).toMatchObject({ lat: 26, lon: 56, leg: 0 });
+    const mid = pimAt(pts, 1900)!;
+    expect(mid.leg).toBe(1);
+    expect(distanceNm(26, 56, mid.lat, mid.lon)).toBeCloseTo(6, 1);
+    expect(mid.crs).toBeCloseTo(90, 0);
+    const second = pimAt(pts, 4600)!;
+    expect(second.leg).toBe(2);
+    expect(distanceNm(b.lat, b.lon, second.lat, second.lon)).toBeCloseTo(3, 1);
+    expect(pimAt(pts, 9000)).toMatchObject({ lat: c.lat, lon: c.lon, leg: 3, crs: null });
   });
 });

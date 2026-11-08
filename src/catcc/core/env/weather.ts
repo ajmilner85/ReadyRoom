@@ -1,5 +1,5 @@
 import type { MissionWx, RoutePoint } from '../dcs/hookProtocol.ts';
-import { bearingDeg } from '../geo.ts';
+import { bearingDeg, destination, distanceNm } from '../geo.ts';
 
 export type Coverage = 'CLR' | 'FEW' | 'SCT' | 'BKN' | 'OVC';
 
@@ -77,4 +77,26 @@ export function nextPimTurn(pts: RoutePoint[], nowS: number): { brc: number; eta
     if (d >= 3) return { brc: Math.round(b) % 360, etaS: pts[i].eta };
   }
   return null;
+}
+
+/**
+ * Position of intended movement: where the ship should be at `nowS` (mission seconds) on its planned
+ * route, interpolated along the leg whose ETAs bracket it. Before the first point it is the first
+ * point; after the last it is the last (DCS ships stop there). `leg` is the index of the point the
+ * ship is heading for (pts.length once the route is complete).
+ */
+export function pimAt(pts: RoutePoint[], nowS: number): { lat: number; lon: number; leg: number; crs: number | null } | null {
+  if (!pts.length) return null;
+  if (nowS <= pts[0].eta) return { lat: pts[0].lat, lon: pts[0].lon, leg: 0, crs: null };
+  for (let i = 1; i < pts.length; i++) {
+    const a = pts[i - 1];
+    const b = pts[i];
+    if (b.eta < nowS) continue;
+    const crs = bearingDeg(a.lat, a.lon, b.lat, b.lon);
+    const f = b.eta > a.eta ? (nowS - a.eta) / (b.eta - a.eta) : 1;
+    const p = destination(a.lat, a.lon, crs, distanceNm(a.lat, a.lon, b.lat, b.lon) * f);
+    return { lat: p.lat, lon: p.lon, leg: i, crs };
+  }
+  const l = pts[pts.length - 1];
+  return { lat: l.lat, lon: l.lon, leg: pts.length, crs: null };
 }

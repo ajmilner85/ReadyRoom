@@ -1,3 +1,4 @@
+import type { RoutePoint } from '../../../catcc/core/dcs/hookProtocol.ts';
 /** Radar UI types and display-scale constants (handoff §8). */
 export type Tool = 'select' | 'bra' | 'marshal' | 'cpa' | 'vec';
 export type Fit = 'r50' | 'cca' | 'dep' | 'app' | null;
@@ -30,6 +31,19 @@ export interface ConflictCfg {
   datalink: boolean;
 }
 export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false, datalink: false };
+
+/** A friendly ship group with a planned route, for the PIM / waypoints overlay. */
+export interface PimShip {
+  /** DCS group name (the toggle key) */
+  g: string;
+  /** carrier hull, else the group name */
+  label: string;
+  /** the focus carrier's group */
+  own: boolean;
+  /** track id of a carrier in the group, for the deviation line */
+  carrierId?: string;
+  pts: RoutePoint[];
+}
 
 export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3']]],

@@ -15,7 +15,7 @@ import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type
 import { InfoPanels } from './InfoPanels.tsx';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
-import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
+import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type PimShip, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const hhmm = (d: Date) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
@@ -96,6 +96,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const [tool, setTool] = useState<Tool>('marshal');
   const [ov, setOv] = useState<Record<string, boolean>>(() => load('catcc.ov', OV_DEFAULT));
   const [ov2, setOv2] = useState<Record<string, boolean>>(() => load('catcc.ov2', OV2_DEFAULT));
+  // PIM / waypoints per ship group; unset groups follow the default (own carrier on, others off)
+  const [pimOn, setPimOn] = useState<Record<string, boolean>>(() => load('catcc.pim', {}));
   const [ui, setUi] = useState<UiScale>(() => load('catcc.ui', UI_DEF));
   const [layersOpen, setLayersOpen] = useState(false);
   const [freqOpen, setFreqOpen] = useState(false);
@@ -113,6 +115,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
 
   useEffect(() => save('catcc.ov', ov), [ov]);
   useEffect(() => save('catcc.ov2', ov2), [ov2]);
+  useEffect(() => save('catcc.pim', pimOn), [pimOn]);
   useEffect(() => save('catcc.ui', ui), [ui]);
 
   const focus = pic.focus;
@@ -125,6 +128,29 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   }, [pic.carriers, state.plans]);
   const plan = useMemo(() => plans[hull] ?? { deps: [], stacks: [] }, [plans, hull]);
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
+
+  // ------------------------------------------------ PIM / waypoints: friendly ship groups with a planned route
+  const routes = state.env?.routes;
+  const pimShips = useMemo<PimShip[]>(() => {
+    const side = focus?.track.sd ?? 'blue';
+    return (routes ?? [])
+      .filter((r) => r.side === side && r.pts.length >= 2)
+      .map((r) => {
+        const c = pic.carriers.find((x) => x.track.g === r.g);
+        return { g: r.g, label: c?.track.hull ?? r.g, own: !!c?.focus, carrierId: c?.track.id, pts: r.pts };
+      })
+      .sort((a, b) => Number(b.own) - Number(a.own) || Number(!!b.carrierId) - Number(!!a.carrierId) || a.label.localeCompare(b.label));
+  }, [routes, pic.carriers, focus?.track.sd]);
+  const pimShown = useCallback((s: PimShip) => pimOn[s.g] ?? s.own, [pimOn]);
+  const pimToggles = {
+    ships: pimShips,
+    shown: pimShown,
+    toggle: (g: string) => {
+      const s = pimShips.find((x) => x.g === g);
+      if (s) setPimOn((o) => ({ ...o, [g]: !pimShown(s) }));
+    },
+    setAll: (on: boolean | null) => setPimOn(on === null ? {} : Object.fromEntries(pimShips.map((s) => [s.g, on]))),
+  };
 
   // ------------------------------------------------ coordination lines (ours, theirs reframed, or automatic)
   const protectedAreas = (c: Carrier): CoordArea[] => {
@@ -355,6 +381,9 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       <Scope
         theatre={state.theatre}
         bulls={state.env?.bulls}
+        pimRoutes={pimShips.filter(pimShown)}
+        mt={state.mt}
+        dayStart={state.env?.start}
         pic={pic}
         nowS={nowS}
         ui={ui}
@@ -385,7 +414,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         goTo={goTo}
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((o) => !o)}
-        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} />}
+        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} pim={pimToggles} />}
         freqOpen={freqOpen}
         onToggleFreq={() => setFreqOpen((o) => !o)}
         freqPanel={<FreqPanel plan={comms.plan} source={comms.source} />}
