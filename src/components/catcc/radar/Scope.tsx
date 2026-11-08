@@ -1006,15 +1006,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               ))}
               {[10, 20, 30, 40].map((r) => {
                 // stacked straight up from the carrier (top of the screen), just outside each ring
-                const q: Pt = [0.4 * zkO, -r - 0.3 * zkO];
+                const q: Pt = [0, -r - 0.3 * zkO];
                 return (
-                  <text key={`rl${r}`} x={f2(q[0])} y={f2(q[1])} textAnchor="start">
+                  <text key={`rl${r}`} x={f2(q[0])} y={f2(q[1])} textAnchor="middle">
                     {r} NM
                   </text>
                 );
               })}
               <g className="tick">
-                {Array.from({ length: 12 }, (_, i) => i * 30).map((b) => {
+                {/* no tick at 000: the stacked range labels sit on the north line */}
+                {Array.from({ length: 11 }, (_, i) => (i + 1) * 30).map((b) => {
                   const c = P(b, 30);
                   const a = P(b, 29);
                   const e = P(b, 31);
@@ -1026,9 +1027,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 })}
               </g>
               {Array.from({ length: 12 }, (_, i) => i * 30).map((b) => {
-                const q = P(b, b === 0 ? 27 : 27.3);
+                // just inside the tick (tick half-length 1 ref unit), constant gap on screen
+                const q = P(b, 30 - 1.9 * zkO);
                 return (
-                  <text key={`c${b}`} x={f2(q[0])} y={f2(q[1] + (b === 0 ? 0 : 0.3))} textAnchor="middle">
+                  <text key={`c${b}`} x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central">
                     {r3(b)}
                   </text>
                 );
