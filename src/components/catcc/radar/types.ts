@@ -1,0 +1,30 @@
+/** Radar UI types and display-scale constants (handoff §8). */
+export type Tool = 'select' | 'bra' | 'marshal' | 'cpa' | 'vec';
+export type Fit = 'r50' | 'cca' | 'dep' | 'app' | null;
+export type Highlight = { k: 'dep'; id: number } | { k: 'm'; id: string } | { k: 'e' } | { k: 'h' };
+export type Editing = { k: 'dep'; r: number } | { k: 'm'; id: string };
+export interface Placement {
+  placing: 'dep' | 'm' | null;
+  editing: Editing | null;
+  hov: number | null;
+}
+export interface UiScale {
+  h: number;
+  t: number;
+  l: number;
+  o: number;
+}
+export const UI_STEPS = [1.15, 1.3, 1.45, 1.6, 1.8];
+export const LW_STEPS = [1.15, 1.5, 1.9, 2.4, 3];
+export const UI_DEF: UiScale = { h: 2, t: 2, l: 2, o: 2 };
+
+export const LAYER_GROUPS: [string, [string, string, string][]][] = [
+  ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3']]],
+  ['Airspace', [['cca', 'CCA 50 NM', '#40A85B'], ['coord', 'Coordination lines', '#3E9BD4'], ['sar', 'Helo restrictions', '#DE9A1F']]],
+  ['Departure', [['dep', 'Departure radials', '#93A1B0']]],
+  ['Approach', [['marshal', 'Marshal stacks', '#F15822'], ['arr', 'Arrival paths', '#93A1B0'], ['cv1', 'CV-1 approach', '#E6EDF3'], ['cv2', 'CV-2 approach', '#C9D3DD'], ['cv3', 'CV-3 approach (helo)', '#C9D3DD']]],
+  ['Recovery', [['bolter', 'Bolter pattern', '#DE9A1F'], ['tanker', 'Tanker pattern', '#93A1B0']]],
+  ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['latlon', 'Lat / lon marks', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
+];
+export const OV_DEFAULT = { cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
+export const OV2_DEFAULT = { cca: true, rings: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: false, sar: false, cv1: false, cv2: false, cv3: false };

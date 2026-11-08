@@ -1,0 +1,41 @@
+/** Icons copied verbatim from the CATCC mockup (catcc-handoff/mockup/*.dc.html). */
+import React from 'react';
+
+type P = { size?: number };
+const S = (size: number, sw: number, children: React.ReactNode, extra: React.SVGProps<SVGSVGElement> = {}) => (
+  <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" {...extra}>
+    {children}
+  </svg>
+);
+
+export const IcCatcc = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <circle cx="12" cy="12" r="9" />
+    <circle cx="12" cy="12" r="4.5" />
+    <path d="M12 12 L19 6" />
+  </svg>
+);
+export const IcPrifly = () => (
+  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
+    <path d="M4 18h16M7 18l3-10h4l3 10" />
+  </svg>
+);
+export const IcBook = ({ size = 16 }: P) => S(size, 1.8, <><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z" /><path d="M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z" /></>);
+export const IcSliders = ({ size = 17 }: P) => S(size, 1.8, <><path d="M4 7h10M18 7h2M4 17h4M12 17h8" /><circle cx="16" cy="7" r="2" /><circle cx="10" cy="17" r="2" /></>);
+export const IcDisplays = ({ size = 16 }: P) => S(size, 1.8, <><rect x="2" y="4" width="13" height="10" rx="1.5" /><rect x="16" y="9" width="6" height="11" rx="1.2" /><path d="M6 18h5" /></>);
+export const IcRadio = ({ size = 20 }: P) =>
+  S(size, 1.8, <><circle cx="12" cy="10" r="1.6" fill="currentColor" stroke="none" /><path d="M12 12v9" /><path d="M8.5 6.5a5 5 0 0 0 0 7M15.5 6.5a5 5 0 0 1 0 7" /><path d="M5.6 3.6a9 9 0 0 0 0 12.8M18.4 3.6a9 9 0 0 1 0 12.8" /></>);
+export const IcSelect = ({ size = 20 }: P) => S(size, 1.8, <path d="M5 3l13 8-6 1.5L9 19z" />);
+export const IcBra = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="5" cy="18" r="2" /><circle cx="19" cy="6" r="2" /><path d="M6.6 16.6L17.4 7.4M9 18.5l1.2-1.2M12 16l1.2-1.2M15 13.5l1.2-1.2" /></>);
+export const IcMarshal = ({ size = 20 }: P) => S(size, 1.8, <><path d="M4 6h10M4 11h10M4 16h10" /><path d="M18 4v16M15.5 17.5L18 20l2.5-2.5" /></>);
+export const IcCpa = ({ size = 20 }: P) => S(size, 1.8, <><path d="M3 19L12 12M21 19L12 12" /><circle cx="12" cy="12" r="3" /><path d="M12 3v4" /></>);
+export const IcVec = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="6" cy="18" r="2.2" /><path d="M7.6 16.4L19 5M19 5h-5M19 5v5" /></>);
+export const IcLayers = ({ size = 20 }: P) => S(size, 1.8, <><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>);
+export const IcComms = ({ size = 20 }: P) => S(size, 1.8, <><path d="M4 5h16v10H9l-5 4z" /><path d="M8 9h8M8 12h5" /></>);
+export const IcZoomOut = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6" /></>);
+export const IcZoomIn = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6M10.5 7.5v6" /></>);
+export const IcEdit = () => S(12, 2, <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></>);
+export const IcX = ({ size = 10, sw = 3 }: { size?: number; sw?: number }) => S(size, sw, <path d="M6 6l12 12M18 6L6 18" />);
+export const IcChevron = ({ rot = 0 }: { rot?: number }) => S(12, 2.2, <path d="M6 9l6 6 6-6" />, { style: { transform: `rotate(${rot}deg)` } });
+export const IcGoTo = () => S(15, 1.8, <><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" fill="currentColor" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></>);
+export const IcPopOut = () => S(14, 2, <path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" />);

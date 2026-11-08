@@ -141,6 +141,47 @@ The user chose to build our own hook rather than reuse Olympus. It reuses LotATC
 - **Default stack:** until a carrier's plan is first edited, clients draw the CV-1 default stack locally. The first edit sends the full plan.
 - **Persistence:** room state is in memory. It's lost on a room restart, and SDOBot deploys restart it. Persisting plans to Supabase per mission is backlog.
 
+## Radar rebuilt as a faithful mockup port (2026-11-08)
+
+The first radar pass was an approximation. The user compared it with the mockup, and it has been rebuilt from `Main.dc.html` with its exact markup values, colours and symbol geometry.
+
+- **Code:** `src/components/catcc/radar/` (`Scope`, `RadarView`, `InfoPanels`, `Panels`, `types`).
+- **Scope layers, in the mockup's order:** background svg, overlay svg, HTML flags/edge markers, traffic svg, HTML helper tags, then floating controls.
+- **Now matches the mockup:**
+  - **Header:** logo, module nav, Ship select (hull · nickname), CASE badge, seat pills with avatars, feed status, LOCAL/ZULU, Reference, Display settings, Displays.
+  - **Floating toolbar:** select, BRA ruler, marshal, CPA probe and vector tools; Layers; Comms; zoom/RNG; fit buttons.
+  - **Panels and dialogs:**
+    - Frequencies popover, read from the ReadyRoom comms plan of the event nearest to now (`missions.mission_settings.comms_plan`; PRI/AUX columns from `radio`);
+    - Layers panel with focus and other-carrier columns;
+    - Display settings with live previews, applied on Apply and saved in localStorage;
+    - Reference popup (Minimums, Approaches, Helo ops, Documents);
+    - Comms scripts dialog, with fields filled from the selected aircraft and its assignment.
+  - **Scope frame and overlays:**
+    - lat/lon frame with edge labels, and the grid;
+    - rings and compass;
+    - CCAs, plus the other carrier's rings and CCA;
+    - coordination line with the rotated pill.
+  - **Per-carrier overlays:** BRC, FB, bolter, helo restrictions, CV-1/2/3, tanker, departures, arrivals and marshal. These are the mockup's SVG rotated by (BRC − 345), with labels kept upright. Other carriers are drawn from their **own** room plans, in blue.
+  - **Radials manager:** pennant flags (HTML), on-scope placement with blocked wedges, a bow-on wedge and a candidate preview/flag, Edit/Cancel/status rows, highlight, and the expandable stack levels table.
+  - **Traffic:**
+    - trails as screen-constant dots and velocity vectors;
+    - tags placed exactly as in the mockup, with the leader quadrant chosen away from the velocity vector;
+    - formation hover ring, wheel cycling and member tags;
+    - conflicts with projections, the CPA segment and label, pinned to the edge when off-scope;
+    - off-scope triangles;
+    - other-carrier traffic (nearest carrier within 60 NM) drawn in blue.
+  - **Info tab:** Ship, Weather, and Light/Case. The sun and moon come from `core/env/astro.ts`, and the chart window is solar noon to solar noon at the ship. The case comes from night plus ceiling and visibility.
+  - **Notifications:** CONFLICT, LOW STATE, LATE PUSH, COORD LINE and BRC CHANGE, all derived from live data.
+- **Hold entry (backlog item 2, done):** `marshalRoute()` flies a turn-rate-limited path to the fix. The entry is straight-in, direct, teardrop or parallel by the 70° sectors, and the aircraft finishes established inbound at the fix. EAT uses that distance, and the hook tag shows the entry type.
+- **Hook `env` message (30 s):** mission weather (cloud preset/base, visibility, fog, precipitation), every live ship group's route (used for "Next PIM turn" and the BRC CHANGE note) and the mission start time. These feed the Weather panel and the case. DCS has no dew point.
+- **Seats:** the Mission Commander pill was removed from the radar header so it fits on one row. Seat access is being redesigned around qualifications (see the user's request below).
+- **PriFly LSO and Boss:** both screens are ported and fed by live data, but the user has paused work on them. **Unverified:** deck placement of parked jets. In the Week 5 recording, jets on deck report headings of 340/160 while the ship is on 070, and nothing was placed during the check, so the deck-frame transform (`prifly/deck.ts`, `DCS_ORIGIN_X`) needs a look against a live carrier.
+
+## Open requests from the user (not started)
+
+- **Seat access tied to ReadyRoom qualifications**, with a settings UI that maps qualifications to seats. Seniority rules: a senior user can displace a junior one; an equal or junior user can only request a takeover, and the occupant must accept it in a dialog. Waiting on answers about the seniority source, the request timeout and who can view.
+- **Marine view:** ship traffic, bathymetry and coastlines (DCS doesn't expose them, so external sources such as GEBCO and OSM/Natural Earth are proposed), PIM and waypoints for every friendly CSG, and a CSG formation manager (needs the Phase 2 command channel).
+
 ## Code layout (Phase 1 start)
 
 ```

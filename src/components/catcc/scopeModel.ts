@@ -25,6 +25,8 @@ export interface ScopeTrack extends WireTrack {
   /** range (NM) and bearing from the focus carrier */
   rng: number;
   brg: number;
+  /** hull of the nearest carrier within 60 NM (aircraft only) */
+  owner?: string;
 }
 
 export interface Carrier {
@@ -97,6 +99,14 @@ export function buildPicture(
   };
   const carriers: Carrier[] = cvs.map((c) => ({ track: toScope(c), ship: shipRefOf(c), focus: c === focusTrack }));
   const air = tracks.filter(isAir).map(toScope);
+  for (const a of air) {
+    let best: { hull?: string; d: number } = { d: 60 };
+    for (const c of carriers) {
+      const d = Math.hypot(a.p[0] - c.track.p[0], a.p[1] - c.track.p[1]);
+      if (d < best.d) best = { hull: c.track.hull, d };
+    }
+    a.owner = best.hull;
+  }
   const formations = groupFormations(air);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
   const conflicts = findConflicts(air, fb, opts.conflictLookAheadS ?? 120);

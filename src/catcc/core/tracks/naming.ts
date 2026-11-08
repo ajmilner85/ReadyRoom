@@ -39,12 +39,15 @@ export function parsePilot(raw: string | undefined): PilotName {
 }
 
 /** Known carriers that CATCC controls, by DCS unit type name. */
-export const CARRIER_HULLS: Record<string, { hull: string; name: string }> = {
-  CVN_71: { hull: 'CVN-71', name: 'THEODORE ROOSEVELT' },
-  CVN_72: { hull: 'CVN-72', name: 'ABRAHAM LINCOLN' },
-  CVN_73: { hull: 'CVN-73', name: 'GEORGE WASHINGTON' },
-  Stennis: { hull: 'CVN-74', name: 'JOHN C. STENNIS' },
-  CVN_75: { hull: 'CVN-75', name: 'HARRY S. TRUMAN' },
-  Forrestal: { hull: 'CV-59', name: 'FORRESTAL' },
-  LHA_Tarawa: { hull: 'LHA-1', name: 'TARAWA' },
+export const CARRIER_HULLS: Record<string, { hull: string; name: string; nick: string }> = {
+  CVN_71: { hull: 'CVN-71', name: 'THEODORE ROOSEVELT', nick: 'Rough Rider' },
+  CVN_72: { hull: 'CVN-72', name: 'ABRAHAM LINCOLN', nick: 'Abe' },
+  CVN_73: { hull: 'CVN-73', name: 'GEORGE WASHINGTON', nick: 'Warfighter' },
+  Stennis: { hull: 'CVN-74', name: 'JOHN C. STENNIS', nick: 'Johnny Reb' },
+  CVN_75: { hull: 'CVN-75', name: 'HARRY S. TRUMAN', nick: 'Lone Warrior' },
+  Forrestal: { hull: 'CV-59', name: 'FORRESTAL', nick: 'Forrestal' },
+  LHA_Tarawa: { hull: 'LHA-1', name: 'TARAWA', nick: 'Tarawa' },
 };
+
+/** Carrier info by hull number ("CVN-72"). */
+export const carrierByHull = (hull: string | undefined) => Object.values(CARRIER_HULLS).find((c) => c.hull === hull);
