@@ -1314,9 +1314,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </button>
             ))}
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
-            <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? 'rgba(241,88,34,.18)' : 'transparent', color: props.layersOpen ? '#FFB08F' : '#E6EDF3' }}>
-              <IcLayers />
-            </button>
             <button className="tbtn" aria-label="Comms scripts" title="Comms scripts" onClick={props.onOpenComms} style={{ color: '#E6EDF3' }}>
               <IcComms />
             </button>
@@ -1342,7 +1339,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </button>
             ))}
           </div>
-          {props.layersOpen && props.layersPanel}
+        </div>
+
+        {/* ---------------- layers (top right, mirrors the frequencies button) */}
+        <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+          <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? 'rgba(241,88,34,.18)' : 'rgba(21,26,33,.96)', color: props.layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
+            <IcLayers />
+          </button>
+          {props.layersOpen && <div style={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto' }}>{props.layersPanel}</div>}
         </div>
 
         <div className="mono" style={{ position: 'absolute', left: 12, bottom: 12, fontSize: 11, color: '#93A1B0', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
