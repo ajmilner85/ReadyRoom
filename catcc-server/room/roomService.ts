@@ -54,6 +54,7 @@ class Source {
   private stopFn?: () => void;
   private timer?: NodeJS.Timeout;
   lastFrame?: string;
+  lastEnv?: string;
   readonly cfg: SourceConfig;
   private readonly onStatus: () => void;
   private readonly log: (m: string) => void;
@@ -77,6 +78,12 @@ class Source {
           store.applyFrame(frame);
           if (frame.err) this.log(`[${cfg.id}] sampler error: ${frame.err}`);
           this.publish(store.t, store.utc, frame.theatre ?? undefined, store.tracks.values());
+        },
+        onEnv: (env) => {
+          const m = JSON.stringify({ t: 'env', src: cfg.id, env } satisfies ServerMsg);
+          if (m === this.lastEnv) return;
+          this.lastEnv = m;
+          for (const c of this.subscribers) send(c, m);
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
@@ -321,6 +328,7 @@ export class RoomService {
         send(c, src.seatsMsg());
         send(c, src.plansMsg());
         send(c, src.assignmentsMsg());
+        if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
       }

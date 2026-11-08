@@ -1,7 +1,7 @@
 import net from 'node:net';
 import type { AcmiEvent } from '../../src/catcc/core/acmi/parser.ts';
-import type { HookFrame, HookUnit } from '../../src/catcc/core/dcs/hookProtocol.ts';
-import { M_PER_FT, MS_PER_KT } from '../../src/catcc/core/geo.ts';
+import type { HookEnv, HookFrame, HookUnit } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import { destination, M_PER_FT, MS_PER_KT } from '../../src/catcc/core/geo.ts';
 import { TrackStore, type Track } from '../../src/catcc/core/tracks/trackStore.ts';
 
 /**
@@ -104,6 +104,39 @@ export class FakeHookServer {
     };
   }
 
+  /** Synthetic environment: broken layer at 800 ft, 4 NM in rain; carriers hold course 30 min, then turn 35° right. */
+  buildEnv(): HookEnv {
+    const utc = this.store.utc;
+    const now = this.store.t;
+    const routes = [...this.store.tracks.values()]
+      .filter((t) => t.kind === 'carrier')
+      .map((t) => {
+        const crs = t.courseDeg ?? t.headingDeg ?? 0;
+        const kt = t.gsKt ?? 20;
+        const a = destination(t.lat, t.lon, crs, kt * 0.5);
+        const b = destination(a.lat, a.lon, crs + 35, kt);
+        const spd = kt * MS_PER_KT;
+        return {
+          g: t.group ?? t.id,
+          side: t.side,
+          pts: [
+            { lat: t.lat, lon: t.lon, spd, eta: now },
+            { lat: a.lat, lon: a.lon, spd, eta: now + 1800 },
+            { lat: b.lat, lon: b.lon, spd, eta: now + 5400 },
+          ],
+        };
+      });
+    return {
+      start: utc ? utc.getUTCHours() * 3600 + utc.getUTCMinutes() * 60 + utc.getUTCSeconds() - Math.round(now) : 0,
+      date: utc ? utc.toISOString().slice(0, 10) : null,
+      theatre: 'Normandy',
+      wx: { cb: 244, ct: 900, cd: 7, cp: 'RainyPreset1', pr: 1, vis: 7400, fog: null, dust: null },
+      routes,
+    };
+  }
+
+  private envAt = -1e9;
+
   private accept(sock: net.Socket): void {
     const c = { sock, authed: false };
     this.clients.add(c);
@@ -121,6 +154,7 @@ export class FakeHookServer {
           if (line === `AUTH ${this.opts.token}`) {
             c.authed = true;
             sock.write('{"type":"auth","ok":true}\n{"type":"mission","state":"running","name":"replay"}\n');
+            this.envAt = -1e9;
           } else {
             sock.end('{"type":"error","error":"auth"}\n');
           }
@@ -134,6 +168,11 @@ export class FakeHookServer {
 
   private broadcastFrame(): void {
     if (![...this.clients].some((c) => c.authed)) return;
+    if (Date.now() - this.envAt > 30_000) {
+      this.envAt = Date.now();
+      const env = JSON.stringify({ type: 'env', ...this.buildEnv() }) + '\n';
+      for (const c of this.clients) if (c.authed) c.sock.write(env);
+    }
     const line = JSON.stringify(this.buildFrame()) + '\n';
     for (const c of this.clients) if (c.authed) c.sock.write(line);
   }

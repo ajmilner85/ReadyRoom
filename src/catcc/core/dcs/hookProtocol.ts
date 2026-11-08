@@ -63,10 +63,53 @@ export interface HookFrame {
   err?: string;
 }
 
+/** Mission weather as set in the mission editor (DCS has no dew point or cloud layers beyond one). */
+export interface MissionWx {
+  /** cloud base and thickness, metres MSL; density 0-10 (legacy clouds) */
+  cb: number | null;
+  ct: number | null;
+  cd: number | null;
+  /** DCS 2.7+ cloud preset name, e.g. "Preset14", "RainyPreset2" */
+  cp: string | null;
+  /** precipitation: 0 none, 1 rain, 2 thunderstorm, 3 snow, 4 snowstorm */
+  pr: number | null;
+  /** visibility, metres */
+  vis: number | null;
+  fog: { v: number; t: number } | null;
+  dust: number | null;
+}
+
+export interface RoutePoint {
+  lat: number;
+  lon: number;
+  /** m/s */
+  spd: number;
+  /** seconds after mission start */
+  eta: number;
+}
+
+export interface ShipRoute {
+  /** DCS group name */
+  g: string;
+  side: string;
+  pts: RoutePoint[];
+}
+
+/** Slow-changing mission environment, sent every ~30 s. */
+export interface HookEnv {
+  /** mission start, seconds after local midnight of `date` */
+  start: number;
+  date: string | null;
+  theatre: string | null;
+  wx: MissionWx;
+  routes: ShipRoute[];
+}
+
 export type HookMessage =
   | { type: 'hello'; proto: number; version: string; server: string }
   | { type: 'auth'; ok: true }
   | { type: 'mission'; state: 'running' | 'stopped'; name: string }
   | { type: 'pong' }
   | { type: 'error'; error: string }
-  | HookFrame;
+  | HookFrame
+  | ({ type: 'env' } & HookEnv);

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
+import type { HookEnv } from '../../catcc/core/dcs/hookProtocol.ts';
 import type { Assignment, CarrierPlan, RoomUser, SeatHolder, SeatKey, ServerMsg, SourceStatus, WireTrack } from '../../catcc/core/room/protocol.ts';
 import type { Trail } from './scopeModel.ts';
 
@@ -25,6 +26,7 @@ export interface RoomState {
   src?: string;
   seats: SeatHolder[];
   plans: Record<string, CarrierPlan>;
+  env?: HookEnv;
   assignments: Record<string, Assignment>;
   tracks: WireTrack[];
   /** model time (s) and UTC of the latest frame */
@@ -92,6 +94,9 @@ export function useCatccRoom(preferredSrc?: string) {
           case 'plans':
             if (m.src === srcRef.current) setState((s) => ({ ...s, plans: m.plans }));
             break;
+          case 'env':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, env: m.env }));
+            break;
           case 'assignments':
             if (m.src === srcRef.current) setState((s) => ({ ...s, assignments: m.assignments }));
             break;
@@ -149,7 +154,7 @@ export function useCatccRoom(preferredSrc?: string) {
     (src: string) => {
       srcRef.current = src;
       history.current.clear();
-      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {} }));
+      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, env: undefined }));
       send({ t: 'subscribe', src });
     },
     [send],

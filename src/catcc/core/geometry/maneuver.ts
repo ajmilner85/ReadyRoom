@@ -133,3 +133,158 @@ export function predictConflict(A: Kinematic, B: Kinematic, opts: ConflictOption
   if (c.latNm < latStd && c.vertFt < VERTICAL_STANDARD_FT) return { ...c, latStd };
   return null;
 }
+
+// ---------------------------------------------------------------- marshal route with hold entry
+
+/**
+ * Turn-rate-limited path integrator: every manoeuvre is flown at the bank-angle turn radius, so
+ * joins between legs are naturally filleted. Step 0.05 NM.
+ */
+const DS = 0.05;
+
+interface FlyState {
+  p: Pt;
+  h: number;
+  path: Pt[];
+  dist: number;
+}
+
+const norm = (a: number) => ((a % 360) + 360) % 360;
+
+function stepFwd(s: FlyState, turnDeg: number): void {
+  s.h = norm(s.h + turnDeg);
+  const d = dir(s.h);
+  s.p = [s.p[0] + d[0] * DS, s.p[1] + d[1] * DS];
+  s.path.push(s.p);
+  s.dist += DS;
+}
+
+/** Turn in a given sense (+1 right, -1 left) until on the target heading. */
+function turnTo(s: FlyState, target: number, sense: 1 | -1, R: number): void {
+  const maxT = DS / R / D2R;
+  for (let i = 0; i < 4000; i++) {
+    const rem = sense > 0 ? norm(target - s.h) : norm(s.h - target);
+    if (rem < 0.5 || rem > 359.5) break;
+    stepFwd(s, sense * Math.min(maxT, rem));
+  }
+  s.h = norm(target);
+}
+
+/** Turn the shorter way onto a heading. */
+function turnShort(s: FlyState, target: number, R: number): void {
+  turnTo(s, target, signedDiff(target, s.h) >= 0 ? 1 : -1, R);
+}
+
+function straight(s: FlyState, nm: number): void {
+  for (let i = 0; i < nm / DS; i++) stepFwd(s, 0);
+}
+
+/** Pure pursuit to a point (turn toward it at the turn-rate limit, then straight). */
+function pursue(s: FlyState, T: Pt, R: number): void {
+  const maxT = DS / R / D2R;
+  let turned = 0;
+  for (let i = 0; i < 20000; i++) {
+    const rg = dist(s.p, T);
+    if (rg < DS * 1.5) {
+      s.path.push([T[0], T[1]]);
+      s.dist += rg;
+      s.p = [T[0], T[1]];
+      return;
+    }
+    const df = signedDiff(bearingTo(s.p, T), s.h);
+    // if circling the point inside the turn radius, fly straight to open out
+    const t = turned > 400 ? 0 : Math.max(-maxT, Math.min(maxT, df));
+    turned += Math.abs(t);
+    stepFwd(s, t);
+  }
+}
+
+/**
+ * Track a course line into a fix (cross-track steering, intercept angle <= 45°, turn-rate
+ * limited). Ends at the fix, established on the course.
+ */
+function trackTo(s: FlyState, fix: Pt, course: number, R: number): void {
+  const maxT = DS / R / D2R;
+  const u = dir(course);
+  const look = Math.max(0.5, 0.6 * R);
+  for (let i = 0; i < 20000; i++) {
+    const rel: Pt = [s.p[0] - fix[0], s.p[1] - fix[1]];
+    const remaining = -(rel[0] * u[0] + rel[1] * u[1]);
+    if (remaining <= DS) {
+      s.path.push([fix[0], fix[1]]);
+      s.dist += Math.max(0, remaining);
+      s.p = [fix[0], fix[1]];
+      s.h = course;
+      return;
+    }
+    const xte = u[0] * rel[1] - u[1] * rel[0]; // + = right of course
+    const desired = course - Math.max(-45, Math.min(45, Math.atan(xte / look) / D2R));
+    const df = signedDiff(desired, s.h);
+    stepFwd(s, Math.max(-maxT, Math.min(maxT, df)));
+  }
+}
+
+export type HoldEntry = 'straight-in' | 'direct' | 'teardrop' | 'parallel';
+
+export interface MarshalRoute {
+  path: Pt[];
+  /** NM flown until established inbound at the fix */
+  dist: number;
+  entry: HoldEntry;
+  fix: Pt;
+}
+
+/**
+ * Route from an aircraft to a marshal fix, arriving established on the inbound course (handoff
+ * §5.6 backlog: "account for the manoeuvring needed to arrive at the fix on the inbound course").
+ * Entry by the standard sectors relative to the inbound course and the hold side: direct 180°,
+ * teardrop 70°, parallel 110° (the 70° line), mirrored for left-hand patterns. 1-minute legs.
+ */
+export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, fixNm: number, hand: 'left' | 'right'): MarshalRoute {
+  const R = turnRadiusNm(tasKt);
+  const L = tasKt / 60;
+  const C = norm(radial + 180); // inbound course (toward the ship)
+  const O = norm(radial); // outbound heading
+  const sense: 1 | -1 = hand === 'right' ? 1 : -1;
+  const fix: Pt = [fixNm * Math.sin(radial * D2R), -fixNm * Math.cos(radial * D2R)];
+  const s: FlyState = { p: [p0[0], p0[1]], h: norm(h0), path: [[p0[0], p0[1]]], dist: 0 };
+
+  // Straight-in: already behind the fix and roughly lined up with the inbound course.
+  const u = dir(C);
+  const behind = -((p0[0] - fix[0]) * u[0] + (p0[1] - fix[1]) * u[1]);
+  if (behind > 2 * R && angDiff(bearingTo(p0, fix), C) < 50 && angDiff(h0, C) < 100) {
+    trackTo(s, fix, C, R);
+    return { path: s.path, dist: s.dist, entry: 'straight-in', fix };
+  }
+
+  pursue(s, fix, R);
+  const f = norm(sense * signedDiff(s.h, C) + 180); // 0..360 in the hold's own frame
+  const side = dir(C + sense * 90); // toward the holding side
+  const out = dir(O);
+  let entry: HoldEntry;
+  if (f >= 70 && f <= 250) {
+    // Direct: turn in the hold direction and join the outbound leg (2R to the hold side),
+    // fly it to 1 minute past abeam the fix, then the 180° inbound turn rolls out on course.
+    entry = 'direct';
+    const outEnd: Pt = [fix[0] + side[0] * 2 * R + out[0] * L, fix[1] + side[1] * 2 * R + out[1] * L];
+    turnTo(s, norm(bearingTo(s.p, outEnd)), sense, R);
+    trackTo(s, outEnd, O, R);
+    turnTo(s, C, sense, R);
+  } else if (f < 70) {
+    // Teardrop: 30° into the hold side for 1 minute, then turn in the hold direction to inbound.
+    entry = 'teardrop';
+    turnShort(s, norm(O - sense * 30), R);
+    straight(s, Math.max(L, 3 * R));
+    turnTo(s, C, sense, R);
+  } else {
+    // Parallel: outbound along the inbound track on the non-hold side for 1 minute, then turn
+    // toward the hold side through ~225° to intercept the inbound course at 45°.
+    entry = 'parallel';
+    turnShort(s, O, R);
+    const pl = L + 2 * R;
+    trackTo(s, [fix[0] + out[0] * pl, fix[1] + out[1] * pl], O, R);
+    turnTo(s, norm(C - sense * 45), (-sense) as 1 | -1, R);
+  }
+  trackTo(s, fix, C, R);
+  return { path: s.path, dist: s.dist, entry, fix };
+}

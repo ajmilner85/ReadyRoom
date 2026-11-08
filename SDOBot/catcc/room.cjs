@@ -4356,6 +4356,11 @@ var HookClient = class {
       case "frame":
         this.opts.onFrame(msg);
         break;
+      case "env": {
+        const env = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes };
+        this.opts.onEnv?.(env);
+        break;
+      }
       default:
         break;
     }
@@ -4439,6 +4444,7 @@ var Source = class {
   stopFn;
   timer;
   lastFrame;
+  lastEnv;
   cfg;
   onStatus;
   log;
@@ -4460,6 +4466,12 @@ var Source = class {
           store.applyFrame(frame);
           if (frame.err) this.log(`[${cfg.id}] sampler error: ${frame.err}`);
           this.publish(store.t, store.utc, frame.theatre ?? void 0, store.tracks.values());
+        },
+        onEnv: (env) => {
+          const m = JSON.stringify({ t: "env", src: cfg.id, env });
+          if (m === this.lastEnv) return;
+          this.lastEnv = m;
+          for (const c of this.subscribers) send(c, m);
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
@@ -4680,6 +4692,7 @@ var RoomService = class {
         send(c, src.seatsMsg());
         send(c, src.plansMsg());
         send(c, src.assignmentsMsg());
+        if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
       }

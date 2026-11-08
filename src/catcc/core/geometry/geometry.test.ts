@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { cpa, eat, fly, predictConflict, turnRadiusNm } from './maneuver.ts';
+import { cpa, eat, fly, marshalRoute, predictConflict, turnRadiusNm } from './maneuver.ts';
 import {
   arrivalPath,
   checkDepartureRadial,
@@ -183,5 +183,42 @@ describe('projection', () => {
     expect(back.lon).toBeCloseTo(56.5, 9);
     const q = pr.toScope(...(Object.values(pr.toLatLon(P(156, 21))) as [number, number]));
     expect(dist(q, P(156, 21))).toBeLessThan(1e-6);
+  });
+});
+
+describe('marshalRoute (hold entry, established inbound)', () => {
+  // Stack on the 180 radial, fix 21 DME at (0, 21); inbound course 000. Left-hand: hold side is west.
+  const cases: [string, Pt, number, string][] = [
+    ['straight-in from behind', [1, 45], 350, 'straight-in'],
+    ['direct from the hold side', [-15, 21], 90, 'direct'],
+    ['parallel from the non-hold side', [15, 21], 270, 'parallel'],
+    ['teardrop from ahead', [-3, 8], 180, 'teardrop'],
+  ];
+  it.each(cases)('%s', (_n, p0, h0, entry) => {
+    const r = marshalRoute(p0, h0, 250, 180, 21, 'left');
+    expect(r.entry).toBe(entry);
+    const end = r.path.at(-1)!;
+    expect(dist(end, [0, 21])).toBeLessThan(1e-6);
+    // established on the inbound course over the last half mile
+    const back = r.path[r.path.length - 12];
+    expect(angDiff(bearingTo(back, end), 0)).toBeLessThan(3);
+    expect(Math.abs(back[0])).toBeLessThan(0.05);
+    // continuous: no jumps along the flown path
+    expect(maxStep(r.path)).toBeLessThan(0.08);
+    expect(r.dist).toBeGreaterThan(dist(p0, [0, 21]));
+  });
+
+  it('mirrors for right-hand patterns', () => {
+    expect(marshalRoute([15, 21], 270, 250, 180, 21, 'right').entry).toBe('direct');
+    expect(marshalRoute([-15, 21], 90, 250, 180, 21, 'right').entry).toBe('parallel');
+  });
+
+  it('a hold entry costs roughly one pattern more than flying straight in', () => {
+    const straightIn = marshalRoute([0, 45], 0, 250, 180, 21, 'left');
+    const direct = marshalRoute([-24, 21], 90, 250, 180, 21, 'left');
+    expect(straightIn.dist).toBeCloseTo(24, 0);
+    // 24 NM to the fix + ~ (2 legs + 2 half-turns) of a 250 kt hold ≈ 8.4 + 16.6
+    expect(direct.dist).toBeGreaterThan(24 + 15);
+    expect(direct.dist).toBeLessThan(24 + 32);
   });
 });

@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { HookFrame, HookMessage } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { HookEnv, HookFrame, HookMessage } from '../../src/catcc/core/dcs/hookProtocol.ts';
 
 /**
  * Client for the CATCC DCS export hook (protocol v1): newline-delimited JSON, AUTH <token>.
@@ -13,6 +13,7 @@ export interface HookClientOptions {
   reconnectMs?: number;
   handshakeTimeoutMs?: number;
   onFrame: (frame: HookFrame) => void;
+  onEnv?: (env: HookEnv) => void;
   onStatus?: (status: HookClientStatus) => void;
 }
 
@@ -135,6 +136,11 @@ export class HookClient {
       case 'frame':
         this.opts.onFrame(msg);
         break;
+      case 'env': {
+        const env: HookEnv = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes };
+        this.opts.onEnv?.(env);
+        break;
+      }
       default:
         break;
     }

@@ -75,6 +75,18 @@ describe('CATCC DCS hook', () => {
     expect(helo.crs).toBeNull(); // stationary: no course
   });
 
+  it('sends the mission environment (weather, live ship routes) on the slow cadence', () => {
+    const envs = msgs('run').filter((m) => m.type === 'env');
+    expect(envs).toHaveLength(1); // once at start, not every frame
+    const e = envs[0];
+    expect(e).toMatchObject({ start: 64800, date: '2026-11-08', theatre: 'PersianGulf' });
+    expect(e.wx).toMatchObject({ cb: 244, ct: 400, cd: 7, cp: 'Preset14', pr: 1, vis: 7400, fog: null });
+    expect(e.routes).toHaveLength(1); // the group that no longer exists is skipped
+    expect(e.routes[0]).toMatchObject({ g: 'CSG-1', side: 'blue' });
+    expect(e.routes[0].pts[1]).toMatchObject({ spd: 12.9, eta: 1600 });
+    expect(e.routes[0].pts[1].lat).toBeGreaterThan(26);
+  });
+
   it('reinstalls the sampler after the mission environment resets', () => {
     expect(msgs('reset').filter((m) => m.type === 'frame').length).toBeGreaterThanOrEqual(1);
   });

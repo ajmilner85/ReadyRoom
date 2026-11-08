@@ -97,7 +97,8 @@ local function newMissionEnv()
   local E = {
     math = math, string = string, table = table, pcall = pcall, ipairs = ipairs, pairs = pairs,
     tostring = tostring, tonumber = tonumber, type = type,
-    Group = { Category = { AIRPLANE = 0, HELICOPTER = 1, GROUND = 2, SHIP = 3, TRAIN = 4 } },
+    Group = { Category = { AIRPLANE = 0, HELICOPTER = 1, GROUND = 2, SHIP = 3, TRAIN = 4 },
+      getByName = function(n) if n == 'CSG-1' then return {} end return nil end },
     coalition = { getGroups = function(side, cat) return (GROUPS[side] or {})[cat] or {} end },
     coord = { LOtoLL = LOtoLL, LLtoLO = LLtoLO },
     atmosphere = {
@@ -105,7 +106,14 @@ local function newMissionEnv()
       getTemperatureAndPressure = function() return 288.15, 101325 end,
     },
     timer = { getTime = function() return 123.5 end, getAbsTime = function() return 43200 end },
-    env = { mission = { date = { Year = 2026, Month = 11, Day = 8 }, theatre = 'PersianGulf' } },
+    env = { mission = {
+      date = { Year = 2026, Month = 11, Day = 8 }, theatre = 'PersianGulf', start_time = 64800,
+      weather = { clouds = { base = 244, thickness = 400, density = 7, preset = 'Preset14', iprecptns = 1 }, visibility = { distance = 7400 }, enable_fog = false },
+      coalition = { blue = { country = { { ship = { group = {
+        { name = 'CSG-1', route = { points = { { x = 0, y = 0, speed = 12.9, ETA = 0 }, { x = 20000, y = 5000, speed = 12.9, ETA = 1600 } } } },
+        { name = 'Gone', route = { points = {} } },
+      } } } } } },
+    } },
   }
   E._G = E
   return E

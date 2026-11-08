@@ -10,6 +10,7 @@
 --   server -> client  {"type":"auth","ok":true}  (or {"type":"error","error":"auth"} then close)
 --   server -> client  {"type":"mission","state":"running"|"stopped","name":"...","theatre":"..."}
 --   server -> client  {"type":"frame","seq":n,"mt":..,"abs":..,"date":"..","units":[...]}
+--   server -> client  {"type":"env","start":..,"date":..,"theatre":..,"wx":{...},"routes":[...]}  every 30 s
 --   client -> server  PING                       -> {"type":"pong"}
 --   client -> server  CMD <json>                 -> reserved (phase 2); currently rejected
 --
@@ -128,6 +129,7 @@ local missionRunning = false
 local samplerInstalled = false
 local samplerSource = nil
 local lastSampleAt = 0
+local lastEnvAt = -1e9
 local lastSamplerWarnAt = -1e9
 
 local function missionMessage()
@@ -188,6 +190,14 @@ local function sample()
   if res:sub(1, 7) == '{"err":' then samplerWarn('sampler error: ' .. res:sub(1, 300)) end
   seq = seq + 1
   broadcast('{"type":"frame","seq":' .. seq .. ',' .. res:sub(2))
+end
+
+-- Weather and ship routes change rarely: every 30 s.
+local function sampleEnv()
+  local res = dostring('return (type(CATCC_env) == "function") and CATCC_env() or "CATCC_NOFN"')
+  if type(res) ~= 'string' or res:sub(1, 1) ~= '{' then return end
+  if res:sub(1, 7) == '{"err":' then samplerWarn('env error: ' .. res:sub(1, 300)) return end
+  broadcast('{"type":"env",' .. res:sub(2))
 end
 
 -- ---------------------------------------------------------------- client I/O
@@ -285,7 +295,13 @@ local function tick()
     lastSampleAt = t
     local anyAuthed = false
     for _, c in ipairs(clients) do if c.authed then anyAuthed = true end end
-    if anyAuthed then sample() end
+    if anyAuthed then
+      sample()
+      if samplerInstalled and t - lastEnvAt >= 30 then
+        lastEnvAt = t
+        sampleEnv()
+      end
+    end
   end
 
   for _, c in ipairs(clients) do flush(c) end
@@ -296,6 +312,7 @@ local handler = {}
 
 function handler.onSimulationStart()
   missionRunning = true
+  lastEnvAt = -1e9
   samplerInstalled = false
   broadcast(missionMessage())
 end

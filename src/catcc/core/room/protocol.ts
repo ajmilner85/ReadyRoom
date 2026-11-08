@@ -17,9 +17,10 @@
  *   { t:'frame', src, seq, mt, utc, theatre, tracks }   ~1 Hz; complete picture each time
  *   { t:'seats', src, seats }
  *   { t:'plans', src, plans } | { t:'assignments', src, assignments }
+ *   { t:'env', src, env }                  mission weather + ship routes (hook sources), ~30 s
  *   { t:'pong' } | { t:'error', error }
  */
-import type { CarrierWx } from '../dcs/hookProtocol.ts';
+import type { CarrierWx, HookEnv } from '../dcs/hookProtocol.ts';
 import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
 
 export const ROOM_PROTO = 1;
@@ -128,6 +129,7 @@ export type ServerMsg =
   | { t: 'frame'; src: string; seq: number; mt: number; utc?: string; theatre?: string; tracks: WireTrack[] }
   | { t: 'seats'; src: string; seats: SeatHolder[] }
   | { t: 'plans'; src: string; plans: Record<string, CarrierPlan> }
+  | { t: 'env'; src: string; env: HookEnv }
   | { t: 'assignments'; src: string; assignments: Record<string, Assignment> }
   | { t: 'pong' }
   | { t: 'error'; error: string };

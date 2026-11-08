@@ -142,3 +142,48 @@ CATCC_sample = function()
   if ok then return res end
   return '{"err":' .. str(res) .. '}'
 end
+
+-- Slow-changing mission environment: weather and every ship group's planned route (PIM).
+-- Returns one JSON object. Called every ~30 s by catcc.lua.
+local function envBody()
+  local m = env and env.mission or {}
+  local w = m.weather or {}
+  local cl = w.clouds or {}
+  local vis = w.visibility or {}
+  local fog = w.fog or {}
+  local parts = {
+    '{"start":', num(m.start_time, 0),
+    ',"date":', str(m.date and string.format('%04d-%02d-%02d', m.date.Year or 0, m.date.Month or 0, m.date.Day or 0) or nil),
+    ',"theatre":', str(m.theatre),
+    ',"wx":{"cb":', num(cl.base, 0), ',"ct":', num(cl.thickness, 0), ',"cd":', num(cl.density, 0),
+    ',"cp":', str(cl.preset), ',"pr":', num(cl.iprecptns, 0),
+    ',"vis":', num(vis.distance, 0),
+    ',"fog":', (w.enable_fog and ('{"v":' .. num(fog.visibility, 0) .. ',"t":' .. num(fog.thickness, 0) .. '}') or 'null'),
+    ',"dust":', (w.enable_dust and num(w.dust_density, 0) or 'null'),
+    '},"routes":[',
+  }
+  local routes = {}
+  for sideName, side in pairs(m.coalition or {}) do
+    for _, country in ipairs(side.country or {}) do
+      for _, g in ipairs((country.ship and country.ship.group) or {}) do
+        if g.name and Group.getByName(g.name) then
+          local pts = {}
+          for _, p in ipairs((g.route and g.route.points) or {}) do
+            local lat, lon = coord.LOtoLL({ x = p.x, y = 0, z = p.y })
+            pts[#pts + 1] = '{"lat":' .. num(lat, 5) .. ',"lon":' .. num(lon, 5) .. ',"spd":' .. num(p.speed, 1) .. ',"eta":' .. num(p.ETA, 0) .. '}'
+          end
+          routes[#routes + 1] = '{"g":' .. str(g.name) .. ',"side":' .. str(sideName) .. ',"pts":[' .. table.concat(pts, ',') .. ']}'
+        end
+      end
+    end
+  end
+  parts[#parts + 1] = table.concat(routes, ',')
+  parts[#parts + 1] = ']}'
+  return table.concat(parts)
+end
+
+CATCC_env = function()
+  local ok, res = pcall(envBody)
+  if ok then return res end
+  return '{"err":' .. str(res) .. '}'
+end
