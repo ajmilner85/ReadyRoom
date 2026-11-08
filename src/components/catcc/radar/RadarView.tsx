@@ -4,6 +4,7 @@ import FlightCard from '../../ui/flight cards/FlightCard';
 import type { Flight, FlightMember } from '../../../types/FlightData';
 import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
 import { add, dir, len, mul, P, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
+import { isCarrierCapable } from '../../../catcc/core/dcs/aircraft.ts';
 import { autoCoordLine, coordGeom, reframe, sideOf, type CoordArea, type CoordGeom, type CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
 import { holdPattern } from '../../../catcc/core/geometry/procedures.ts';
 import { nextPimTurn } from '../../../catcc/core/env/weather.ts';
@@ -101,7 +102,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const [commsOpen, setCommsOpen] = useState(false);
   const [commsSel, setCommsSel] = useState<string | null>(null);
   const [fit, setFit] = useState<Fit>('r50');
-  const [goTo, setGoTo] = useState<{ p: Pt; nonce: number } | undefined>();
+  const [goTo, setGoTo] = useState<{ p: Pt; nonce: number; fit?: Pt[] } | undefined>();
   const [hookedId, setHookedId] = useState<string | null>(null);
   const [hl, setHl] = useState<Highlight | null>(null);
   const [placement, setPlacement] = useState<Placement>({ placing: null, editing: null, hov: null });
@@ -239,11 +240,13 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       title: `${label(c.a)} × ${label(c.b)}`,
       body: `CPA ${c.cpa.latNm.toFixed(1)} NM / ${Math.round(c.cpa.vertFt / 100) * 100} FT`,
       goTo: mul(add(c.cpa.a, c.cpa.b), 0.5) as [number, number],
+      // the encounter: both aircraft now and at closest approach
+      fit: [c.a.p, c.b.p, c.cpa.a, c.cpa.b] as [number, number][],
     });
   }
   for (const t of pic.air) {
     if (t.owner && t.owner !== hull) continue;
-    if (t.lb !== undefined && t.lb < LOW_STATE_LB && !SUPPORT.test(t.ty) && t.air !== false)
+    if (t.lb !== undefined && t.lb < LOW_STATE_LB && isCarrierCapable(t.ty) && !SUPPORT.test(t.ty) && t.air !== false)
       notes.push({ id: `l:${t.id}`, k: 'warn', kind: 'LOW STATE', t: tLocal, title: `${label(t)} · state ${fuelK(t.lb)}`, goTo: t.p as [number, number] });
   }
   if (nowS !== undefined && ship) {
@@ -335,7 +338,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
                       key={f.id}
                       onClick={() => setHookedId(sel ? null : f.lead.id)}
                       aria-label={`${flight.callsign} ${flight.flightNumber} strip`}
-                      style={{ borderRadius: 7, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: 1 }}
+                      style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
                       <FlightCard {...flight} />
                     </div>
@@ -429,7 +432,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
             readOnly={!mayEdit}
           />
         )}
-        <Notifications notes={shown} onAck={(id) => setAcked((a) => ({ ...a, [id]: true }))} onGoTo={(p) => setGoTo({ p, nonce: Date.now() })} />
+        <Notifications notes={shown} onAck={(id) => setAcked((a) => ({ ...a, [id]: true }))} onGoTo={(p, fit) => setGoTo({ p, fit, nonce: Date.now() })} />
       </aside>
 
       {uiOpen && (

@@ -24,6 +24,14 @@ export const INTERNAL_FUEL_KG: Record<string, number> = {
 
 export const LB_PER_KG = 2.20462;
 
+/**
+ * DCS types that operate from a Nimitz-class deck (fixed wing that trap, plus deck helos).
+ * Recovery-side alerts such as low state only apply to these; land-based types (Harriers from an
+ * LHA, Air Force jets, big-wing tankers) are not this carrier's business.
+ */
+const CARRIER_CAPABLE = /^(FA-18|F\/A-18|EA_18G|EA-18G|F-14|S-3B|E-2|C2A|C-2A|F-35C|Rafale_M|A-4E|T-45|SH-60|MH-60|SH60|MH60)/i;
+export const isCarrierCapable = (type: string | undefined): boolean => !!type && CARRIER_CAPABLE.test(type);
+
 /** Fuel in pounds, or undefined when the type's capacity is unknown. */
 export function fuelLb(type: string, fraction: number | undefined): number | undefined {
   const kg = INTERNAL_FUEL_KG[type];

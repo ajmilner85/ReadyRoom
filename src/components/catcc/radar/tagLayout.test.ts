@@ -31,6 +31,17 @@ describe('layoutTags', () => {
     expect(overlaps(tags, pl, 0.3)).toBe(0);
   });
 
+  it('moves a tag off another aircraft even when that was its previous placement', () => {
+    const k = 0.5;
+    const a: TagSpec = { id: 'a', p: [0, 0], w: 7, h: 2.35, priority: 0 };
+    const other: [number, number] = [2.6, -1.1]; // sits under a's NE tag at the shortest leader
+    const prev = new Map([['a', { q: [1, -1] as [number, number], L: 2.4 }]]);
+    const pl = layoutTags([a], { k, hitK: k, view, prev, obstacles: [a.p, other] }).get('a')!;
+    const b = tagBox(a, pl, k);
+    const covered = other[0] > b.x0 - 0.4 && other[0] < b.x1 + 0.4 && other[1] > b.y0 - 0.4 && other[1] < b.y1 + 0.4;
+    expect(covered).toBe(false);
+  });
+
   it('prefers the side away from the velocity vector and keeps a clear previous placement', () => {
     const t: TagSpec = { id: 'a', p: [0, 0], w: 7, h: 2.35, v: [1, -1], priority: 0 };
     const pl = layoutTags([t], { k: 0.5, hitK: 0.5, view }).get('a')!;

@@ -26,8 +26,10 @@ export interface ConflictCfg {
   vertCapS: number;
   /** realistic radar update rate: hits repaint as the SPN-43 sweep passes (radar/sweep.ts) */
   sweep: boolean;
+  /** ship datalink: other friendly carriers and CSG escorts with air-search radars also paint hits */
+  datalink: boolean;
 }
-export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false };
+export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false, datalink: false };
 
 export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3']]],

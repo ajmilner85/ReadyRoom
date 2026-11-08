@@ -70,3 +70,5 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 /* Comms scripts */
 .cc-tab { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 44px; padding: 6px 12px; border: 0; border-left: 3px solid transparent; background: transparent; cursor: pointer; text-align: left; font-family: 'Saira', sans-serif; font-size: 13.5px; }
 .cc-tab:hover { background: #1A212A; }
+
+@keyframes catcc-sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }

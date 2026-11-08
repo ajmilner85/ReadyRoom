@@ -21,23 +21,21 @@ import { add, bearingOf, dir, len, mul, P, rot, sub, type Pt } from '../../../ca
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
-import { sweepAngle } from './sweep.ts';
+import { SCAN_S, sweepAngle } from './sweep.ts';
 import { useMarine } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
 /** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
-const SweepLine: React.FC = () => {
-  const ref = useRef<SVGLineElement>(null);
-  useEffect(() => {
-    let id = 0;
-    const f = () => {
-      ref.current?.setAttribute('transform', `rotate(${sweepAngle(performance.now()).toFixed(2)})`);
-      id = requestAnimationFrame(f);
-    };
-    f();
-    return () => cancelAnimationFrame(id);
-  }, []);
-  return <line ref={ref} x1="0" y1="0" x2="0" y2="-400" className="ring" style={{ stroke: 'rgba(64, 168, 91, .55)', pointerEvents: 'none' }} />;
+const SweepLine: React.FC<{ x: number; y: number; w: number }> = ({ x, y, w }) => {
+  // A CSS animation runs on the compositor, so the sweep keeps turning smoothly while the main
+  // thread is busy redrawing the scope (a JS-driven rotation hitched on every heavy render).
+  // The negative delay puts it in phase with sweepAngle(), which the hit painter uses.
+  const [delay] = useState(() => -(sweepAngle(performance.now()) / 360) * SCAN_S);
+  return (
+    <div aria-hidden="true" style={{ position: 'absolute', left: x, top: y, width: 0, height: 0, pointerEvents: 'none', animation: `catcc-sweep ${SCAN_S}s linear infinite`, animationDelay: `${delay}s`, willChange: 'transform' }}>
+      <div style={{ position: 'absolute', left: -w / 2, bottom: 0, width: w, height: 4000, background: 'rgba(64, 168, 91, .55)' }} />
+    </div>
+  );
 };
 import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
@@ -79,7 +77,7 @@ export interface ScopeProps {
   hl: Highlight | null;
   fit: Fit;
   onFit: (f: Fit) => void;
-  goTo?: { p: Pt; nonce: number };
+  goTo?: { p: Pt; nonce: number; fit?: Pt[] };
   layersOpen: boolean;
   onToggleLayers: () => void;
   layersPanel: React.ReactNode;
@@ -252,9 +250,21 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   useEffect(() => {
     if (!props.goTo) return;
     onFit(null);
-    const nc = clampC(props.goTo!.p[0], props.goTo!.p[1]);
-    setView((v) => ({ ...v, ...nc }));
-    unlockAt(nc.zx, nc.zy);
+    const g = props.goTo!;
+    if (g.fit?.length) {
+      // zoom to fit the encounter with margin (at least 8 NM across)
+      const xs = g.fit.map((q) => q[0]);
+      const ys = g.fit.map((q) => q[1]);
+      const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+      const nc = clampC((x0 + x1) / 2, (y0 + y1) / 2);
+      const zw = clampW(Math.max(8, (x1 - x0) * 1.8, ((y1 - y0) * 1.8) / asp));
+      setView({ zw, ...nc });
+      unlockAt(nc.zx, nc.zy);
+    } else {
+      const nc = clampC(g.p[0], g.p[1]);
+      setView((v) => ({ ...v, ...nc }));
+      unlockAt(nc.zx, nc.zy);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [props.goTo]);
 
@@ -1057,6 +1067,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   return (
     <main style={{ flex: '999 1 560px', minWidth: 0, position: 'relative', background: '#0B0E12', display: 'flex', flexDirection: 'column' }}>
       <div ref={boxRef} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+        {ov.sweep && pic.focus && (() => {
+          const c = toPx([0, 0]);
+          return <SweepLine x={c[0]} y={c[1]} w={sL} />;
+        })()}
         {/* ---------------- background */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
           {marine && pic.proj && (() => {
@@ -1076,7 +1090,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     {[...marine.depth].reverse().map((x) => (
                       <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.032" fillRule="evenodd" stroke="none" />
                     ))}
-                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.09" fillRule="evenodd" stroke="none" />
+                    {/* not navigable by a CVN: faint tint plus a screen-constant diagonal hatch */}
+                    <defs>
+                      <pattern id="catccNavHatch" patternUnits="userSpaceOnUse" width={f2(7 / KX)} height={f2(7 / KX)} patternTransform="rotate(45)">
+                        <line x1="0" y1="0" x2="0" y2={f2(7 / KX)} stroke="#A9D6F5" strokeOpacity="0.32" strokeWidth={(1 / KX).toFixed(4)} style={{ vectorEffect: 'none' }} />
+                      </pattern>
+                    </defs>
+                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.06" fillRule="evenodd" stroke="none" />
+                    <path d={marine.nav} fill="url(#catccNavHatch)" fillRule="evenodd" stroke="none" />
                     {marine.depth.map((x, i) => (
                       <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.22" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
                     ))}
@@ -1343,7 +1364,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               })}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
-          {ov.sweep && pic.focus && <SweepLine />}
           {ov.bulls &&
             pic.proj &&
             (props.bulls ?? []).map((b) => {
@@ -1647,8 +1667,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               className="tbtn"
               aria-label="Centre on carrier"
               aria-pressed={lock}
-              title={lock ? 'Locked on the carrier (pan to unlock)' : 'Centre on the carrier and follow it'}
+              title={lock ? 'Following the carrier · click (or pan) to unlock' : 'Centre on the carrier and follow it'}
               onClick={() => {
+                if (lock && !fit) {
+                  // toggle off: pin the current view to where it is on the map
+                  setView({ zw: VW, zx: VX, zy: VY });
+                  unlockAt(VX, VY);
+                  return;
+                }
                 setView({ zw: VW, zx: 0, zy: 0 });
                 anchor.current = null;
                 setLock(true);

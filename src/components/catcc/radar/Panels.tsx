@@ -295,6 +295,8 @@ export interface Note {
   title: string;
   body?: string;
   goTo?: [number, number];
+  /** points to zoom to fit when going to this note (conflict encounters) */
+  fit?: [number, number][];
 }
 const KINDS = {
   conflict: { fg: '#FF8A85', bc: '#E0524E', bg: 'rgba(224,82,78,.10)' },
@@ -303,7 +305,7 @@ const KINDS = {
   info: { fg: '#93A1B0', bc: '#262F3A', bg: '#1A212A' },
 };
 
-export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => void; onGoTo: (p: [number, number]) => void }> = ({ notes, onAck, onGoTo }) => (
+export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => void; onGoTo: (p: [number, number], fit?: [number, number][]) => void }> = ({ notes, onAck, onGoTo }) => (
   <>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
       <span className="lbl">Notifications</span>
@@ -313,7 +315,7 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
       const k = KINDS[n.k];
       return (
         <article key={n.id} style={{ display: 'flex', alignItems: 'center', gap: 8, padding: 8, borderRadius: 6, border: `1px solid ${k.bc}`, background: k.bg }}>
-          <button aria-label="Go to on scope" title="Go to on scope" onClick={() => n.goTo && onGoTo(n.goTo)} disabled={!n.goTo} style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, background: 'transparent', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, cursor: n.goTo ? 'pointer' : 'default', flex: '0 0 30px', opacity: n.goTo ? 1 : 0.4 }}>
+          <button aria-label="Go to on scope" title="Go to on scope" onClick={() => n.goTo && onGoTo(n.goTo, n.fit)} disabled={!n.goTo} style={{ width: 30, height: 30, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 0, background: 'transparent', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, cursor: n.goTo ? 'pointer' : 'default', flex: '0 0 30px', opacity: n.goTo ? 1 : 0.4 }}>
             <IcGoTo />
           </button>
           <div style={{ flex: 1, minWidth: 0 }}>
@@ -583,6 +585,7 @@ export const DisplaySettings: React.FC<{ ui: UiScale; conflict: ConflictCfg; onA
           {sel('Vertical prediction', 'Climb/descent extrapolated this long, then level', cf.vertCapS, [0, 15, 30, 60, 120], (n) => (n ? `${n} s` : 'Off'), (n) => setCf({ ...cf, vertCapS: n }))}
           <div className="lbl" style={{ margin: '12px 0 2px' }}>Radar</div>
           {tog('Realistic radar update rate', `Hits repaint only as the AN/SPN-43 sweep passes them (15 RPM, every 4 s)`, cf.sweep, (b) => setCf({ ...cf, sweep: b }))}
+          {tog('Ship datalink', 'Both carriers and CSG escorts with air-search radars share tracks (Aegis SPY-1 ~1 s, SPS-49 6 RPM, SPN-43 15 RPM)', cf.datalink, (b) => setCf({ ...cf, datalink: b }), !cf.sweep)}
         </div>
         <div style={{ display: 'flex', gap: 8, padding: '12px 14px' }}>
           <button onClick={() => { setD(UI_DEF); setCf(CONFLICT_DEF); }} style={{ height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>Reset</button>

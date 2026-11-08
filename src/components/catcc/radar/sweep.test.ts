@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
-import { paintStep, swept, type Painter } from './sweep.ts';
+import { paintRadars, paintStep, radarsFor, swept, type Painter } from './sweep.ts';
 
 const at = (id: string, brg: number, nm: number, k: WireTrack['k'] = 'fixedwing'): WireTrack => {
   const p = destination(26, 56, brg, nm);
@@ -10,6 +10,22 @@ const at = (id: string, brg: number, nm: number, k: WireTrack['k'] = 'fixedwing'
 const cv: WireTrack = { id: 'cv', k: 'carrier', ty: 'CVN', sd: 'blue', lat: 26, lon: 56, alt: 0 };
 
 describe('radar sweep', () => {
+  it('with datalink, an Aegis escort in the CSG repaints everything each revisit; without, only our SPN-43', () => {
+    const ddg: WireTrack = { ...at('ddg', 0, 4), k: 'ship', ty: 'USS_Arleigh_Burke_IIa' };
+    const far: WireTrack = { ...at('far', 0, 80), k: 'ship', ty: 'USS_Arleigh_Burke_IIa' }; // not in a CSG
+    const a = at('a', 200, 20);
+    const tracks = [cv, ddg, far, a];
+    // 100 ms step that crosses a 1 s revisit boundary, sweep nowhere near 200°
+    const t0 = 999_950;
+    const t1 = 1_000_050;
+    expect(radarsFor(tracks, 'cv', t0, t1, false)).toHaveLength(1);
+    const R = radarsFor(tracks, 'cv', t0, t1, true);
+    expect(R.map((r) => r.id).sort()).toEqual(['cv', 'ddg']);
+    const P: Painter = { painted: new Map([['cv', cv]]), hist: new Map() };
+    expect(paintRadars(P, tracks, 'cv', R, 1)).toBe(true);
+    expect(P.painted.has('a')).toBe(true);
+  });
+
   it('arc test wraps through north', () => {
     expect(swept(350, 10, 5)).toBe(true);
     expect(swept(350, 10, 355)).toBe(true);

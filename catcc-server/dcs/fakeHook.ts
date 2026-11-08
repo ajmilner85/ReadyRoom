@@ -70,9 +70,10 @@ export class FakeHookServer {
 
   /** Feed replayed ACMI events (e.g. from replayAcmi). Bullseyes (Navaid objects) are kept for env. */
   apply = (ev: AcmiEvent): void => {
-    if (ev.kind === 'header') {
-      if (ev.key === 'ReferenceLatitude') this.ref.lat = Number(ev.value) || 0;
-      if (ev.key === 'ReferenceLongitude') this.ref.lon = Number(ev.value) || 0;
+    if (ev.kind === 'update' && ev.id === '0') {
+      // the reference point is a property of the global object 0 ("0,ReferenceLongitude=140")
+      if (ev.props.ReferenceLatitude) this.ref.lat = Number(ev.props.ReferenceLatitude) || 0;
+      if (ev.props.ReferenceLongitude) this.ref.lon = Number(ev.props.ReferenceLongitude) || 0;
     } else if (ev.kind === 'update') {
       const b = this.bulls.get(ev.id);
       const isBulls = ev.props.Type?.includes('Bullseye');

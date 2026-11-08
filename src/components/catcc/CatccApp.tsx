@@ -57,7 +57,7 @@ const CatccApp: React.FC = () => {
     const cvs = state.tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
     return (cvs.find((c) => c.hull === focusHull) ?? cvs[0])?.id;
   }, [state.tracks, focusHull]);
-  const sw = useSweep(state.tracks, state.mt, refId, conflict.sweep && mod === 'radar');
+  const sw = useSweep(state.tracks, state.mt, refId, conflict.sweep && mod === 'radar', !!conflict.datalink);
   const pic = useMemo(
     () =>
       buildPicture(sw?.tracks ?? state.tracks, focusHull, sw?.hist ?? history, state.mt, {

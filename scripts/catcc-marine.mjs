@@ -30,24 +30,24 @@
 import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 
-// [south, west, north, east]; contour levels (m); ETOPO stride in 15" cells
+// [south, west, north, east]; contour levels (m); ETOPO stride in 15" cells (1 = the full 15" grid)
 const THEATRES = {
-  PersianGulf: { bbox: [22.5, 50.5, 31, 60.5], levels: [20, 50, 100, 200, 500, 1000, 2000], stride: 2 },
-  Caucasus: { bbox: [40.5, 35.5, 46.5, 46], levels: [50, 200, 500, 1000, 2000], stride: 2 },
-  Syria: { bbox: [30.5, 29.5, 38.5, 39.5], levels: [50, 200, 500, 1000, 2000], stride: 2 },
-  SinaiMap: { bbox: [26, 28.5, 33.5, 36.5], levels: [50, 200, 500, 1000], stride: 2 },
-  MarianaIslands: { bbox: [10.5, 140.5, 22.5, 149.5], levels: [200, 1000, 2000, 4000, 6000, 8000], stride: 4 },
-  Falklands: { bbox: [-58, -72, -46, -50], levels: [50, 100, 200, 500, 1000, 3000], stride: 4 },
-  Kola: { bbox: [64, 20, 72.5, 46], levels: [50, 100, 200, 300], stride: 4 },
-  Normandy: { bbox: [48, -4, 52, 3], levels: [20, 30, 50, 75], stride: 2 },
-  TheChannel: { bbox: [49.5, -1.5, 52.5, 3.5], levels: [20, 30, 50], stride: 2 },
-  Iraq: { bbox: [28.5, 46, 31.5, 50.5], levels: [10, 20], stride: 2 },
+  PersianGulf: { bbox: [22.5, 50.5, 31, 60.5], levels: [20, 50, 100, 200, 500, 1000, 2000], stride: 1 },
+  Caucasus: { bbox: [40.5, 35.5, 46.5, 46], levels: [50, 200, 500, 1000, 2000], stride: 1 },
+  Syria: { bbox: [30.5, 29.5, 38.5, 39.5], levels: [50, 200, 500, 1000, 2000], stride: 1 },
+  SinaiMap: { bbox: [26, 28.5, 33.5, 36.5], levels: [50, 200, 500, 1000], stride: 1 },
+  MarianaIslands: { bbox: [10.5, 140.5, 22.5, 149.5], levels: [200, 1000, 2000, 4000, 6000, 8000], stride: 1 },
+  Falklands: { bbox: [-58, -72, -46, -50], levels: [50, 100, 200, 500, 1000, 3000], stride: 1 },
+  Kola: { bbox: [64, 20, 72.5, 46], levels: [50, 100, 200, 300], stride: 1 },
+  Normandy: { bbox: [48, -4, 52, 3], levels: [20, 30, 50, 75], stride: 1 },
+  TheChannel: { bbox: [49.5, -1.5, 52.5, 3.5], levels: [20, 30, 50], stride: 1 },
+  Iraq: { bbox: [28.5, 46, 31.5, 50.5], levels: [10, 20], stride: 1 },
 };
 
 /** water shallower than this is shaded as not navigable (a CVN draws about 12 m) */
 const NAV_M = 15;
 const COAST_TOL = 0.0003; // deg, ~30 m: keeps the full-resolution shoreline smooth at max zoom
-const LINE_TOL = 0.002; // ~0.12 NM
+const LINE_TOL = 0.0012; // ~0.07 NM (the 15" grid is ~0.25 NM)
 const MIN_LINE_NM = 2;
 const LABEL_EVERY_NM = 40;
 const CLOSED_LABEL_NM = 120;
@@ -56,52 +56,55 @@ const r3 = (n) => Math.round(n * 1000) / 1000;
 
 // ---------------------------------------------------------------- ETOPO 2022 grid
 
+/** one ERDDAP request (cached); the server sheds load with 503s, so retry with backoff */
+async function fetchTile(name, [s, w, n, e], stride, cacheDir) {
+  const file = join(cacheDir, `${name}-${stride}-${s}_${w}_${n}_${e}.csv`);
+  if (existsSync(file)) return readFileSync(file, 'utf8');
+  const url = `https://coastwatch.pfeg.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.csv?z%5B(${s}):${stride}:(${n})%5D%5B(${w}):${stride}:(${e})%5D`;
+  let res;
+  for (let tries = 0; ; tries++) {
+    res = await fetch(url);
+    if (res.ok || tries >= 6) break;
+    await new Promise((r) => setTimeout(r, 8000 * (tries + 1)));
+  }
+  if (!res.ok) throw new Error(`ETOPO ${res.status}`);
+  const text = await res.text();
+  writeFileSync(file, text);
+  return text;
+}
+
+/** ETOPO 2022 grid for a box, fetched in tiles of at most TILE_DEG and merged onto one sorted lattice */
+const TILE_DEG = 2;
 async function fetchGrid(name, bbox, stride, cacheDir) {
   const [s, w, n, e] = bbox;
-  const file = join(cacheDir, `${name}-${stride}.csv`);
-  let text;
-  if (existsSync(file)) text = readFileSync(file, 'utf8');
-  else {
-    const url = `https://coastwatch.pfeg.noaa.gov/erddap/griddap/ETOPO_2022_v1_15s.csv?z%5B(${s}):${stride}:(${n})%5D%5B(${w}):${stride}:(${e})%5D`;
-    let res;
-    for (let tries = 0; ; tries++) {
-      res = await fetch(url);
-      if (res.ok || tries >= 5) break;
-      await new Promise((r) => setTimeout(r, 8000 * (tries + 1))); // the ERDDAP server sheds load with 503s
+  const LA = [];
+  const LO = [];
+  const ZV = [];
+  for (let ts = s; ts < n; ts += TILE_DEG) {
+    for (let tw = w; tw < e; tw += TILE_DEG) {
+      const text = await fetchTile(name, [ts, tw, Math.min(n, ts + TILE_DEG), Math.min(e, tw + TILE_DEG)], stride, cacheDir);
+      let pos = text.indexOf('\n', text.indexOf('\n') + 1) + 1; // skip the two header rows
+      while (pos < text.length) {
+        let end = text.indexOf('\n', pos);
+        if (end < 0) end = text.length;
+        const line = text.slice(pos, end);
+        pos = end + 1;
+        if (!line) continue;
+        const c1 = line.indexOf(',');
+        const c2 = line.indexOf(',', c1 + 1);
+        const zv = +line.slice(c2 + 1);
+        LA.push(+line.slice(0, c1));
+        LO.push(+line.slice(c1 + 1, c2));
+        ZV.push(Number.isFinite(zv) ? zv : 0);
+      }
     }
-    if (!res.ok) throw new Error(`ETOPO ${res.status}`);
-    text = await res.text();
-    writeFileSync(file, text);
   }
-  const lats = [];
-  const lons = [];
-  const latIdx = new Map();
-  const lonIdx = new Map();
-  const I = [];
-  const J = [];
-  const Z = [];
-  let pos = text.indexOf('\n', text.indexOf('\n') + 1) + 1; // skip the two header rows
-  while (pos < text.length) {
-    let end = text.indexOf('\n', pos);
-    if (end < 0) end = text.length;
-    const line = text.slice(pos, end);
-    pos = end + 1;
-    if (!line) continue;
-    const c1 = line.indexOf(',');
-    const c2 = line.indexOf(',', c1 + 1);
-    const la = +line.slice(0, c1);
-    const lo = +line.slice(c1 + 1, c2);
-    const zv = +line.slice(c2 + 1);
-    let i = latIdx.get(la);
-    if (i === undefined) latIdx.set(la, (i = lats.push(la) - 1));
-    let j = lonIdx.get(lo);
-    if (j === undefined) lonIdx.set(lo, (j = lons.push(lo) - 1));
-    I.push(i);
-    J.push(j);
-    Z.push(Number.isFinite(zv) ? zv : 0);
-  }
+  const lats = [...new Set(LA)].sort((a, b) => a - b);
+  const lons = [...new Set(LO)].sort((a, b) => a - b);
+  const latIdx = new Map(lats.map((v, i) => [v, i]));
+  const lonIdx = new Map(lons.map((v, i) => [v, i]));
   const z = Array.from({ length: lats.length }, () => new Float32Array(lons.length));
-  for (let k = 0; k < Z.length; k++) z[I[k]][J[k]] = Z[k];
+  for (let k = 0; k < ZV.length; k++) z[latIdx.get(LA[k])][lonIdx.get(LO[k])] = ZV[k];
   return { lats, lons, z };
 }
 

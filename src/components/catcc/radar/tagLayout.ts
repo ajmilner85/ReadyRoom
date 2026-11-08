@@ -27,7 +27,7 @@ export interface TagPlace {
   L: number;
 }
 
-export const LEADER_LENGTHS = [2.4, 3.8, 5.2];
+export const LEADER_LENGTHS = [2.4, 3.8, 5.2, 6.8];
 const QUADS: Pt[] = [
   [1, -1],
   [1, 1],
@@ -67,7 +67,9 @@ export function layoutTags(
   const placed: Box[] = [];
   const out = new Map<string, TagPlace>();
   const hits = opts.obstacles ?? tags.map((t) => t.p);
-  const hitBox = (p: Pt): Box => ({ x0: p[0] - 0.6 * hitK, y0: p[1] - 0.6 * hitK, x1: p[0] + 0.6 * hitK, y1: p[1] + 0.6 * hitK });
+  const HR = 0.8; // hit symbol half-size plus a little clearance, ref units
+  const hitBox = (p: Pt): Box => ({ x0: p[0] - HR * hitK, y0: p[1] - HR * hitK, x1: p[0] + HR * hitK, y1: p[1] + HR * hitK });
+  const hitArea = (2 * HR * hitK) ** 2;
   const sorted = [...tags].sort((a, b) => a.priority - b.priority);
   for (const t of sorted) {
     let best: { pl: TagPlace; score: number } | null = null;
@@ -80,17 +82,20 @@ export function layoutTags(
       const a = area(b);
       let tagOv = 0;
       for (const o of placed) tagOv += overlap(b, o);
-      let hitOv = 0;
-      for (const h of hits) if (h !== t.p) hitOv += overlap(b, hitBox(h));
+      // other aircraft covered by this tag, each as a fraction of its own symbol: covering any
+      // part of a hit costs far more than a longer leader or giving up last frame's spot
+      let hitCov = 0;
+      for (const h of hits) if (h !== t.p) hitCov += overlap(b, hitBox(h)) / hitArea;
       const outside = a - overlap(b, view);
       const along = t.v ? pl.q[0] * t.v[0] + pl.q[1] * t.v[1] : 0; // -2 (opposite) .. +2 (on the vector)
+      const clear = tagOv === 0 && hitCov === 0;
       const score =
         (tagOv / a) * 1000 + // never on another tag
-        (hitOv / a) * 120 + // keep other aircraft visible
+        (hitCov > 0 ? 60 + hitCov * 200 : 0) + // keep other aircraft visible
         (outside / a) * 200 + // stay on the scope
         along * 3 + // away from the velocity vector
         (pl.L - LEADER_LENGTHS[0]) * 1.5 - // short leaders preferred
-        (pv && pl === pv ? 8 : 0); // stickiness: keep a clear previous placement
+        (pv && pl === pv && clear ? 8 : 0); // stickiness only for a previous placement that is still clear
       if (!best || score < best.score) best = { pl, score };
     }
     out.set(t.id, best!.pl);

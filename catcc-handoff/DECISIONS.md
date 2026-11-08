@@ -247,3 +247,15 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Bathymetry slightly more transparent (fills, shallow tint, lines, labels).
 - Centre-on-carrier toolbar button. Range presets and the button lock the view to the carrier; panning unlocks it (the view centre is then pinned to a lat/lon). Wheel zoom keeps the lock and zooms about the carrier view centre while locked.
 - Light chart plots sin(elevation): exactly a sinusoid in hour angle. Degrees of elevation reverse sharply where the sun passes near the nadir (low latitudes), which drew a V at midnight.
+
+## Round of fixes (bullseye, lock toggle, alerts, hatch, sweep, datalink, tags)
+- Bullseye on replays: Tacview's reference point is a property of global object 0 ("0,ReferenceLongitude=…"), not a header line; the replay hook now reads it there (it was placing bullseyes at their raw offsets). Test added.
+- Centre-on-carrier is a toggle: click while following to pin the view where it is; panning also unlocks.
+- Low-state alerts only for carrier-capable types (`isCarrierCapable`: Hornets, Growler, Tomcat, Viking, Hawkeye, Greyhound, F-35C, Rafale M, Skyhawk, Goshawk, deck Seahawks). Conflict alerts unchanged.
+- Conflict notification "go to" zooms to fit both aircraft now and at CPA (min 8 NM across).
+- Hooked strip outline drawn over the card's own 1 px border (offset −1, radius 6): no dark sliver by the squadron bar.
+- Unnavigable water (< 15 m) gets a screen-constant diagonal hatch over the tint.
+- Sweep line is a CSS animation (compositor thread), phased to sweepAngle(); the JS-driven rotation hitched whenever the main thread was busy redrawing.
+- Ship datalink (Display settings → Radar, needs realistic updates): every friendly carrier's SPN-43 (own phase) plus escorts within 30 NM of a friendly carrier with a known air-search radar (Aegis SPY-1 ~1 s revisit; Perry SPS-49 6 RPM) paint hits.
+- Tag layout: covering any part of another aircraft costs far more than a longer leader; stickiness only for a still-clear placement; a 4th leader length.
+- Bathymetry at the full ETOPO 2022 15" grid (fetched in 2° tiles), line tolerance ~0.07 NM. Data ~18 MB over all theatres; only the current theatre loads.
