@@ -20,6 +20,7 @@ import {
 import { add, bearingOf, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
+import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcBra, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
@@ -44,6 +45,12 @@ export interface ScopeProps {
   assignments: Map<string, Assignment>;
   onAssign: (trackId: string, a: Assignment) => void;
   placement: Placement;
+  /** resolved coordination lines toward each other carrier, and the one being placed */
+  coordLines: Record<string, CoordGeom>;
+  coordPreview: { hull: string; g: CoordGeom } | null;
+  onCoordPreview: (c: { hull: string; brg: number; off: number }) => void;
+  onCoordCommit: (c: { hull: string; brg: number; off: number }) => void;
+  onCancelPlacement: () => void;
   checkRadial: (b: number) => RadialCheck;
   onPlaceHover: (b: number | null) => void;
   onPlaceClick: (b: number) => void;
@@ -128,6 +135,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
       onHook(null);
+      props.onCancelPlacement();
       setBra(null);
       setProbe(null);
     };
@@ -333,6 +341,17 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  /** coordination-line placement: the line passes through the cursor at the current bearing */
+  const coordAt = (q: Pt, brg: number) => {
+    const pc = placement.coord;
+    const c = pc && pic.carriers.find((x) => x.track.hull === pc.hull);
+    if (!pc || !c) return null;
+    const g = coordGeom({ brg, off: 0 }, [0, 0], c.track.p);
+    return { hull: pc.hull, brg: ((brg % 180) + 180) % 180, off: q[0] * g.n[0] + q[1] * g.n[1] };
+  };
+  const latestCoord = useRef({ coordAt, placement, onCoordPreview: props.onCoordPreview, cur });
+  latestCoord.current = { coordAt, placement, onCoordPreview: props.onCoordPreview, cur };
+
   const latest = useRef({ VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy });
   latest.current = { VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy };
   useEffect(() => {
@@ -342,6 +361,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       e.preventDefault();
       const L = latest.current;
       const up = e.deltaY < 0 ? 1 : -1;
+      const LC = latestCoord.current;
+      if (LC.placement.placing === 'coord' && LC.placement.coord) {
+        const q = svgPoint(e) ?? LC.cur;
+        const nb = LC.placement.coord.brg + up * (e.ctrlKey ? 1 : 5);
+        const c = q ? LC.coordAt(q, nb) : null;
+        if (c) LC.onCoordPreview(c);
+        return;
+      }
       if (L.fmHov && !L.placing) {
         const f = L.formations.find((x) => x.id === L.fmHov);
         if (f) {
@@ -419,6 +446,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     }
     const q = svgPoint(e);
     if (!q) return;
+    if (placement.placing === 'coord') {
+      const c = coordAt(q, placement.coord?.brg ?? 0);
+      if (c) props.onCoordCommit(c);
+      return;
+    }
     if (placement.placing) {
       const b = bearingAt(q, e.ctrlKey);
       if (b != null && !props.checkRadial(b).err) props.onPlaceClick(b);
@@ -456,6 +488,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const q = svgPoint(e);
     if (!q) return;
     setCur(q);
+    if (placement.placing === 'coord') {
+      const c = coordAt(q, placement.coord?.brg ?? 0);
+      if (c) props.onCoordPreview(c);
+      return;
+    }
     if (placement.placing) {
       const b = bearingAt(q, e.ctrlKey);
       if (b !== placement.hov) props.onPlaceHover(b);
@@ -704,7 +741,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (placing) {
       const depO = plan.deps.filter((r) => !(editing?.k === 'dep' && editing.r === r));
       const marO = plan.stacks.filter((m) => !(editing?.k === 'm' && editing.id === m.id));
-      if (placing === 'dep') {
+      if (placing === 'coord') {
+        // no blocked sectors for the coordination line
+      } else if (placing === 'dep') {
         const reserved = [...plan.stacks.filter((m) => !(editing?.k === 'm' && editing.id === m.id)).map((m) => m.r), emergencyMarshalRadial(ship), heloMarshalRadial(ship)];
         nogo = depO.map((r) => wedge(r, 20, 7, 50)).concat(reserved.map((r) => wedge(r, 20, 7, 50))).join('');
       } else {
@@ -1065,29 +1104,41 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
           {ov.coord &&
             pic.carriers
-              .filter((c) => !c.focus)
+              .filter((c) => !c.focus && c.track.hull)
               .map((c) => {
-                const D = len(c.track.p);
-                if (D <= 0 || D >= 100) return null;
-                const a = D / 2;
-                const h = Math.sqrt(2500 - a * a);
-                const u = mul(c.track.p, 1 / D);
-                const m = mul(u, a);
-                const n: Pt = [-u[1], u[0]];
-                const p1 = add(m, mul(n, h));
-                const p2 = add(m, mul(n, -h));
-                let ang = (Math.atan2(p2[1] - p1[1], p2[0] - p1[0]) * 180) / Math.PI;
+                const pv = props.coordPreview && props.coordPreview.hull === c.track.hull ? props.coordPreview.g : null;
+                const g = pv ?? props.coordLines[c.track.hull!];
+                if (!g) return null;
+                // clip to the union of the two CCAs
+                let t0 = Infinity;
+                let t1 = -Infinity;
+                for (const C of [[0, 0] as Pt, c.track.p]) {
+                  const tc = (C[0] - g.p0[0]) * g.u[0] + (C[1] - g.p0[1]) * g.u[1];
+                  const foot = add(g.p0, mul(g.u, tc));
+                  const d2 = (foot[0] - C[0]) ** 2 + (foot[1] - C[1]) ** 2;
+                  if (d2 >= 2500) continue;
+                  const h = Math.sqrt(2500 - d2);
+                  t0 = Math.min(t0, tc - h);
+                  t1 = Math.max(t1, tc + h);
+                }
+                if (!Number.isFinite(t0)) return null;
+                const p1 = add(g.p0, mul(g.u, t0));
+                const p2 = add(g.p0, mul(g.u, t1));
+                const mid = mul(c.track.p, 0.5);
+                const m = add(g.p0, mul(g.u, (mid[0] - g.p0[0]) * g.u[0] + (mid[1] - g.p0[1]) * g.u[1]));
+                let ang = (Math.atan2(g.u[1], g.u[0]) * 180) / Math.PI;
                 if (ang > 90) ang -= 180;
                 if (ang < -90) ang += 180;
-                const label = `COORD · ${hull} │ ${c.track.hull}`;
+                const label = `COORD · ${hull} │ ${c.track.hull}${g.auto && !pv ? ' · AUTO' : ''}`;
                 const w = label.length * 0.54 + 0.6;
+                const stroke = pv ? '#FFB08F' : 'rgba(111,182,230,.8)';
                 return (
                   <g key={`coord${c.track.id}`}>
-                    <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(p1[0])} y1={f2(p1[1])} x2={f2(p2[0])} y2={f2(p2[1])} stroke="rgba(111,182,230,.8)" strokeDasharray="2 3" />
+                    <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(p1[0])} y1={f2(p1[1])} x2={f2(p2[0])} y2={f2(p2[1])} stroke={stroke} strokeDasharray={pv ? '6 4' : '2 3'} />
                     <g className="zs" transform={`${zs(m, zkT)} rotate(${f2(ang)} ${f2(m[0])} ${f2(m[1])})`}>
-                      <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(m[0] - w / 2)} y={f2(m[1] - 0.72)} width={f2(w)} height="1.44" rx="0.72" fill="#0F1A24" stroke="rgba(111,182,230,.9)" />
-                      <text x={f2(m[0])} y={f2(m[1] + 0.3)} textAnchor="middle" className="tg tgb">
-                        {label}
+                      <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(m[0] - w / 2)} y={f2(m[1] - 0.72)} width={f2(w)} height="1.44" rx="0.72" fill="#0F1A24" stroke={pv ? '#FFB08F' : 'rgba(111,182,230,.9)'} />
+                      <text x={f2(m[0])} y={f2(m[1] + 0.3)} textAnchor="middle" className="tg tgb" style={pv ? { fill: '#FFB08F' } : undefined}>
+                        {pv ? `${r3(g.brg)}° · ${g.off.toFixed(1)} NM` : label}
                       </text>
                     </g>
                   </g>
@@ -1186,6 +1237,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             // right click drops the hook
             e.preventDefault();
             onHook(null);
+            if (placement.placing) props.onCancelPlacement();
             setBra(null);
             setProbe(null);
           }}

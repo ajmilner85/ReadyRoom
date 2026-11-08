@@ -7,6 +7,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import { IcChevron, IcEdit, IcGoTo, IcPopOut, IcX } from '../icons.tsx';
 import { Icon } from '../../ui/primitives';
+import type { CoordGeom, CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
 import { CONFLICT_DEF, LAYER_GROUPS, LW_STEPS, UI_DEF, UI_STEPS, type ConflictCfg, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
 import type { ScopeTrack } from '../scopeModel.ts';
 
@@ -31,6 +32,9 @@ export interface RadialsProps {
   onRemoveStack: (id: string) => void;
   onBase: (id: string, d: number) => void;
   onToggleStack: (id: string) => void;
+  coords: { hull: string; g: CoordGeom }[];
+  onCoordSet: (other: string, s: CoordSetting | null) => void;
+  onCoordPlace: (other: string) => void;
   assignments: Map<string, Assignment>;
   hull: string;
   air: ScopeTrack[];
@@ -203,7 +207,81 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
         </div>
       </div>
       {placing && !editing && <div className="mono" style={{ fontSize: 12, color: p.status.color }}>{p.status.text}</div>}
+      {p.coords.length > 0 && (
+        <>
+          <div style={{ height: 1, background: '#262F3A' }} />
+          <div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+              <span className="lbl">Coordination</span>
+            </div>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
+              {p.coords.map(({ hull, g }) => (
+                <CoordRow key={hull} hull={hull} g={g} readOnly={p.readOnly} placing={placing === 'coord' && editing?.k === 'coord' && editing.hull === hull} onSet={(s) => p.onCoordSet(hull, s)} onPlace={() => p.onCoordPlace(hull)} onCancel={p.onCancel} />
+              ))}
+            </div>
+          </div>
+        </>
+      )}
     </section>
+  );
+};
+
+// ---------------------------------------------------------------- coordination line row
+
+const CoordRow: React.FC<{ hull: string; g: CoordGeom; readOnly: boolean; placing: boolean; onSet: (s: CoordSetting | null) => void; onPlace: () => void; onCancel: () => void }> = ({ hull, g, readOnly, placing, onSet, onPlace, onCancel }) => {
+  const [open, setOpen] = useState(false);
+  const [brg, setBrg] = useState('');
+  const [off, setOff] = useState('');
+  const start = () => {
+    setBrg(String(Math.round(g.brg)).padStart(3, '0'));
+    setOff(g.off.toFixed(1));
+    setOpen(true);
+  };
+  const apply = () => {
+    const b = Number(brg);
+    const o = Number(off);
+    if (Number.isFinite(b) && Number.isFinite(o) && b >= 0 && b < 360 && Math.abs(o) <= 100) {
+      onSet({ brg: b, off: o });
+      setOpen(false);
+    }
+  };
+  const input: React.CSSProperties = { width: 52, height: 22, background: '#0E1116', border: '1px solid #374250', borderRadius: 4, color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, padding: '0 5px' };
+  const btn: React.CSSProperties = { height: 24, padding: '0 8px', border: '1px solid #374250', borderRadius: 4, background: 'transparent', color: '#E6EDF3', cursor: 'pointer', fontFamily: "'Saira', sans-serif", fontSize: 11.5 };
+  const sel = open || placing;
+  return (
+    <div style={{ borderRadius: 5, background: sel ? 'rgba(241,88,34,.14)' : '#222C37', border: `1px solid ${sel ? '#F15822' : 'transparent'}` }}>
+      <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 30, padding: '0 4px 0 8px', fontSize: 12.5 }}>
+        <span style={{ width: 74, color: '#6FB6E6' }}>{hull}</span>
+        <span style={{ fontWeight: 600 }}>{String(Math.round(g.brg)).padStart(3, '0')}°</span>
+        <span style={{ color: '#93A1B0' }}>{g.off.toFixed(1)} NM</span>
+        {g.auto && <span style={{ fontSize: 10, color: '#6B7683', letterSpacing: '.08em' }}>AUTO</span>}
+        <span style={{ flex: 1 }} />
+        {!readOnly && !sel && (
+          <button onClick={start} title="Adjust coordination line" style={iconBtn}>
+            <IcEdit />
+          </button>
+        )}
+      </div>
+      {placing && (
+        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px 8px', fontSize: 11.5 }}>
+          <span style={{ flex: 1, color: '#FFB08F' }}>Move to set · wheel rotates (Ctrl 1°) · click</span>
+          <button onClick={onCancel} style={btn}>Cancel</button>
+        </div>
+      )}
+      {open && !placing && (
+        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px 8px', fontSize: 11.5, flexWrap: 'wrap' }}>
+          <span style={{ color: '#93A1B0' }}>BRG</span>
+          <input style={input} value={brg} onChange={(e) => setBrg(e.target.value.replace(/[^0-9.]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && apply()} aria-label="Coordination line bearing" />
+          <span style={{ color: '#93A1B0' }}>OFF</span>
+          <input style={input} value={off} onChange={(e) => setOff(e.target.value.replace(/[^0-9.\-]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && apply()} aria-label="Coordination line offset from this carrier, NM" />
+          <span style={{ flex: 1 }} />
+          <button onClick={apply} style={btn}>Set</button>
+          <button onClick={() => { setOpen(false); onPlace(); }} style={btn}>Place</button>
+          <button onClick={() => { onSet(null); setOpen(false); }} style={btn}>Auto</button>
+          <button onClick={() => setOpen(false)} style={btn}>Cancel</button>
+        </div>
+      )}
+    </div>
   );
 };
 

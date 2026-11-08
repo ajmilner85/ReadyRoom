@@ -2,11 +2,13 @@
 export type Tool = 'select' | 'bra' | 'marshal' | 'cpa' | 'vec';
 export type Fit = 'r50' | 'cca' | 'dep' | 'app' | null;
 export type Highlight = { k: 'dep'; id: number } | { k: 'm'; id: string } | { k: 'e' } | { k: 'h' };
-export type Editing = { k: 'dep'; r: number } | { k: 'm'; id: string };
+export type Editing = { k: 'dep'; r: number } | { k: 'm'; id: string } | { k: 'coord'; hull: string };
 export interface Placement {
-  placing: 'dep' | 'm' | null;
+  placing: 'dep' | 'm' | 'coord' | null;
   editing: Editing | null;
   hov: number | null;
+  /** coordination line being placed on the scope */
+  coord?: { hull: string; brg: number; off: number };
 }
 export interface UiScale {
   h: number;

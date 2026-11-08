@@ -4029,7 +4029,18 @@ function cleanPlan(p) {
   }
   const off = p.off;
   if (off !== void 0 && (!Array.isArray(off) || off.length > 12 || !off.every((x) => typeof x === "string" && /^[A-Z0-9]{1,2}$/.test(x)))) return null;
-  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {} };
+  const coordIn = p.coord;
+  let coord;
+  if (coordIn !== void 0) {
+    if (!coordIn || typeof coordIn !== "object" || Object.keys(coordIn).length > 4) return null;
+    coord = {};
+    for (const [hull, v] of Object.entries(coordIn)) {
+      if (hull.length > 16 || !v || typeof v.brg !== "number" || typeof v.off !== "number" || !Number.isFinite(v.brg) || !Number.isFinite(v.off)) return null;
+      if (v.brg < 0 || v.brg >= 360 || Math.abs(v.off) > 100) return null;
+      coord[hull] = { brg: v.brg, off: v.off };
+    }
+  }
+  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {}, ...coord && Object.keys(coord).length ? { coord } : {} };
 }
 function cleanAssignment(a) {
   if (!a || typeof a !== "object") return null;

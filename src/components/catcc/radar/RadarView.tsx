@@ -4,11 +4,13 @@ import FlightCard from '../../ui/flight cards/FlightCard';
 import type { Flight, FlightMember } from '../../../types/FlightData';
 import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
 import { add, dir, len, mul, P, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
+import { autoCoordLine, coordGeom, reframe, sideOf, type CoordGeom, type CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
+import { holdPattern } from '../../../catcc/core/geometry/procedures.ts';
 import { nextPimTurn } from '../../../catcc/core/env/weather.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import type { RoomState } from '../useCatccRoom.ts';
-import { defaultStack, fuelK, phaseOf, type Formation, type Phase, type Picture } from '../scopeModel.ts';
+import { defaultStack, fuelK, phaseOf, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
@@ -122,6 +124,49 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   }, [pic.carriers, state.plans]);
   const plan = useMemo(() => plans[hull] ?? { deps: [], stacks: [] }, [plans, hull]);
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
+
+  // ------------------------------------------------ coordination lines (ours, theirs reframed, or automatic)
+  const protectedPts = (c: Carrier): Pt[] => {
+    const pl = plans[c.track.hull ?? ''] ?? { deps: [], stacks: [] };
+    const st = [...pl.stacks, { id: 'E', r: emergencyMarshalRadial(c.ship), base: 6, rh: true }].filter((m) => !pl.off?.includes(m.id));
+    const pts: Pt[] = [c.track.p];
+    for (const m of st) holdPattern(m.r, fixDme(m.base), m.rh ? 'right' : 'left').forEach((q, i) => i % 4 === 0 && pts.push(add(q, c.track.p)));
+    return pts;
+  };
+  const coordLines = useMemo(() => {
+    const out: Record<string, CoordGeom> = {};
+    const f = pic.focus;
+    if (!f) return out;
+    for (const c of pic.carriers) {
+      if (c.focus || !c.track.hull) continue;
+      const other = c.track.p;
+      const mine = plans[hull]?.coord?.[c.track.hull];
+      const theirs = state.plans[c.track.hull]?.coord?.[hull];
+      if (mine) out[c.track.hull] = coordGeom(mine, [0, 0], other);
+      else if (theirs) out[c.track.hull] = coordGeom(reframe(coordGeom(theirs, other, [0, 0]), [0, 0], other), [0, 0], other);
+      else {
+        const a = (f.ship.brc * Math.PI) / 180;
+        const b = (c.ship.brc * Math.PI) / 180;
+        const mean = ((Math.atan2(Math.sin(a) + Math.sin(b), Math.cos(a) + Math.cos(b)) * 180) / Math.PI + 360) % 360;
+        out[c.track.hull] = coordGeom(autoCoordLine(protectedPts(f), protectedPts(c), [0, 0], other, mean), [0, 0], other, true);
+      }
+    }
+    return out;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pic.carriers, pic.focus, plans, state.plans, hull]);
+  const coordPreview = (() => {
+    const pc = placement.coord;
+    if (placement.placing !== 'coord' || !pc) return null;
+    const c = pic.carriers.find((x) => x.track.hull === pc.hull);
+    return c ? { hull: pc.hull, g: coordGeom({ brg: pc.brg, off: pc.off }, [0, 0], c.track.p) } : null;
+  })();
+  const setCoord = (other: string, s: CoordSetting | null) =>
+    setPlan((p) => {
+      const coord = { ...(p.coord ?? {}) };
+      if (s) coord[other] = { brg: ((Math.round(s.brg) % 180) + 180) % 180, off: Math.round(s.off * 10) / 10 };
+      else delete coord[other];
+      return { ...p, coord };
+    });
   const utc = state.utc;
   const nowS = utc ? utc.getUTCHours() * 3600 + utc.getUTCMinutes() * 60 + utc.getUTCSeconds() + utc.getUTCMilliseconds() / 1000 : undefined;
   const localNow = utc && offH !== undefined ? new Date(utc.getTime() + offH * 3_600_000) : undefined;
@@ -214,16 +259,12 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         notes.push({ id: `p:${id}:${a.eatS}`, k: 'warn', kind: 'LATE PUSH', t: tLocal, title: `${label(t)} · +${Math.round(late)} s`, goTo: t.p as [number, number] });
     }
   }
-  for (const c of pic.carriers) {
-    if (c.focus) continue;
-    const D = len(c.track.p);
-    if (D <= 0 || D >= 100) continue;
-    const u = mul(c.track.p, 1 / D);
+  for (const g of Object.values(coordLines)) {
     for (const t of pic.air) {
       if (t.owner !== hull) continue;
-      const along = t.p[0] * u[0] + t.p[1] * u[1] - D / 2; // signed distance to the coordination line
+      const along = sideOf(t.p, g); // negative on our side of the coordination line
       const v = dir(t.crs ?? t.hdg ?? 0);
-      if (along > -5 && along < 0 && v[0] * u[0] + v[1] * u[1] > 0.3)
+      if (along > -5 && along < 0 && v[0] * g.n[0] + v[1] * g.n[1] > 0.3)
         notes.push({ id: `co:${t.id}`, k: 'coord', kind: 'COORD LINE', t: tLocal, title: `${label(t)} approaching`, goTo: t.p as [number, number] });
     }
   }
@@ -324,6 +365,14 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         assignments={assignments}
         onAssign={(id, a) => assign(id, a)}
         placement={placement}
+        coordLines={coordLines}
+        coordPreview={coordPreview}
+        onCoordPreview={(c) => setPlacement((p) => ({ ...p, coord: c }))}
+        onCoordCommit={(c) => {
+          setCoord(c.hull, { brg: c.brg, off: c.off });
+          setPlacement({ placing: null, editing: null, hov: null });
+        }}
+        onCancelPlacement={() => setPlacement({ placing: null, editing: null, hov: null })}
         checkRadial={checkRadial}
         onPlaceHover={(hov) => setPlacement((p) => ({ ...p, hov }))}
         onPlaceClick={onPlaceClick}
@@ -363,6 +412,14 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
               setPlan((p) => ({ ...p, stacks: p.stacks.filter((x) => x.id !== id) }));
               setPlacement({ placing: null, editing: null, hov: null });
               setHl(null);
+            }}
+            coords={pic.carriers
+              .filter((c) => !c.focus && c.track.hull && coordLines[c.track.hull])
+              .map((c) => ({ hull: c.track.hull!, g: coordLines[c.track.hull!] }))}
+            onCoordSet={setCoord}
+            onCoordPlace={(other) => {
+              const g = coordLines[other];
+              setPlacement({ placing: 'coord', editing: { k: 'coord', hull: other }, hov: null, coord: { hull: other, brg: g?.brg ?? 0, off: g?.off ?? 10 } });
             }}
             onToggleStack={(id) => setPlan((p) => ({ ...p, off: p.off?.includes(id) ? p.off.filter((x) => x !== id) : [...(p.off ?? []), id] }))}
             onBase={(id, d) => setPlan((p) => ({ ...p, stacks: p.stacks.map((x) => (x.id === id ? { ...x, base: Math.max(6, Math.min(20, x.base + d)) } : x)) }))}

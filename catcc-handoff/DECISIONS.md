@@ -207,3 +207,7 @@ npm run catcc:tacview -- --live dcs.fightingstingrays.com --focus CVN-72
 npm run catcc:tacview -- --replay <file.zip.acmi> --speed 0 --until 2400 --summary
 npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (then --live localhost:42675)
 ```
+
+## Coordination line (replaces the handoff's ship-to-ship bisector)
+- Automatic line: maximum-margin separator between each carrier's protected points (ship + its marshal holds), every bearing 0–179° tried, line midway between the sets; near-ties lean toward the ships' mean course. The bisector ran through the other carrier's marshal stack.
+- Manual override per carrier pair, stored in the room plan as `coord[otherHull] = { brg, off }` (off = NM from our ship toward the other). Set numerically or placed on the scope (cursor positions, wheel rotates, Ctrl for 1°, click sets, Esc/right-click cancels) from the Coordination section of the airspace panel; Auto clears it. If only the other carrier set one, it is reframed into ours.
