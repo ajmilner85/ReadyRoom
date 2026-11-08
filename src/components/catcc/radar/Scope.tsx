@@ -1125,6 +1125,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                               // pattern is enlarged to symbol size, or drawn true to scale once it is bigger.
                               const R = 0.75;
                               const m = a.ext > 0 ? Math.max(1, (0.6 * R * k) / a.ext) / k : 0; // ref units per NM
+                              // the ring belongs to the enlarged symbol only; at true scale it would be a stray circle
+                              const schem = a.ext > 0 && (0.6 * R * k) / a.ext > 1;
                               const lx = x + (a.rw.length ? Math.max(R, a.ext * m) : 0.42) + 0.45;
                               // Drawn runways in ref units. Parallels closer than one outlined runway width
                               // (1.5 px + 1 px outline each side + 1 px gap) are pushed apart along their normal,
@@ -1153,7 +1155,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                                   {a.rw.length ? (
                                     <>
                                       {/* Jeppesen-style: every element carries a 1 px black outline (drawn first, 2 px wider) */}
-                                      {!a.long && (
+                                      {!a.long && schem && (
                                         <>
                                           <circle cx={f2(x)} cy={f2(y)} r={R} stroke="#000" style={{ strokeWidth: 'calc(1.1px * var(--lw, 1) + 2px)' }} />
                                           <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
