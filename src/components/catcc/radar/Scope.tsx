@@ -170,6 +170,8 @@ const BLUE_TRAIL = '#2F6F99';
 
 /** Mockup ship-relative overlays were drawn for BRC 345 / FB 336; they are rotated by (BRC − 345). */
 const MOCK_BRC = 345;
+/** bathymetry intensity (shading, contours, shallow-water tint/hatch/outline; not the depth labels) */
+const BATHY_K = 0.6;
 /** unit vector astern along the final bearing in the mockup frame (the drawn final runs to 6.1, 13.7) */
 const FB_U: Pt = [6.1 / Math.hypot(6.1, 13.7), 13.7 / Math.hypot(6.1, 13.7)];
 /** IFLOLS / LSO handover: 3/4 SM astern, NM */
@@ -215,19 +217,19 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                     {/* water lightens toward the shore: each level fills the region shallower than it */}
                     {marine.depth.map((x, i) => (
                       // the same look as stacking one 3.2 % layer per level: band i sits under (n - i) layers
-                      <path key={`f${x.d}`} d={x.band} fill="#5B93C4" fillOpacity={(1 - Math.pow(1 - 0.032, marine.depth.length - i)).toFixed(4)} fillRule="evenodd" stroke="none" />
+                      <path key={`f${x.d}`} d={x.band} fill="#5B93C4" fillOpacity={(BATHY_K * (1 - Math.pow(1 - 0.032, marine.depth.length - i))).toFixed(4)} fillRule="evenodd" stroke="none" />
                     ))}
                     {/* not navigable by a CVN: faint tint plus a screen-constant diagonal hatch */}
                     <defs>
                       <pattern id="catccNavHatch" patternUnits="userSpaceOnUse" width={f2(7 / KX)} height={f2(7 / KX)} patternTransform="rotate(45)">
-                        <line x1="0" y1="0" x2="0" y2={f2(7 / KX)} stroke="#A9D6F5" strokeOpacity="0.32" strokeWidth={(1 / KX).toFixed(4)} style={{ vectorEffect: 'none' }} />
+                        <line x1="0" y1="0" x2="0" y2={f2(7 / KX)} stroke="#A9D6F5" strokeOpacity={0.32 * BATHY_K} strokeWidth={(1 / KX).toFixed(4)} style={{ vectorEffect: 'none' }} />
                       </pattern>
                     </defs>
-                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.06" fillRule="evenodd" stroke="none" />
+                    <path d={marine.nav} fill="#A9D6F5" fillOpacity={0.06 * BATHY_K} fillRule="evenodd" stroke="none" />
                     <path d={marine.nav} fill="url(#catccNavHatch)" fillRule="evenodd" stroke="none" />
-                    <path d={marine.navLine} fill="none" stroke="#A9D6F5" strokeOpacity="0.5" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.9px * var(--lw, 1))' }} />
+                    <path d={marine.navLine} fill="none" stroke="#A9D6F5" strokeOpacity={0.5 * BATHY_K} strokeLinejoin="round" style={{ strokeWidth: 'calc(0.9px * var(--lw, 1))' }} />
                     {marine.depth.map((x, i) => (
-                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.22" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
+                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity={0.22 * BATHY_K} strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
                     ))}
                   </>
                 )}
