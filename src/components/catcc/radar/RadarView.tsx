@@ -4,7 +4,7 @@ import FlightCard from '../../ui/flight cards/FlightCard';
 import type { Flight, FlightMember } from '../../../types/FlightData';
 import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
 import { add, dir, len, mul, P, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
-import { autoCoordLine, coordGeom, reframe, sideOf, type CoordGeom, type CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
+import { autoCoordLine, coordGeom, reframe, sideOf, type CoordArea, type CoordGeom, type CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
 import { holdPattern } from '../../../catcc/core/geometry/procedures.ts';
 import { nextPimTurn } from '../../../catcc/core/env/weather.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
@@ -126,12 +126,10 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
 
   // ------------------------------------------------ coordination lines (ours, theirs reframed, or automatic)
-  const protectedPts = (c: Carrier): Pt[] => {
+  const protectedAreas = (c: Carrier): CoordArea[] => {
     const pl = plans[c.track.hull ?? ''] ?? { deps: [], stacks: [] };
     const st = [...pl.stacks, { id: 'E', r: emergencyMarshalRadial(c.ship), base: 6, rh: true }].filter((m) => !pl.off?.includes(m.id));
-    const pts: Pt[] = [c.track.p];
-    for (const m of st) holdPattern(m.r, fixDme(m.base), m.rh ? 'right' : 'left').forEach((q, i) => i % 4 === 0 && pts.push(add(q, c.track.p)));
-    return pts;
+    return [{ pts: [c.track.p], ship: true }, ...st.map((m) => ({ pts: holdPattern(m.r, fixDme(m.base), m.rh ? 'right' : 'left').map((q) => add(q, c.track.p)) }))];
   };
   const coordLines = useMemo(() => {
     const out: Record<string, CoordGeom> = {};
@@ -148,7 +146,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         const a = (f.ship.brc * Math.PI) / 180;
         const b = (c.ship.brc * Math.PI) / 180;
         const mean = ((Math.atan2(Math.sin(a) + Math.sin(b), Math.cos(a) + Math.cos(b)) * 180) / Math.PI + 360) % 360;
-        out[c.track.hull] = coordGeom(autoCoordLine(protectedPts(f), protectedPts(c), [0, 0], other, mean), [0, 0], other, true);
+        out[c.track.hull] = coordGeom(autoCoordLine(protectedAreas(f), protectedAreas(c), [0, 0], other, mean), [0, 0], other, true);
       }
     }
     return out;
