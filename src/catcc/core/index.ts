@@ -6,3 +6,8 @@ export * from './dcs/hookProtocol.ts';
 export { HookTrackStore } from './dcs/hookTrackStore.ts';
 export { INTERNAL_FUEL_KG, fuelLb, THEATRE_UTC_OFFSET_H } from './dcs/aircraft.ts';
 export { TrackStore, classify, type Track, type TrackKind, type TrackSample, type Side, type TrackStoreOptions } from './tracks/trackStore.ts';
+export * from './geometry/vec.ts';
+export * from './geometry/procedures.ts';
+export * from './geometry/maneuver.ts';
+export { aeqd, type Projection } from './geometry/projection.ts';
+export * from './room/protocol.ts';
