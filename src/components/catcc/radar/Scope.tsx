@@ -1124,8 +1124,30 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                               // ring; fields with a runway of 8069 ft or more are drawn as the pattern alone. The
                               // pattern is enlarged to symbol size, or drawn true to scale once it is bigger.
                               const R = 0.75;
-                              const m = a.ext > 0 ? Math.max(1, (0.82 * R * k) / a.ext) / k : 0; // ref units per NM
+                              const m = a.ext > 0 ? Math.max(1, (0.6 * R * k) / a.ext) / k : 0; // ref units per NM
                               const lx = x + (a.rw.length ? Math.max(R, a.ext * m) : 0.42) + 0.45;
+                              // Drawn runways in ref units. Parallels closer than one outlined runway width
+                              // (1.5 px + 1 px outline each side + 1 px gap) are pushed apart along their normal,
+                              // so two runways stay two runways at any zoom.
+                              const pxPerRef = k * KX;
+                              const minSep = (1.5 * sL + 3) / pxPerRef;
+                              const rws = a.rw.map(([x1, y1, x2, y2]) => [x1 * m, y1 * m, x2 * m, y2 * m]);
+                              for (let p1 = 0; p1 < rws.length; p1++)
+                                for (let p2 = p1 + 1; p2 < rws.length; p2++) {
+                                  const [a1, b1, a2, b2] = rws[p1];
+                                  const [c1, d1, c2, d2] = rws[p2];
+                                  const L1 = Math.hypot(a2 - a1, b2 - b1) || 1;
+                                  const ux = (a2 - a1) / L1;
+                                  const uy = (b2 - b1) / L1;
+                                  const L2 = Math.hypot(c2 - c1, d2 - d1) || 1;
+                                  if (Math.abs(ux * (c2 - c1) / L2 + uy * (d2 - d1) / L2) < Math.cos((10 * Math.PI) / 180)) continue;
+                                  const [nx, ny] = [-uy, ux];
+                                  const sep = ((c1 + c2) / 2 - (a1 + a2) / 2) * nx + ((d1 + d2) / 2 - (b1 + b2) / 2) * ny;
+                                  if (Math.abs(sep) >= minSep) continue;
+                                  const push = ((Math.sign(sep) || 1) * (minSep - Math.abs(sep))) / 2;
+                                  rws[p1] = [a1 - nx * push, b1 - ny * push, a2 - nx * push, b2 - ny * push];
+                                  rws[p2] = [c1 + nx * push, d1 + ny * push, c2 + nx * push, d2 + ny * push];
+                                }
                               return (
                                 <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none">
                                   {a.rw.length ? (
@@ -1137,11 +1159,13 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                                           <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
                                         </>
                                       )}
-                                      {a.rw.map(([x1, y1, x2, y2], j) => (
-                                        <line key={`o${j}`} x1={f2(x + x1 * m)} y1={f2(y + y1 * m)} x2={f2(x + x2 * m)} y2={f2(y + y2 * m)} stroke="#000" strokeLinecap="square" style={{ strokeWidth: 'calc(3px * var(--lw, 1) + 2px)' }} />
-                                      ))}
-                                      {a.rw.map(([x1, y1, x2, y2], j) => (
-                                        <line key={j} x1={f2(x + x1 * m)} y1={f2(y + y1 * m)} x2={f2(x + x2 * m)} y2={f2(y + y2 * m)} strokeLinecap="square" style={{ strokeWidth: 'calc(3px * var(--lw, 1))' }} />
+                                      {/* outline + fill per runway, so each runway's outline cuts across the one before:
+                                          close parallels read as two runways, not one wide bar */}
+                                      {rws.map(([x1, y1, x2, y2], j) => (
+                                        <g key={j}>
+                                          <line x1={f2(x + x1)} y1={f2(y + y1)} x2={f2(x + x2)} y2={f2(y + y2)} stroke="#000" strokeLinecap="square" style={{ strokeWidth: 'calc(1.5px * var(--lw, 1) + 2px)' }} />
+                                          <line x1={f2(x + x1)} y1={f2(y + y1)} x2={f2(x + x2)} y2={f2(y + y2)} strokeLinecap="square" style={{ strokeWidth: 'calc(1.5px * var(--lw, 1))' }} />
+                                        </g>
                                       ))}
                                     </>
                                   ) : (
