@@ -51,9 +51,9 @@ export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Departure', [['dep', 'Departure radials', '#93A1B0']]],
   ['Approach', [['marshal', 'Marshal stacks', '#F15822'], ['arr', 'Arrival paths', '#93A1B0'], ['cv1', 'CV-1 approach', '#E6EDF3'], ['cv2', 'CV-2 approach', '#C9D3DD'], ['cv3', 'CV-3 approach (helo)', '#C9D3DD']]],
   ['Recovery', [['bolter', 'Bolter pattern', '#DE9A1F'], ['tanker', 'Tanker pattern', '#93A1B0']]],
-  ['Marine', [['coast', 'Coastline', '#A9B4A0'], ['bathy', 'Bathymetry (m)', '#4F86B8']]],
-  ['Geography', [['places', 'Place names', '#8E99A6'], ['airports', 'Airports / airbases', '#C8B07A'], ['terr', '12 NM territorial limit', '#B48AD9']]],
-  ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['bulls', 'Bullseye', '#6FB6E6'], ['latlon', 'Lat / lon marks', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
+  ['Marine', [['coast', 'Landmasses', '#A9B4A0'], ['bathy', 'Bathymetry (m)', '#4F86B8']]],
+  ['Geography', [['places', 'Geo names', '#8E99A6'], ['airports', 'Aerodromes', '#C8B07A'], ['terr', '12 NM limit', '#B48AD9']]],
+  ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['bulls', 'Bullseye', '#6FB6E6'], ['latlon', 'Border scale', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
 ];
 export const OV_DEFAULT = { pim: true, terr: false, bulls: true, sweep: false, places: true, airports: true, coast: true, bathy: true, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
 export const OV2_DEFAULT = { pim: false, cca: true, rings: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: false, sar: false, cv1: false, cv2: false, cv3: false };

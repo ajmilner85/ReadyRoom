@@ -4370,7 +4370,7 @@ var HookClient = class {
         this.opts.onFrame(msg);
         break;
       case "env": {
-        const env = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes };
+        const env = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes, ...msg.bulls ? { bulls: msg.bulls } : {} };
         this.opts.onEnv?.(env);
         break;
       }

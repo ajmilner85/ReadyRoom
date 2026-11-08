@@ -137,7 +137,8 @@ export class HookClient {
         this.opts.onFrame(msg);
         break;
       case 'env': {
-        const env: HookEnv = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes };
+        // every HookEnv field is passed on (bulls was being dropped here, so no bullseye reached the scope)
+        const env: HookEnv = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes, ...(msg.bulls ? { bulls: msg.bulls } : {}) };
         this.opts.onEnv?.(env);
         break;
       }
