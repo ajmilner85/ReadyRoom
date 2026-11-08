@@ -7,6 +7,11 @@ import { fuelK, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { hornetIcon } from './deck.ts';
 
 const HORNET = hornetIcon(30);
+/** the scope's carrier outline (track point = landing area at the origin, bow up), ~36 px long */
+const SHIP = (() => {
+  const q = [[0.287, -1.4], [0.06, -1.4], [-0.011, -0.703], [-0.178, -0.488], [-0.166, 1.06], [-0.029, 1.102], [0.001, 1.4], [0.316, 1.4], [0.465, 1.013], [0.477, -0.429], [0.328, -0.727]];
+  return 'M' + q.map(([x, y]) => `${(x * 13).toFixed(2)} ${(y * 13).toFixed(2)}`).join('L') + 'Z';
+})();
 const SUPPORT = /tanker|^KC|E-2|E-3|H-60|SH-60|UH-60|CH-47/i;
 
 /** DCS callsign "CHARGER 3-1" → "Charger-3-1" as on the DCS LSO board. */
@@ -155,6 +160,18 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
                 <text x="100" y="305">6</text>
                 <text x="100" y="357">R</text>
               </g>
+              {/* the ship at 0 NM on the final bearing (landing area on the line), its axis at BRC, i.e.
+                  rotated from the final by the true deck angle (not the view's stretched axes); symbolic size */}
+              {focus && (
+                <path
+                  d={SHIP}
+                  fill="#050607"
+                  stroke="#B8CC5C"
+                  strokeWidth="1.4"
+                  strokeLinejoin="miter"
+                  transform={`translate(${xOf(0)} ${yOf(0).toFixed(1)}) rotate(${(((focus.ship.brc - fb + 540) % 360) - 180).toFixed(1)})`}
+                />
+              )}
               {ac && (
                 <g fontFamily="IBM Plex Mono, monospace" fontSize="11" fill="#B8CC5C">
                   {pattern.map(({ t, s, l }) => {
