@@ -295,3 +295,6 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Direct and teardrop outbound headings are solved (θ near 0° / the 2·atan(R/L) offset) so the turn inbound rolls out on the course for the actual arrival, rejecting solutions with the leg on the wrong side; this removed the S-bend after the reversal (reported: a teardrop rolling out 1.2 NM short, then a 36° jog).
 - Capture law is linear within 0.05 NM of the line (no chatter); a near-duplicate last point is replaced when snapping onto the fix.
 - Sweep: correctness checks hold for all 10,368 routes; shape checks (outbound side, no S-bends > 10°) hold for every start ≥ 10 NM from the fix, with < 1 % slight misses closer in (29 routes, 2–7 NM starts, ≤ 1.2 NM to the wrong side or one 26° correction).
+
+## Assigned marshal routes on hover
+- After assignment, an aircraft's marshal route, fix hash and EAT tag show only while it is hovered on the scope (or its formation is), or its strip is hovered in the Strips list. Several at once (a flight) stack their tags in EAT order instead of overlapping.

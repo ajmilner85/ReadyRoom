@@ -105,6 +105,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const [goTo, setGoTo] = useState<{ p: Pt; nonce: number; fit?: Pt[] } | undefined>();
   const [hookedId, setHookedId] = useState<string | null>(null);
   const [hl, setHl] = useState<Highlight | null>(null);
+  // aircraft of the strip under the cursor: their marshal assignments show on the scope
+  const [stripHov, setStripHov] = useState<string[] | null>(null);
   const [placement, setPlacement] = useState<Placement>({ placing: null, editing: null, hov: null });
   const [ltab, setLtab] = useState<'info' | 'strips'>('strips');
   const [acked, setAcked] = useState<Record<string, true>>({});
@@ -350,6 +352,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
                     <div
                       key={f.id}
                       onClick={() => setHookedId(sel ? null : f.lead.id)}
+                      onMouseEnter={() => setStripHov(f.members.map((m) => m.id))}
+                      onMouseLeave={() => setStripHov(null)}
                       aria-label={`${flight.callsign} ${flight.flightNumber} strip`}
                       style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
@@ -368,6 +372,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       <Scope
         theatre={state.theatre}
         bulls={state.env?.bulls}
+        showAssigned={stripHov}
         pimRoutes={pimShips.filter((s) => (s.own ? ov.pim : ov2.pim))}
         mt={state.mt}
         dayStart={state.env?.start}

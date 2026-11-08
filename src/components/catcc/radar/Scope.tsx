@@ -117,6 +117,8 @@ export interface ScopeProps {
   placement: Placement;
   /** resolved coordination lines toward each other carrier, and the one being placed */
   coordLines: Record<string, CoordGeom>;
+  /** aircraft whose marshal assignment (route and tag) to show, from a hovered strip */
+  showAssigned?: string[] | null;
   /** coalition bullseyes from the mission environment */
   bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
   /** planned routes to draw (PIM / waypoints overlay), already filtered to the ones switched on */
@@ -412,6 +414,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const [panning, setPanning] = useState(false);
   const [fmSel, setFmSel] = useState<Record<string, number>>({});
   const [fmHov, setFmHov] = useState<string | null>(null);
+  // aircraft under the cursor (its marshal assignment is shown while hovered)
+  const [acHov, setAcHov] = useState<string | null>(null);
   const [vspd, setVspd] = useState<number | null>(null);
   const [asg, setAsg] = useState<{ id: string; ang: number } | null>(null);
   const [bra, setBra] = useState<{ a: Pt | string; b: Pt | string | null } | null>(null);
@@ -832,6 +836,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const f = pic.formations.find((x) => x.collapsible && Math.hypot(q[0] - x.lead.p[0], q[1] - x.lead.p[1]) < 1.6 * zkH);
     const id = f?.id ?? null;
     if (id !== fmHov) setFmHov(id);
+    let near: string | null = null;
+    let nd = 1.4 * zkH;
+    for (const t of pic.air) {
+      const d = Math.hypot(q[0] - t.p[0], q[1] - t.p[1]);
+      if (d < nd) {
+        nd = d;
+        near = t.id;
+      }
+    }
+    if (near !== acHov) setAcHov(near);
   };
   const onLeave = () => {
     setCur(null);
@@ -1291,8 +1305,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         : [`BRG ${r3(hk.brg)} · RNG ${hk.rng.toFixed(1)}`, `HDG ${r3(hk.fl.hdg)} · TRK DIST ${hk.fl.dist.toFixed(1)}`, `ETE ${msS((hk.fl.dist / hk.spd) * 3600)} · ${hk.spd} KT`];
     return { x: Math.min(box.w - 230, Math.max(8, q[0] + 16)), y: Math.min(BH - 60, Math.max(8, q[1] + 14)), rows };
   })();
+  // Assigned routes and tags only for the aircraft hovered on the scope (or its formation) or in
+  // the strips list: showing every assignment at once clutters the marshal area.
+  const showIds = new Set<string>(props.showAssigned ?? []);
+  if (acHov) showIds.add(acHov);
+  const fmH = fmHov ? pic.formations.find((x) => x.id === fmHov) : undefined;
+  for (const m of fmH?.members ?? []) showIds.add(m.id);
   const adTags = [...assignments.entries()]
-    .filter(([id, a]) => a.carrier === hull && id !== hookedId)
+    .filter(([id, a]) => a.carrier === hull && id !== hookedId && showIds.has(id))
     .map(([id, a]) => {
       const st = stacks.find((s) => s.id === a.stackId);
       const t = pic.air.find((x) => x.id === id);
@@ -1303,7 +1323,18 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       const route = marshalRoute(t.p, t.crs ?? t.hdg ?? 0, Math.max(150, Math.round((t.gs ?? 300) / 10) * 10), st.r, fixDme(a.angels), st.rh ? 'right' : 'left', spec);
       return { id, st, a, fx, route, x: q[0] + 12, y: q[1] + 8, t: `${t.bd ?? t.cs ?? t.pi ?? id} · ${stackLabel(hull, st.id)}·${a.angels} · EAT ${hms(a.eatS).slice(0, 5)}` };
     })
-    .filter((x): x is NonNullable<typeof x> => !!x);
+    .filter((x): x is NonNullable<typeof x> => !!x)
+    .sort((a, b) => a.a.eatS - b.a.eatS);
+  // several shown at once (a flight): stack tags that would overlap, in EAT order
+  {
+    const lh = 18 * sTg;
+    const placed: { x: number; y: number; w: number }[] = [];
+    for (const a of adTags) {
+      const w = a.t.length * 6.6 * sTg + 14;
+      while (placed.some((p) => Math.abs(p.y - a.y) < lh && a.x < p.x + p.w && p.x < a.x + w)) a.y += lh;
+      placed.push({ x: a.x, y: a.y, w });
+    }
+  }
 
   const fixHashAt = (r: number, a: number, k = 1) => {
     const cq = P(r, a + 15);
