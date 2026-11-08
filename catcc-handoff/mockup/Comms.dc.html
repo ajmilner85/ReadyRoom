@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Comms Scripts</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0B0E12}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.tab{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:6px 12px;border:0;border-left:3px solid transparent;background:transparent;cursor:pointer;text-align:left;font-family:'Saira',sans-serif;font-size:13.5px}
+.tab:hover{background:#1A212A}
+</style>
+</helmet>
+<div style="width: 1040px; height: 700px; box-sizing: border-box; padding: 24px; background: rgba(11,14,18,.92); font-family: 'Saira', system-ui, sans-serif; color: #E6EDF3">
+  <div role="dialog" aria-label="Comms scripts" style="height: 100%; display: flex; flex-direction: column; background: #151A21; border: 1px solid #374250; border-radius: 10px; overflow: hidden; box-shadow: 0 20px 60px rgba(0,0,0,.5)">
+
+    <header style="display: flex; align-items: center; gap: 14px; padding: 12px 16px; border-bottom: 1px solid #262F3A">
+      <div style="font-weight: 700; font-size: 17px; letter-spacing: .04em">Comms scripts</div>
+      <div style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+        <sc-for list="{{flows}}" as="f" hint-placeholder-count="3">
+          <button onClick="{{f.pick}}" style="border: 0; padding: 5px 11px; border-radius: 4px; background: {{f.bg}}; color: {{f.fg}}; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">{{f.label}}</button>
+        </sc-for>
+      </div>
+      <div style="flex: 1"></div>
+      <span class="lbl">Aircraft</span>
+      <div style="display: flex; gap: 6px">
+        <span style="padding: 4px 10px; border-radius: 4px; background: rgba(241,88,34,.16); border: 1px solid #F15822; color: #FFB08F; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; font-weight: 600">106 · F18E</span>
+        <span style="padding: 4px 10px; border-radius: 4px; border: 1px solid #374250; color: #93A1B0; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">412</span>
+        <span style="padding: 4px 10px; border-radius: 4px; border: 1px solid #374250; color: #93A1B0; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">203</span>
+      </div>
+      <a href="Main.dc.html" aria-label="Close" style="width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: #E6EDF3; border: 1px solid #374250">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg>
+      </a>
+    </header>
+
+    <div style="flex: 1; display: flex; min-height: 0">
+      <nav aria-label="Phases" style="flex: 0 0 230px; border-right: 1px solid #262F3A; padding: 8px 0; overflow-y: auto; background: #12161C">
+        <sc-for list="{{phases}}" as="p" hint-placeholder-count="8">
+          <button class="tab" onClick="{{p.pick}}" style="border-left-color: {{p.bar}}; background: {{p.bg}}; color: {{p.fg}}">
+            <span style="width: 22px; height: 22px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 11px; background: {{p.dotBg}}; color: {{p.dotFg}}; flex: 0 0 22px">{{p.n}}</span>
+            <span style="display: flex; flex-direction: column; line-height: 1.2">
+              <span>{{p.title}}</span>
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: #93A1B0">{{p.who}}</span>
+            </span>
+          </button>
+        </sc-for>
+      </nav>
+
+      <section style="flex: 1; min-width: 0; display: flex; flex-direction: column">
+        <div style="padding: 16px 22px 8px; display: flex; align-items: baseline; gap: 12px">
+          <div style="font-size: 22px; font-weight: 600">{{cur.title}}</div>
+          <div class="lbl">{{cur.when}}</div>
+        </div>
+        <div style="flex: 1; overflow-y: auto; padding: 4px 22px 16px; display: flex; flex-direction: column; gap: 10px">
+          <sc-for list="{{cur.lines}}" as="l" hint-placeholder-count="3">
+            <div style="display: grid; grid-template-columns: 96px 1fr; gap: 12px; align-items: start; padding: 10px 12px; border-radius: 6px; background: {{l.bg}}; border: 1px solid #262F3A">
+              <span style="font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; letter-spacing: .1em; padding-top: 3px; color: {{l.whoFg}}">{{l.who}}</span>
+              <div style="font-family: 'IBM Plex Mono', monospace; font-size: 15px; line-height: 1.8; color: #E6EDF3">
+                <sc-for list="{{l.parts}}" as="pt" hint-placeholder-count="4"><span style="padding: {{pt.pad}}; border-radius: 3px; background: {{pt.bg}}; color: {{pt.fg}}; border-bottom: {{pt.ul}}">{{pt.t}}</span></sc-for>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <footer style="display: flex; align-items: center; gap: 10px; padding: 12px 22px; border-top: 1px solid #262F3A">
+          <div style="flex: 1"></div>
+          <button onClick="{{prev}}" style="height: 38px; padding: 0 14px; background: transparent; color: #E6EDF3; border: 1px solid #374250; border-radius: 5px; font-family: 'Saira', sans-serif; font-size: 13px; cursor: pointer">← Prev</button>
+          <button onClick="{{next}}" style="height: 38px; padding: 0 16px; background: #F15822; color: #0E1116; border: 0; border-radius: 5px; font-family: 'Saira', sans-serif; font-weight: 600; font-size: 13px; cursor: pointer">Issued · next phase →</button>
+        </footer>
+      </section>
+    </div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1040,"height":700}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { i: 1, flow: 'arr' }; }
+  renderVals() {
+    // [text] = auto-filled field
+    const P = [
+      { title:'Check-in', who:'AIRCRAFT → MARSHAL', when:'~50 NM · Marshal freq', lines:[
+        ['AIRCRAFT','[106], marking Mother\'s [282] for [40], angels [16.8], state [7.4].'],
+        ['MARSHAL','[106], Marshal, radar contact [282] for [40]. CASE III recovery, CV-1 approach, expected final bearing [336], altimeter [29.94].']
+      ], note:'If a flight checks in, lead reports for the flight: "400, with 401…"' },
+      { title:'Marshal instructions', who:'MARSHAL', when:'After check-in', lines:[
+        ['MARSHAL','[106], marshal on the [145] radial, [24] DME, angels [9]. Expected approach time [22], approach button [15]. Time now [12:30].'],
+        ['AIRCRAFT','[106], marshal [145], [24], angels [9], time [22], button [15].']
+      ], note:'EAT [22] = earliest achievable from the stack tool (fix ≥ 18:21:33). Next free slot :18 was not achievable.' },
+      { title:'Established', who:'AIRCRAFT', when:'In holding', lines:[
+        ['AIRCRAFT','[106], established angels [9], state [6.6].'],
+        ['MARSHAL','[106], roger.']
+      ], note:'' },
+      { title:'Commencing', who:'AIRCRAFT', when:'Leaving fix at EAT', lines:[
+        ['AIRCRAFT','[106], commencing, state [6.2], altimeter [29.94].'],
+        ['MARSHAL','[106], roger, switch approach, button [15].']
+      ], note:'Commence within ±10 s of EAT. Report if late by more than 15 s.' },
+      { title:'Platform', who:'AIRCRAFT → APPROACH', when:'Passing 5,000 ft', lines:[
+        ['AIRCRAFT','[106], platform.'],
+        ['APPROACH','[106], Approach, radar contact [21] miles, continue.']
+      ], note:'' },
+      { title:'Dirty up', who:'APPROACH', when:'10 DME · 1,200 ft', lines:[
+        ['APPROACH','[106], [10] miles, dirty up.'],
+        ['AIRCRAFT','[106], dirty.']
+      ], note:'Final controller takes over by 6 NM.' },
+      { title:'¾ mile · Ball call', who:'APPROACH → LSO', when:'¾ NM', lines:[
+        ['APPROACH','[106], three-quarter mile, call the ball.'],
+        ['AIRCRAFT','[106], [Hornet] ball, [5.1].'],
+        ['LSO','Roger ball, [27] knots, [axial].']
+      ], note:'Handoff to LSO. The PriFly LSO board picks up the ball call and state.' },
+      { title:'Bolter / Waveoff', who:'APPROACH', when:'After a bolter or waveoff', lines:[
+        ['APPROACH','[106], climb to [1,200], turn left downwind heading [145], report abeam.'],
+        ['AIRCRAFT','[106], abeam, state [4.8].'],
+        ['APPROACH','[106], turn left heading [336], final bearing, [6] miles.']
+      ], note:'If state is below the tank state, offer the tanker. See the next phase.' },
+      { title:'Low state → tanker', who:'APPROACH · TANKER', when:'State below tank state', lines:[
+        ['APPROACH','[106], your tank state. Texaco [115] is overhead angels [6], [282] for [5]. Climb to angels [6], vector [102].'],
+        ['APPROACH','[115], your customer [106], [102] for [5], angels [1.2] climbing to [6]. Give him [2.0].']
+      ], note:'This could also send the order straight to the AI tanker once unit control is added.' }
+    ];
+    const i = this.state.i;
+    const whoCol = { AIRCRAFT:'#6FB6E6', MARSHAL:'#FFB08F', APPROACH:'#FFB08F', LSO:'#7FD397' };
+    const parse = (s) => s.split(/(\[[^\]]+\])/).filter(Boolean).map(x => {
+      const f = x[0] === '[';
+      return { t: f ? x.slice(1,-1) : x, bg: f ? 'rgba(241,88,34,.16)' : 'transparent', fg: f ? '#FFB08F' : '#E6EDF3', pad: f ? '1px 4px' : '0', ul: f ? '1px dashed #F15822' : '0' };
+    });
+    const phases = P.map((p, k) => ({
+      n: k + 1, title: p.title, who: p.who, pick: () => this.setState({ i: k }),
+      bar: k === i ? '#F15822' : 'transparent', bg: k === i ? '#1A212A' : 'transparent', fg: k === i ? '#E6EDF3' : (k < i ? '#93A1B0' : '#C9D3DD'),
+      dotBg: k < i ? '#2F5D3B' : (k === i ? '#F15822' : '#222C37'), dotFg: k === i ? '#0E1116' : '#E6EDF3'
+    }));
+    const c = P[i];
+    const cur = { title: c.title, when: c.when, note: c.note, lines: c.lines.map(([w, s]) => ({ who: w, whoFg: whoCol[w], bg: w === 'AIRCRAFT' ? '#12161C' : '#1A212A', parts: parse(s) })) };
+    const fl = this.state.flow;
+    const flows = [['dep','Departure'],['arr','Arrival · Case III'],['c1','Case I/II']].map(([k,l]) => ({ label: l, pick: () => this.setState({ flow: k }), bg: fl === k ? '#222C37' : 'transparent', fg: fl === k ? '#E6EDF3' : '#93A1B0' }));
+    return { phases, cur, flows, prev: () => this.setState({ i: Math.max(0, i - 1) }), next: () => this.setState({ i: Math.min(P.length - 1, i + 1) }) };
+  }
+}
+</script>
+</body>
+</html>

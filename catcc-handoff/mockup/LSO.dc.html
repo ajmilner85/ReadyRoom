@@ -1,0 +1,234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PriFly LSO Station</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1116}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.brd{width:100%;border-collapse:collapse;font-family:'IBM Plex Mono',monospace;font-size:13px;color:#E4F04A}
+.brd th{background:#E4F04A;color:#0A0A0A;font-weight:600;font-size:11px;letter-spacing:.06em;text-align:left;padding:4px 6px;border:1px solid #E4F04A}
+.brd td{border:1px solid rgba(228,240,74,.75);padding:0 6px;height:22px;white-space:nowrap}
+.gb{min-width:52px;height:46px;border-radius:6px;border:1px solid #374250;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600}
+.dv{height:34px;padding:0 10px;border-radius:5px;border:1px solid #374250;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0E1116; color: #E6EDF3; font-family: 'Saira', system-ui, sans-serif">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #262F3A; background: #151A21">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 28px; height: 28px; border-radius: 5px; background: #F15822; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 18h16M7 18l3-10h4l3 10"></path></svg>
+      </div>
+      <div style="font-weight: 700; font-size: 18px; letter-spacing: .08em">PRIFLY</div>
+    </div>
+    <nav aria-label="Module" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">Radar</a>
+      <a href="LSO.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 13px; font-weight: 600">PriFly · LSO</a>
+      <a href="Boss.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">PriFly · Boss</a>
+    </nav>
+    <div style="padding: 4px 10px; border-radius: 4px; background: rgba(241,88,34,.15); border: 1px solid #F15822; color: #FFB08F; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: .1em">CVN-73 · CASE III</div>
+    <div class="mono" style="font-size: 12.5px; color: #E6EDF3">WOD 347/31 · 2 STBD · Pitch 0.6 · Roll 1.4</div>
+    <div style="flex: 1"></div>
+    <div style="padding: 6px 14px; border-radius: 5px; background: rgba(64,168,91,.2); border: 1px solid #40A85B; color: #8FE0A6; font-family: 'IBM Plex Mono', monospace; font-weight: 600; font-size: 13px; letter-spacing: .12em">CLEAR DECK</div>
+    <div style="text-align: right; font-family: 'IBM Plex Mono', monospace; line-height: 1.15">
+      <div style="font-size: 17px; font-weight: 600">18:13:04L</div>
+      <div style="font-size: 11px; color: #93A1B0">RECOVERY 2 · 4 of 9 aboard</div>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; box-sizing: border-box">
+
+    <!-- Arrivals board replica -->
+    <section aria-label="LSO arrivals board" style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 8px">
+      <div style="display: flex; align-items: center; gap: 12px; flex-wrap: wrap">
+        <span class="lbl">Arrivals board · replica</span>
+        <div style="flex: 1"></div>
+        <button onClick="{{toggleAc}}" aria-pressed="{{acPressed}}" style="height: 32px; display: flex; align-items: center; gap: 8px; padding: 0 10px; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; cursor: pointer">
+          <span style="width: 26px; height: 14px; border-radius: 7px; background: {{tglBg}}; position: relative; display: inline-block"><span style="position: absolute; top: 2px; left: {{tglX}}; width: 10px; height: 10px; border-radius: 50%; background: #0E1116"></span></span>
+          Live aircraft on pattern
+        </button>
+      </div>
+      <div style="flex: 1; background: #050607; border: 10px solid #1B1F24; border-radius: 12px; padding: 20px; display: flex; gap: 24px; min-height: 560px; box-shadow: inset 0 0 0 1px #2A3038">
+        <div style="flex: 3 1 520px; min-width: 0; overflow-x: auto">
+          <div role="table" aria-label="Arrivals" style="min-width: 560px; border-left: 1px solid #B8CC5C; border-right: 1px solid #B8CC5C; border-bottom: 1px solid #B8CC5C">
+            <div style="height: 18px; background: #B8CC5C"></div>
+            <sc-for list="{{rows}}" as="r" hint-placeholder-count="22">
+              <div role="row" style="display: grid; grid-template-columns: 7.3fr 17.2fr 7.9fr 9.3fr 5.3fr 7.9fr 2.6fr 42.4fr; height: 22px; font-family: 'IBM Plex Mono', monospace; font-size: 13.5px; color: #B8CC5C; background: {{r.bg}}">
+                <span role="cell" style="border-top: 1px solid #B8CC5C; padding: 2px 4px; white-space: nowrap; overflow: hidden">{{r.side}}</span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C; padding: 2px 4px; white-space: nowrap; overflow: hidden">{{r.cs}}</span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C"></span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C; padding: 2px 4px; white-space: nowrap; overflow: hidden">{{r.st}}</span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C"></span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C"></span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C"></span>
+                <span role="cell" style="border-top: 1px solid #B8CC5C; border-left: 1px solid #B8CC5C"></span>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="flex: 2 1 280px; min-width: 240px; display: flex; align-items: center; justify-content: center">
+          <svg viewBox="0 30 170 345" style="width: 100%; height: auto; max-height: 680px" role="img" aria-label="Pattern view: final bearing with distance marks, the bolter pattern, and aircraft">
+            <g fill="none" stroke="#B8CC5C" stroke-width="1.6">
+              <path d="M110 58 A45 45 0 0 0 20 58 L20 300 A45 45 0 0 0 110 300"></path>
+              <path d="M20 248 A45 45 0 0 0 110 248"></path>
+              <line x1="110" y1="58" x2="110" y2="355"></line>
+              <line x1="104" y1="70" x2="110" y2="70"></line>
+              <line x1="104" y1="215" x2="110" y2="215"></line>
+              <line x1="104" y1="262" x2="110" y2="262"></line>
+              <line x1="104" y1="300" x2="110" y2="300"></line>
+              <line x1="104" y1="352" x2="110" y2="352"></line>
+              <line x1="17" y1="170" x2="23" y2="170"></line>
+            </g>
+            <g font-family="IBM Plex Mono, monospace" font-size="14" fill="#B8CC5C" text-anchor="end">
+              <text x="100" y="75">4</text><text x="100" y="220">2</text><text x="100" y="267">4</text><text x="100" y="305">6</text><text x="100" y="357">R</text>
+            </g>
+            <g display="{{acDisp}}" font-family="IBM Plex Mono, monospace" font-size="11" fill="#B8CC5C">
+              <path d="{{hornet}}" fill="#B8CC5C" transform="translate(110 152)"></path>
+              <text x="122" y="160">205</text>
+              <text x="122" y="173">4.8</text>
+              <path d="{{hornet}}" fill="#B8CC5C" transform="translate(20 130) rotate(180)"></path>
+              <text x="34" y="126">211</text>
+              <text x="34" y="139">4.1</text>
+            </g>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Grading -->
+    <section aria-label="Pass grading" style="flex: 1 1 420px; max-width: 460px; display: flex; flex-direction: column; gap: 12px">
+      <div style="border: 1px solid #262F3A; border-radius: 8px; background: #151A21; padding: 14px">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <span class="lbl">Current pass</span>
+          <span class="mono" style="font-size: 11px; color: #93A1B0">Ball call 18:12:51</span>
+        </div>
+        <div style="display: flex; align-items: baseline; gap: 12px; margin-top: 4px">
+          <div style="font-size: 34px; font-weight: 700">205</div>
+          <div class="mono" style="font-size: 14px; color: #93A1B0">HORNET · BALL · 4.8</div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; margin-top: 8px">
+          <div><div class="lbl">Pilot</div><div class="mono" style="font-size: 13px">LT “Rook”</div></div>
+          <div><div class="lbl">Range</div><div class="mono" style="font-size: 13px">0.6 NM</div></div>
+          <div><div class="lbl">AOA</div><div class="mono" style="font-size: 13px; color: #7FD397">ON SPD</div></div>
+          <div><div class="lbl">Trap wt</div><div class="mono" style="font-size: 13px">OK 41.2k</div></div>
+        </div>
+      </div>
+
+      <div style="border: 1px solid #262F3A; border-radius: 8px; background: #151A21; padding: 14px; display: flex; flex-direction: column; gap: 12px">
+        <div>
+          <div class="lbl" style="margin-bottom: 6px">Deviations</div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px">
+            <sc-for list="{{positions}}" as="p" hint-placeholder-count="5">
+              <button class="dv" onClick="{{p.pick}}" style="background: {{p.bg}}; color: {{p.fg}}; border-color: {{p.bc}}">{{p.k}}</button>
+            </sc-for>
+          </div>
+          <div style="display: flex; gap: 6px; flex-wrap: wrap">
+            <sc-for list="{{faults}}" as="f" hint-placeholder-count="10">
+              <button class="dv" onClick="{{f.add}}" style="background: #1A212A; color: #E6EDF3">{{f.k}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom: 6px">Wire</div>
+          <div style="display: flex; gap: 6px">
+            <sc-for list="{{wires}}" as="w" hint-placeholder-count="5">
+              <button class="gb" onClick="{{w.pick}}" style="flex: 1; background: {{w.bg}}; color: {{w.fg}}; border-color: {{w.bc}}">{{w.k}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div>
+          <div class="lbl" style="margin-bottom: 6px">Grade</div>
+          <div style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px">
+            <sc-for list="{{grades}}" as="g" hint-placeholder-count="8">
+              <button class="gb" onClick="{{g.pick}}" title="{{g.title}}" style="background: {{g.bg}}; color: {{g.fg}}; border-color: {{g.bc}}; text-decoration: {{g.ul}}">{{g.k}}</button>
+            </sc-for>
+          </div>
+        </div>
+        <div style="background: #0E1116; border: 1px solid #374250; border-radius: 6px; padding: 10px 12px">
+          <div class="lbl" style="margin-bottom: 4px">Comment</div>
+          <div class="mono" style="font-size: 17px; color: #E6EDF3">{{comment}}</div>
+        </div>
+        <div style="display: flex; gap: 8px">
+          <button onClick="{{clear}}" style="height: 42px; flex: 1; background: transparent; border: 1px solid #374250; border-radius: 6px; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 14px; cursor: pointer">Clear</button>
+          <button style="height: 42px; flex: 2; background: #F15822; border: 0; border-radius: 6px; color: #0E1116; font-family: 'Saira', sans-serif; font-weight: 600; font-size: 14px; cursor: pointer">Log pass → greenie board</button>
+        </div>
+      </div>
+
+      <div style="border: 1px solid #262F3A; border-radius: 8px; background: #151A21; padding: 12px 14px">
+        <div class="lbl" style="margin-bottom: 6px">Next in · from CATCC</div>
+        <div class="mono" style="font-size: 13px; display: grid; grid-template-columns: 50px 1fr 70px 50px; row-gap: 4px">
+          <span>211</span><span style="color: #93A1B0">bolter · abeam</span><span>DW 1.2k</span><span style="color: #DE9A1F">4.1</span>
+          <span>203</span><span style="color: #93A1B0">final</span><span>9.0 NM</span><span>5.9</span>
+          <span>101</span><span style="color: #93A1B0">EAT :15</span><span>A6</span><span>6.8</span>
+        </div>
+      </div>
+    </section>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { ac: true, grade: 'OK', wire: '3', pos: 'IC', devs: ['LUL X', '(LO)IC', 'F AR'] }; }
+  renderVals() {
+    const s = this.state;
+    // DCS LSO display: side number, callsign, (blank), state / endurance in minutes, then blank columns
+    const data = [
+      ['205','Charger-3-1','4.8/22'],
+      ['211','Charger-3-2','4.1/18'],
+      ['203','Charger-4-1','5.9/27'],
+      ['101','Charger-1-1','6.8/31'],
+      ['102','Charger-1-2','7.1/33'],
+      ['104','Charger-1-4','6.1/28'],
+      ['106','Charger-2-2','7.4/34']
+    ];
+    const rows = [];
+    for (let k = 0; k < 22; k++) {
+      const d = data[k] || ['','',''];
+      rows.push({ side:d[0], cs:d[1], st:d[2], bg: k === 0 ? 'rgba(184,204,92,.14)' : 'transparent' });
+    }
+    // F/A-18C top view, nose up, ~24 px box centred on 0,0
+    // F/A-18C planform from the squadron tactics-animation model (fuselage length = 1, nose at +0.5)
+    const mir = p => p.concat(p.slice().reverse().map(q => [-q[0], q[1]]));
+    const ST = [[0.5,0.001],[0.485,0.008],[0.46,0.015],[0.43,0.021],[0.40,0.025],[0.36,0.027],[0.30,0.03],[0.22,0.038],[0.12,0.046],[0,0.054],[-0.12,0.068],[-0.22,0.082],[-0.30,0.084],[-0.38,0.078],[-0.44,0.066],[-0.48,0.056]];
+    const WING = [[0.027,0.30],[0.036,0.277],[0.043,0.255],[0.048,0.23],[0.052,0.2],[0.057,0.165],[0.063,0.13],[0.069,0.1],[0.074,0.07],[0.079,0.04],[0.082,0.015],[0.084,-0.02],[0.352,-0.143],[0.352,-0.255],[0.086,-0.262],[0.07,-0.265]];
+    const STAB = [[0.05,-0.31],[0.198,-0.462],[0.206,-0.476],[0.207,-0.5],[0.2,-0.522],[0.19,-0.527],[0.058,-0.476]];
+    const area = q => q.reduce((a, p, i) => { const n = q[(i + 1) % q.length]; return a + p[0] * n[1] - n[0] * p[1]; }, 0);
+    const norm = q => area(q) < 0 ? q.slice().reverse() : q;
+    const ff = n => (Math.round(n * 100) / 100).toString();
+    const IL = 30; // icon length in px, nose up
+    const hornet = [mir(ST.map(s => [s[1], s[0]])), mir(WING), mir(STAB)].map(norm)
+      .map(q => 'M' + q.map(p => ff(p[0] * IL) + ' ' + ff(-p[1] * IL)).join('L') + 'Z').join('');
+    const posL = ['X','IM','IC','AR','IW'];
+    const positions = posL.map(k => ({ k, pick: () => this.setState({ pos: k }),
+      bg: s.pos === k ? 'rgba(241,88,34,.18)' : '#1A212A', fg: s.pos === k ? '#FFB08F' : '#E6EDF3', bc: s.pos === k ? '#F15822' : '#374250' }));
+    const faultL = ['HI','LO','F','SLO','LUL','LUR','DL','DR','TMP','NEP','CD','EG','LIG'];
+    const faults = faultL.map(k => ({ k, add: () => this.setState({ devs: s.devs.concat([k + ' ' + s.pos]) }) }));
+    const wires = ['1','2','3','4','—'].map(k => ({ k, pick: () => this.setState({ wire: k }),
+      bg: s.wire === k ? '#E6EDF3' : '#1A212A', fg: s.wire === k ? '#0E1116' : '#E6EDF3', bc: s.wire === k ? '#E6EDF3' : '#374250' }));
+    const G = [['OK','OK','Perfect pass',true],['OK2','OK','Reasonable deviations, good corrections',false],['FAIR','(OK)','Fair: reasonable deviations',false],['NG','—','No grade: below average but safe',false],['C','C','Cut: unsafe',false],['WO','WO','Waveoff',false],['OWO','OWO','Own waveoff',false],['B','B','Bolter',false]];
+    const gradeCol = { OK:'#40A85B', OK2:'#40A85B', FAIR:'#DE9A1F', NG:'#93A1B0', C:'#E0524E', WO:'#E0524E', OWO:'#3E9BD4', B:'#3E9BD4' };
+    const grades = G.map(([id,k,t,u]) => ({ k, title: t, pick: () => this.setState({ grade: id }),
+      ul: u ? 'underline' : 'none',
+      bg: s.grade === id ? gradeCol[id] : '#1A212A', fg: s.grade === id ? '#0E1116' : '#E6EDF3', bc: s.grade === id ? gradeCol[id] : '#374250' }));
+    const gLabel = (G.find(g => g[0] === s.grade) || G[1])[1];
+    const comment = gLabel + '  ' + s.devs.join('  ') + (s.wire !== '—' ? '  #' + s.wire : '');
+    return {
+      rows, hornet, positions, faults, wires, grades, comment,
+      clear: () => this.setState({ devs: [], wire: '—' }),
+      toggleAc: () => this.setState({ ac: !s.ac }), acPressed: s.ac ? 'true' : 'false',
+      acDisp: s.ac ? 'inline' : 'none', tglBg: s.ac ? '#B8CC5C' : '#374250', tglX: s.ac ? '14px' : '2px'
+    };
+  }
+}
+</script>
+</body>
+</html>

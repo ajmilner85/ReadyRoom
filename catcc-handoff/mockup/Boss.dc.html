@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>PriFly Air Boss</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1116}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.deck text{font-family:'IBM Plex Mono',monospace;font-size:4.6px;fill:#E6EDF3}
+.deck .sm{font-size:3.8px;fill:#93A1B0;letter-spacing:.3px}
+.deck .id{font-size:4.4px;font-weight:600}
+.chip{font-family:'IBM Plex Mono',monospace;font-size:11.5px;padding:4px 9px;border-radius:4px;border:1px solid #374250}
+.ev{display:grid;grid-template-columns:52px 64px 64px 1fr;gap:6px;align-items:center;padding:8px 10px;border-radius:5px;font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+@keyframes pulse{0%,100%{opacity:.9}50%{opacity:.25}}
+.live{animation:pulse 1.4s ease-in-out infinite}
+</style>
+</helmet>
+<div style="min-height: 100vh; display: flex; flex-direction: column; background: #0E1116; color: #E6EDF3; font-family: 'Saira', system-ui, sans-serif">
+
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #262F3A; background: #151A21">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 28px; height: 28px; border-radius: 5px; background: #F15822; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 18h16M7 18l3-10h4l3 10"></path></svg>
+      </div>
+      <div style="font-weight: 700; font-size: 18px; letter-spacing: .08em">PRIFLY</div>
+    </div>
+    <nav aria-label="Module" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="Main.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">Radar</a>
+      <a href="LSO.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">PriFly · LSO</a>
+      <a href="Boss.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 13px; font-weight: 600">PriFly · Boss</a>
+    </nav>
+    <div style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px" aria-label="Deck view mode">
+      <sc-for list="{{modes}}" as="m" hint-placeholder-count="2">
+        <button onClick="{{m.pick}}" style="border: 0; padding: 5px 11px; border-radius: 4px; background: {{m.bg}}; color: {{m.fg}}; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">{{m.label}}</button>
+      </sc-for>
+    </div>
+    <div style="flex: 1"></div>
+    <span class="chip" style="background: rgba(224,82,78,.16); border-color: #E0524E; color: #FF9C98; font-weight: 600">LA FOUL · 216 CLEARING</span>
+    <span class="chip">CAT 1 <span style="color: #7FD397">OPEN</span></span>
+    <span class="chip">CAT 2 <span style="color: #E7B04F">414 SPOTTED · JBD UP</span></span>
+    <span class="chip" style="color: #93A1B0">CAT 3/4 · IN LA</span>
+    <div style="text-align: right; font-family: 'IBM Plex Mono', monospace; line-height: 1.15">
+      <div style="font-size: 17px; font-weight: 600">18:13:20L</div>
+      <div style="font-size: 11px; color: #93A1B0">CVN-73 · EVENT 3 RECOVERY</div>
+    </div>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; gap: 14px; padding: 14px; box-sizing: border-box">
+
+    <section aria-label="Flight deck" style="flex: 999 1 720px; min-width: 0; display: flex; flex-direction: column; gap: 10px">
+      <div style="display: flex; align-items: center; gap: 10px; flex-wrap: wrap">
+        <span class="lbl">Flight deck · {{modeLabel}}</span>
+        <div style="flex: 1"></div>
+        <button style="height: 34px; padding: 0 12px; background: rgba(241,88,34,.16); border: 1px solid #F15822; border-radius: 5px; color: #FFB08F; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">Draw path</button>
+        <button style="height: 34px; padding: 0 12px; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">Set destination</button>
+        <button style="height: 34px; padding: 0 12px; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">Hold</button>
+        <button style="height: 34px; padding: 0 12px; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">Clear paths</button>
+      </div>
+
+      <div style="flex: 1; background: #0B0E12; border: 1px solid #262F3A; border-radius: 10px; padding: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; min-height: 420px">
+        <svg class="deck" viewBox="-84 -50 354 102" style="width: 100%; height: auto; max-height: 600px" role="img" aria-label="Nimitz-class flight deck to scale, bow to the right, with aircraft positions and taxi paths">
+          <!-- deck -->
+          <polygon points="{{g.outline}}" fill="#2A3038" stroke="#6E7A88" stroke-width="0.6" stroke-linejoin="round"></polygon>
+          <!-- elevators -->
+          <path d="{{g.elev}}" fill="#222830" stroke="#7C858E" stroke-width="0.4"></path>
+          <!-- round-down + landing area -->
+          <polygon points="{{g.rd}}" fill="#D4DAE0"></polygon>
+          <path d="{{g.edgeIn}}" stroke="#D4DAE0" stroke-width="1.1" fill="none"></path>
+          <path d="{{g.edgeOut}}" stroke="#D4DAE0" stroke-width="0.5" fill="none"></path>
+          <path d="{{g.bars}}" stroke="#D4DAE0" stroke-width="3" fill="none"></path>
+          <path d="{{g.cl}}" stroke="#D4DAE0" stroke-width="0.9" fill="none"></path>
+          <path d="{{g.cl}}" stroke="#D9A93A" stroke-width="0.9" fill="none" stroke-dasharray="13 13"></path>
+          <path d="{{g.wires}}" stroke="#9AA4AE" stroke-width="0.6" fill="none"></path>
+          <!-- catapults + JBDs -->
+          <path d="{{g.rails}}" stroke="#8A949E" stroke-width="0.35" fill="none"></path>
+          <path d="{{g.shuttles}}" stroke="#D9A93A" stroke-width="1.8" fill="none"></path>
+          <path d="{{g.jbd}}" fill="#3C434C" stroke="#D9A93A" stroke-width="0.4"></path>
+          <path d="{{g.jbdUp}}" fill="rgba(222,154,31,.35)" stroke="#E7B04F" stroke-width="0.6"></path>
+          <!-- island -->
+          <rect x="{{g.isl.x}}" y="{{g.isl.y}}" width="{{g.isl.w}}" height="{{g.isl.h}}" rx="0.8" fill="#5E6A78" stroke="#8A929A" stroke-width="0.4"></rect>
+          <text x="{{g.isl.cx}}" y="{{g.isl.cy}}" text-anchor="middle" class="sm" style="fill:#E6EDF3">ISLAND</text>
+
+          <!-- labels -->
+          <g class="sm">
+            <text x="{{g.c1l.x}}" y="{{g.c1l.y}}">CAT 1</text>
+            <text x="{{g.c2l.x}}" y="{{g.c2l.y}}">CAT 2</text>
+            <text x="{{g.c3l.x}}" y="{{g.c3l.y}}">CAT 3</text>
+            <text x="{{g.c4l.x}}" y="{{g.c4l.y}}">CAT 4</text>
+            <text x="-12" y="46">EL 3</text>
+            <text x="62" y="44">EL 2</text>
+            <text x="108" y="44">EL 1</text>
+            <text x="-18" y="-41.5">EL 4</text>
+            <text x="-68" y="-2" transform="rotate(-90 -68 -2)">ROUND-DOWN</text>
+            <text x="200" y="-1">BOW</text>
+            <text x="82" y="6">STREET</text>
+            <text x="-30" y="-14" transform="rotate(-9 -30 -14)">LANDING AREA</text>
+          </g>
+
+          <!-- taxi paths -->
+          <g display="{{pathDisp}}">
+            <path d="M35 -12.4 C55 -6 62 1 80 1.5 L130 0 C150 -1 172 -4 222 -11" fill="none" stroke="#F15822" stroke-width="1.4" stroke-dasharray="4 3"></path>
+            <circle cx="222" cy="-11" r="5.5" fill="none" stroke="#F15822" stroke-width="0.8"></circle>
+            <text x="228" y="-17" class="id" style="fill:#FFB08F">216 → BOW SPOT 4</text>
+            <path d="M62 14 C78 12 88 7 98 3 C112 -1 128 10 140 13.4" fill="none" stroke="#5FC37A" stroke-width="1.4" stroke-dasharray="4 3"></path>
+            <circle cx="95" cy="3.5" r="8" fill="rgba(224,82,78,.18)" stroke="#E0524E" stroke-width="0.8"></circle>
+            <text x="84" y="-7.5" class="id" style="fill:#FF9C98">CROSSING · HOLD 416</text>
+          </g>
+
+          <!-- aircraft (true scale) -->
+          <path d="{{jets.gray}}" fill="#6E7A88"></path>
+          <path d="{{jets.white}}" fill="#C9D3DD"></path>
+          <path d="{{jets.green}}" fill="#5FC37A"></path>
+          <path d="{{jets.sel}}" fill="#F15822"></path>
+          <g display="{{liveDisp}}" fill="none" stroke-width="0.6">
+            <circle cx="35" cy="-12.4" r="10" stroke="#F15822" class="live"></circle>
+            <circle cx="62" cy="14" r="10" stroke="#5FC37A" class="live"></circle>
+          </g>
+          <g class="id">
+            <text x="28" y="-22" style="fill:#FFB08F">216</text>
+            <text x="54" y="25.5" style="fill:#7FD397">416</text>
+            <text x="139" y="-0.5" style="fill:#7FD397">414</text>
+            <text x="180" y="-26" style="fill:#C9D3DD">207</text>
+            <text x="194" y="-24" style="fill:#C9D3DD">210</text>
+            <text x="208" y="-22" style="fill:#C9D3DD">214</text>
+            <text x="-60" y="30" style="fill:#93A1B0">201 · 202 · 213</text>
+          </g>
+
+          <!-- scale + orientation -->
+          <g>
+            <line x1="200" y1="44" x2="250" y2="44" stroke="#93A1B0" stroke-width="0.5"></line>
+            <line x1="200" y1="42.5" x2="200" y2="45.5" stroke="#93A1B0" stroke-width="0.5"></line>
+            <line x1="250" y1="42.5" x2="250" y2="45.5" stroke="#93A1B0" stroke-width="0.5"></line>
+            <text x="225" y="49" text-anchor="middle" class="sm">50 M</text>
+            <text x="262" y="-44" text-anchor="end" class="sm">BOW →  PORT ↑</text>
+          </g>
+        </svg>
+
+        <sc-if value="{{isSand}}" hint-placeholder-val="{{false}}">
+          <div style="width: 100%; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 10px 12px; border: 1px dashed #374250; border-radius: 8px; background: #12161C">
+            <span class="lbl">Chit tray</span>
+            <span class="mono" style="font-size: 12px; padding: 5px 9px; border-radius: 4px; background: #222C37">F/A-18E ×4</span>
+            <span class="mono" style="font-size: 12px; padding: 5px 9px; border-radius: 4px; background: #222C37">F/A-18F ×2</span>
+            <span class="mono" style="font-size: 12px; padding: 5px 9px; border-radius: 4px; background: #222C37">E-2D</span>
+            <span class="mono" style="font-size: 12px; padding: 5px 9px; border-radius: 4px; background: #222C37">MH-60</span>
+          </div>
+        </sc-if>
+      </div>
+      <div class="mono" style="font-size: 11.5px; color: #93A1B0; display: flex; gap: 18px; flex-wrap: wrap">
+        <span><span style="color: #F15822">■</span> selected / taxiing</span>
+        <span><span style="color: #5FC37A">■</span> launch queue</span>
+        <span><span style="color: #C9D3DD">■</span> recovered</span>
+        <span><span style="color: #6E7A88">■</span> parked / down</span>
+      </div>
+    </section>
+
+    <aside aria-label="Events" style="flex: 1 1 380px; max-width: 440px; display: flex; flex-direction: column; gap: 12px">
+      <section style="border: 1px solid #262F3A; border-radius: 8px; background: #151A21; padding: 12px">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+          <span class="lbl">Air plan · 6 Nov</span>
+          <a href="#" style="font-family: 'IBM Plex Mono', monospace; font-size: 11px; text-decoration: none">Open in Mission Prep ↗</a>
+        </div>
+        <div class="ev" style="color: #93A1B0; font-size: 10.5px; letter-spacing: .08em"><span>EVENT</span><span>LAUNCH</span><span>RECOVER</span><span>FLIGHTS</span></div>
+        <sc-for list="{{events}}" as="e" hint-placeholder-count="5">
+          <div class="ev" style="background: {{e.bg}}; border: 1px solid {{e.bc}}; color: {{e.fg}}; margin-top: 4px">
+            <span style="font-weight: 600">{{e.n}}</span><span>{{e.l}}</span><span>{{e.r}}</span><span>{{e.f}}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <section style="border: 1px solid #262F3A; border-radius: 8px; background: #151A21; padding: 12px">
+        <div class="lbl" style="margin-bottom: 8px">Current cycle</div>
+        <div style="display: flex; gap: 14px; align-items: baseline; margin-bottom: 8px">
+          <div style="font-size: 26px; font-weight: 700">4 / 9</div>
+          <div class="mono" style="font-size: 12px; color: #93A1B0">aboard · Event 3 recovery</div>
+        </div>
+        <div style="height: 8px; border-radius: 4px; background: #222C37; overflow: hidden; margin-bottom: 10px"><div style="width: 44%; height: 100%; background: #F15822"></div></div>
+        <div class="mono" style="font-size: 12.5px; display: grid; grid-template-columns: 1fr auto; row-gap: 5px">
+          <span style="color: #93A1B0">Ready deck needed by</span><span>18:40</span>
+          <span style="color: #93A1B0">Event 4 spotted</span><span style="color: #E7B04F">5 of 8</span>
+          <span style="color: #93A1B0">Recovery tanker</span><span>115 · GIVE 6.0</span>
+          <span style="color: #93A1B0">Bingo field</span><span>OKAS 182/146</span>
+          <span style="color: #93A1B0">Plane guard</span><span>610 · STBD D</span>
+        </div>
+      </section>
+
+      <section style="border: 1px solid #262F3A; border-radius: 8px; background: #151A21; padding: 12px">
+        <div class="lbl" style="margin-bottom: 8px">Deck log</div>
+        <div class="mono" style="font-size: 12px; display: flex; flex-direction: column; gap: 4px; color: #C9D3DD">
+          <span><span style="color: #93A1B0">18:13:02</span>  216 trap · #1 wire · —</span>
+          <span><span style="color: #93A1B0">18:11:40</span>  211 bolter → downwind</span>
+          <span><span style="color: #93A1B0">18:10:18</span>  214 trap · #3 wire · OK</span>
+          <span><span style="color: #93A1B0">18:09:01</span>  412 launch · Cat 1</span>
+        </div>
+      </section>
+    </aside>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  constructor(p){ super(p); this.state = { mode: 'live' }; }
+  geo() {
+    if (this._geo) return this._geo;
+    // Nimitz flight deck in metres, from the squadron's blueprint-traced 3D model. X = forward, Y = port. Origin = 3-wire touchdown point.
+    const G = {"outline":[[260.82,-6.51],[257.91,-3.92],[257.55,6.09],[259.0,7.94],[256.09,10.91],[189.27,20.17],[186.36,21.28],[185.64,20.91],[183.82,22.77],[182.37,23.14],[178.37,26.1],[178.37,31.29],[176.2,33.51],[168.57,33.88],[158.04,41.67],[120.99,42.04],[100.65,37.59],[1.51,38.7],[0.42,39.81],[-25.0,40.18],[-26.09,39.07],[-27.55,39.07],[-30.09,36.48],[-35.54,21.65],[-70.4,18.32],[-72.94,15.35],[-74.76,7.57],[-71.85,-19.85],[-69.68,-22.08],[-59.87,-21.34],[-52.24,-27.26],[-32.27,-29.49],[-31.18,-32.45],[-29.0,-34.68],[-24.64,-35.05],[-22.46,-33.19],[-19.92,-35.79],[11.68,-35.42],[50.17,-35.79],[55.26,-36.53],[79.59,-36.9],[80.32,-36.16],[103.2,-36.9],[146.78,-36.9],[185.64,-18.0],[242.66,-13.55],[246.65,-13.92],[255.73,-12.07],[260.82,-6.51]],
+      "LA":{"c":[[-73.451,-4.767],[170.093,33.806]],"pi":[[-74.317,3.398],[159.677,40.459]],"po":[[-74.655,6.584],[147.532,41.775]],"si":[[-72.584,-12.932],[178.37,26.815]],"so":[[-72.246,-16.119],[181.181,24.02]]},
+      "wires":[[[-18.793,-12.816],[-23.956,19.777]],[[-6.774,-10.913],[-11.936,21.681]],[[4.643,-9.104],[-0.519,23.489]],[[16.612,-7.209],[11.45,25.385]]],
+      "cats":{"1":[[142.074,-13.438],[249.92,-7.18]],"2":[[138.396,6.273],[249.92,8.88]],"3":[[45.153,20.475],[157.67,29.25]],"4":[[27.6,32.269],[141.69,31.7]]},
+      "island":[[19.478,-24.159],[46.599,-35.603]],
+      "elev":[[[-26.09,36.48],[-25.73,23.51],[-24.28,22.02],[-2.49,21.65],[-1.03,23.14],[-1.4,27.21],[1.14,33.51],[1.14,36.11],[-0.31,37.59],[-24.64,37.96]],[[54.17,-19.85],[54.53,-32.82],[55.98,-34.31],[78.14,-34.68],[79.59,-33.19],[77.05,-26.52],[77.05,-20.59],[75.6,-19.11],[55.62,-18.37]],[[100.29,-20.22],[100.65,-32.82],[102.11,-34.31],[123.53,-34.68],[124.99,-33.19],[124.99,-30.97],[121.72,-25.04],[121.72,-20.22],[120.27,-18.74],[101.74,-18.74]],[[-19.92,-20.59],[-20.28,-31.34],[-18.47,-33.56],[3.69,-33.19],[5.14,-31.71],[2.23,-23.93],[2.23,-20.59],[0.78,-19.11],[-18.47,-19.11]]],
+      "bars":{"p":[-56.78,-33.952,-11.123,11.705,34.534,57.363,80.191,103.02,125.848,148.677],"s":[-56.78,-33.952,-11.123,11.705,34.534,57.363,80.191,103.02,125.848,148.677,171.506],"in":8.2,"out":11.4},
+      "rd":[[-72.246,-16.119],[-74.655,6.584],[-71.655,7.059],[-69.246,-15.644]],
+      "jbd":{"1":[[126.7,-14.33],3.321],"2":[[123.0,5.913],1.339],"3":[[29.8,19.278],4.459],"4":[[12.2,32.346],-0.286]}};
+    const f = n => (Math.round(n * 100) / 100).toString();
+    const P = p => f(p[0]) + ',' + f(-p[1]);
+    const seg = (a, b) => 'M' + P(a) + 'L' + P(b);
+    const ring = q => 'M' + q.map(P).join('L') + 'Z';
+    const TY = 6.866, r9 = 9 * Math.PI / 180, LU = [Math.cos(r9), Math.sin(r9)], LN = [-LU[1], LU[0]];
+    const laP = (s, o) => [LU[0] * s + LN[0] * o, TY + LU[1] * s + LN[1] * o];
+    const B = G.bars;
+    const bars = B.p.map(s => seg(laP(s, B.in), laP(s, B.out))).concat(B.s.map(s => seg(laP(s, -B.in), laP(s, -B.out)))).join('');
+    let rails = '', shuttles = '';
+    Object.values(G.cats).forEach(([a, b]) => {
+      const L = Math.hypot(b[0] - a[0], b[1] - a[1]), u = [(b[0] - a[0]) / L, (b[1] - a[1]) / L], n = [-u[1] * 0.7, u[0] * 0.7];
+      rails += seg([a[0] + n[0], a[1] + n[1]], [b[0] + n[0], b[1] + n[1]]) + seg([a[0] - n[0], a[1] - n[1]], [b[0] - n[0], b[1] - n[1]]);
+      shuttles += seg(a, [a[0] + u[0] * 2, a[1] + u[1] * 2]);
+    });
+    const jbdPoly = ([c, ang]) => { const r = ang * Math.PI / 180, fw = [Math.cos(r), Math.sin(r)], pp = [-fw[1], fw[0]], W = 4.85, D = 1.6;
+      const q = (i, j) => [c[0] + fw[0] * D * i + pp[0] * W * j, c[1] + fw[1] * D * i + pp[1] * W * j];
+      return ring([q(-1, -1), q(1, -1), q(1, 1), q(-1, 1)]); };
+    const J = G.jbd;
+    const [i0, i1] = G.island;
+    const catLbl = (k, dx, dy) => { const b = G.cats[k][1]; return { x: f(b[0] + dx), y: f(-b[1] + dy) }; };
+    this._geo = {
+      outline: G.outline.map(P).join(' '),
+      rd: G.rd.map(P).join(' '),
+      elev: G.elev.map(ring).join(''),
+      edgeIn: seg(G.LA.pi[0], G.LA.pi[1]) + seg(G.LA.si[0], G.LA.si[1]),
+      edgeOut: seg(G.LA.po[0], G.LA.po[1]) + seg(G.LA.so[0], G.LA.so[1]),
+      cl: seg(G.LA.c[0], G.LA.c[1]),
+      bars, rails, shuttles,
+      wires: G.wires.map(w => seg(w[0], w[1])).join(''),
+      jbd: [J['1'], J['3'], J['4']].map(jbdPoly).join(''),
+      jbdUp: jbdPoly(J['2']),
+      isl: { x: f(i0[0]), y: f(-i0[1]), w: f(i1[0] - i0[0]), h: f(i0[1] - i1[1]), cx: f((i0[0] + i1[0]) / 2), cy: f(-(i0[1] + i1[1]) / 2 + 1.3) },
+      c1l: catLbl('1', 1.5, 5.5), c2l: catLbl('2', -10, -3), c3l: catLbl('3', -14, -3), c4l: catLbl('4', -14, -3)
+    };
+    return this._geo;
+  }
+  jets() {
+    if (this._jets) return this._jets;
+    // F/A-18C planform from the squadron tactics-animation model (fuselage length = 1, nose at +0.5),
+    // scaled to 17.07 m. Folded: outer wing panels cut at the fold line (8.4 m folded span).
+    const mir = p => p.concat(p.slice().reverse().map(q => [-q[0], q[1]]));
+    const ST = [[0.5,0.001],[0.485,0.008],[0.46,0.015],[0.43,0.021],[0.40,0.025],[0.36,0.027],[0.30,0.03],[0.22,0.038],[0.12,0.046],[0,0.054],[-0.12,0.068],[-0.22,0.082],[-0.30,0.084],[-0.38,0.078],[-0.44,0.066],[-0.48,0.056]];
+    const W0 = [[0.027,0.30],[0.036,0.277],[0.043,0.255],[0.048,0.23],[0.052,0.2],[0.057,0.165],[0.063,0.13],[0.069,0.1],[0.074,0.07],[0.079,0.04],[0.082,0.015],[0.084,-0.02]];
+    const WS = W0.concat([[0.352,-0.143],[0.352,-0.255],[0.086,-0.262],[0.07,-0.265]]);
+    const WF = W0.concat([[0.245,-0.094],[0.245,-0.258],[0.086,-0.262],[0.07,-0.265]]);
+    const STAB = [[0.05,-0.31],[0.198,-0.462],[0.206,-0.476],[0.207,-0.5],[0.2,-0.522],[0.19,-0.527],[0.058,-0.476]];
+    const area = q => q.reduce((a, p, i) => { const n = q[(i + 1) % q.length]; return a + p[0] * n[1] - n[0] * p[1]; }, 0);
+    const norm = q => area(q) < 0 ? q.slice().reverse() : q;
+    const fus = mir(ST.map(s => [s[1], s[0]]));
+    const spread = [fus, mir(WS), mir(STAB)].map(norm), folded = [fus, mir(WF), mir(STAB)].map(norm);
+    const L = 17.07, f = n => (Math.round(n * 100) / 100).toString();
+    const shape = (polys, x, y, a) => {
+      const r = a * Math.PI / 180, c = Math.cos(r), s = Math.sin(r);
+      return polys.map(q => 'M' + q.map(p => { const fx = p[1] * L, py = p[0] * L; return f(x + c * fx - s * py) + ',' + f(-(y + s * fx + c * py)); }).join('L') + 'Z').join('');
+    };
+    this._jets = {
+      sel: shape(spread, 35, 12.4, 9),                                     // 216, rolling out of the landing area
+      green: shape(spread, 62, -14, 8) + shape(spread, 146.5, 6.46, 1.34), // 416 taxiing, 414 spotted on cat 2
+      white: shape(folded, 184, 18.5, 205) + shape(folded, 198, 16.5, 205) + shape(folded, 212, 14.5, 205),
+      gray: shape(folded, -52, -16.5, 70) + shape(folded, -40, -18.5, 70) + shape(folded, -28, -20.5, 70)
+    };
+    return this._jets;
+  }
+  renderVals() {
+    const m = this.state.mode;
+    const modes = [['live','Live positions'],['sand','Sand table']].map(([k,l]) => ({ label: l, pick: () => this.setState({ mode: k }),
+      bg: m === k ? '#222C37' : 'transparent', fg: m === k ? '#E6EDF3' : '#93A1B0' }));
+    const ev = [
+      { n:'1', l:'14:30', r:'16:00', f:'CHARGER 1, 2 · TEXACO', s:'done' },
+      { n:'2', l:'15:45', r:'17:15', f:'CHARGER 3 · SLUGGER 1', s:'done' },
+      { n:'3', l:'17:00', r:'18:05', f:'CHARGER 4, 5 · NIGHT TRANS', s:'now' },
+      { n:'4', l:'18:40', r:'20:10', f:'SLUGGER 2, 3 · DCA', s:'next' },
+      { n:'5', l:'19:55', r:'21:25', f:'CHARGER 6 · TEXACO', s:'later' }
+    ];
+    const events = ev.map(e => Object.assign({}, e, {
+      bg: e.s === 'now' ? 'rgba(241,88,34,.14)' : (e.s === 'next' ? '#1A212A' : 'transparent'),
+      bc: e.s === 'now' ? '#F15822' : '#262F3A',
+      fg: e.s === 'done' ? '#93A1B0' : '#E6EDF3'
+    }));
+    return {
+      modes, events, g: this.geo(), jets: this.jets(),
+      isSand: m === 'sand', liveDisp: m === 'live' ? 'inline' : 'none',
+      modeLabel: m === 'live' ? 'live from DCS' : 'sand table (manual chits)', pathDisp: 'inline'
+    };
+  }
+}
+</script>
+</body>
+</html>
