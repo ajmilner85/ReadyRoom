@@ -152,10 +152,21 @@ app.use('/api', eventsRoutes);
 })();
 
 // Start server - listen on 0.0.0.0 for Fly.io
-app.listen(PORT, '0.0.0.0', () => {
+const httpServer = app.listen(PORT, '0.0.0.0', () => {
   console.log(`ReadyRoom Combined Server running on 0.0.0.0:${PORT}`);
   console.log('Server ready to accept connections from Fly.io proxy');
 
   // Start the processor orchestrator (handles all background jobs)
   startProcessorOrchestrator();
 });
+
+// CATCC room service (WebSocket at /catcc/ws). Off unless CATCC_ENABLED=true.
+// Built from catcc-server/ by `npm run catcc:bundle`; see catcc-handoff/DECISIONS.md.
+// A failure here is logged and never takes down the rest of the server.
+if (process.env.CATCC_ENABLED === 'true') {
+  try {
+    require('./catcc/room.cjs').attachCatccRoom(httpServer);
+  } catch (err) {
+    console.error('[CATCC] failed to start room service:', err);
+  }
+}

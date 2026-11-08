@@ -56,6 +56,39 @@ The capture tool (`Desktop/LSO-Diagnostic`) shares `LSOFRAME` as a D3D11 shared 
 1. **Other controllers monitoring the PLAT** (useful, but not on the critical path). The LSO station hardware-encodes the texture (NVENC/AMF/QSV via Media Foundation, zero-copy from D3D11) and publishes it to the room. Viewers receive it over WebRTC, which keeps latency under a second. Controllers then don't need DCS running to watch.
 2. **A squadron-wide PLAT stream on a ReadyRoom page.** One publisher per boat pushes RTMP. **Don't relay it through Fly:** 1080p30 at about 4 Mbps is ~1.8 GB per viewer-hour. Push to an unlisted YouTube or Twitch stream, or to Cloudflare Stream, and embed that player in ReadyRoom. Expect 3–10 s of latency, which is fine for spectators.
 
+## Own export hook (2026-11-08)
+
+The user chose to build our own hook rather than reuse Olympus. It reuses LotATC's port 10310 (already open on Fox3; nobody uses LotATC), so the server admin doesn't need to open anything. Install steps are in `catcc-dcs/INSTALL.md`.
+
+- **Design:** a GameGUI hook (`Scripts/Hooks/CATCC-hook.lua` loads `Scripts/CATCC/catcc.lua`) runs a non-blocking LuaSocket server and polls the mission environment once per second.
+  - The poll runs `net.dostring_in('server', ...)` calling `CATCC_sample()`, which `sampler.lua` installs and reinstalls after a mission restart.
+  - Protocol v1 is newline-delimited JSON. The client sends `AUTH <token>`; the token lives in `Config/CATCC.lua`, and the hook fails closed without it.
+- **What it adds over Tacview:**
+  - fuel (`getFuel()`);
+  - true velocity (groundspeed, course and vertical speed come from DCS, not from position differences);
+  - true-north heading, with the grid convergence correction;
+  - unit/player/group identity, and the coalition as data;
+  - deck, 2,000 ft and 10,000 ft winds plus sea-level temperature and pressure at each carrier;
+  - mission date, local time and theatre.
+- **Tacview stays configured** as a fallback source and for development.
+- **Fuel in lb:** the internal capacities in `src/catcc/core/dcs/aircraft.ts` are taken from `M_fuel_max` in the local DCS install. For example, the Hornet is 4,900 kg.
+- **Time:** DCS mission time is map-local. `THEATRE_UTC_OFFSET_H` converts it to UTC. The offsets are from memory, **so verify them per map** (especially Normandy/Channel and Sinai).
+- **Testing:** `catcc-dcs/test` runs the real hook under fengari (Lua 5.3) with mocked DCS, LuaSocket and a mission environment on a grid rotated 3° from true north. DCS itself is Lua 5.1: the hook avoids 5.2+ features, and the harness shims `math.atan2`.
+- **Not verified live yet:**
+  - which `net.dostring_in` state reaches the scripting environment on Fox3 (`server` expected);
+  - `getFuel()` for player aircraft;
+  - CPU cost per sample with about 100 units.
+
+## Room service (2026-11-08)
+
+- **Hosting:** it runs inside SDOBot for now, at `/catcc/ws` on the existing Fly app, off unless `CATCC_ENABLED=true`, because the user is watching the billing threshold. `catcc-server/room/main.ts` is the standalone server for when it moves to its own app.
+  - SDOBot loads a CommonJS bundle (`SDOBot/catcc/room.cjs`, built by `npm run catcc:bundle`). SDOBot's dependencies and its Node 20 image stay unchanged.
+  - A room failure is caught and logged; it never takes SDOBot down.
+- **Auth:** the first WebSocket message must carry the ReadyRoom Supabase access token. It is verified with `/auth/v1/user` using the service key; the display name and board number come from `user_profiles` → `pilots`. Any signed-in user can view and claim seats for now. **TODO:** add a `manage_catcc`/`operate_catcc` permission before Phase 2 commands.
+- **Frames:** a complete picture at 1 Hz, as compact `WireTrack`s, with permessage-deflate. Clients keep their own trails. That's about 11 KB per frame uncompressed for 43 tracks.
+- **Seats:** `(carrier hull, role)` with the roles departure, marshal, approach, final, boss, lso, and mission_commander (carrier `*`). One user can hold several. A seat survives a disconnect for 60 s, marked `away`.
+- **Dev:** `npm run catcc:room -- --acmi <recording> [--speed 1] [--from 2300]` serves a recording through an in-process fake hook with synthetic fuel, no auth.
+
 ## Code layout (Phase 1 start)
 
 ```

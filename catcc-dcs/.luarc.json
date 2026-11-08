@@ -1,0 +1,8 @@
+{
+  "runtime.version": "Lua 5.1",
+  "diagnostics.globals": [
+    "DCS", "net", "log", "lfs", "coalition", "Group", "Unit", "coord", "atmosphere", "timer", "env", "land", "trigger",
+    "CATCC_sample", "HOOK_SRC", "SAMPLER_SRC"
+  ],
+  "diagnostics.disable": ["deprecated"]
+}

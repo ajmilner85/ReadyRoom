@@ -1,4 +1,5 @@
 import type { AcmiEvent } from '../acmi/parser.ts';
+import type { CarrierWx } from '../dcs/hookProtocol.ts';
 import { AcmiState, type AcmiObject } from '../acmi/state.ts';
 import { bearingDeg, distanceNm, M_PER_FT, MS_PER_KT } from '../geo.ts';
 import { CARRIER_HULLS, parsePilot } from './naming.ts';
@@ -43,6 +44,16 @@ export interface Track {
   iasKt?: number;
   /** sim seconds of the latest position */
   updatedAt: number;
+  /** --- fields only the DCS export hook provides --- */
+  unitName?: string;
+  isPlayer?: boolean;
+  /** fraction of internal fuel (>1 with external tanks) */
+  fuelFrac?: number;
+  /** pounds, when the type's internal capacity is known */
+  fuelLb?: number;
+  inAir?: boolean;
+  /** carriers: winds and sea-level conditions */
+  wx?: CarrierWx;
   /** recent positions, oldest first; spans HISTORY_S */
   history: TrackSample[];
 }
