@@ -480,6 +480,17 @@ export const DisplaySettings: React.FC<{ ui: UiScale; conflict: ConflictCfg; onA
       </select>
     </div>
   );
+  const tog = (label: string, hint: string, on: boolean, set: (b: boolean) => void, disabled = false) => (
+    <div style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) 120px', gap: 14, alignItems: 'center', padding: '8px 0', opacity: disabled ? 0.45 : 1 }}>
+      <div>
+        <div style={{ fontSize: 13.5, fontWeight: 600 }}>{label}</div>
+        <div className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{hint}</div>
+      </div>
+      <button role="switch" aria-checked={on} aria-label={label} disabled={disabled} onClick={() => set(!on)} style={{ justifySelf: 'end', width: 40, height: 22, borderRadius: 11, border: `1px solid ${on ? '#F15822' : '#374250'}`, background: on ? 'rgba(241,88,34,.3)' : '#0E1116', position: 'relative', cursor: disabled ? 'default' : 'pointer', padding: 0 }}>
+        <span style={{ position: 'absolute', top: 2, left: on ? 20 : 2, width: 16, height: 16, borderRadius: '50%', background: on ? '#F15822' : '#5E6A78', transition: 'left .12s' }} />
+      </button>
+    </div>
+  );
   const RP = 860 / 97;
   const x = (k: keyof UiScale) => (k === 'l' ? LW_STEPS : UI_STEPS)[d[k] - 1];
   const row = (k: keyof UiScale, label: string, preview: React.ReactNode) => (
@@ -556,6 +567,9 @@ export const DisplaySettings: React.FC<{ ui: UiScale; conflict: ConflictCfg; onA
           <div className="lbl" style={{ margin: '12px 0 2px' }}>Conflict alerts</div>
           {sel('Look-ahead', 'Alert when both standards are lost within this time', cf.lookAheadS, [60, 90, 120, 180, 240], (n) => `${n} s`, (n) => setCf({ ...cf, lookAheadS: n }))}
           {sel('Vertical prediction', 'Climb/descent extrapolated this long, then level', cf.vertCapS, [0, 15, 30, 60, 120], (n) => (n ? `${n} s` : 'Off'), (n) => setCf({ ...cf, vertCapS: n }))}
+          <div className="lbl" style={{ margin: '12px 0 2px' }}>Radar</div>
+          {tog('Realistic radar update rate', `Hits repaint only as the AN/SPN-43 sweep passes them (15 RPM, every 4 s)`, cf.sweep, (b) => setCf({ ...cf, sweep: b }))}
+          {tog('Show sweep line', 'Green antenna line on the scope', cf.sweepLine, (b) => setCf({ ...cf, sweepLine: b }), !cf.sweep)}
         </div>
         <div style={{ display: 'flex', gap: 8, padding: '12px 14px' }}>
           <button onClick={() => { setD(UI_DEF); setCf(CONFLICT_DEF); }} style={{ height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>Reset</button>

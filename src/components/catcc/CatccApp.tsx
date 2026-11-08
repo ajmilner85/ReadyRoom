@@ -13,6 +13,7 @@ import { useDeckLog } from './prifly/useDeckLog.ts';
 import { envSummary } from './radar/InfoPanels.tsx';
 import RadarView from './radar/RadarView.tsx';
 import { buildPicture } from './scopeModel.ts';
+import { SCAN_S, useSweep } from './radar/sweep.ts';
 import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
 import './catcc.css';
@@ -51,9 +52,21 @@ const CatccApp: React.FC = () => {
   };
   // aircraft assigned to a marshal level are not predicted to descend below it
   const floors = useMemo(() => new Map(Object.entries(state.assignments).map(([id, a]) => [id, a.angels * 1000])), [state.assignments]);
+  // realistic radar update rate (radar module only): the picture is what the sweep has painted
+  const refId = useMemo(() => {
+    const cvs = state.tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
+    return (cvs.find((c) => c.hull === focusHull) ?? cvs[0])?.id;
+  }, [state.tracks, focusHull]);
+  const sw = useSweep(state.tracks, state.mt, refId, conflict.sweep && mod === 'radar');
   const pic = useMemo(
-    () => buildPicture(state.tracks, focusHull, history, state.mt, { conflictLookAheadS: conflict.lookAheadS, vertCapS: conflict.vertCapS, floors }),
-    [state.tracks, focusHull, history, state.mt, conflict, floors],
+    () =>
+      buildPicture(sw?.tracks ?? state.tracks, focusHull, sw?.hist ?? history, state.mt, {
+        conflictLookAheadS: conflict.lookAheadS,
+        vertCapS: conflict.vertCapS,
+        floors,
+        trailStepS: sw ? SCAN_S : undefined,
+      }),
+    [sw, state.tracks, focusHull, history, state.mt, conflict, floors],
   );
   const hull = pic.focus?.track.hull;
   useEffect(() => {

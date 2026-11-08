@@ -24,8 +24,12 @@ export const UI_DEF: UiScale = { h: 2, t: 2, l: 2, o: 2 };
 export interface ConflictCfg {
   lookAheadS: number;
   vertCapS: number;
+  /** realistic radar update rate: hits repaint as the SPN-43 sweep passes (radar/sweep.ts) */
+  sweep: boolean;
+  /** draw the sweep line while `sweep` is on */
+  sweepLine: boolean;
 }
-export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30 };
+export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false, sweepLine: true };
 
 export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3']]],

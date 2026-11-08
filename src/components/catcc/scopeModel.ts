@@ -87,7 +87,7 @@ export function buildPicture(
   focusHull: string | undefined,
   history: Map<string, Trail[]>,
   nowT: number,
-  opts: { conflictLookAheadS?: number; vertCapS?: number; floors?: Map<string, number> } = {},
+  opts: { conflictLookAheadS?: number; vertCapS?: number; floors?: Map<string, number>; trailStepS?: number } = {},
 ): Picture {
   const cvs = tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
   const focusTrack = cvs.find((c) => c.hull === focusHull) ?? cvs[0];
@@ -95,7 +95,7 @@ export function buildPicture(
   const proj = aeqd(focusTrack.lat, focusTrack.lon);
   const toScope = (t: WireTrack): ScopeTrack => {
     const p = proj.toScope(t.lat, t.lon);
-    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj), rng: len(p), brg: bearingOf(p) };
+    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, 5, opts.trailStepS), rng: len(p), brg: bearingOf(p) };
   };
   const carriers: Carrier[] = cvs.map((c) => ({ track: toScope(c), ship: shipRefOf(c), focus: c === focusTrack }));
   const air = tracks.filter(isAir).map(toScope);
