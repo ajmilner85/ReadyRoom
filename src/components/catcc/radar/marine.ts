@@ -43,16 +43,38 @@ export function loadMarine(theatre: string): Promise<MarineData | null> {
   return p;
 }
 
-export interface MarinePaths {
-  /** projection origin; the paths are in scope NM about it */
+/** A projected ring or line (scope NM about the origin) with its bounding box. */
+export interface Poly {
+  p: Float64Array;
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/** Marine geometry projected about a fixed origin near the reference carrier. */
+export interface MarineGeom {
   lat: number;
   lon: number;
+  land: Poly[];
+  coast: Poly[];
+  nav: Poly[];
+  navLine: Poly[];
+  terr: Poly[];
+  depth: { d: number; lines: Poly[]; fill: Poly[] }[];
+  labels: MarinePaths['labels'];
+  places: MarinePaths['places'];
+  airports: MarinePaths['airports'];
+}
+
+export interface MarinePaths {
   land: string;
   coast: string;
   nav: string;
   navLine: string;
   terr: string;
-  depth: { d: number; path: string; fill: string }[];
+  /** band: water between the next-shallower level and this one (non-overlapping, even-odd) */
+  depth: { d: number; path: string; band: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
   places: { x: number; y: number; n: string; r: number; island: boolean }[];
   /** rw: runways as [dx1, dy1, dx2, dy2] NM from the airport point; long: longest runway >= 8069 ft */
@@ -60,12 +82,59 @@ export interface MarinePaths {
 }
 
 /**
- * Paths projected about a fixed origin near the reference carrier, re-projected only when the
- * carrier has moved 10 NM from it (the scope translates them in between; the error is negligible).
+ * Level of detail for one snapshot: only rings whose bounds meet the view (a ring entirely outside
+ * can't enclose any point of it, so even-odd fills stay correct), and points closer than `tol` NM
+ * (about half a pixel) to the last kept point are skipped. Rings smaller than that vanish.
  */
-export function useMarine(theatre: string | undefined, lat: number | undefined, lon: number | undefined, on: boolean): MarinePaths | null {
+export function buildPaths(g: MarineGeom, v: { x0: number; y0: number; x1: number; y1: number }, tol: number): MarinePaths {
+  const t2 = tol * tol;
+  const d = (polys: Poly[], close: boolean) => {
+    const out: string[] = [];
+    for (const q of polys) {
+      if (q.x1 < v.x0 || q.x0 > v.x1 || q.y1 < v.y0 || q.y0 > v.y1) continue;
+      if (q.x1 - q.x0 < tol && q.y1 - q.y0 < tol) continue;
+      const p = q.p;
+      const n = p.length;
+      let lx = p[0];
+      let ly = p[1];
+      let s = `M${lx.toFixed(2)} ${ly.toFixed(2)}`;
+      for (let i = 2; i < n; i += 2) {
+        const x = p[i];
+        const y = p[i + 1];
+        const last = i === n - 2;
+        if (!last && (x - lx) * (x - lx) + (y - ly) * (y - ly) < t2) continue;
+        s += `L${x.toFixed(2)} ${y.toFixed(2)}`;
+        lx = x;
+        ly = y;
+      }
+      out.push(close ? `${s}Z` : s);
+    }
+    return out.join('');
+  };
+  // The regions "shallower than d" are nested, so the region shallower than d_k with the region
+  // shallower than d_(k-1) cut out (both ring sets in one even-odd path) is the band between them.
+  // Bands don't overlap: each pixel of water is painted once instead of once per level.
+  const fills = g.depth.map((x) => d(x.fill, true));
+  return {
+    land: d(g.land, true),
+    coast: d(g.coast, false),
+    nav: d(g.nav, true),
+    navLine: d(g.navLine, false),
+    terr: d(g.terr, false),
+    depth: g.depth.map((x, k) => ({ d: x.d, path: d(x.lines, false), band: fills[k] + (k > 0 ? fills[k - 1] : '') })),
+    labels: g.labels,
+    places: g.places,
+    airports: g.airports,
+  };
+}
+
+/**
+ * Geometry projected about a fixed origin near the reference carrier, re-projected only when the
+ * carrier has moved 10 NM from it (the scope translates it in between; the error is negligible).
+ */
+export function useMarine(theatre: string | undefined, lat: number | undefined, lon: number | undefined, on: boolean): MarineGeom | null {
   const [data, setData] = useState<MarineData | null>(null);
-  const [paths, setPaths] = useState<MarinePaths | null>(null);
+  const [geom, setGeom] = useState<MarineGeom | null>(null);
   const origin = useRef<{ lat: number; lon: number } | null>(null);
   useEffect(() => {
     setData(null);
@@ -79,24 +148,31 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
   const stale = !origin.current || lat === undefined || lon === undefined || distanceNm(origin.current.lat, origin.current.lon, lat, lon) > 10;
   useEffect(() => {
     if (!data || lat === undefined || lon === undefined) {
-      setPaths(null);
+      setGeom(null);
       origin.current = null;
       return;
     }
-    if (!stale && paths) return;
+    if (!stale && geom) return;
     origin.current = { lat, lon };
     const pr = aeqd(lat, lon);
-    const d = (rings: number[][], close: boolean) => {
-      let s = '';
-      for (const r of rings) {
+    const polys = (rings: number[][]): Poly[] =>
+      rings.map((r) => {
+        const p = new Float64Array(r.length);
+        let x0 = Infinity;
+        let y0 = Infinity;
+        let x1 = -Infinity;
+        let y1 = -Infinity;
         for (let i = 0; i < r.length; i += 2) {
           const [x, y] = pr.toScope(r[i + 1], r[i]);
-          s += `${i ? 'L' : 'M'}${x.toFixed(2)} ${y.toFixed(2)}`;
+          p[i] = x;
+          p[i + 1] = y;
+          if (x < x0) x0 = x;
+          if (x > x1) x1 = x;
+          if (y < y0) y0 = y;
+          if (y > y1) y1 = y;
         }
-        if (close) s += 'Z';
-      }
-      return s;
-    };
+        return { p, x0, y0, x1, y1 };
+      });
     const labels: MarinePaths['labels'] = [];
     for (const x of data.depth)
       for (const [lo, la, lo2, la2] of x.labels ?? []) {
@@ -107,15 +183,15 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
         if (ang <= -90) ang += 180;
         labels.push({ x: px, y: py, ang, t: String(x.d) });
       }
-    setPaths({
+    setGeom({
       lat,
       lon,
-      land: d(data.land, true),
-      coast: d(data.coast, false),
-      nav: d(data.nav?.fill ?? [], true),
-      navLine: d(data.nav?.lines ?? [], false),
-      terr: d(data.terr ?? [], false),
-      depth: data.depth.map((x) => ({ d: x.d, path: d(x.lines, false), fill: d(x.fill ?? [], true) })),
+      land: polys(data.land),
+      coast: polys(data.coast),
+      nav: polys(data.nav?.fill ?? []),
+      navLine: polys(data.nav?.lines ?? []),
+      terr: polys(data.terr ?? []),
+      depth: data.depth.map((x) => ({ d: x.d, lines: polys(x.lines), fill: polys(x.fill ?? []) })),
       labels,
       places: (data.places ?? []).map((p) => {
         const [x, y] = pr.toScope(p.lat, p.lon);
@@ -135,5 +211,5 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, stale]);
-  return on ? paths : null;
+  return on ? geom : null;
 }

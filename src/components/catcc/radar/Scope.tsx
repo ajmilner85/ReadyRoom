@@ -22,7 +22,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
-import { useMarine, type MarinePaths } from './marine.ts';
+import { buildPaths, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
 /** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
@@ -151,8 +151,9 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                 {bathy && (
                   <>
                     {/* water lightens toward the shore: each level fills the region shallower than it */}
-                    {[...marine.depth].reverse().map((x) => (
-                      <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.032" fillRule="evenodd" stroke="none" />
+                    {marine.depth.map((x, i) => (
+                      // the same look as stacking one 3.2 % layer per level: band i sits under (n - i) layers
+                      <path key={`f${x.d}`} d={x.band} fill="#5B93C4" fillOpacity={(1 - Math.pow(1 - 0.032, marine.depth.length - i)).toFixed(4)} fillRule="evenodd" stroke="none" />
                     ))}
                     {/* not navigable by a CVN: faint tint plus a screen-constant diagonal hatch */}
                     <defs>
@@ -1254,10 +1255,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const trailPx = (0.32 * KX * zkH).toFixed(2);
   const vb = `${f2(vx)} ${f2(vy)} ${f2(VW)} ${f2(VH)}`;
   // marine layer snapshot (see MarineLayer): view top-left in the layer's origin frame
-  const MO = 0.35;
+  const MO = 0.2;
   const oM = marine && pic.proj ? pic.proj.toScope(marine.lat, marine.lon) : null;
   const curM = oM ? { x: vx - oM[0], y: vy - oM[1] } : null;
-  const [mSnap, setMSnap] = useState<{ x: number; y: number; w: number; h: number; m: MarinePaths; kx: number; k: number } | null>(null);
+  const [mSnap, setMSnap] = useState<{ x: number; y: number; w: number; h: number; m: MarineGeom; kx: number; k: number } | null>(null);
   const offOf = (sn: { x: number; y: number } | null) => (sn && curM ? [(sn.x - curM.x) * KX, (sn.y - curM.y) * KX] : [0, 0]);
   const zooming = performance.now() - zoomedAt.current < 250;
   const scaleChanged = !!mSnap && (Math.abs(mSnap.w - VW) > 1e-9 || Math.abs(mSnap.h - VH) > 1e-9);
@@ -1266,7 +1267,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     !!marine &&
     (!mSnap ||
       mSnap.m !== marine ||
-      (scaleChanged && (!zooming || mSnap.w / VW > 2.5 || mSnap.w / VW < 0.4)) ||
+      (scaleChanged && (!zooming || mSnap.w / VW > 4 || mSnap.w / VW < 0.25)) ||
       (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * box.w * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * box.h * 0.8)));
   // the snapshot also freezes the scale-dependent props, so the memoised layer does not re-render mid-zoom
   const snap = stale && curM && marine ? { x: curM.x, y: curM.y, w: VW, h: VH, m: marine, kx: KX, k: zkO } : mSnap;
@@ -1275,6 +1276,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   });
   // Map the snapshot onto the current view: scale by snap.w / VW about the layer's top-left corner,
   // then translate so the snapshot's view corner lands where it belongs on screen.
+  // level-of-detail paths for this snapshot (only rebuilt when the snapshot changes)
+  const mPaths = useMemo(
+    () => (snap ? buildPaths(snap.m, { x0: snap.x - MO * snap.w, y0: snap.y - MO * snap.h, x1: snap.x + (1 + MO) * snap.w, y1: snap.y + (1 + MO) * snap.h }, 0.5 / snap.kx) : null),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [snap?.m, snap?.x, snap?.y, snap?.w, snap?.h, snap?.kx],
+  );
   const mScale = snap ? snap.w / VW : 1;
   const mT = snap && curM ? [(snap.x - curM.x - MO * snap.w) * KX + MO * box.w, (snap.y - curM.y - MO * snap.h) * KX + MO * box.h] : [0, 0];
   const svgStyle = (lw: number, extra: React.CSSProperties = {}) =>
@@ -1287,10 +1294,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           const c = toPx([0, 0]);
           return <SweepLine x={c[0]} y={c[1]} w={sL} />;
         })()}
-        {marine && snap && snap.m === marine && (
+        {marine && snap && snap.m === marine && mPaths && (
           <div style={{ position: 'absolute', left: -MO * box.w, top: -MO * box.h, width: (1 + 2 * MO) * box.w, height: (1 + 2 * MO) * box.h, transformOrigin: '0 0', transform: `translate(${mT[0].toFixed(1)}px, ${mT[1].toFixed(1)}px) scale(${mScale.toFixed(5)})`, willChange: 'transform', pointerEvents: 'none' }}>
             <MarineLayer
-              marine={marine}
+              marine={mPaths}
               vb={`${(snap.x - MO * snap.w).toFixed(4)} ${(snap.y - MO * snap.h).toFixed(4)} ${((1 + 2 * MO) * snap.w).toFixed(4)} ${((1 + 2 * MO) * snap.h).toFixed(4)}`}
               bathy={!!ov.bathy}
               coast={!!ov.coast}
