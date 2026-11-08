@@ -31,6 +31,23 @@ function yOf(s: number): number {
   return k[k.length - 1][1];
 }
 
+/** Pattern-view x for a lateral offset to port (NM): final at 110, a ~1.2 NM downwind at the drawn leg (20). */
+const X_PER_NM = 75;
+const xOf = (l: number): number => Math.max(6, Math.min(168, 110 - l * X_PER_NM));
+
+/**
+ * Screen rotation (deg, clockwise from up) of an aircraft at distance s astern flying heading hdg,
+ * in the pattern view's stretched axes: up = toward the ship along the final bearing, left = port.
+ */
+function screenHeading(s: number, hdg: number, fb: number): number {
+  const d = ((hdg - fb) * Math.PI) / 180;
+  const dyds = (yOf(s + 0.05) - yOf(s - 0.05)) / 0.1; // px per NM astern, local
+  // ds/dt = -cos d (toward the ship), dl/dt = -sin d (right of the final course is starboard)
+  const dx = X_PER_NM * Math.sin(d);
+  const dy = -dyds * Math.cos(d);
+  return (Math.atan2(dx, -dy) * 180) / Math.PI;
+}
+
 export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<string, Assignment>; offH?: number }> = ({ pic, mt, assignments, offH }) => {
   const [ac, setAc] = useState(true);
   const [grade, setGrade] = useState('OK2');
@@ -138,15 +155,16 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
               {ac && (
                 <g fontFamily="IBM Plex Mono, monospace" fontSize="11" fill="#B8CC5C">
                   {pattern.map(({ t, s, l }) => {
+                    // representative, not symbolic: true lateral offset and the real heading
                     const hdg = t.crs ?? t.hdg ?? fb;
-                    const upwind = Math.abs(((hdg - fb + 540) % 360) - 180) < 90;
-                    const x = l > 0.7 ? 20 : 110;
+                    const x = xOf(l);
                     const y = yOf(s);
+                    const rot = screenHeading(s, hdg, fb);
                     return (
                       <g key={t.id}>
-                        <path d={HORNET} fill="#B8CC5C" transform={`translate(${x} ${y.toFixed(1)})${upwind ? '' : ' rotate(180)'}`} />
-                        <text x={x + (x === 20 ? 14 : 12)} y={y + (upwind ? 8 : -4)}>{t.bd ?? ''}</text>
-                        <text x={x + (x === 20 ? 14 : 12)} y={y + (upwind ? 21 : 9)}>{t.lb !== undefined ? fuelK(t.lb) : ''}</text>
+                        <path d={HORNET} fill="#B8CC5C" transform={`translate(${x.toFixed(1)} ${y.toFixed(1)}) rotate(${rot.toFixed(1)})`} />
+                        <text x={x + 13} y={y - 1}>{t.bd ?? ''}</text>
+                        <text x={x + 13} y={y + 12}>{t.lb !== undefined ? fuelK(t.lb) : ''}</text>
                       </g>
                     );
                   })}
