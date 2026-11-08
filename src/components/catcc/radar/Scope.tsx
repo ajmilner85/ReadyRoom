@@ -1130,9 +1130,18 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                                 <g key={`a${i}`} className="zs" transform={zs([x, y], k)} stroke={c} fill="none">
                                   {a.rw.length ? (
                                     <>
-                                      {!a.long && <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />}
+                                      {/* Jeppesen-style: every element carries a 1 px black outline (drawn first, 2 px wider) */}
+                                      {!a.long && (
+                                        <>
+                                          <circle cx={f2(x)} cy={f2(y)} r={R} stroke="#000" style={{ strokeWidth: 'calc(1.1px * var(--lw, 1) + 2px)' }} />
+                                          <circle cx={f2(x)} cy={f2(y)} r={R} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
+                                        </>
+                                      )}
                                       {a.rw.map(([x1, y1, x2, y2], j) => (
-                                        <line key={j} x1={f2(x + x1 * m)} y1={f2(y + y1 * m)} x2={f2(x + x2 * m)} y2={f2(y + y2 * m)} strokeLinecap="butt" style={{ strokeWidth: 'calc(3px * var(--lw, 1))' }} />
+                                        <line key={`o${j}`} x1={f2(x + x1 * m)} y1={f2(y + y1 * m)} x2={f2(x + x2 * m)} y2={f2(y + y2 * m)} stroke="#000" strokeLinecap="square" style={{ strokeWidth: 'calc(3px * var(--lw, 1) + 2px)' }} />
+                                      ))}
+                                      {a.rw.map(([x1, y1, x2, y2], j) => (
+                                        <line key={j} x1={f2(x + x1 * m)} y1={f2(y + y1 * m)} x2={f2(x + x2 * m)} y2={f2(y + y2 * m)} strokeLinecap="square" style={{ strokeWidth: 'calc(3px * var(--lw, 1))' }} />
                                       ))}
                                     </>
                                   ) : (
