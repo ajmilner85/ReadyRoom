@@ -1,0 +1,20 @@
+{
+  // Type-check only: Node 23.6+ runs these .ts files directly (type stripping), so imports
+  // must use .ts extensions, type-only imports must say `type`, and no enums/namespaces.
+  "compilerOptions": {
+    "target": "ES2023",
+    "lib": ["ES2023", "DOM"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "allowImportingTsExtensions": true,
+    "verbatimModuleSyntax": true,
+    "noEmit": true,
+    "strict": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "skipLibCheck": true,
+    "types": ["node"]
+  },
+  "include": ["./**/*.ts", "../src/catcc/core/**/*.ts"],
+  "exclude": ["../src/catcc/core/**/*.test.ts"]
+}
