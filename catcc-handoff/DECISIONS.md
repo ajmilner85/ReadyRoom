@@ -128,11 +128,18 @@ The user chose to build our own hook rather than reuse Olympus. It reuses LotATC
   - seat pills with claim and release, VIEW ONLY, feed status, LOCAL/ZULU clocks, and an open-another-window button.
 - **Verified in a browser:** against your Week 5 host recording through the fake hook (Playwright, 1700×950). Hook, assign, vector, claim and release all work. **Visual QA of styling is still yours.**
 - **Not done yet:**
-  - **Radials, stacks and assignments are local to each browser.** The handoff wants them in the room; this is next.
   - Display-settings dialog: the scale multipliers exist but are fixed at the defaults.
   - Layers panel; tag auto-placement; formation wheel-cycling; BRA ruler and CPA probe tools; Light/Case curve; frequencies popover; Reference popup; PriFly screens; Comms scripts.
   - Strip drag between phases.
   - A `manage_catcc` permission.
+
+## Shared room state (2026-11-08)
+
+- **What's shared:** radials plans (departure radials and stacks, per carrier hull) and marshal assignments now live in the room. They are validated by `cleanPlan`/`cleanAssignment` and broadcast to every subscriber.
+- **Edit rights:** anyone signed in can edit until someone holds a seat on that carrier (or MC); from then on, only seat holders can. A seat in its disconnect grace still counts, so a reconnecting controller isn't locked out.
+- **Cleanup:** an assignment is dropped when its aircraft leaves the picture.
+- **Default stack:** until a carrier's plan is first edited, clients draw the CV-1 default stack locally. The first edit sends the full plan.
+- **Persistence:** room state is in memory. It's lost on a room restart, and SDOBot deploys restart it. Persisting plans to Supabase per mission is backlog.
 
 ## Code layout (Phase 1 start)
 

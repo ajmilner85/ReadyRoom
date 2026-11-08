@@ -8,8 +8,8 @@ import { CARRIER_HULLS } from '../../catcc/core/tracks/naming.ts';
 import { checkDepartureRadial, checkStackRadial } from '../../catcc/core/geometry/procedures.ts';
 import { angDiff, type Pt } from '../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../catcc/core/geo.ts';
-import { SEAT_ROLES, type SeatKey, type SeatRole } from '../../catcc/core/room/protocol.ts';
-import Scope, { type Assignment, type Fit, type Stack } from './Scope';
+import { SEAT_ROLES, type Assignment, type CarrierPlan, type SeatKey, type SeatRole } from '../../catcc/core/room/protocol.ts';
+import Scope, { type Fit } from './Scope';
 import { buildPicture, defaultStack, fuelK, PHASE_LABEL, PHASE_ORDER, phaseOf, type Formation, type Phase, type Picture } from './scopeModel';
 import { useCatccRoom } from './useCatccRoom';
 import './catcc.css';
@@ -27,11 +27,6 @@ const ROLE_LABEL: Record<SeatRole, string> = {
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const hhmm = (d: Date) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}:${String(d.getUTCSeconds()).padStart(2, '0')}`;
 const LOW_STATE_LB = 4000;
-
-interface CarrierPlan {
-  deps: number[];
-  stacks: Stack[];
-}
 
 // ---------------------------------------------------------------- strips (D02.1 via FlightCard)
 
@@ -99,10 +94,8 @@ function notesOf(pic: Picture): Note[] {
 
 const CatccApp: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
-  const { state, history, selectSource, claim, release, clearError } = useCatccRoom(params.get('src') ?? undefined);
+  const { state, history, selectSource, claim, release, setPlan: sendPlan, assign, clearError } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
-  const [plans, setPlans] = useState<Record<string, CarrierPlan>>({});
-  const [assignments, setAssignments] = useState<Map<string, Assignment>>(new Map());
   const [hookedId, setHookedId] = useState<string | null>(null);
   const [fit, setFit] = useState<Fit>('r50');
   const [goTo, setGoTo] = useState<{ p: Pt; nonce: number } | undefined>();
@@ -123,14 +116,14 @@ const CatccApp: React.FC = () => {
   useEffect(() => {
     if (!focusHull && hull) setFocusHull(hull);
   }, [focusHull, hull]);
-  useEffect(() => {
-    if (hull && ship && !plans[hull]) setPlans((p) => ({ ...p, [hull]: { deps: [], stacks: [defaultStack(ship)] } }));
-  }, [hull, ship, plans]);
-
-  const plan = (hull && plans[hull]) || { deps: [], stacks: [] };
-  const setPlan = (fn: (p: CarrierPlan) => CarrierPlan) => hull && setPlans((all) => ({ ...all, [hull]: fn(all[hull] ?? { deps: [], stacks: [] }) }));
-
-  const onAssign = useCallback((id: string, a: Assignment) => setAssignments((m) => new Map(m).set(id, a)), []);
+  // Plans and assignments are room state. Until someone edits a carrier's plan, show the CV-1
+  // default stack locally; the first edit sends the whole plan.
+  const plan: CarrierPlan = (hull && state.plans[hull]) || { deps: [], stacks: ship ? [defaultStack(ship)] : [] };
+  const setPlan = (fn: (p: CarrierPlan) => CarrierPlan) => {
+    if (hull) sendPlan(hull, fn(plan));
+  };
+  const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
+  const onAssign = useCallback((id: string, a: Assignment) => assign(id, a), [assign]);
   const marshalled = useMemo(() => new Set(assignments.keys()), [assignments]);
 
   const strips = useMemo(() => {
@@ -352,7 +345,7 @@ const CatccApp: React.FC = () => {
                         <span>{a.angels + 15} DME</span>
                         <span>EAT {hhmm(new Date(a.eatS * 1000)).slice(0, 5)}</span>
                         <span>{t?.bd ?? t?.cs ?? t?.pi ?? id}</span>
-                        <button className="cc-iconbtn" title="Clear" onClick={() => setAssignments((m) => { const n = new Map(m); n.delete(id); return n; })}>
+                        <button className="cc-iconbtn" title="Clear" onClick={() => assign(id, null)}>
                           <Icon name="close" size={11} />
                         </button>
                       </div>

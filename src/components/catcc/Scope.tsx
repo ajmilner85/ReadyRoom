@@ -12,25 +12,12 @@ import {
 } from '../../catcc/core/geometry/procedures.ts';
 import { add, bearingOf, dir, len, mul, P, rot, sub, type Pt } from '../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../catcc/core/geo.ts';
+import type { Assignment, StackDef as Stack } from '../../catcc/core/room/protocol.ts';
 import { DEFAULT_SCALE, tagRows, velocityEnd, type Carrier, type Picture, type ScopeScale, type ScopeTrack } from './scopeModel.ts';
 
 // ---------------------------------------------------------------- types
 
-export interface Stack {
-  id: string;
-  r: number;
-  base: number;
-  /** right-hand pattern (emergency) */
-  rh?: boolean;
-}
-
-export interface Assignment {
-  stackId: string;
-  angels: number;
-  /** EAT and fix time, seconds of the UTC day */
-  eatS: number;
-  fixS: number;
-}
+export type { StackDef as Stack, Assignment } from '../../catcc/core/room/protocol.ts';
 
 export type Fit = 'r50' | 'cca' | 'dep' | 'app' | null;
 
@@ -272,7 +259,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (dg?.moved) return;
     // background click
     if (tool?.kind === 'marshal' && hooked) {
-      onAssign(hooked.id, { stackId: tool.st.id, angels: tool.angels, eatS: tool.eatS, fixS: tool.fixS });
+      onAssign(hooked.id, { stackId: tool.st.id, angels: tool.angels, eatS: tool.eatS, fixS: tool.fixS, carrier: focus?.track.hull });
       onHook(null);
     } else if (hooked) onHook(null);
   };

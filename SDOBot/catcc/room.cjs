@@ -4015,6 +4015,28 @@ function toWire(t) {
   };
 }
 var seatId = (s) => `${s.carrier}:${s.role}`;
+function cleanPlan(p) {
+  if (!p || typeof p !== "object") return null;
+  const { deps, stacks } = p;
+  if (!Array.isArray(deps) || !Array.isArray(stacks) || deps.length > 8 || stacks.length > 8) return null;
+  const okAngle = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n < 360;
+  if (!deps.every(okAngle)) return null;
+  const out = [];
+  for (const s of stacks) {
+    if (!s || typeof s.id !== "string" || !/^[A-Z0-9]{1,2}$/.test(s.id) || !okAngle(s.r)) return null;
+    if (typeof s.base !== "number" || !Number.isInteger(s.base) || s.base < 1 || s.base > 30) return null;
+    out.push({ id: s.id, r: s.r, base: s.base, ...s.rh ? { rh: true } : {} });
+  }
+  return { deps: [...deps], stacks: out };
+}
+function cleanAssignment(a) {
+  if (!a || typeof a !== "object") return null;
+  const x = a;
+  const fin = (n) => typeof n === "number" && Number.isFinite(n);
+  if (typeof x.stackId !== "string" || x.stackId.length > 2 || !fin(x.angels) || !fin(x.eatS) || !fin(x.fixS)) return null;
+  if (x.carrier !== void 0 && (typeof x.carrier !== "string" || x.carrier.length > 16)) return null;
+  return { stackId: x.stackId, angels: x.angels, eatS: x.eatS, fixS: x.fixS, carrier: x.carrier };
+}
 
 // src/catcc/core/acmi/state.ts
 var T_FIELDS = {
@@ -4410,6 +4432,8 @@ ${this.opts.clientName}
 var Source = class {
   status;
   seats = /* @__PURE__ */ new Map();
+  plans = {};
+  assignments = {};
   subscribers = /* @__PURE__ */ new Set();
   seq = 0;
   stopFn;
@@ -4490,9 +4514,37 @@ var Source = class {
     this.lastFrame = JSON.stringify(msg);
     this.status.lastFrameAt = Date.now();
     for (const c of this.subscribers) send(c, this.lastFrame);
+    const live = new Set(msg.tracks.map((t) => t.id));
+    let dropped = false;
+    for (const id of Object.keys(this.assignments)) {
+      if (!live.has(id)) {
+        delete this.assignments[id];
+        dropped = true;
+      }
+    }
+    if (dropped) this.broadcastAssignments();
   }
   seatsMsg() {
     return JSON.stringify({ t: "seats", src: this.cfg.id, seats: [...this.seats.values()] });
+  }
+  plansMsg() {
+    return JSON.stringify({ t: "plans", src: this.cfg.id, plans: this.plans });
+  }
+  assignmentsMsg() {
+    return JSON.stringify({ t: "assignments", src: this.cfg.id, assignments: this.assignments });
+  }
+  broadcastPlans() {
+    const m = this.plansMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+  broadcastAssignments() {
+    const m = this.assignmentsMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+  /** Open to all until someone holds a seat on this carrier (or MC); then seat holders only. */
+  mayEdit(userId, carrier) {
+    const relevant = [...this.seats.values()].filter((s) => s.carrier === carrier || s.carrier === "*");
+    return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
   broadcastSeats() {
     const m = this.seatsMsg();
@@ -4626,7 +4678,32 @@ var RoomService = class {
         c.subs.add(src.cfg.id);
         src.subscribers.add(c);
         send(c, src.seatsMsg());
+        send(c, src.plansMsg());
+        send(c, src.assignmentsMsg());
         if (src.lastFrame) send(c, src.lastFrame);
+        return;
+      }
+      case "plan": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        const plan = cleanPlan(msg.plan);
+        if (!plan || typeof msg.carrier !== "string" || msg.carrier.length > 16) return send(c, { t: "error", error: "invalid plan" });
+        if (!src.mayEdit(c.user.userId, msg.carrier)) return send(c, { t: "error", error: `claim a ${msg.carrier} seat to edit its radials` });
+        src.plans[msg.carrier] = plan;
+        src.broadcastPlans();
+        return;
+      }
+      case "assign": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        if (typeof msg.trackId !== "string" || msg.trackId.length > 32) return send(c, { t: "error", error: "invalid track" });
+        const a = msg.assignment === null ? null : cleanAssignment(msg.assignment);
+        if (msg.assignment !== null && !a) return send(c, { t: "error", error: "invalid assignment" });
+        const carrier = a?.carrier ?? src.assignments[msg.trackId]?.carrier ?? "*";
+        if (!src.mayEdit(c.user.userId, carrier)) return send(c, { t: "error", error: `claim a ${carrier} seat to assign` });
+        if (a) src.assignments[msg.trackId] = a;
+        else delete src.assignments[msg.trackId];
+        src.broadcastAssignments();
         return;
       }
       case "claim":

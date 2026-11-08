@@ -6,12 +6,17 @@
  *   { t:'subscribe', src }                 receive frames/seats for one source (DCS server)
  *   { t:'claim', src, seat }               claim a seat
  *   { t:'release', src, seat }
+ *   { t:'plan', src, carrier, plan }      replace one carrier's radials/stacks
+ *   { t:'assign', src, trackId, assignment|null }
  *   { t:'ping' }
+ * Plan/assign edits are open to any signed-in user until someone holds a seat on that
+ * carrier (or MC); then only seat holders may edit.
  * Server -> client
  *   { t:'hello', proto, user, sources }    after auth
  *   { t:'status', sources }                whenever a source's connection/mission state changes
  *   { t:'frame', src, seq, mt, utc, theatre, tracks }   ~1 Hz; complete picture each time
  *   { t:'seats', src, seats }
+ *   { t:'plans', src, plans } | { t:'assignments', src, assignments }
  *   { t:'pong' } | { t:'error', error }
  */
 import type { CarrierWx } from '../dcs/hookProtocol.ts';
@@ -84,8 +89,34 @@ export interface WireTrack {
   wx?: CarrierWx;
 }
 
+/** Marshal stack on a radial; base angels; right-hand (emergency) pattern. */
+export interface StackDef {
+  id: string;
+  r: number;
+  base: number;
+  rh?: boolean;
+}
+
+/** Per-carrier radials plan, shared in the room (handoff §2). */
+export interface CarrierPlan {
+  deps: number[];
+  stacks: StackDef[];
+}
+
+/** Marshal assignment for one track. Times are seconds of the UTC day. */
+export interface Assignment {
+  stackId: string;
+  angels: number;
+  eatS: number;
+  fixS: number;
+  /** carrier hull the stack belongs to */
+  carrier?: string;
+}
+
 export type ClientMsg =
   | { t: 'auth'; token: string }
+  | { t: 'plan'; src: string; carrier: string; plan: CarrierPlan }
+  | { t: 'assign'; src: string; trackId: string; assignment: Assignment | null }
   | { t: 'subscribe'; src: string }
   | { t: 'claim'; src: string; seat: SeatKey }
   | { t: 'release'; src: string; seat: SeatKey }
@@ -96,6 +127,8 @@ export type ServerMsg =
   | { t: 'status'; sources: SourceStatus[] }
   | { t: 'frame'; src: string; seq: number; mt: number; utc?: string; theatre?: string; tracks: WireTrack[] }
   | { t: 'seats'; src: string; seats: SeatHolder[] }
+  | { t: 'plans'; src: string; plans: Record<string, CarrierPlan> }
+  | { t: 'assignments'; src: string; assignments: Record<string, Assignment> }
   | { t: 'pong' }
   | { t: 'error'; error: string };
 
@@ -131,3 +164,28 @@ export function toWire(t: Track): WireTrack {
 }
 
 export const seatId = (s: SeatKey): string => `${s.carrier}:${s.role}`;
+
+/** Validate a client-supplied plan (bounds, counts, ids). Returns a clean copy or null. */
+export function cleanPlan(p: unknown): CarrierPlan | null {
+  if (!p || typeof p !== 'object') return null;
+  const { deps, stacks } = p as CarrierPlan;
+  if (!Array.isArray(deps) || !Array.isArray(stacks) || deps.length > 8 || stacks.length > 8) return null;
+  const okAngle = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < 360;
+  if (!deps.every(okAngle)) return null;
+  const out: StackDef[] = [];
+  for (const s of stacks) {
+    if (!s || typeof s.id !== 'string' || !/^[A-Z0-9]{1,2}$/.test(s.id) || !okAngle(s.r)) return null;
+    if (typeof s.base !== 'number' || !Number.isInteger(s.base) || s.base < 1 || s.base > 30) return null;
+    out.push({ id: s.id, r: s.r, base: s.base, ...(s.rh ? { rh: true } : {}) });
+  }
+  return { deps: [...deps], stacks: out };
+}
+
+export function cleanAssignment(a: unknown): Assignment | null {
+  if (!a || typeof a !== 'object') return null;
+  const x = a as Assignment;
+  const fin = (n: unknown) => typeof n === 'number' && Number.isFinite(n);
+  if (typeof x.stackId !== 'string' || x.stackId.length > 2 || !fin(x.angels) || !fin(x.eatS) || !fin(x.fixS)) return null;
+  if (x.carrier !== undefined && (typeof x.carrier !== 'string' || x.carrier.length > 16)) return null;
+  return { stackId: x.stackId, angels: x.angels, eatS: x.eatS, fixS: x.fixS, carrier: x.carrier };
+}

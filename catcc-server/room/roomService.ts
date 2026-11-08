@@ -6,8 +6,12 @@ import { HookTrackStore } from '../../src/catcc/core/dcs/hookTrackStore.ts';
 import {
   ROOM_PROTO,
   SEAT_ROLES,
+  cleanAssignment,
+  cleanPlan,
   seatId,
   toWire,
+  type Assignment,
+  type CarrierPlan,
   type ClientMsg,
   type RoomUser,
   type SeatHolder,
@@ -43,6 +47,8 @@ interface Conn {
 class Source {
   readonly status: SourceStatus;
   readonly seats = new Map<string, SeatHolder>();
+  readonly plans: Record<string, CarrierPlan> = {};
+  readonly assignments: Record<string, Assignment> = {};
   readonly subscribers = new Set<Conn>();
   private seq = 0;
   private stopFn?: () => void;
@@ -127,10 +133,44 @@ class Source {
     this.lastFrame = JSON.stringify(msg);
     this.status.lastFrameAt = Date.now();
     for (const c of this.subscribers) send(c, this.lastFrame);
+    // assignments for aircraft that have left the picture are dropped
+    const live = new Set(msg.tracks.map((t) => t.id));
+    let dropped = false;
+    for (const id of Object.keys(this.assignments)) {
+      if (!live.has(id)) {
+        delete this.assignments[id];
+        dropped = true;
+      }
+    }
+    if (dropped) this.broadcastAssignments();
   }
 
   seatsMsg(): string {
     return JSON.stringify({ t: 'seats', src: this.cfg.id, seats: [...this.seats.values()] } satisfies ServerMsg);
+  }
+
+  plansMsg(): string {
+    return JSON.stringify({ t: 'plans', src: this.cfg.id, plans: this.plans } satisfies ServerMsg);
+  }
+
+  assignmentsMsg(): string {
+    return JSON.stringify({ t: 'assignments', src: this.cfg.id, assignments: this.assignments } satisfies ServerMsg);
+  }
+
+  broadcastPlans(): void {
+    const m = this.plansMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+
+  broadcastAssignments(): void {
+    const m = this.assignmentsMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+
+  /** Open to all until someone holds a seat on this carrier (or MC); then seat holders only. */
+  mayEdit(userId: string, carrier: string): boolean {
+    const relevant = [...this.seats.values()].filter((s) => s.carrier === carrier || s.carrier === '*');
+    return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
 
   broadcastSeats(): void {
@@ -279,7 +319,32 @@ export class RoomService {
         c.subs.add(src.cfg.id);
         src.subscribers.add(c);
         send(c, src.seatsMsg());
+        send(c, src.plansMsg());
+        send(c, src.assignmentsMsg());
         if (src.lastFrame) send(c, src.lastFrame);
+        return;
+      }
+      case 'plan': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        const plan = cleanPlan(msg.plan);
+        if (!plan || typeof msg.carrier !== 'string' || msg.carrier.length > 16) return send(c, { t: 'error', error: 'invalid plan' });
+        if (!src.mayEdit(c.user.userId, msg.carrier)) return send(c, { t: 'error', error: `claim a ${msg.carrier} seat to edit its radials` });
+        src.plans[msg.carrier] = plan;
+        src.broadcastPlans();
+        return;
+      }
+      case 'assign': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        if (typeof msg.trackId !== 'string' || msg.trackId.length > 32) return send(c, { t: 'error', error: 'invalid track' });
+        const a = msg.assignment === null ? null : cleanAssignment(msg.assignment);
+        if (msg.assignment !== null && !a) return send(c, { t: 'error', error: 'invalid assignment' });
+        const carrier = a?.carrier ?? src.assignments[msg.trackId]?.carrier ?? '*';
+        if (!src.mayEdit(c.user.userId, carrier)) return send(c, { t: 'error', error: `claim a ${carrier} seat to assign` });
+        if (a) src.assignments[msg.trackId] = a;
+        else delete src.assignments[msg.trackId];
+        src.broadcastAssignments();
         return;
       }
       case 'claim':

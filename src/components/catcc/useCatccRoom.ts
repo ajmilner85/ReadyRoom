@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import type { RoomUser, SeatHolder, SeatKey, ServerMsg, SourceStatus, WireTrack } from '../../catcc/core/room/protocol.ts';
+import type { Assignment, CarrierPlan, RoomUser, SeatHolder, SeatKey, ServerMsg, SourceStatus, WireTrack } from '../../catcc/core/room/protocol.ts';
 import type { Trail } from './scopeModel.ts';
 
 /**
@@ -24,6 +24,8 @@ export interface RoomState {
   sources: SourceStatus[];
   src?: string;
   seats: SeatHolder[];
+  plans: Record<string, CarrierPlan>;
+  assignments: Record<string, Assignment>;
   tracks: WireTrack[];
   /** model time (s) and UTC of the latest frame */
   mt: number;
@@ -36,7 +38,7 @@ export interface RoomState {
 const HISTORY_S = 40;
 
 export function useCatccRoom(preferredSrc?: string) {
-  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], tracks: [], mt: 0 });
+  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, tracks: [], mt: 0 });
   const history = useRef(new Map<string, Trail[]>());
   const wsRef = useRef<WebSocket | null>(null);
   const srcRef = useRef<string | undefined>(preferredSrc);
@@ -86,6 +88,12 @@ export function useCatccRoom(preferredSrc?: string) {
             break;
           case 'seats':
             if (m.src === srcRef.current) setState((s) => ({ ...s, seats: m.seats }));
+            break;
+          case 'plans':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, plans: m.plans }));
+            break;
+          case 'assignments':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, assignments: m.assignments }));
             break;
           case 'frame': {
             if (m.src !== srcRef.current) break;
@@ -141,14 +149,19 @@ export function useCatccRoom(preferredSrc?: string) {
     (src: string) => {
       srcRef.current = src;
       history.current.clear();
-      setState((s) => ({ ...s, src, tracks: [], seats: [] }));
+      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {} }));
       send({ t: 'subscribe', src });
     },
     [send],
   );
   const claim = useCallback((seat: SeatKey) => send({ t: 'claim', src: srcRef.current, seat }), [send]);
   const release = useCallback((seat: SeatKey) => send({ t: 'release', src: srcRef.current, seat }), [send]);
+  const setPlan = useCallback((carrier: string, plan: CarrierPlan) => send({ t: 'plan', src: srcRef.current, carrier, plan }), [send]);
+  const assign = useCallback(
+    (trackId: string, assignment: Assignment | null) => send({ t: 'assign', src: srcRef.current, trackId, assignment }),
+    [send],
+  );
   const clearError = useCallback(() => setState((s) => ({ ...s, error: undefined })), []);
 
-  return { state, history: history.current, selectSource, claim, release, clearError };
+  return { state, history: history.current, selectSource, claim, release, setPlan, assign, clearError };
 }

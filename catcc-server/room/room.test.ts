@@ -136,4 +136,40 @@ describe('room service with fake DCS hook', () => {
     await b.waitFor('seats', (s) => s.seats.length === 0, 2000); // grace (300 ms) expires
     b.ws.close();
   });
+
+  it('shares plans and assignments, locks edits to seat holders, drops stale assignments', async () => {
+    const a = new Client(url);
+    const b = new Client(url);
+    await Promise.all([a.open(), b.open()]);
+    a.send({ t: 'auth', token: 'alpha2' });
+    b.send({ t: 'auth', token: 'bravo2' });
+    await Promise.all([a.waitFor('hello'), b.waitFor('hello')]);
+    a.send({ t: 'subscribe', src: 'fox3' });
+    b.send({ t: 'subscribe', src: 'fox3' });
+    const frame = await b.waitFor('frame', (f) => f.tracks.length === 2);
+    const jetId = frame.tracks.find((x) => x.k === 'fixedwing')!.id;
+
+    // the previous test's seat is in its disconnect grace; wait for it to expire
+    await a.waitFor('seats', (s) => s.seats.length === 0, 3000);
+    // open edit while nobody holds a CVN-72 seat
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { deps: [285], stacks: [{ id: 'A', r: 156, base: 6 }] } });
+    await b.waitFor('plans', (m) => m.plans['CVN-72']?.deps[0] === 285);
+
+    // invalid plans are refused
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { deps: [400], stacks: [] } });
+    expect((await a.waitFor('error', (e) => e.error === 'invalid plan')).error).toBe('invalid plan');
+
+    // once bravo holds a CVN-72 seat, alpha can no longer edit; bravo can
+    b.send({ t: 'claim', src: 'fox3', seat: { carrier: 'CVN-72', role: 'marshal' } });
+    await a.waitFor('seats', (s) => s.seats.some((x) => x.name === 'bravo2'));
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { deps: [], stacks: [] } });
+    expect((await a.waitFor('error', (e) => /claim a CVN-72 seat/.test(e.error))).error).toMatch(/seat/);
+    b.send({ t: 'assign', src: 'fox3', trackId: jetId, assignment: { stackId: 'A', angels: 7, eatS: 60_000, fixS: 59_950, carrier: 'CVN-72' } });
+    b.send({ t: 'assign', src: 'fox3', trackId: 'u99999', assignment: { stackId: 'A', angels: 8, eatS: 60_060, fixS: 60_000, carrier: 'CVN-72' } });
+    await a.waitFor('assignments', (m) => m.assignments[jetId]?.angels === 7);
+    // the unknown track's assignment is dropped on the next frame
+    await a.waitFor('assignments', (m) => !!m.assignments[jetId] && !m.assignments['u99999']);
+    a.ws.close();
+    b.ws.close();
+  });
 });
