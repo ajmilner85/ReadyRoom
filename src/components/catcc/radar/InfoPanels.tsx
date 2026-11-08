@@ -68,7 +68,7 @@ export const InfoPanels: React.FC<{ focus?: Carrier; env?: HookEnv; utc?: Date; 
             </span>
           )}
         </div>
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 8 }}>
+        <div className="stat3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 8 }}>
           <div><div className="lbl">BRC</div><div className="mono" style={{ fontSize: 20, fontWeight: 600 }}>{r3(focus.ship.brc)}</div></div>
           <div><div className="lbl">FB</div><div className="mono" style={{ fontSize: 20, fontWeight: 600 }}>{r3(focus.ship.fb)}</div></div>
           <div><div className="lbl">Speed</div><div className="mono" style={{ fontSize: 20, fontWeight: 600 }}>{Math.round(t.gs ?? 0)}<span style={{ fontSize: 11, color: '#93A1B0' }}> KT</span></div></div>
@@ -83,7 +83,7 @@ export const InfoPanels: React.FC<{ focus?: Carrier; env?: HookEnv; utc?: Date; 
       </section>
 
       <section className="pnl" aria-label="Weather">
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 8 }}>
+        <div className="stat3" style={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: 8, marginBottom: 8 }}>
           <div>
             <div className="lbl">Visibility</div>
             <div className="mono" style={{ fontSize: 20, fontWeight: 600, lineHeight: 1.15 }}>{vis != null ? (vis >= 10 ? '10+' : vis.toFixed(vis < 3 ? 1 : 0)) : '—'}</div>

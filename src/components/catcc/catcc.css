@@ -72,3 +72,6 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 .cc-tab:hover { background: #1A212A; }
 
 @keyframes catcc-sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+/* info panel headline figures: left, centre, right */
+.stat3 > :nth-child(2) { text-align: center; }
+.stat3 > :nth-child(3) { text-align: right; }
