@@ -153,7 +153,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const status = (() => {
     const { placing, hov } = placement;
     if (!placing) return { text: '', color: '#93A1B0' };
-    if (hov == null) return { text: 'Click scope to place', color: '#93A1B0' };
+    if (hov == null) return { text: 'Click scope to place · Ctrl for 1°', color: '#93A1B0' };
     const c = checkRadial(hov);
     return { text: `${r3(hov)}R${c.err ? ` · ${c.err}` : c.warn ? ` · ${c.warn}` : ''}`, color: c.err ? '#FF8A85' : c.warn ? '#E7B04F' : '#7FD397' };
   })();

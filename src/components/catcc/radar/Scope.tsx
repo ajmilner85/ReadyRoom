@@ -293,7 +293,31 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const v = q.matrixTransform(m.inverse());
     return [v.x, v.y];
   };
-  const bearingAt = (q: Pt | null) => (q && Math.hypot(q[0], q[1]) >= 3 ? ((Math.round(bearingOf(q) / 5) * 5) % 360 + 360) % 360 : null);
+  /** Placement bearing: 5° steps, or 1° while Ctrl is held (fine tuning). */
+  const bearingAt = (q: Pt | null, fine = false) => {
+    if (!q || Math.hypot(q[0], q[1]) < 3) return null;
+    const step = fine ? 1 : 5;
+    return ((Math.round(bearingOf(q) / step) * step) % 360 + 360) % 360;
+  };
+  // Pressing or releasing Ctrl re-snaps the candidate without moving the mouse.
+  const placeRef = useRef({ placing: placement.placing, hov: placement.hov, cur, onPlaceHover: props.onPlaceHover });
+  placeRef.current = { placing: placement.placing, hov: placement.hov, cur, onPlaceHover: props.onPlaceHover };
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Control') return;
+      const L = placeRef.current;
+      if (!L.placing || !L.cur) return;
+      const b = bearingAt(L.cur, e.type === 'keydown');
+      if (b !== L.hov) L.onPlaceHover(b);
+    };
+    window.addEventListener('keydown', onKey);
+    window.addEventListener('keyup', onKey);
+    return () => {
+      window.removeEventListener('keydown', onKey);
+      window.removeEventListener('keyup', onKey);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const latest = useRef({ VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy });
   latest.current = { VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy };
@@ -382,7 +406,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const q = svgPoint(e);
     if (!q) return;
     if (placement.placing) {
-      const b = bearingAt(q);
+      const b = bearingAt(q, e.ctrlKey);
       if (b != null && !props.checkRadial(b).err) props.onPlaceClick(b);
       return;
     }
@@ -419,7 +443,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (!q) return;
     setCur(q);
     if (placement.placing) {
-      const b = bearingAt(q);
+      const b = bearingAt(q, e.ctrlKey);
       if (b !== placement.hov) props.onPlaceHover(b);
       return;
     }
