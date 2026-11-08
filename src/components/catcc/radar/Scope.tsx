@@ -26,15 +26,31 @@ import { buildPaths, useMarine, type MarineGeom, type MarinePaths } from './mari
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 
 /** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
-const SweepLine: React.FC<{ x: number; y: number; w: number }> = ({ x, y, w }) => {
+const SweepLine: React.FC<{ x: number; y: number; w: number; len: number }> = ({ x, y, w, len }) => {
   // A CSS animation runs on the compositor, so the sweep keeps turning smoothly while the main
   // thread is busy redrawing the scope (a JS-driven rotation hitched on every heavy render).
   // The negative delay puts it in phase with sweepAngle(), which the hit painter uses.
+  // The animated element IS the line (rotating about its bottom end at the carrier), sized to just
+  // reach the farthest scope corner: Firefox clipped a line hanging outside a zero-size rotating
+  // box to that box's layer bounds, so the sweep split and stuttered there.
   const [delay] = useState(() => -(sweepAngle(performance.now()) / 360) * SCAN_S);
   return (
-    <div aria-hidden="true" style={{ position: 'absolute', left: x, top: y, width: 0, height: 0, pointerEvents: 'none', animation: `catcc-sweep ${SCAN_S}s linear infinite`, animationDelay: `${delay}s`, willChange: 'transform' }}>
-      <div style={{ position: 'absolute', left: -w / 2, bottom: 0, width: w, height: 4000, background: 'rgba(64, 168, 91, .55)' }} />
-    </div>
+    <div
+      aria-hidden="true"
+      style={{
+        position: 'absolute',
+        left: x - w / 2,
+        top: y - len,
+        width: w,
+        height: len,
+        background: 'rgba(64, 168, 91, .55)',
+        transformOrigin: '50% 100%',
+        pointerEvents: 'none',
+        animation: `catcc-sweep ${SCAN_S}s linear infinite`,
+        animationDelay: `${delay}s`,
+        willChange: 'transform',
+      }}
+    />
   );
 };
 import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
@@ -1308,7 +1324,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       <div ref={boxRef} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
         {ov.sweep && pic.focus && (() => {
           const c = toPx([0, 0]);
-          return <SweepLine x={c[0]} y={c[1]} w={sL} />;
+          const len = Math.min(8000, Math.ceil(Math.hypot(Math.max(c[0], box.w - c[0]), Math.max(c[1], box.h - c[1]))) + 4);
+          return <SweepLine x={c[0]} y={c[1]} w={sL} len={len} />;
         })()}
         {marine && snap && snap.m === marine && mPaths && (
           <div style={{ position: 'absolute', left: -MO * box.w, top: -MO * box.h, width: (1 + 2 * MO) * box.w, height: (1 + 2 * MO) * box.h, transformOrigin: '0 0', transform: `translate(${mT[0].toFixed(1)}px, ${mT[1].toFixed(1)}px) scale(${mScale.toFixed(5)})`, willChange: 'transform', pointerEvents: 'none' }}>
