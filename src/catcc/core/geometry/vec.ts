@@ -2,6 +2,9 @@
  * Scope-plane vector helpers. Scope coordinates are nautical miles centred on the focus
  * carrier, +x east, +y SOUTH (SVG convention; north is -y). Bearings are degrees true.
  */
+import { norm360 } from '../geo.ts';
+
+export { norm360 };
 export type Pt = [number, number];
 
 export const D2R = Math.PI / 180;
@@ -24,7 +27,6 @@ export const rot = (q: Pt, b: number): Pt => {
   const s = Math.sin(b * D2R);
   return [q[0] * c - q[1] * s, q[0] * s + q[1] * c];
 };
-export const norm360 = (a: number): number => ((a % 360) + 360) % 360;
 /** Signed difference a-b in (-180, 180]. */
 export const signedDiff = (a: number, b: number): number => ((((a - b) % 360) + 540) % 360) - 180;
 /** Absolute angular difference, 0..180. */
