@@ -216,7 +216,7 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
             </div>
             <div style={{ display: 'flex', flexDirection: 'column', gap: 4 }}>
               {p.coords.map(({ hull, g }) => (
-                <CoordRow key={hull} hull={hull} g={g} readOnly={p.readOnly} placing={placing === 'coord' && editing?.k === 'coord' && editing.hull === hull} onSet={(s) => p.onCoordSet(hull, s)} onPlace={() => p.onCoordPlace(hull)} onCancel={p.onCancel} />
+                <CoordRow key={hull} own={p.hull} hull={hull} g={g} readOnly={p.readOnly} placing={placing === 'coord' && editing?.k === 'coord' && editing.hull === hull} onSet={(s) => p.onCoordSet(hull, s)} onPlace={() => p.onCoordPlace(hull)} onCancel={p.onCancel} />
               ))}
             </div>
           </div>
@@ -228,57 +228,85 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
 
 // ---------------------------------------------------------------- coordination line row
 
-const CoordRow: React.FC<{ hull: string; g: CoordGeom; readOnly: boolean; placing: boolean; onSet: (s: CoordSetting | null) => void; onPlace: () => void; onCancel: () => void }> = ({ hull, g, readOnly, placing, onSet, onPlace, onCancel }) => {
+const CoordRow: React.FC<{ own: string; hull: string; g: CoordGeom; readOnly: boolean; placing: boolean; onSet: (s: CoordSetting | null) => void; onPlace: () => void; onCancel: () => void }> = ({ own, hull, g, readOnly, placing, onSet, onPlace, onCancel }) => {
   const [open, setOpen] = useState(false);
+  const [mode, setMode] = useState<'auto' | 'manual'>('auto');
   const [brg, setBrg] = useState('');
   const [off, setOff] = useState('');
   const start = () => {
+    setMode(g.auto ? 'auto' : 'manual');
     setBrg(String(Math.round(g.brg)).padStart(3, '0'));
     setOff(g.off.toFixed(1));
     setOpen(true);
   };
+  const b = Number(brg);
+  const o = Number(off);
+  const valid = brg !== '' && off !== '' && Number.isFinite(b) && Number.isFinite(o) && b >= 0 && b < 360 && Math.abs(o) <= 100;
   const apply = () => {
-    const b = Number(brg);
-    const o = Number(off);
-    if (Number.isFinite(b) && Number.isFinite(o) && b >= 0 && b < 360 && Math.abs(o) <= 100) {
-      onSet({ brg: b, off: o });
-      setOpen(false);
-    }
+    if (mode === 'auto') onSet(null);
+    else if (valid) onSet({ brg: b, off: o });
+    else return;
+    setOpen(false);
   };
-  const input: React.CSSProperties = { width: 52, height: 22, background: '#0E1116', border: '1px solid #374250', borderRadius: 4, color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, padding: '0 5px' };
-  const btn: React.CSSProperties = { height: 24, padding: '0 8px', border: '1px solid #374250', borderRadius: 4, background: 'transparent', color: '#E6EDF3', cursor: 'pointer', fontFamily: "'Saira', sans-serif", fontSize: 11.5 };
+  const field: React.CSSProperties = { width: 64, height: 26, background: '#0E1116', border: '1px solid #374250', borderRadius: 4, color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, padding: '0 6px', textAlign: 'right' };
+  const btn = (primary = false): React.CSSProperties => ({ height: 26, padding: '0 10px', border: `1px solid ${primary ? '#F15822' : '#374250'}`, borderRadius: 4, background: primary ? '#F15822' : 'transparent', color: primary ? '#0E1116' : '#E6EDF3', cursor: 'pointer', fontFamily: "'Saira', sans-serif", fontSize: 12, fontWeight: primary ? 600 : 500 });
+  const seg = (k: 'auto' | 'manual', label: string) => (
+    <button role="radio" aria-checked={mode === k} onClick={() => setMode(k)} style={{ flex: 1, height: 26, border: 0, borderRadius: 3, background: mode === k ? '#2C3846' : 'transparent', color: mode === k ? '#E6EDF3' : '#93A1B0', fontFamily: "'Saira', sans-serif", fontSize: 12, fontWeight: 600, cursor: 'pointer' }}>
+      {label}
+    </button>
+  );
   const sel = open || placing;
   return (
-    <div style={{ borderRadius: 5, background: sel ? 'rgba(241,88,34,.14)' : '#222C37', border: `1px solid ${sel ? '#F15822' : 'transparent'}` }}>
+    <div style={{ borderRadius: 5, background: sel ? 'rgba(241,88,34,.10)' : '#222C37', border: `1px solid ${sel ? '#F15822' : 'transparent'}` }}>
       <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 30, padding: '0 4px 0 8px', fontSize: 12.5 }}>
         <span style={{ width: 74, color: '#6FB6E6' }}>{hull}</span>
         <span style={{ fontWeight: 600 }}>{String(Math.round(g.brg)).padStart(3, '0')}°</span>
         <span style={{ color: '#93A1B0' }}>{g.off.toFixed(1)} NM</span>
-        {g.auto && <span style={{ fontSize: 10, color: '#6B7683', letterSpacing: '.08em' }}>AUTO</span>}
+        <span style={{ fontSize: 10, color: '#6B7683', letterSpacing: '.08em' }}>{g.auto ? 'AUTO' : 'MANUAL'}</span>
         <span style={{ flex: 1 }} />
         {!readOnly && !sel && (
-          <button onClick={start} title="Adjust coordination line" style={iconBtn}>
+          <button onClick={start} title={`Edit the coordination line with ${hull}`} aria-label={`Edit the coordination line with ${hull}`} style={iconBtn}>
             <IcEdit />
           </button>
         )}
       </div>
       {placing && (
-        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px 8px', fontSize: 11.5 }}>
-          <span style={{ flex: 1, color: '#FFB08F' }}>Point at where the line crosses our radial · click to set</span>
-          <button onClick={onCancel} style={btn}>Cancel</button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '0 8px 8px', fontSize: 12 }}>
+          <span style={{ flex: 1, color: '#FFB08F', lineHeight: 1.35 }}>Move the cursor on the scope: the line runs across your bearing to it, through that range. Click to set it. Esc cancels.</span>
+          <button onClick={onCancel} style={btn()}>Cancel</button>
         </div>
       )}
       {open && !placing && (
-        <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '0 6px 6px 8px', fontSize: 11.5, flexWrap: 'wrap' }}>
-          <span style={{ color: '#93A1B0' }}>BRG</span>
-          <input style={input} value={brg} onChange={(e) => setBrg(e.target.value.replace(/[^0-9.]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && apply()} aria-label="Coordination line bearing" />
-          <span style={{ color: '#93A1B0' }}>OFF</span>
-          <input style={input} value={off} onChange={(e) => setOff(e.target.value.replace(/[^0-9.\-]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && apply()} aria-label="Coordination line offset from this carrier, NM" />
-          <span style={{ flex: 1 }} />
-          <button onClick={apply} style={btn}>Set</button>
-          <button onClick={() => { setOpen(false); onPlace(); }} style={btn}>Place</button>
-          <button onClick={() => { onSet(null); setOpen(false); }} style={btn}>Auto</button>
-          <button onClick={() => setOpen(false)} style={btn}>Cancel</button>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, padding: '2px 8px 8px' }}>
+          <div role="radiogroup" aria-label="Coordination line mode" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 5, padding: 2 }}>
+            {seg('auto', 'Automatic')}
+            {seg('manual', 'Manual')}
+          </div>
+          {mode === 'auto' ? (
+            <div style={{ fontSize: 12, color: '#93A1B0', lineHeight: 1.4 }}>
+              Kept between the two groups&apos; ships and holding patterns, and moved as they move.
+            </div>
+          ) : (
+            <>
+              <div className="mono" style={{ display: 'grid', gridTemplateColumns: '1fr auto auto', alignItems: 'center', gap: '6px 8px', fontSize: 12 }}>
+                <label htmlFor={`cb-${hull}`} style={{ color: '#93A1B0' }}>Line bearing</label>
+                <input id={`cb-${hull}`} style={field} value={brg} onChange={(e) => setBrg(e.target.value.replace(/[^0-9.]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && apply()} />
+                <span style={{ color: '#6B7683' }}>°</span>
+                <label htmlFor={`co-${hull}`} style={{ color: '#93A1B0' }}>Distance from {own} toward {hull}</label>
+                <input id={`co-${hull}`} style={field} value={off} onChange={(e) => setOff(e.target.value.replace(/[^0-9.-]/g, ''))} onKeyDown={(e) => e.key === 'Enter' && apply()} />
+                <span style={{ color: '#6B7683' }}>NM</span>
+              </div>
+              <button onClick={() => { setOpen(false); onPlace(); }} style={{ ...btn(), alignSelf: 'flex-start' }}>
+                Pick on scope…
+              </button>
+            </>
+          )}
+          <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 6 }}>
+            <button onClick={() => setOpen(false)} style={btn()}>Cancel</button>
+            <button onClick={apply} disabled={mode === 'manual' && !valid} style={{ ...btn(true), opacity: mode === 'manual' && !valid ? 0.5 : 1 }}>
+              Apply
+            </button>
+          </div>
         </div>
       )}
     </div>
