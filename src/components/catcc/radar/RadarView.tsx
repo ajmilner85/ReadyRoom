@@ -364,6 +364,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
               setPlacement({ placing: null, editing: null, hov: null });
               setHl(null);
             }}
+            onToggleStack={(id) => setPlan((p) => ({ ...p, off: p.off?.includes(id) ? p.off.filter((x) => x !== id) : [...(p.off ?? []), id] }))}
             onBase={(id, d) => setPlan((p) => ({ ...p, stacks: p.stacks.map((x) => (x.id === id ? { ...x, base: Math.max(6, Math.min(20, x.base + d)) } : x)) }))}
             assignments={assignments}
             hull={hull}

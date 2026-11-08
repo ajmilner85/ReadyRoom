@@ -4027,7 +4027,9 @@ function cleanPlan(p) {
     if (typeof s.base !== "number" || !Number.isInteger(s.base) || s.base < 1 || s.base > 30) return null;
     out.push({ id: s.id, r: s.r, base: s.base, ...s.rh ? { rh: true } : {} });
   }
-  return { deps: [...deps], stacks: out };
+  const off = p.off;
+  if (off !== void 0 && (!Array.isArray(off) || off.length > 12 || !off.every((x) => typeof x === "string" && /^[A-Z0-9]{1,2}$/.test(x)))) return null;
+  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {} };
 }
 function cleanAssignment(a) {
   if (!a || typeof a !== "object") return null;

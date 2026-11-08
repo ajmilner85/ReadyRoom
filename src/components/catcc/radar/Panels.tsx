@@ -6,6 +6,7 @@ import { normalizeCommsEntries } from '../../../types/CommsTypes';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import { IcChevron, IcEdit, IcGoTo, IcPopOut, IcX } from '../icons.tsx';
+import { Icon } from '../../ui/primitives';
 import { CONFLICT_DEF, LAYER_GROUPS, LW_STEPS, UI_DEF, UI_STEPS, type ConflictCfg, type Editing, type Highlight, type Placement, type UiScale } from './types.ts';
 import type { ScopeTrack } from '../scopeModel.ts';
 
@@ -29,6 +30,7 @@ export interface RadialsProps {
   onRemoveDep: (r: number) => void;
   onRemoveStack: (id: string) => void;
   onBase: (id: string, d: number) => void;
+  onToggleStack: (id: string) => void;
   assignments: Map<string, Assignment>;
   hull: string;
   air: ScopeTrack[];
@@ -66,15 +68,28 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
     stackId?: string;
     baseAlt?: number;
     levels?: React.ReactNode;
+    /** stack on/off toggle (stacks only) */
+    toggleId?: string;
   }) => (
     <div key={o.key} style={{ borderRadius: 5, background: o.sel ? 'rgba(241,88,34,.14)' : o.lit ? '#2E3946' : '#222C37', border: `1px solid ${o.sel ? '#F15822' : o.lit ? '#E6EDF3' : 'transparent'}` }}>
       <div className="mono" style={{ display: 'flex', alignItems: 'center', gap: 8, height: 30, padding: '0 4px 0 0', fontSize: 12.5 }}>
         <button onClick={o.onPick} aria-pressed={o.lit} style={{ display: 'flex', alignItems: 'center', gap: 8, height: 28, padding: '0 0 0 8px', border: 0, background: 'transparent', color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, cursor: 'pointer', textAlign: 'left' }}>
-          <span style={{ width: 74, color: o.fg }}>{o.name}</span>
+          <span style={{ width: 74, color: o.fg, opacity: o.toggleId && p.plan.off?.includes(o.toggleId) ? 0.45 : 1 }}>{o.name}</span>
           <span style={{ fontWeight: 600 }}>{o.r}</span>
           <span style={{ color: '#93A1B0' }}>{o.alt}</span>
         </button>
         <span style={{ flex: 1 }} />
+        {o.toggleId && (
+          <button
+            onClick={() => p.onToggleStack(o.toggleId!)}
+            disabled={p.readOnly}
+            aria-pressed={!p.plan.off?.includes(o.toggleId)}
+            title={p.plan.off?.includes(o.toggleId) ? 'Stack off · click to enable' : 'Stack on · click to disable'}
+            style={{ ...iconBtn, cursor: p.readOnly ? 'default' : 'pointer', color: p.plan.off?.includes(o.toggleId) ? '#5E6A78' : '#93A1B0' }}
+          >
+            <Icon name={p.plan.off?.includes(o.toggleId) ? 'eyeOff' : 'eye'} size={13} />
+          </button>
+        )}
         {o.levels !== undefined && (
           <button onClick={() => setExp((e) => ({ ...e, [o.key]: !e[o.key] }))} aria-expanded={!!exp[o.key]} title="Levels" style={iconBtn}>
             <IcChevron rot={exp[o.key] ? 180 : 0} />
@@ -180,10 +195,11 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
               isStack: true,
               stackId: m.id,
               levels: levelsOf(m.id, m.base),
+              toggleId: m.id,
             }),
           )}
-          {row({ key: 'e', name: 'Emergency', fg: '#E7B04F', r: `${r3(p.emr)}R`, alt: 'A6+', lit: p.hl?.k === 'e', sel: false, onPick: () => p.onHl(p.hl?.k === 'e' ? null : { k: 'e' }), levels: levelsOf('E', 6) })}
-          {row({ key: 'h', name: 'Helo', fg: '#6FB6E6', r: `${r3(p.hel)}R`, alt: '1000 ft', lit: p.hl?.k === 'h', sel: false, onPick: () => p.onHl(p.hl?.k === 'h' ? null : { k: 'h' }) })}
+          {row({ key: 'e', name: 'Emergency', fg: '#E7B04F', r: `${r3(p.emr)}R`, alt: 'A6+', lit: p.hl?.k === 'e', sel: false, onPick: () => p.onHl(p.hl?.k === 'e' ? null : { k: 'e' }), levels: levelsOf('E', 6), toggleId: 'E' })}
+          {row({ key: 'h', name: 'Helo', fg: '#6FB6E6', r: `${r3(p.hel)}R`, alt: '1000 ft', lit: p.hl?.k === 'h', sel: false, onPick: () => p.onHl(p.hl?.k === 'h' ? null : { k: 'h' }), toggleId: 'H' })}
         </div>
       </div>
       {placing && !editing && <div className="mono" style={{ fontSize: 12, color: p.status.color }}>{p.status.text}</div>}

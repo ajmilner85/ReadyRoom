@@ -102,6 +102,8 @@ export interface StackDef {
 export interface CarrierPlan {
   deps: number[];
   stacks: StackDef[];
+  /** ids of stacks switched off (not drawn, not assignable), incl. "E" emergency and "H" helo */
+  off?: string[];
 }
 
 /** Marshal assignment for one track. Times are seconds of the UTC day. */
@@ -180,7 +182,9 @@ export function cleanPlan(p: unknown): CarrierPlan | null {
     if (typeof s.base !== 'number' || !Number.isInteger(s.base) || s.base < 1 || s.base > 30) return null;
     out.push({ id: s.id, r: s.r, base: s.base, ...(s.rh ? { rh: true } : {}) });
   }
-  return { deps: [...deps], stacks: out };
+  const off = (p as CarrierPlan).off;
+  if (off !== undefined && (!Array.isArray(off) || off.length > 12 || !off.every((x) => typeof x === 'string' && /^[A-Z0-9]{1,2}$/.test(x)))) return null;
+  return { deps: [...deps], stacks: out, ...(off?.length ? { off: [...off] } : {}) };
 }
 
 export function cleanAssignment(a: unknown): Assignment | null {

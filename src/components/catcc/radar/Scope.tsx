@@ -245,7 +245,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const nowS = props.nowS ?? 0;
   const stacks = useMemo(() => {
     if (!ship) return [] as (StackDef & { def: number })[];
-    const all: StackDef[] = [...plan.stacks, { id: 'E', r: Math.round(emergencyMarshalRadial(ship)), base: 6, rh: true }];
+    const all: StackDef[] = [...plan.stacks, { id: 'E', r: Math.round(emergencyMarshalRadial(ship)), base: 6, rh: true }].filter((m) => !plan.off?.includes(m.id));
     return all.map((st) => {
       const used = new Set([...assignments.entries()].filter(([id, a]) => a.stackId === st.id && a.carrier === hull && id !== hookedId).map(([, a]) => a.angels));
       let def = st.base;
@@ -490,7 +490,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return `M${f2(cq[0] - n[0])} ${f2(cq[1] - n[1])}L${f2(cq[0] + n[0])} ${f2(cq[1] + n[1])}`;
     };
     const editingM = c.focus && placement.editing?.k === 'm' ? placement.editing.id : null;
-    const liveStacks = plan.stacks.filter((m) => m.id !== editingM);
+    const liveStacks = plan.stacks.filter((m) => m.id !== editingM && !plan.off?.includes(m.id));
+    const eOn = !plan.off?.includes('E');
+    const hOn = !plan.off?.includes('H');
     return (
       <g key={`ov${c.track.id}`}>
         {o.brc && (
@@ -646,9 +648,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         )}
         {o.marshal && (
           <g>
-            <path style={lw(1)} d={pts(shipAt(holdPattern(emr, 21, 'right')), true)} fill="none" stroke={col('rgba(147,161,176,.55)', 'rgba(62,155,212,.55)')} strokeDasharray="6 4" />
-            <path style={lw(1.2)} d={fixHash(emr, 6)} stroke={col('rgba(222,154,31,.8)', 'rgba(62,155,212,.8)')} />
-            <path style={lw(1)} d={pts(shipAt(holdPattern(hel, 5, 'right', HELO_HOLD)), true)} fill="none" stroke={col('rgba(147,161,176,.55)', 'rgba(62,155,212,.55)')} strokeDasharray="6 4" />
+            {eOn && <path style={lw(1)} d={pts(shipAt(holdPattern(emr, 21, 'right')), true)} fill="none" stroke={col('rgba(147,161,176,.55)', 'rgba(62,155,212,.55)')} strokeDasharray="6 4" />}
+            {eOn && <path style={lw(1.2)} d={fixHash(emr, 6)} stroke={col('rgba(222,154,31,.8)', 'rgba(62,155,212,.8)')} />}
+            {hOn && <path style={lw(1)} d={pts(shipAt(holdPattern(hel, 5, 'right', HELO_HOLD)), true)} fill="none" stroke={col('rgba(147,161,176,.55)', 'rgba(62,155,212,.55)')} strokeDasharray="6 4" />}
             <path style={lw(1.4)} d={liveStacks.map((m) => fixHash(m.r, m.base)).join('')} fill="none" stroke={col('#F15822', '#5AAEE3')} />
             <path style={lw(1)} d={liveStacks.map((m) => pts(shipAt(holdPattern(m.r, fixDme(m.base), m.rh ? 'right' : 'left')), true)).join('')} fill="none" stroke={col('rgba(147,161,176,.55)', 'rgba(62,155,212,.55)')} strokeDasharray="6 4" />
           </g>
@@ -737,12 +739,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       }
     if (o.marshal) {
       for (const m of pl.stacks) {
+        if (pl.off?.includes(m.id)) continue;
         const ed = c.focus && placement.editing?.k === 'm' && placement.editing.id === m.id;
         flags.push(flag(m.r, m.base + 15 + 2.1, false, `${m.id} ${r3(m.r)}`, c.track.p, ed ? DIM[0] : sc, ed ? DIM[1] : tc));
       }
       const er = emergencyMarshalRadial(c.ship);
       const hr = heloMarshalRadial(c.ship);
-      flags.push(flag(er, 23.1, false, `E ${r3(er)}`, c.track.p, sc, tc), flag(hr, 6, false, `H ${r3(hr)}`, c.track.p, sc, tc));
+      if (!pl.off?.includes('E')) flags.push(flag(er, 23.1, false, `E ${r3(er)}`, c.track.p, sc, tc));
+      if (!pl.off?.includes('H')) flags.push(flag(hr, 6, false, `H ${r3(hr)}`, c.track.p, sc, tc));
     }
   }
   if (placement.placing && placement.hov != null && ship) {
