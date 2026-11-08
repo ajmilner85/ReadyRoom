@@ -171,7 +171,7 @@ const BLUE_TRAIL = '#2F6F99';
 /** Mockup ship-relative overlays were drawn for BRC 345 / FB 336; they are rotated by (BRC − 345). */
 const MOCK_BRC = 345;
 /** bathymetry intensity (shading, contours, shallow-water tint/hatch/outline; not the depth labels) */
-const BATHY_K = 0.36;
+const BATHY_K = 0.432;
 /** unit vector astern along the final bearing in the mockup frame (the drawn final runs to 6.1, 13.7) */
 const FB_U: Pt = [6.1 / Math.hypot(6.1, 13.7), 13.7 / Math.hypot(6.1, 13.7)];
 /** IFLOLS / LSO handover: 3/4 SM astern, NM */
