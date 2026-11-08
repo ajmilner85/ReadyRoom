@@ -13,6 +13,8 @@ export function catccWsUrl(): string {
   if (qs) return qs;
   const env = import.meta.env as Record<string, string | undefined>;
   if (env.VITE_CATCC_WS_URL) return env.VITE_CATCC_WS_URL;
+  // Local development: the standalone room (npm run catcc:room) on port 3002.
+  if (import.meta.env.DEV) return 'ws://localhost:3002/catcc/ws';
   const api = env.VITE_API_URL || 'http://localhost:3001';
   return api.replace(/^http/, 'ws').replace(/\/$/, '') + '/catcc/ws';
 }
