@@ -32,6 +32,24 @@ export const LB_PER_KG = 2.20462;
 const CARRIER_CAPABLE = /^(FA-18|F\/A-18|EA_18G|EA-18G|F-14|S-3B|E-2|C2A|C-2A|F-35C|Rafale_M|A-4E|T-45|SH-60|MH-60|SH60|MH60)/i;
 export const isCarrierCapable = (type: string | undefined): boolean => !!type && CARRIER_CAPABLE.test(type);
 
+/**
+ * Approximate maximum-endurance (holding) indicated airspeed by DCS type, kt. Aircraft slow to this
+ * before entering the marshal hold. Typical mid-weight figures, not NATOPS-exact; unlisted types 250.
+ */
+const MAX_ENDURANCE_KIAS: [RegExp, number][] = [
+  [/^(FA-18|F\/A-18|EA_18G|EA-18G)/i, 230],
+  [/^F-14/i, 220],
+  [/^F-35C/i, 250],
+  [/^Rafale_M/i, 230],
+  [/^A-4E/i, 220],
+  [/^T-45/i, 200],
+  [/^S-3B/i, 180],
+  [/^E-2/i, 160],
+  [/^(C2A|C-2A)/i, 170],
+  [/^(SH-60|MH-60|SH60|MH60)/i, 70],
+];
+export const maxEnduranceKias = (type: string | undefined): number => MAX_ENDURANCE_KIAS.find(([re]) => !!type && re.test(type))?.[1] ?? 250;
+
 /** Fuel in pounds, or undefined when the type's capacity is unknown. */
 export function fuelLb(type: string, fraction: number | undefined): number | undefined {
   const kg = INTERNAL_FUEL_KG[type];

@@ -279,3 +279,13 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 ## BRC / FB
 - BRC starts at the bow of the (screen-constant) ship symbol, so it touches the ship at every zoom; FB's final approach ends at the IFLOLS, 3/4 SM astern on the final bearing (LSO handover), drawn as the ball with datum bars perpendicular to the FB.
 - BRC and FB labels are radial flags like departure radials and marshal stacks (BRC outbound at 9 NM, FB inbound at 12 NM), for both carriers; the arrowhead and loose text labels are gone.
+
+## Marshal entries (rework)
+- Bugs found with a property sweep (`marshalSweep.test.ts`: 6 ranges × 12 bearings × 8 headings × 3 speeds × 3 hold sizes × 2 hands = 10,368 routes; every route must end at the fix, be continuous, bounded, go out on the correct side for its entry, and be established before the fix): 65 % of routes failed before the rework.
+  - Transit: pure pursuit orbited a fix inside the turn circle, then flew straight for up to 1,000 NM (the long magenta lines). Now `direct()`: both turn senses simulated, shorter kept; a sense whose circle contains the fix flies straight until it doesn't; each try capped at distance + two orbits.
+  - Join: the 3-try intercept gave up and jumped to the fix. Now `intercept()`: a capture law that holds a 45° cut to the lead point then flies an arc of 1.15 R onto the course (finite settling, no overshoot).
+  - Teardrop and parallel angles: the textbook 30° / 45° assume standard-rate turns. With the CV 6-minute pattern (2-minute 180s, R = 2L/π) a 30° teardrop needs a 10+ NM leg to roll out on course. The offset is now θ = 2·atan(R / leg) (~35° standard rate, ~65° for the CV pattern), used for the teardrop leg and the parallel entry's intercept.
+  - Parallel: the short turn to outbound could carry the aircraft onto the holding side; three ways onto the outbound leg (short turn, long turn, 30° cut) are flown and the shortest that stays on the non-holding side is kept.
+  - Established at least 1.5 NM before the fix (0.5 NM after a parallel's intercept); otherwise the leg is lengthened, then a go-around out the inbound course (never needed in the sweep).
+- Holding speed: aircraft slow to their max-endurance speed before the hold (`maxEnduranceKias`, approximate: Hornet 230, Tomcat 220, F-35C 250, Rafale 230, A-4 220, T-45 200, S-3 180, E-2 160, C-2 170, H-60 70, others 250). The entry is flown at that speed's TAS at the fix altitude with 1-minute legs and 2-minute 180s (`holdSpecForTas`), and the hooked aircraft's hold is drawn at that size. Fix time = transit at current speed with a 2 kt/s slow-down to holding speed (`marshalTimeS`) + entry at holding speed; the hook tag shows `→ HOLD 230 KIAS`.
+- Cost: 0.27 ms per route on average (1.3 ms worst).

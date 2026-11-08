@@ -6,7 +6,7 @@
  * hooked tools) → HTML helper tags → floating controls.
  */
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
-import { cpa as cpaOf, eat as eatOf, fly, marshalRoute, turnRadiusNm, type Cpa } from '../../../catcc/core/geometry/maneuver.ts';
+import { cpa as cpaOf, eat as eatOf, fly, marshalRoute, marshalTimeS, turnRadiusNm, type Cpa } from '../../../catcc/core/geometry/maneuver.ts';
 import {
   arrivalPath,
   departurePath,
@@ -17,6 +17,8 @@ import {
   type HoldSpec,
   type RadialCheck,
 } from '../../../catcc/core/geometry/procedures.ts';
+import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
+import { maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
 import { add, bearingOf, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
@@ -618,12 +620,15 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const st = tool === 'marshal' ? hitStack(cur) : null;
     if (st) {
       const ang = asg && asg.id === st.id ? asg.ang : st.def;
-      const route = marshalRoute(hooked.p, hdg, spd, st.r, fixDme(ang), st.rh ? 'right' : 'left');
-      // transit at the aircraft's speed, entry manoeuvre at hold speed (250 KIAS)
-      const fixS = nowS + (route.transitNm / spd + route.entryNm / 250) * 3600;
+      // the aircraft slows to its max-endurance speed before the hold; the entry is flown at that
+      // speed (true airspeed at the fix altitude) with 1-minute legs and 2-minute 180° turns
+      const holdTas = Math.round(tasFromIas(maxEnduranceKias(hooked.ty), ang * 1000));
+      const spec = holdSpecForTas(holdTas);
+      const route = marshalRoute(hooked.p, hdg, spd, st.r, fixDme(ang), st.rh ? 'right' : 'left', spec);
+      const fixS = nowS + marshalTimeS(route, spd, holdTas);
       const prev = [...assignments.entries()].filter(([id, a]) => a.stackId === st.id && a.carrier === hull && id !== hooked.id).map(([, a]) => a.eatS);
       const eatS = eatOf(fixS, prev.length ? Math.max(...prev) : undefined);
-      return { kind: 'marshal' as const, st, ang, route, fixS, eatS, spd };
+      return { kind: 'marshal' as const, st, ang, route, fixS, eatS, spd, holdKias: maxEnduranceKias(hooked.ty), spec };
     }
     const fl = fly(hooked.p, hdg, cur, turnRadiusNm(spd));
     return { kind: 'vec' as const, fl, spd, brg: bearingOf(sub(cur, hooked.p)), rng: len(sub(cur, hooked.p)) };
@@ -1281,7 +1286,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         ? [
             `${label} → ${hk.st.id}${hk.ang} · ${fixDme(hk.ang)} DME`,
             `ANGELS ${hk.ang} · FIX ${hms(hk.fixS)} · ${hk.route.entry.toUpperCase()}`,
-            `EAT ${hms(hk.eatS).slice(0, 5)} · ${hk.spd} KT`,
+            `EAT ${hms(hk.eatS).slice(0, 5)} · ${hk.spd} KT → HOLD ${hk.holdKias} KIAS`,
           ]
         : [`BRG ${r3(hk.brg)} · RNG ${hk.rng.toFixed(1)}`, `HDG ${r3(hk.fl.hdg)} · TRK DIST ${hk.fl.dist.toFixed(1)}`, `ETE ${msS((hk.fl.dist / hk.spd) * 3600)} · ${hk.spd} KT`];
     return { x: Math.min(box.w - 230, Math.max(8, q[0] + 16)), y: Math.min(BH - 60, Math.max(8, q[1] + 14)), rows };
@@ -1294,7 +1299,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       if (!st || !t) return null;
       const fx = P(st.r, fixDme(a.angels));
       const q = toPx(fx);
-      const route = marshalRoute(t.p, t.crs ?? t.hdg ?? 0, Math.max(150, Math.round((t.gs ?? 300) / 10) * 10), st.r, fixDme(a.angels), st.rh ? 'right' : 'left');
+      const spec = holdSpecForTas(tasFromIas(maxEnduranceKias(t.ty), a.angels * 1000));
+      const route = marshalRoute(t.p, t.crs ?? t.hdg ?? 0, Math.max(150, Math.round((t.gs ?? 300) / 10) * 10), st.r, fixDme(a.angels), st.rh ? 'right' : 'left', spec);
       return { id, st, a, fx, route, x: q[0] + 12, y: q[1] + 8, t: `${t.bd ?? t.cs ?? t.pi ?? id} · ${stackLabel(hull, st.id)}·${a.angels} · EAT ${hms(a.eatS).slice(0, 5)}` };
     })
     .filter((x): x is NonNullable<typeof x> => !!x);
@@ -1810,7 +1816,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   .join('')}
                 stroke="rgba(228,91,234,.5)"
               />
-              <path style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} d={pts(holdPattern(hk.st.r, fixDme(hk.ang), hk.st.rh ? 'right' : 'left'), true)} strokeDasharray="6 4" />
+              <path style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} d={pts(holdPattern(hk.st.r, fixDme(hk.ang), hk.st.rh ? 'right' : 'left', hk.spec), true)} strokeDasharray="6 4" />
               <path style={{ strokeWidth: 'calc(2.2px * var(--lw, 1))' }} d={fixHashAt(hk.st.r, hk.ang)} />
               <path style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} d={pts(hk.route.path)} />
             </g>

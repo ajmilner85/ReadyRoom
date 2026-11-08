@@ -208,7 +208,8 @@ describe('marshalRoute (hold entry, established inbound)', () => {
     expect(r.dist).toBeGreaterThan(dist(p0, [0, 21]));
     // the entry stays a compact hold-sized manoeuvre around the fix (no loops or S-curves)
     const entryPts = r.path.slice(r.entryIdx);
-    expect(Math.max(...entryPts.map((q) => dist(q, [0, 21])))).toBeLessThan(16);
+    // (the 6-minute pattern's 2-minute 180s are wide: R 2.65 NM at 250 kt)
+    expect(Math.max(...entryPts.map((q) => dist(q, [0, 21])))).toBeLessThan(18);
   });
 
   it('flies the screenshot case (right-hand stack, arrival from the non-hold side) as a clean parallel entry', () => {
@@ -217,11 +218,12 @@ describe('marshalRoute (hold entry, established inbound)', () => {
     const r = marshalRoute([fix[0] - 14, fix[1] - 8], 120, 280, 211, 21, 'right');
     expect(r.entry).toBe('parallel');
     const entryPts = r.path.slice(r.entryIdx);
-    expect(Math.max(...entryPts.map((q) => dist(q, fix)))).toBeLessThan(16);
+    expect(Math.max(...entryPts.map((q) => dist(q, fix)))).toBeLessThan(18);
     // total heading change in the entry is about one turn (parallel: ~180° + ~225° + 45°), not repeated loops
     let turned = 0;
     for (let i = 2; i < entryPts.length; i++) turned += angDiff(bearingTo(entryPts[i - 2], entryPts[i - 1]), bearingTo(entryPts[i - 1], entryPts[i]));
-    expect(turned).toBeLessThan(560);
+    // (it may take the long way round onto the outbound leg to stay on the non-holding side)
+    expect(turned).toBeLessThan(620);
   });
 
   it('mirrors for right-hand patterns', () => {
