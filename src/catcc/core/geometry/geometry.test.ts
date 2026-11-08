@@ -235,8 +235,9 @@ describe('marshalRoute (hold entry, established inbound)', () => {
     const straightIn = marshalRoute([0, 45], 0, 250, 180, 21, 'left');
     const direct = marshalRoute([-24, 21], 90, 250, 180, 21, 'left');
     expect(straightIn.dist).toBeCloseTo(24, 0);
-    // 24 NM to the fix + a direct entry from the hold side: 270° turn, outbound, 180° turn, join
-    expect(direct.dist).toBeGreaterThan(24 + 15);
+    // 24 NM to the fix + a direct entry from the hold side, joined fly-by onto the outbound leg:
+    // lead turn, outbound, 180° turn inbound
+    expect(direct.dist).toBeGreaterThan(24 + 8);
     expect(direct.dist).toBeLessThan(24 + 42);
   });
 });

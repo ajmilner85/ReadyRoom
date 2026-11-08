@@ -185,14 +185,7 @@ function turnTo(s: FlyState, target: number, sense: 1 | -1, R: number): void {
   s.h = norm(target);
 }
 
-/** Turn the shorter way onto a heading. */
-function turnShort(s: FlyState, target: number, R: number): void {
-  turnTo(s, target, signedDiff(target, s.h) >= 0 ? 1 : -1, R);
-}
 
-function straight(s: FlyState, nm: number): void {
-  for (let i = 0; i < nm / DS; i++) stepFwd(s, 0);
-}
 
 const clone = (s: FlyState): FlyState => ({ p: [s.p[0], s.p[1]], h: s.h, path: [...s.path], dist: s.dist });
 /** a what-if copy that does not carry the flown path */
@@ -201,9 +194,10 @@ const probeOf = (s: FlyState): FlyState => ({ p: [s.p[0], s.p[1]], h: s.h, path:
 /**
  * Direct to a point: turn at the turn-rate limit, then straight. Both turn senses are tried and the
  * shorter kept; a sense whose turn circle contains the point first flies straight until the point
- * is outside it, so the aircraft never orbits a fix it cannot turn onto.
+ * is outside it, so the aircraft never orbits a fix it cannot turn onto. `stop` ends it early (at a
+ * lead-turn point).
  */
-function direct(s: FlyState, T: Pt, R: number): void {
+function direct(s: FlyState, T: Pt, R: number, stop?: (p: Pt, h: number) => boolean): void {
   const maxT = DS / R / D2R;
   const sim = (sense: 1 | -1): FlyState | null => {
     const st = clone(s);
@@ -211,6 +205,7 @@ function direct(s: FlyState, T: Pt, R: number): void {
     const cap = (dist(s.p, T) + 4 * Math.PI * R + 4 * R + 5) / DS;
     for (let i = 0; i < cap; i++) {
       const rg = dist(st.p, T);
+      if (stop && stop(st.p, st.h)) return st;
       if (rg < DS * 1.5) {
         st.path.push([T[0], T[1]]);
         st.dist += rg;
@@ -238,9 +233,12 @@ function direct(s: FlyState, T: Pt, R: number): void {
  * Intercept and track a course line into a fix: steer toward the line at up to 45° (closing as the
  * cross-track error shrinks), turn-rate limited, from any position and heading. Ends at the fix on
  * the course. Returns how far before the fix the aircraft was established (within 0.08 NM and 5°
- * of the course from there on); 0 when it began at or past the fix.
+ * of the course from there on); 0 when it began at or past the fix. `cut` is the steepest intercept
+ * (90° for a lead turn onto a leg); without `snap` it stops abeam the end point instead of on it.
  */
-function intercept(s: FlyState, fix: Pt, C: number, R: number): number {
+function intercept(s: FlyState, fix: Pt, C: number, R: number, opt: { cut?: number; snap?: boolean } = {}): number {
+  const cut = opt.cut ?? 45;
+  const snap = opt.snap ?? true;
   const maxT = DS / R / D2R;
   const u = dir(C);
   const Rc = 1.15 * R; // capture arc, a little wider than the tightest turn
@@ -256,11 +254,16 @@ function intercept(s: FlyState, fix: Pt, C: number, R: number): number {
     // capture law: 45° intercept until the lead point, then the angle of an arc of radius Rc
     // tangent to the course (a turn the aircraft can fly), so it rolls out on the line
     const ax = Math.abs(xte);
-    const a = ax >= Rc * (1 - Math.cos(45 * D2R)) ? 45 : Math.acos(1 - ax / Rc) / D2R;
+    // (linear within 0.05 NM of the line: the arc law is infinitely steep there and would chatter)
+    const NEAR = 0.05;
+    const a = ax >= Rc * (1 - Math.cos(cut * D2R)) ? cut : ax >= NEAR ? Math.acos(1 - ax / Rc) / D2R : (ax / NEAR) * (Math.acos(1 - NEAR / Rc) / D2R);
     const desired = C - Math.sign(xte) * a;
     stepFwd(s, Math.max(-maxT, Math.min(maxT, signedDiff(desired, s.h))));
   }
+  if (!snap) return lastOff < 0 ? rem0 : Math.max(0, lastOff);
   s.dist += dist(s.p, fix);
+  // a last step much shorter than DS would draw a spurious hook onto the fix: replace it instead
+  if (s.path.length > 1 && dist(s.path[s.path.length - 1], fix) < DS * 0.6) s.path.pop();
   s.path.push([fix[0], fix[1]]);
   s.p = [fix[0], fix[1]];
   s.h = C;
@@ -310,24 +313,24 @@ const HOLD = { legNm: 4.2, turnNm: 2.65 };
 
 /** established at least this far before the fix */
 const EST_NM = 1.5;
-const EST_PARALLEL_NM = 0.5;
+const EST_PARALLEL_NM = 1.0;
 export const FALLBACKS = { n: 0 };
 
 /**
  * Route from an aircraft to a marshal fix, arriving established on the inbound course (handoff
- * §5.6 backlog). The transit to the fix is flown at the aircraft's turn radius; the entry is a
- * textbook direct / parallel / offset (teardrop) entry chosen by the standard sectors (the 70°
- * line: direct 180°, offset 70°, parallel 110°; mirrored for left-hand patterns), flown with the
- * hold's own turn radius and 1-minute legs:
- *   direct    turn in the hold direction to outbound, outbound to 1 min past abeam, turn inbound
- *   parallel  turn to outbound on the non-hold side, 1 min, turn > 180° toward the hold side to
- *             intercept the inbound course (at the offset angle)
- *   offset    turn into the hold side from outbound by the offset angle, 1 min, turn in the hold
- *             direction to inbound. The offset is 2·atan(R / leg): ~35° for standard-rate turns
+ * §5.6 backlog). The entry is chosen by the standard sectors (the 70° line: direct 180°, offset
+ * 70°, parallel 110°; mirrored for left-hand patterns) from the heading the aircraft would arrive
+ * at the fix with. Only the final inbound crossing of the fix is a fly-over: the entry's first leg
+ * is joined with a lead turn (fly-by), flown at holding speed with the hold's turn radius:
+ *   direct    join the pattern's outbound leg (abeam the fix, holding side), 1 min, turn inbound
+ *   parallel  join the outbound radial at the fix, 1 min, turn > 180° toward the holding side to
+ *             intercept the inbound course at the offset angle
+ *   offset    join the offset leg from the fix (θ toward the holding side), 1 min, turn in the hold
+ *             direction onto the inbound course. θ = 2·atan(R / leg): ~35° for standard-rate turns
  *             (the textbook 30°), ~65° for the CV pattern's wide turns.
- * The outbound leg is lengthened (as a pilot would) until the aircraft rolls out established at
- * least 1.5 NM before the fix (0.5 NM after a parallel entry's 45° intercept); failing that it goes
- * back out along the inbound course and comes in again.
+ * The leg is lengthened (as a pilot would) until the aircraft rolls out established at least 1.5 NM
+ * before the fix (1 NM after a parallel entry's intercept); failing that it goes back out along the
+ * inbound course and comes in again. The transit (to the lead point) is at the aircraft's speed.
  */
 export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, fixNm: number, hand: 'left' | 'right', hold = HOLD): MarshalRoute {
   const Rt = turnRadiusNm(tasKt);
@@ -348,91 +351,121 @@ export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, 
       return { path: st.path, dist: st.dist, transitNm: st.dist, entryNm: 0, entryIdx: st.path.length - 1, entry: 'straight-in', fix };
   }
 
-  const s = clone(s0);
-  direct(s, fix, Rt);
-  const transitNm = s.dist;
-  const entryIdx = s.path.length - 1;
-  const f = norm(sense * signedDiff(s.h, C) + 180); // 0..360 in the hold's own frame
-  const out = dir(O);
-  const xteAt = (p: Pt) => u[0] * (p[1] - fix[1]) - u[1] * (p[0] - fix[0]); // + = right of the inbound course
+  // Entry type by the 70° sectors, from the heading the aircraft would have arriving at the fix.
+  const probe = probeOf(s0);
+  direct(probe, fix, Rt);
+  const f = norm(sense * signedDiff(probe.h, C) + 180); // 0..360 in the hold's own frame
   const entry: HoldEntry = f >= 70 && f <= 250 ? 'direct' : f < 70 ? 'teardrop' : 'parallel';
   // Offset angle for the teardrop leg and the parallel entry's intercept. The textbook 30° / 45°
-  // assume standard-rate turns; in general a teardrop rolls out on the inbound course after the
-  // timed leg when leg·sin θ = R·(1 + cos θ), i.e. θ = 2·atan(R / leg): ~35° for standard rate,
-  // ~65° for the CV 6-minute pattern's 2-minute 180s.
-  const OFF = Math.max(30, Math.min(75, (2 * Math.atan(Rh / Lh)) / D2R));
-  const fly = (leg: number): { st: FlyState; est: number } => {
-    const st = clone(s);
-    if (entry === 'direct') {
-      turnTo(st, O, sense, Rh);
-      const pastAbeam = (st.p[0] - fix[0]) * out[0] + (st.p[1] - fix[1]) * out[1];
-      straight(st, Math.max(0.5, leg - pastAbeam));
-      turnTo(st, C, sense, Rh);
-    } else if (entry === 'teardrop') {
-      // offset leg toward the holding side, at least the timed minute and long enough that the turn
-      // inbound rolls out on the course rather than through it
-      turnShort(st, norm(O - sense * OFF), Rh);
-      const after = (L: number) => {
-        const t = probeOf(st);
-        straight(t, L);
-        turnTo(t, C, sense, Rh);
-        return sense * xteAt(t.p);
-      };
-      let L = leg;
-      if (after(L) < 0) {
-        let lo = L;
-        let hi = L + 16;
-        for (let k = 0; k < 14; k++) {
-          const m = (lo + hi) / 2;
-          if (after(m) < 0) lo = m;
-          else hi = m;
-        }
-        L = hi;
-      }
-      straight(st, L);
-      turnTo(st, C, sense, Rh);
-    } else {
-      // outbound on the non-holding side, then turn > 180° toward the holding side to a 45°
-      // intercept. With the hold's wide turns the short turn to outbound can carry the aircraft onto
-      // the holding side, so three ways onto the outbound leg are flown and the shortest that runs
-      // outbound on the non-holding side (and establishes in time) is kept:
-      //   the short turn; the long turn the other way round; a 30° cut toward the non-holding side
-      let best: { st: FlyState; est: number; ok: boolean } | null = null;
-      for (let v = 0; v < 3; v++) {
-        const t = clone(st);
-        if (v === 0) turnShort(t, O, Rh);
-        else if (v === 1) {
-          if (angDiff(t.h, O) < 1) continue;
-          turnTo(t, O, signedDiff(O, t.h) >= 0 ? -1 : 1, Rh);
-        } else {
-          turnShort(t, norm(O + sense * 30), Rh);
-          for (let i = 0; i < 200 && -sense * xteAt(t.p) < 0.5; i++) stepFwd(t, 0);
-          turnShort(t, O, Rh);
-        }
-        straight(t, leg);
-        const side = -sense * xteAt(t.p); // + = non-holding side at the end of the outbound leg
-        turnTo(t, norm(C - sense * OFF), (-sense) as 1 | -1, Rh);
-        const est = intercept(t, fix, C, Rh);
-        const ok = side > -0.3 && est >= EST_PARALLEL_NM;
-        if (!best || (ok && !best.ok) || (ok === best.ok && t.dist < best.st.dist)) best = { st: t, est, ok };
-      }
-      return { st: best!.st, est: best!.est };
-    }
-    return { st, est: intercept(st, fix, C, Rh) };
+  // assume standard-rate turns; a teardrop rolls out on the inbound course after a leg L when
+  // L·sin θ = R·(1 + cos θ), i.e. θ = 2·atan(R / L): ~35° standard rate, ~65° for the CV 6-minute
+  // pattern's 2-minute 180s.
+  const offFor = (L: number) => Math.max(20, Math.min(75, (2 * Math.atan(Rh / L)) / D2R));
+  const OFF = offFor(Lh);
+  const xteAt = (p: Pt) => u[0] * (p[1] - fix[1]) - u[1] * (p[0] - fix[0]); // + = right of the inbound course
+
+  // The aircraft's heading arriving at the fix, and the transit up to it.
+  const arrival = probeOf(s0);
+  direct(arrival, fix, Rt);
+  const hArr = arrival.h;
+  const out = dir(O);
+
+  /**
+   * Fly one entry: the first turn at the fix onto heading H1 is a fly-by (a fillet of the hold's
+   * radius begun R·tan(D/2) before the fix, rolling out on the line through the fix) when it is at
+   * most 150° and the turn in the entry's direction is the short way; otherwise the fix is flown
+   * over and then the turn made. Then the timed leg (measured from the fix / abeam it), then the
+   * turn inbound. Only the final inbound crossing of the fix is always a fly-over.
+   */
+  const plan = (H1: number, firstSense: 1 | -1 | 0, L: number, keep: boolean): { st: FlyState; transitNm: number; entryIdx: number; legSide: number } => {
+    const st = keep ? clone(s0) : { ...probeOf(s0), path: [] as Pt[] };
+    const sd: 1 | -1 = firstSense || (signedDiff(H1, hArr) >= 0 ? 1 : -1);
+    const turn = sd > 0 ? norm(H1 - hArr) : norm(hArr - H1);
+    const flyBy = turn <= 150;
+    if (flyBy) {
+      const lead = Rh * Math.tan(((turn / 2) * Math.PI) / 180);
+      direct(st, fix, Rt, (p, h) => dist(p, fix) <= lead && angDiff(h, bearingTo(p, fix)) < 1);
+    } else direct(st, fix, Rt);
+    const transitNm = st.dist;
+    const entryIdx = st.path.length - 1;
+    turnTo(st, H1, sd, Rh);
+    const u1 = dir(H1);
+    const along = (st.p[0] - fix[0]) * u1[0] + (st.p[1] - fix[1]) * u1[1];
+    for (let i = 0; i < Math.max(0.5, L - along) / DS; i++) stepFwd(st, 0);
+    const legSide = sense * xteAt(st.p); // + = holding side, at the end of the leg
+    if (entry === 'parallel') turnTo(st, norm(C - sense * OFF), (-sense) as 1 | -1, Rh);
+    else turnTo(st, C, sense, Rh);
+    return { st, transitNm, entryIdx, legSide };
   };
-  // a parallel entry ends with the textbook 45° intercept close to the fix
+  // direct: in the hold direction to O - sense·θ; teardrop: the short way to O - sense·θ;
+  // parallel: the short way onto the outbound radial. θ (direct, teardrop) is solved so the turn
+  // inbound rolls out on the course, searched near the nominal angle (0 direct, OFF teardrop) over a
+  // range where the first turn does not wrap.
+  const firstSense: 1 | -1 | 0 = entry === 'direct' ? sense : 0;
+  const solveTheta = (L: number): number => {
+    if (entry === 'parallel') return 0;
+    const nominal = entry === 'direct' ? 0 : OFF;
+    const [lo, hi] = entry === 'direct' ? [-45, 60] : [10, 80];
+    const miss = (th: number) => sense * xteAt(plan(norm(O - sense * th), firstSense, L, false).st.p); // + = short of the course
+    const sideOk = (th: number) => plan(norm(O - sense * th), firstSense, L, false).legSide > 0.3;
+    const ft = (th: number) => {
+      const H1 = norm(O - sense * th);
+      return entry === 'direct' ? norm(sense * (H1 - hArr)) : signedDiff(H1, hArr);
+    };
+    let best: number | null = null;
+    let prev: { th: number; v: number; f: number } | null = null;
+    for (let th = lo; th <= hi + 1e-9; th += 5) {
+      const cur = { th, v: miss(th), f: ft(th) };
+      if (prev && Math.sign(prev.v) !== Math.sign(cur.v) && Math.abs(cur.f - prev.f) < 20) {
+        let a = prev;
+        let b = cur;
+        for (let k = 0; k < 12; k++) {
+          const m = (a.th + b.th) / 2;
+          const mv = { th: m, v: miss(m), f: ft(m) };
+          if (Math.sign(mv.v) === Math.sign(a.v)) a = mv;
+          else b = mv;
+        }
+        const root = (a.th + b.th) / 2;
+        if (sideOk(root) && (best === null || Math.abs(root - nominal) < Math.abs(best - nominal))) best = root;
+      }
+      prev = cur;
+    }
+    return best ?? nominal;
+  };
+  const fly = (L: number): { st: FlyState; est: number; transitNm: number; entryIdx: number } => {
+    if (entry === 'parallel') {
+      // outbound on the radial or the non-holding side: the first turn the short way, or (when the
+      // fix is flown over and that would carry the aircraft onto the holding side) the other way
+      // (chosen by side alone; the leg is lengthened afterwards if it does not establish in time)
+      let pick: ReturnType<typeof plan> | null = null;
+      for (const fs of [0, 1, -1] as const) {
+        const r = plan(O, fs, L, true);
+        if (r.legSide < 0.3 && (!pick || fs === 0 || r.st.dist < pick.st.dist)) pick = r;
+        if (pick && fs === 0) break;
+      }
+      pick ??= plan(O, 0, L, true);
+      return { ...pick, est: intercept(pick.st, fix, C, Rh) };
+    }
+    const th = solveTheta(L);
+    const r = plan(norm(O - sense * th), firstSense, L, true);
+    return { ...r, est: intercept(r.st, fix, C, Rh) };
+  };
+  void out;
   const need = entry === 'parallel' ? EST_PARALLEL_NM : EST_NM;
   let res = fly(Lh);
-  for (let extra = 1; res.est < need && extra <= 6; extra++) res = fly(Lh + extra);
+  for (let extra = 1; res.est < need && extra <= 8; extra++) res = fly(Lh + extra);
   if (res.est < need) {
     // go back out along the inbound course and come in again
     for (const back of [8, 12, 16, 24]) {
-      const st = clone(s);
+      const st = clone(s0);
+      direct(st, fix, Rt);
+      const transitNm = st.dist;
+      const entryIdx = st.path.length - 1;
       direct(st, [fix[0] - u[0] * back, fix[1] - u[1] * back], Rh);
-      res = { st, est: intercept(st, fix, C, Rh) };
+      res = { st, est: intercept(st, fix, C, Rh), transitNm, entryIdx };
       if (res.est >= need) break;
     }
     FALLBACKS.n++;
   }
-  return { path: res.st.path, dist: res.st.dist, transitNm, entryNm: res.st.dist - transitNm, entryIdx, entry, fix };
+  return { path: res.st.path, dist: res.st.dist, transitNm: res.transitNm, entryNm: res.st.dist - res.transitNm, entryIdx: res.entryIdx, entry, fix };
 }
