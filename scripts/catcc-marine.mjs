@@ -18,7 +18,7 @@
  *   land:  rings (even-odd fill)
  *   coast: shoreline polylines (the cut along the data box is left out)
  *   nav:   { d, fill, lines } water shallower than d (not navigable by a carrier) and its outline
- *   terr:  12 NM-from-shore lines (approximate territorial limit)
+ *   terr:  approximate 12 NM territorial limit lines; terrLabels: label anchors along them
  *   depth: [{ d, lines, fill, labels }] contour lines at d metres, the closed region shallower than d
  *          (even-odd fill), and label anchors [lon, lat, lon2, lat2] (a point on the line and one
  *          about 1 NM further along, for the label angle)
@@ -48,6 +48,7 @@ const THEATRES = {
 /** water shallower than this is shaded as not navigable (a CVN draws about 12 m) */
 const NAV_M = 15;
 const COAST_TOL = 0.0003; // deg, ~30 m: keeps the full-resolution shoreline smooth at max zoom
+const TERR_TOL = 0.005; // ~0.3 NM: segmented like a charted limit
 const LINE_TOL = 0.0012; // ~0.07 NM (the 15" grid is ~0.25 NM)
 const MIN_LINE_NM = 2;
 const LABEL_EVERY_NM = 40;
@@ -375,7 +376,7 @@ const flat4 = (l) => l.flatMap((p) => [r4(p[0]), r4(p[1])]);
 // ---------------------------------------------------------------- 12 NM territorial limit
 
 /**
- * Lines 12 NM from the shoreline (an approximation: the legal limit runs from official baselines,
+ * Approximate 12 NM territorial limit (the legal limit runs from official baselines,
  * which close bays and follow outer islands; no open dataset has them). Land rings are rasterised
  * onto a ~0.5 NM grid, an exact Euclidean distance transform (Felzenszwalb, with the east-west
  * spacing scaled by cos(lat)) gives the distance to land, and the 12 NM level is contoured.
@@ -444,27 +445,46 @@ function territorialLines(landRings, [s, w, n, e]) {
     }
     return d;
   };
-  const D = new Float64Array(ni * nj);
-  for (let i = 0; i < ni; i++) {
-    const f = new Float64Array(nj);
-    for (let j = 0; j < nj; j++) f[j] = land[i * nj + j] ? 0 : INF;
-    D.set(edt1(f, sx), i * nj);
-  }
-  for (let j = 0; j < nj; j++) {
-    const f = new Float64Array(ni);
-    for (let i = 0; i < ni; i++) f[i] = D[i * nj + j];
-    const d = edt1(f, sy);
-    for (let i = 0; i < ni; i++) D[i * nj + j] = d[i];
-  }
+  // squared distance (NM²) from every cell to the nearest cell where src is set
+  const edt2 = (src) => {
+    const D = new Float64Array(ni * nj);
+    for (let i = 0; i < ni; i++) {
+      const f = new Float64Array(nj);
+      for (let j = 0; j < nj; j++) f[j] = src[i * nj + j] ? 0 : INF;
+      D.set(edt1(f, sx), i * nj);
+    }
+    for (let j = 0; j < nj; j++) {
+      const f = new Float64Array(ni);
+      for (let i = 0; i < ni; i++) f[i] = D[i * nj + j];
+      const d = edt1(f, sy);
+      for (let i = 0; i < ni; i++) D[i * nj + j] = d[i];
+    }
+    return D;
+  };
+  // Baseline approximation: morphological closing of the land by 12 NM (grow 12, shrink 12) bridges
+  // bays and gaps between islands up to 24 NM wide (the UNCLOS bay closing-line limit), much like
+  // straight baselines; the limit is then 12 NM from that shape. Between islands this gives straight
+  // runs instead of the cusps of overlapping circles.
+  const R = 12;
+  const Dl = edt2(land);
+  const grown = new Uint8Array(ni * nj);
+  for (let q = 0; q < ni * nj; q++) grown[q] = Dl[q] <= R * R ? 1 : 0;
+  const outside = new Uint8Array(ni * nj);
+  for (let q = 0; q < ni * nj; q++) outside[q] = grown[q] ? 0 : 1;
+  const Do = edt2(outside);
+  const closed = new Uint8Array(ni * nj);
+  for (let q = 0; q < ni * nj; q++) closed[q] = land[q] || Do[q] >= R * R ? 1 : 0;
+  const D = edt2(closed);
   const z = Array.from({ length: ni }, (_, i) => {
     const row = new Float32Array(nj);
     for (let j = 0; j < nj; j++) row[j] = -Math.sqrt(Math.min(D[i * nj + j], 1e8));
     return row;
   });
-  return contour({ lats, lons, z }, -12)
-    .map((l) => simplify(chaikin(l), LINE_TOL))
-    .filter((l) => l.length >= 3 && lengthNm(l) >= 2)
-    .map(flat3);
+  // simplified, not smoothed: a charted limit is a run of straight segments between turning points
+  const lines = contour({ lats, lons, z }, -R)
+    .map((l) => simplify(l, TERR_TOL))
+    .filter((l) => l.length >= 3 && lengthNm(l) >= 2);
+  return { lines: lines.map(flat3), labels: lines.flatMap((l) => labelsOf(l, isClosed(l))) };
 }
 
 // ---------------------------------------------------------------- main
@@ -687,15 +707,17 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
   };
   const depth = cfg.levels.map((d) => ({ d, ...level(d, d >= 1000 ? 5 : MIN_LINE_NM) })); // deep-water speckle dropped
   const nav = level(NAV_M, MIN_LINE_NM);
+  const terr = territorialLines(land, box);
   const out = {
-    v: 5,
+    v: 6,
     theatre: name,
     bbox: box,
     src: 'GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith); NOAA ETOPO 2022 15 arc-second relief; Natural Earth populated places; OurAirports',
     land,
     coast,
     nav: { d: NAV_M, fill: nav.fill, lines: nav.lines },
-    terr: territorialLines(land, box),
+    terr: terr.lines,
+    terrLabels: terr.labels,
     places: [...(await islandsIn(name, box, cacheDir)), ...PLACES.filter((x) => inBox(x, box))],
     airports: AIRPORTS.filter((x) => inBox(x, box)).map(({ ident, ...a }) => ({ ...a, rw: runwaysOf({ ident, ...a }) })),
     depth,

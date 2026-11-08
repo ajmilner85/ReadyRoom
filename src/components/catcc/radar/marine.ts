@@ -13,6 +13,8 @@ export interface MarineData {
   nav?: { d: number; fill: number[][]; lines?: number[][] };
   /** ~12 NM from shore (approximate territorial limit) */
   terr?: number[][];
+  /** label anchors along the territorial limit [lon, lat, lon2, lat2] */
+  terrLabels?: number[][];
   /** contour lines at d metres, region shallower than d, label anchors [lon, lat, lon2, lat2] */
   depth: { d: number; lines: number[][]; fill?: number[][]; labels?: number[][] }[];
   /** place names; r = 0 (major) .. 3 (minor) */
@@ -63,6 +65,7 @@ export interface MarineGeom {
   terr: Poly[];
   depth: { d: number; lines: Poly[]; fill: Poly[] }[];
   labels: MarinePaths['labels'];
+  terrLabels: MarinePaths['labels'];
   places: MarinePaths['places'];
   airports: MarinePaths['airports'];
 }
@@ -76,6 +79,7 @@ export interface MarinePaths {
   /** band: water between the next-shallower level and this one (non-overlapping, even-odd) */
   depth: { d: number; path: string; band: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
+  terrLabels: { x: number; y: number; ang: number; t: string }[];
   places: { x: number; y: number; n: string; r: number; island: boolean }[];
   /** rw: runways as [dx1, dy1, dx2, dy2] NM from the airport point; long: longest runway >= 8069 ft */
   airports: { x: number; y: number; id: string; n: string; r: number; mil: boolean; rw: number[][]; ext: number; long: boolean }[];
@@ -123,6 +127,7 @@ export function buildPaths(g: MarineGeom, v: { x0: number; y0: number; x1: numbe
     terr: d(g.terr, false),
     depth: g.depth.map((x, k) => ({ d: x.d, path: d(x.lines, false), band: fills[k] + (k > 0 ? fills[k - 1] : '') })),
     labels: g.labels,
+    terrLabels: g.terrLabels,
     places: g.places,
     airports: g.airports,
   };
@@ -173,16 +178,17 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
         }
         return { p, x0, y0, x1, y1 };
       });
+    const anchor = ([lo, la, lo2, la2]: number[], t: string) => {
+      const [px, py] = pr.toScope(la, lo);
+      const [qx, qy] = pr.toScope(la2, lo2);
+      let ang = (Math.atan2(qy - py, qx - px) * 180) / Math.PI;
+      if (ang > 90) ang -= 180;
+      if (ang <= -90) ang += 180;
+      return { x: px, y: py, ang, t };
+    };
     const labels: MarinePaths['labels'] = [];
-    for (const x of data.depth)
-      for (const [lo, la, lo2, la2] of x.labels ?? []) {
-        const [px, py] = pr.toScope(la, lo);
-        const [qx, qy] = pr.toScope(la2, lo2);
-        let ang = (Math.atan2(qy - py, qx - px) * 180) / Math.PI;
-        if (ang > 90) ang -= 180;
-        if (ang <= -90) ang += 180;
-        labels.push({ x: px, y: py, ang, t: String(x.d) });
-      }
+    for (const x of data.depth) for (const a of x.labels ?? []) labels.push(anchor(a, String(x.d)));
+    const terrLabels = (data.terrLabels ?? []).map((a) => anchor(a, '12 NM'));
     setGeom({
       lat,
       lon,
@@ -193,6 +199,7 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
       terr: polys(data.terr ?? []),
       depth: data.depth.map((x) => ({ d: x.d, lines: polys(x.lines), fill: polys(x.fill ?? []) })),
       labels,
+      terrLabels,
       places: (data.places ?? []).map((p) => {
         const [x, y] = pr.toScope(p.lat, p.lon);
         return { x, y, n: p.n, r: p.r, island: p.k === 'island' };

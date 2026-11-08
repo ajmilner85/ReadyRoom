@@ -171,7 +171,23 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                 )}
                 {terr && (
                   // territorial limit: dashed, chart violet (approximate: 12 NM from the shoreline, not baselines)
-                  <path d={marine.terr} fill="none" stroke="#B48AD9" strokeOpacity="0.7" strokeDasharray="6 4" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                  <>
+                    <path d={marine.terr} fill="none" stroke="#B48AD9" strokeOpacity="0.7" strokeDasharray="6 4" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                    {marine.terrLabels.map((l, i) => (
+                      <text
+                        key={`t${i}`}
+                        x={f2(l.x)}
+                        y={f2(l.y)}
+                        className="geo"
+                        textAnchor="middle"
+                        dominantBaseline="central"
+                        transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
+                        style={{ fill: '#C7A6E6', fillOpacity: 0.85, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
+                      >
+                        {l.t}
+                      </text>
+                    ))}
+                  </>
                 )}
                 {coast && (
                   <>
