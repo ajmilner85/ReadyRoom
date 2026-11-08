@@ -9,7 +9,10 @@ export interface MarineData {
   bbox: [number, number, number, number];
   land: number[][];
   coast: number[][];
-  depth: { d: number; lines: number[][] }[];
+  /** water shallower than d metres (not navigable by a carrier) */
+  nav?: { d: number; fill: number[][] };
+  /** contour lines at d metres, region shallower than d, label anchors [lon, lat, lon2, lat2] */
+  depth: { d: number; lines: number[][]; fill?: number[][]; labels?: number[][] }[];
 }
 
 const cache = new Map<string, Promise<MarineData | null>>();
@@ -30,7 +33,9 @@ export interface MarinePaths {
   lon: number;
   land: string;
   coast: string;
-  depth: { d: number; path: string }[];
+  nav: string;
+  depth: { d: number; path: string; fill: string }[];
+  labels: { x: number; y: number; ang: number; t: string }[];
 }
 
 /**
@@ -71,7 +76,25 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
       }
       return s;
     };
-    setPaths({ lat, lon, land: d(data.land, true), coast: d(data.coast, false), depth: data.depth.map((x) => ({ d: x.d, path: d(x.lines, false) })) });
+    const labels: MarinePaths['labels'] = [];
+    for (const x of data.depth)
+      for (const [lo, la, lo2, la2] of x.labels ?? []) {
+        const [px, py] = pr.toScope(la, lo);
+        const [qx, qy] = pr.toScope(la2, lo2);
+        let ang = (Math.atan2(qy - py, qx - px) * 180) / Math.PI;
+        if (ang > 90) ang -= 180;
+        if (ang <= -90) ang += 180;
+        labels.push({ x: px, y: py, ang, t: String(x.d) });
+      }
+    setPaths({
+      lat,
+      lon,
+      land: d(data.land, true),
+      coast: d(data.coast, false),
+      nav: d(data.nav?.fill ?? [], true),
+      depth: data.depth.map((x) => ({ d: x.d, path: d(x.lines, false), fill: d(x.fill ?? [], true) })),
+      labels,
+    });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, stale]);
   return on ? paths : null;

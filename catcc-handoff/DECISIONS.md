@@ -221,8 +221,10 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Stack A on CVN-71 is "71A" (E and H likewise: 71E, 71H) on the scope, panel and assignment tags. Stored ids stay single letters. New-stack ids skip E and H (they were colliding with the helo stack).
 
 ## Marine layer (coastline + bathymetry)
-- Layers → Marine: Coastline (land shaded, shoreline stroked) and Bathymetry (a few depth contours per theatre, deeper = slightly stronger). Shared, not per carrier.
-- Data built offline by `scripts/catcc-marine.mjs` into `public/catcc/marine/<Theatre>.json` from Natural Earth 10m land + minor islands and NOAA ETOPO1 (1 arc-minute, via the CoastWatch ERDDAP), both public domain. Contours by marching squares, light Chaikin smoothing, Douglas-Peucker 0.004°, lines < 3 NM dropped. Levels chosen per theatre (Gulf 20/50/200/1000/2000 m; open-ocean theatres deeper).
+- Layers → Marine: Coastline (land shaded, shoreline stroked) and Bathymetry (m). Shared, not per carrier.
+- Water shading: each contour level fills the region shallower than it with a faint blue, so the water lightens toward the shore and the deepest water is the scope background. Water shallower than 15 m (a CVN draws ~12 m) gets an extra light-blue tint as not navigable.
+- Contour lines shade from light (shallow) to dark (deep) blue; depth labels (metres) every ~30 NM along lines over 10 NM, kept upright, knocked out of the line.
+- Data built offline by `scripts/catcc-marine.mjs <GSHHS_f_L1.shp> <cache-dir>` into `public/catcc/marine/<Theatre>.json` (~5.9 MB in all; only the current theatre loads). Sources: GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith) simplified to ~0.07 NM; NOAA ETOPO 2022 15" relief (public domain) via the CoastWatch ERDDAP at 30" (1' for the big open-ocean theatres). Contours by marching squares on the grid (and on a deep-padded copy for the closed fills), one Chaikin pass, Douglas-Peucker; short deep-water speckle dropped.
 - Theatre from the source; if absent or the carrier is outside that theatre's box, inferred from position (`core/dcs/theatres.ts`). Nevada and Afghanistan have no file.
 - Paths are projected about an origin near our carrier and re-projected only after it moves 10 NM.
 

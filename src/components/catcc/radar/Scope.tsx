@@ -1050,18 +1050,47 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           {marine && pic.proj && (() => {
             const o = pic.proj.toScope(marine.lat, marine.lon);
             const n = marine.depth.length;
+            // shallow → deep: lines go from light to dark blue
+            const lineC = (i: number) => {
+              const f = n > 1 ? i / (n - 1) : 0;
+              const mix = (a: number, b: number) => Math.round(a + (b - a) * f);
+              return `rgb(${mix(150, 46)},${mix(196, 92)},${mix(232, 140)})`;
+            };
             return (
               <g transform={`translate(${f2(o[0])} ${f2(o[1])})`} style={{ pointerEvents: 'none' }}>
-                {ov.bathy &&
-                  marine.depth.map((x, i) => (
-                    <path key={x.d} d={x.path} fill="none" stroke="#4F86B8" strokeOpacity={0.16 + (0.14 * i) / Math.max(1, n - 1)} strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
-                  ))}
-                {ov.coast && (
+                {ov.bathy && (
                   <>
-                    <path d={marine.land} fill="#1A2119" fillOpacity="0.85" fillRule="evenodd" stroke="none" />
-                    <path d={marine.coast} fill="none" stroke="#A9B4A0" strokeOpacity="0.5" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                    {/* water lightens toward the shore: each level fills the region shallower than it */}
+                    {[...marine.depth].reverse().map((x) => (
+                      <path key={`f${x.d}`} d={x.fill} fill="#5B93C4" fillOpacity="0.045" fillRule="evenodd" stroke="none" />
+                    ))}
+                    <path d={marine.nav} fill="#A9D6F5" fillOpacity="0.12" fillRule="evenodd" stroke="none" />
+                    {marine.depth.map((x, i) => (
+                      <path key={x.d} d={x.path} fill="none" stroke={lineC(i)} strokeOpacity="0.32" strokeLinejoin="round" style={{ strokeWidth: 'calc(0.8px * var(--lw, 1))' }} />
+                    ))}
                   </>
                 )}
+                {ov.coast && (
+                  <>
+                    <path d={marine.land} fill="#1A2119" fillOpacity="0.92" fillRule="evenodd" stroke="none" />
+                    <path d={marine.coast} fill="none" stroke="#A9B4A0" strokeOpacity="0.55" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                  </>
+                )}
+                {ov.bathy &&
+                  marine.labels.map((l, i) => (
+                    <text
+                      key={i}
+                      x={f2(l.x)}
+                      y={f2(l.y)}
+                      className="geo"
+                      textAnchor="middle"
+                      dominantBaseline="central"
+                      transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
+                      style={{ fill: '#7FA8CC', fillOpacity: 0.75, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
+                    >
+                      {l.t}
+                    </text>
+                  ))}
               </g>
             );
           })()}
