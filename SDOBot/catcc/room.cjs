@@ -3685,7 +3685,17 @@ function supabaseVerifier(url, serviceKey) {
     }
   };
 }
-var devVerifier = async (token) => ({ userId: `dev:${token}`, name: token.slice(0, 24) || "dev" });
+var devVerifier = async (token) => {
+  const parts = token.split(".");
+  if (parts.length === 3) {
+    try {
+      const p = JSON.parse(Buffer.from(parts[1], "base64url").toString("utf8"));
+      return { userId: `dev:${p.sub ?? "unknown"}`, name: p.user_metadata?.full_name ?? p.user_metadata?.name ?? p.email ?? "dev" };
+    } catch {
+    }
+  }
+  return { userId: `dev:${token}`, name: token.slice(0, 24) || "dev" };
+};
 
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);

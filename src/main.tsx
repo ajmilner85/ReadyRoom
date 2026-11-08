@@ -11,6 +11,7 @@ import ResetPassword from './components/auth/ResetPassword'
 import { registerWakeHandlers, wake } from './utils/wake'
 
 const KneeboardLayout = lazy(() => import('./components/kneeboard/KneeboardLayout'))
+const CatccApp = lazy(() => import('./components/catcc/CatccApp'))
 
 // Import debug utilities for development
 import './utils/debugUtils.ts'
@@ -48,6 +49,13 @@ createRoot(document.getElementById('root')!).render(
                   </div>
                 }>
                   <KneeboardLayout />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/catcc" element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <CatccApp />
                 </Suspense>
               </ProtectedRoute>
             } />

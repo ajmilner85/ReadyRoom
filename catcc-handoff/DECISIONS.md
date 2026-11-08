@@ -89,6 +89,51 @@ The user chose to build our own hook rather than reuse Olympus. It reuses LotATC
 - **Seats:** `(carrier hull, role)` with the roles departure, marshal, approach, final, boss, lso, and mission_commander (carrier `*`). One user can hold several. A seat survives a disconnect for 60 s, marked `away`.
 - **Dev:** `npm run catcc:room -- --acmi <recording> [--speed 1] [--from 2300]` serves a recording through an in-process fake hook with synthetic fuel, no auth.
 
+## Geometry module (2026-11-08)
+
+`src/catcc/core/geometry/` is ported from the mockup's `radials()` as pure functions returning sampled polylines in scope coordinates.
+
+- **What's in it:**
+  - Case III departure paths (10 NM arc or S-turn);
+  - left- and right-hand holds, sized for 250 kt or from TAS;
+  - CV-1 arrivals (gradual or 30° turn at 20 DME, normal intercept or the 12 DME arc with fillets);
+  - radial placement rules;
+  - the turn-then-direct `fly()` model, EAT, CPA and NATOPS conflict standards;
+  - the AEQD projection.
+- **Tests:** 0–355° sweeps check that every path is finite and joins final astern of the ship, on the FB line and flying the FB; that arcs are flown only from wide radials and their points are really at 12 DME; and that the first fillet doesn't overshoot.
+- **Still to do from the handoff backlog:**
+  - hold-entry modelling in the EAT;
+  - stack separation by footprint and altitude band (the 10° stack rule is still the mockup's invented one, flagged in code).
+
+## Radar UI, first pass (2026-11-08)
+
+- **Route:** `/catcc` is a top-level route in `main.tsx` next to `/kneeboard`: full-viewport, no app shell, pinned to `data-theme="dark"`. It is meant to be the page each Electron window or browser popup loads. `?src=`, `?cv=` and `?ws=` (dev room URL) are query overrides.
+- **Code:**
+  - `src/components/catcc/`: `useCatccRoom` (WebSocket + Supabase token, reconnect, trail history), `scopeModel` (pure picture: projection, formations by DCS group, conflicts, phases, tags; unit-tested), `Scope` (SVG), `CatccApp` (shell).
+  - Strips reuse the ui-refactor D02.1 `FlightCard` unchanged.
+- **Built:**
+  - screen-constant symbology (handoff §3.3);
+  - rings and compass, CCAs (focus green, others blue), the coordination line with pill, BRC chevron, FB with 3/6/10 ticks;
+  - departure radials with DR flags; marshal stacks (hold, fix hash, arrival, flag); emergency (amber) and helo holds;
+  - trails (5 dots at about 6 s), 30 s velocity vectors, tags with leaders (row 3 = `FLT ×n · LOW x.x` for collapsed formations);
+  - collapsed formations (click to expand), conflict pairs in red with CPA projections and tag, off-scope edge triangles;
+  - zoom about the cursor, drag pan clamped to 100 NM, live fits (50NM/CCA/DEP/APP), cursor BRG/RNG/lat-lon readout, 10 NM scale bar;
+  - hooked-aircraft tools:
+    - **vector helper:** BRG/RNG/HDG/TRK DIST/ETE, with the wheel setting speed;
+    - **marshal assignment:** wheel picks the level, fix = angels + 15, EAT; a click assigns, draws the dim assignment, and fills the stack's levels table;
+  - strips grouped Departure/Inbound/Marshal/Approach/Support (heuristic phases);
+  - Info tab: BRC/FB/speed, wind over deck and down-the-angle, true wind, altimeter, temperature, 2K/10K winds;
+  - Radials panel: add departure radials and stacks through the rule checks, base −/+, remove;
+  - notifications (CONFLICT, LOW STATE < 4.0) with go-to and Ack;
+  - seat pills with claim and release, VIEW ONLY, feed status, LOCAL/ZULU clocks, and an open-another-window button.
+- **Verified in a browser:** against your Week 5 host recording through the fake hook (Playwright, 1700×950). Hook, assign, vector, claim and release all work. **Visual QA of styling is still yours.**
+- **Not done yet:**
+  - **Radials, stacks and assignments are local to each browser.** The handoff wants them in the room; this is next.
+  - Display-settings dialog: the scale multipliers exist but are fixed at the defaults.
+  - Layers panel; tag auto-placement; formation wheel-cycling; BRA ruler and CPA probe tools; Light/Case curve; frequencies popover; Reference popup; PriFly screens; Comms scripts.
+  - Strip drag between phases.
+  - A `manage_catcc` permission.
+
 ## Code layout (Phase 1 start)
 
 ```

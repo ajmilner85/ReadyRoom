@@ -48,5 +48,23 @@ export function supabaseVerifier(url: string, serviceKey: string): VerifyToken {
   };
 }
 
-/** Local development only: accepts any token, using it as the display name. */
-export const devVerifier: VerifyToken = async (token) => ({ userId: `dev:${token}`, name: token.slice(0, 24) || 'dev' });
+/**
+ * Local development only: accepts any token without verification. A Supabase JWT is decoded
+ * (not verified) for a readable name; any other string is used as the name.
+ */
+export const devVerifier: VerifyToken = async (token) => {
+  const parts = token.split('.');
+  if (parts.length === 3) {
+    try {
+      const p = JSON.parse(Buffer.from(parts[1], 'base64url').toString('utf8')) as {
+        sub?: string;
+        email?: string;
+        user_metadata?: { full_name?: string; name?: string };
+      };
+      return { userId: `dev:${p.sub ?? 'unknown'}`, name: p.user_metadata?.full_name ?? p.user_metadata?.name ?? p.email ?? 'dev' };
+    } catch {
+      /* fall through */
+    }
+  }
+  return { userId: `dev:${token}`, name: token.slice(0, 24) || 'dev' };
+};

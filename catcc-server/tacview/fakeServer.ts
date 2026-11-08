@@ -7,7 +7,8 @@ import net from 'node:net';
  * initial full-state dump.
  */
 export function serveAcmi(text: string, opts: { port: number; speed?: number; from?: number; name?: string }): net.Server {
-  const lines = text.replace(/^﻿/, '').split(/\r?\n/);
+  const body = text.charCodeAt(0) === 0xfeff ? text.slice(1) : text;
+  const lines = body.split('\n').map((l) => (l.endsWith('\r') ? l.slice(0, -1) : l));
   const speed = opts.speed ?? 1;
   const from = opts.from ?? 0;
 
