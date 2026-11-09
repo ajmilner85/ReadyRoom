@@ -1984,11 +1984,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               // the contour lines are broken under each label so it reads cleanly
               const FS = 0.72;
               const gapW = (t: string) => (t.length * FS * 0.62 + 0.9) * zkO;
-              const layer = (id: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number) => (
+              // `within`: only inside that coverage (the lowest altitude's band, so it isn't painted again
+              // under the selected altitude's blind area, which lies inside it)
+              const layer = (id: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number, within?: (d: RadarDonor) => number) => (
                 <>
                   <defs>
                     <mask id={id} maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
-                      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#fff" />
+                      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill={within ? '#000' : '#fff'} />
+                      {within && ds.map((d) => <circle key={`w${d.id}`} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(within(d))} fill="#fff" />)}
                       {ds.map((d) => (
                         <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="#000" />
                       ))}
@@ -2025,8 +2028,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     </mask>
                   </defs>
                   {/* the lowest altitude's blind spots are always shown, faintly, under the selected one */}
-                  {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2)}
-                  {layer('catccBlind', (d) => d.cov, 0.085, 0.7, 2)}
+                  {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2, (d) => d.cov + 0.05)}
+                  {layer('catccBlind', (d) => d.cov, 0.06, 0.7, 2)}
                   {labs.map((l) => (
                     <g key={l.key} className="zs nr" transform={`${zs(l.q, zkO)} rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`}>
                       <text x={f2(l.q[0])} y={f2(l.q[1])} textAnchor="middle" dominantBaseline="central" style={{ fill: '#FF8A85', fillOpacity: l.op, fontSize: `${FS}px`, fontWeight: 600, letterSpacing: '0.05em' }}>
