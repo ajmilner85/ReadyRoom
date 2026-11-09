@@ -306,7 +306,7 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Blind spots: everything outside the union of coverage circles for the chosen target altitude (100 ft – 25K, picked under the layer row; default 1000 ft), tinted with the union edge dashed.
 
 ## Case I port hold (layer "Case I port hold", Approach group, off by default)
-- Left-hand circle 5 NM across, tangent to the BRC with the ship at its 3 o'clock (CV NATOPS overhead/port holding as remembered; the NATOPS PDF was not available to check against).
+- Left-hand circle 5 NM across on the port side; position 1 (its 3 o'clock) is offset 0.5 NM to starboard of the ship so the deck is down the pilot's left side crossing 1 (offset from the squadron Case I diagram, not CV NATOPS; adjust OFF in portHold).
 - Positions numbered in the direction of flight from overhead: 1 overhead heading BRC, 2 ahead, 3 abeam to port (reciprocal), 4 astern. Commence drawn from 3, descending through 4 to the initial (3 NM astern on the BRC, 800 ft). Numbering and commence point are assumptions pending the user's confirmation.
 
 ## Locations and seats (phase 1 of the seats / CDC / Bridge / Final work)

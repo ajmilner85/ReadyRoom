@@ -946,8 +946,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
   // ------------------------------------------------ overlay pieces per carrier
   /**
-   * Case I port holding: a left-hand circle 5 NM across, tangent to the BRC with the ship at its
-   * 3 o'clock. Positions are numbered in the direction of flight from overhead the ship: 1 overhead
+   * Case I port holding: a left-hand circle 5 NM across on the port side, its 3 o'clock (position 1)
+   * offset 0.5 NM to starboard of the ship so pilots crossing 1 see the deck down their left side
+   * (offset as drawn in the squadron's Case I diagram; not checked against CV NATOPS). Positions are numbered in the direction of flight from overhead the ship: 1 overhead
    * (heading the BRC), 2 ahead, 3 abeam to port (reciprocal), 4 astern. Commence from 3 on BRC + 210°
    * (30° right of the downwind heading), descending to 800 ft and accelerating to 350 kt, then a
    * left turn rolling out on the BRC at the initial, 3 NM astern.
@@ -959,7 +960,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const u: Pt = [Math.sin(b), -Math.cos(b)];
     const l: Pt = [-Math.cos(b), -Math.sin(b)];
     const s = c.track.p;
-    const o = add(s, mul(l, R));
+    const OFF = 0.5;
+    const o = add(s, mul(l, R - OFF));
     // flight order from overhead: directions from the circle's centre
     const dirs: Pt[] = [mul(l, -1), u, l, mul(u, -1)];
     const pos = dirs.map((d) => add(o, mul(d, R)));
@@ -974,10 +976,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const th = 210 * D2R;
     const [sn, cs] = [Math.sin(th), Math.cos(th)];
     // end of the fillet: turned 30° right about (-5 - r1, 0)
-    const qx = -5 - r1 + r1 * Math.cos(30 * D2R);
+    const qx = OFF - 5 - r1 + r1 * Math.cos(30 * D2R);
     const qy = -r1 * Math.sin(30 * D2R);
     const L = Math.max(0, (qx + r2 * (1 - cs)) / -sn);
-    const p0 = at(-5, 0);
+    const p0 = at(OFF - 5, 0);
     const q = at(qx, qy);
     const p1x = qx + L * sn;
     const p1y = qy + L * cs;
