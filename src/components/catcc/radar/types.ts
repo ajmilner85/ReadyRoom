@@ -1,4 +1,5 @@
 import type { RoutePoint } from '../../../catcc/core/dcs/hookProtocol.ts';
+import type { Pt } from '../../../catcc/core/geometry/vec.ts';
 /** Radar UI types and display-scale constants (handoff §8). */
 export type Tool = 'select' | 'bra' | 'marshal' | 'cpa' | 'vec';
 export type Fit = 'r50' | 'cca' | 'dep' | 'app' | null;
@@ -33,6 +34,21 @@ export interface ConflictCfg {
 export const CONFLICT_DEF: ConflictCfg = { lookAheadS: 120, vertCapS: 30, sweep: false, datalink: false };
 
 /** A friendly ship group with a planned route, for the PIM / waypoints overlay. */
+/** An air-search radar donating to the picture: a friendly ship or airborne early-warning aircraft. */
+export interface RadarDonor {
+  id: string;
+  /** scope position, NM */
+  p: Pt;
+  /** "CVN-71", the callsign, or the short type */
+  name: string;
+  radar: string;
+  kind: 'ship' | 'aew';
+  /** coverage radius against the selected blind-spot altitude, NM */
+  cov: number;
+  /** the scope already draws a symbol here (carrier, aircraft): the datalink icon sits above it */
+  sym: boolean;
+}
+
 export interface PimShip {
   /** DCS group name (the toggle key) */
   g: string;
@@ -53,7 +69,8 @@ export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Recovery', [['bolter', 'Bolter pattern', '#DE9A1F'], ['tanker', 'Tanker pattern', '#93A1B0']]],
   ['Marine', [['coast', 'Landmasses', '#A9B4A0'], ['bathy', 'Bathymetry (m)', '#4F86B8']]],
   ['Geography', [['places', 'Geo names', '#8E99A6'], ['airports', 'Aerodromes', '#C8B07A'], ['terr', '12 NM limit', '#B48AD9']]],
+  ['Sensors', [['dl', 'Datalink sources', '#E7C66B'], ['blind', 'Radar blindspots', '#FF8A85']]],
   ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['latlon', 'Border scale', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
 ];
-export const OV_DEFAULT = { pim: true, terr: false, bulls: true, sweep: false, places: true, airports: true, coast: true, bathy: true, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
+export const OV_DEFAULT = { dl: false, blind: false, pim: true, terr: false, bulls: true, sweep: false, places: true, airports: true, coast: true, bathy: true, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
 export const OV2_DEFAULT = { pim: false, cca: true, rings: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: false, sar: false, cv1: false, cv2: false, cv3: false };

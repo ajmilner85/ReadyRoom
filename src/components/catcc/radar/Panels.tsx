@@ -365,11 +365,11 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
 
 // ---------------------------------------------------------------- layers
 
-const SHARED: Record<string, true> = { coord: true, latlon: true, grid: true, sweep: true, bulls: true, terr: true, coast: true, bathy: true, places: true, airports: true };
+const SHARED: Record<string, true> = { dl: true, blind: true, coord: true, latlon: true, grid: true, sweep: true, bulls: true, terr: true, coast: true, bathy: true, places: true, airports: true };
 /** layers that only show while another layer is on */
 const DEPENDS: Record<string, string> = { arr: 'marshal' };
 
-export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<string, boolean>; set: (ov: Record<string, boolean>, ov2: Record<string, boolean>) => void; hull: string; other?: string }> = ({ ov, ov2, set, hull, other }) => {
+export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<string, boolean>; set: (ov: Record<string, boolean>, ov2: Record<string, boolean>) => void; hull: string; other?: string; extra?: Record<string, React.ReactNode> }> = ({ ov, ov2, set, hull, other, extra }) => {
   const labels = LAYER_GROUPS.flatMap((g) => g[1]);
   const allOn = labels.every(([k]) => ov[k] && (SHARED[k] || ov2[k]));
   const toggleAll = () => {
@@ -414,7 +414,8 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
             const on2 = has2 && ov2[k] && !off2;
             const lock = (o: boolean): React.CSSProperties => (o ? { opacity: 0.35, cursor: 'default' } : {});
             return (
-              <div key={k} className="lrow" style={{ color: on1 || on2 ? '#E6EDF3' : '#93A1B0' }}>
+              <React.Fragment key={k}>
+              <div className="lrow" style={{ color: on1 || on2 ? '#E6EDF3' : '#93A1B0' }}>
                 <span style={{ paddingLeft: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l}</span>
                 <button className="lcb" disabled={off1} style={lock(off1)} title={off1 ? 'Shown with marshal stacks' : undefined} onClick={() => set({ ...ov, [k]: !ov[k] }, ov2)} aria-pressed={!!ov[k]} aria-label={`${l} · ${hull}`}>
                   <span style={{ borderColor: c, background: ov[k] ? c : 'transparent' }} />
@@ -427,6 +428,8 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
                   <span />
                 )}
               </div>
+              {extra?.[k]}
+              </React.Fragment>
             );
           })}
         </React.Fragment>

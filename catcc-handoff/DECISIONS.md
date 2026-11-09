@@ -298,3 +298,9 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 
 ## Assigned marshal routes on hover
 - After assignment, an aircraft's marshal route, fix hash and EAT tag show only while it is hovered on the scope (or its formation is), or its strip is hovered in the Strips list. Several at once (a flight) stack their tags in EAT order instead of overlapping.
+
+## Datalink sources / Radar blindspots (sensors layers)
+- Donors: friendly (focus carrier's coalition) ships with an air-search radar and airborne AEW (E-2, E-3, A-50, KJ-2000). AEW on deck / below 500 ft doesn't count. Ground radars are not included: the DCS hook exports aircraft and ships only.
+- Ranges are open-source detection ranges vs a fighter-sized target (SPS-48E 160, SPY-1 175, APS-145 200, APY-2 215 NM ...), table in src/catcc/core/sensors/radar.ts.
+- Coverage vs a target at altitude h = min(range, 1.23(√h_antenna + √h_target)) NM (4/3 earth). Ship antenna heights from the table; AEW uses its altitude. No terrain masking, no cone of silence.
+- Blind spots: everything outside the union of coverage circles for the chosen target altitude (100 ft – 25K, picked under the layer row; default 1000 ft), tinted with the union edge dashed.

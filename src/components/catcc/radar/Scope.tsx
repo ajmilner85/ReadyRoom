@@ -95,7 +95,7 @@ import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formati
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
-import { LW_STEPS, UI_STEPS, type PimShip, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
+import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
 
 export type { Editing, Fit, Highlight, Placement, Tool, UiScale };
 
@@ -123,6 +123,10 @@ export interface ScopeProps {
   bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
   /** planned routes to draw (PIM / waypoints overlay), already filtered to the ones switched on */
   pimRoutes?: PimShip[];
+  /** friendly air-search radars (Datalink sources layer) and their coverage (Radar blindspots layer) */
+  donors?: RadarDonor[];
+  /** target altitude the blind spots are drawn for, ft */
+  blindAlt?: number;
   /** mission time, s (route ETAs are on this clock) */
   mt?: number;
   /** mission start, s after local midnight, for waypoint times */
@@ -1661,6 +1665,57 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
+          {ov.blind &&
+            (() => {
+              // everything in view outside every donor's coverage circle, tinted; the union's edge drawn
+              const ds = props.donors ?? [];
+              const m = 2;
+              const box = { x: f2(vx - m * VW), y: f2(vy - m * VH), w: f2((2 * m + 1) * VW), h: f2((2 * m + 1) * VH) };
+              const alt = props.blindAlt ?? 1000;
+              return (
+                <g style={{ pointerEvents: 'none' }}>
+                  <defs>
+                    <mask id="catccBlind" maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
+                      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#fff" />
+                      {ds.map((d) => (
+                        <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(d.cov)} fill="#000" />
+                      ))}
+                    </mask>
+                  </defs>
+                  <g mask="url(#catccBlind)">
+                    <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#FF8A85" fillOpacity="0.085" />
+                    {ds.map((d) => (
+                      <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(d.cov)} fill="none" stroke="#FF8A85" strokeOpacity="0.7" strokeDasharray="8 5" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
+                    ))}
+                  </g>
+                  {ds.length === 0 && (
+                    <text x={f2(vx + VW / 2)} y={f2(vy + VH - 3 * zkO)} textAnchor="middle" style={{ fill: '#FF8A85', fontSize: `${(0.9 * zkO).toFixed(3)}px`, fontWeight: 600 }}>
+                      {`NO FRIENDLY RADAR · ALL BLIND BELOW ${alt} FT`}
+                    </text>
+                  )}
+                </g>
+              );
+            })()}
+          {ov.dl &&
+            (props.donors ?? []).map((d) => {
+              // radiating-arcs glyph: on the ship itself, or just above a symbol the scope already draws
+              const c: Pt = d.sym ? [d.p[0], d.p[1] - 1.9 * zkO] : d.p;
+              const arc = (r: number, side: 1 | -1) => {
+                const x = r * Math.cos(0.7) * side;
+                const y = r * Math.sin(0.7);
+                return side > 0 ? `M${f2(c[0] + x)} ${f2(c[1] - y)}A${r} ${r} 0 0 1 ${f2(c[0] + x)} ${f2(c[1] + y)}` : `M${f2(c[0] + x)} ${f2(c[1] + y)}A${r} ${r} 0 0 1 ${f2(c[0] + x)} ${f2(c[1] - y)}`;
+              };
+              return (
+                <g key={`dl${d.id}`} className="zs" transform={zs(c, zkO)} style={{ pointerEvents: 'none' }}>
+                  <title>{`${d.name} · ${d.radar}`}</title>
+                  <circle cx={f2(c[0])} cy={f2(c[1])} r="0.2" fill="#E7C66B" />
+                  <path d={[arc(0.55, 1), arc(0.55, -1), arc(0.95, 1), arc(0.95, -1)].join('')} fill="none" stroke="#E7C66B" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
+                  <text x={f2(c[0] + 1.25)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                    {`${d.name.toUpperCase()} · ${d.radar}`}
+                  </text>
+                </g>
+              );
+            })}
           {ov.bulls &&
             pic.proj &&
             (props.bulls ?? []).map((b) => {

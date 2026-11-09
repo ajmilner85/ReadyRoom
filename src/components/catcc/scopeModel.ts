@@ -57,6 +57,8 @@ export interface Picture {
   focus?: Carrier;
   carriers: Carrier[];
   air: ScopeTrack[];
+  /** surface ships other than carriers (radar donors) */
+  ships?: ScopeTrack[];
   formations: Formation[];
   conflicts: Conflict[];
 }
@@ -110,7 +112,8 @@ export function buildPicture(
   const formations = groupFormations(air);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
   const conflicts = findConflicts(air, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors);
-  return { proj, focus: carriers.find((c) => c.focus), carriers, air, formations, conflicts };
+  const ships = tracks.filter((t) => t.k === 'ship').map(toScope);
+  return { proj, focus: carriers.find((c) => c.focus), carriers, air, ships, formations, conflicts };
 }
 
 /** Lead = lowest element number in the callsign (x-1), else lowest id. */

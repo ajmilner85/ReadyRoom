@@ -9,13 +9,14 @@ import { autoCoordLine, coordGeom, reframe, sideOf, type CoordArea, type CoordGe
 import { holdPattern } from '../../../catcc/core/geometry/procedures.ts';
 import { nextPimTurn } from '../../../catcc/core/env/weather.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
+import { antennaFtOf, BLIND_ALTS, coverageNm, radarOf } from '../../../catcc/core/sensors/radar.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import type { RoomState } from '../useCatccRoom.ts';
 import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
-import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type PimShip, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
+import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const hhmm = (d: Date) => `${String(d.getUTCHours()).padStart(2, '0')}:${String(d.getUTCMinutes()).padStart(2, '0')}`;
@@ -98,6 +99,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const [ov2, setOv2] = useState<Record<string, boolean>>(() => load('catcc.ov2', OV2_DEFAULT));
   const [ui, setUi] = useState<UiScale>(() => load('catcc.ui', UI_DEF));
   const [layersOpen, setLayersOpen] = useState(false);
+  // target altitude the radar blind spots are drawn for, ft
+  const [blind, setBlind] = useState<{ alt: number }>(() => load('catcc.blind', { alt: 1000 }));
   const [freqOpen, setFreqOpen] = useState(false);
   const [commsOpen, setCommsOpen] = useState(false);
   const [commsSel, setCommsSel] = useState<string | null>(null);
@@ -116,6 +119,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   useEffect(() => save('catcc.ov', ov), [ov]);
   useEffect(() => save('catcc.ov2', ov2), [ov2]);
   useEffect(() => save('catcc.ui', ui), [ui]);
+  useEffect(() => save('catcc.blind', blind), [blind]);
 
   const focus = pic.focus;
   const ship = focus?.ship;
@@ -127,6 +131,21 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   }, [pic.carriers, state.plans]);
   const plan = useMemo(() => plans[hull] ?? { deps: [], stacks: [] }, [plans, hull]);
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
+
+  // ------------------------------------------------ radar donors: friendly ships and airborne AEW
+  const donors = useMemo<RadarDonor[]>(() => {
+    const side = focus?.track.sd ?? 'blue';
+    const out: RadarDonor[] = [];
+    for (const t of [...pic.carriers.map((c) => c.track), ...(pic.ships ?? []), ...pic.air]) {
+      if (t.sd !== side) continue;
+      const spec = radarOf(t.ty);
+      if (!spec) continue;
+      // an AEW aircraft on deck or on the ground isn't radiating
+      if (spec.kind === 'aew' && (t.air === false || t.alt < 500)) continue;
+      out.push({ id: t.id, p: t.p, name: t.hull ?? (spec.kind === 'aew' ? (t.cs ?? t.ty) : (spec.cls ?? t.ty.replace(/_/g, ' '))), radar: spec.radar, kind: spec.kind, sym: t.k !== 'ship', cov: coverageNm(spec, antennaFtOf(spec, t.alt), blind.alt) });
+    }
+    return out;
+  }, [pic.carriers, pic.ships, pic.air, focus?.track.sd, blind.alt]);
 
   // ------------------------------------------------ PIM / waypoints: carrier groups with a planned route
   const routes = state.env?.routes;
@@ -371,6 +390,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       {/* ---------------- scope */}
       <Scope
         theatre={state.theatre}
+        donors={donors}
+        blindAlt={blind.alt}
         bulls={state.env?.bulls?.filter((b) => b.side === (focus?.track.sd ?? 'blue'))}
         showAssigned={stripHov}
         pimRoutes={pimShips.filter((s) => (s.own ? ov.pim : ov2.pim))}
@@ -407,7 +428,16 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((o) => !o)}
         onToggleBulls={() => setOv((o) => ({ ...o, bulls: !o.bulls }))}
-        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} />}
+        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} extra={{ blind: ov.blind ? (
+          <div role="radiogroup" aria-label="Blind spots for targets at" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '2px 0 6px 6px', alignItems: 'center' }}>
+            <span className="mono" style={{ fontSize: 9.5, color: '#93A1B0', letterSpacing: '.06em', marginRight: 2 }}>TARGET AT</span>
+            {BLIND_ALTS.map((a) => (
+              <button key={a} role="radio" aria-checked={blind.alt === a} onClick={() => setBlind({ alt: a })} className="mono" style={{ fontSize: 10, padding: '2px 6px', borderRadius: 4, cursor: 'pointer', border: `1px solid ${blind.alt === a ? '#FF8A85' : '#374250'}`, background: blind.alt === a ? 'rgba(255,138,133,.16)' : '#222C37', color: blind.alt === a ? '#FFC2BF' : '#C9D3DD' }}>
+                {a >= 1000 ? `${a / 1000}K` : a} FT
+              </button>
+            ))}
+          </div>
+        ) : null }} />}
         freqOpen={freqOpen}
         onToggleFreq={() => setFreqOpen((o) => !o)}
         freqPanel={<FreqPanel plan={comms.plan} source={comms.source} />}
