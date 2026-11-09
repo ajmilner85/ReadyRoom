@@ -605,11 +605,17 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const h = yb - ya + 2 * pad;
     return { zw: clampW(Math.max(w, h / asp)), zx: (xa + xb) / 2, zy: (ya + yb) / 2 };
   };
+  const interest = (): Pt[] => [[0, 0] as Pt, ...pic.air.map((t) => t.p), ...pic.carriers.map((c) => c.track.p), ...(pic.ships ?? []).map((t) => t.p)];
   const fits: Record<Exclude<Fit, null>, () => { zw: number; zx: number; zy: number }> = {
-    // as much of the theatre as the view can show (the theatre clamp then keeps it inside)
-    thr: () => (tBounds ? fitBox([[tBounds.x0, tBounds.y0], [tBounds.x1, tBounds.y1]], 0) : fitBox([[-200, -200], [200, 200]], 0)),
+    // as much of the theatre as the view can show, centred on what's of interest (the theatre clamp
+    // then slides it only as far as it must to stay inside)
+    thr: () => {
+      const z = tBounds ? fitBox([[tBounds.x0, tBounds.y0], [tBounds.x1, tBounds.y1]], 0) : fitBox([[-200, -200], [200, 200]], 0);
+      const c = fitBox(interest(), 0);
+      return { zw: z.zw, zx: c.zx, zy: c.zy };
+    },
     // everything of interest: aircraft, carriers and other ships
-    fit: () => fitBox([[0, 0] as Pt, ...pic.air.map((t) => t.p), ...pic.carriers.map((c) => c.track.p), ...(pic.ships ?? []).map((t) => t.p)], 8),
+    fit: () => fitBox(interest(), 8),
     // the own side's bullseye, 100 NM around it
     bulls: () => {
       const be = props.bulls?.[0];
