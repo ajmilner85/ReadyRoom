@@ -304,3 +304,7 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Ranges are open-source detection ranges vs a fighter-sized target (SPS-48E 160, SPY-1 175, APS-145 200, APY-2 215 NM ...), table in src/catcc/core/sensors/radar.ts.
 - Coverage vs a target at altitude h = min(range, 1.23(√h_antenna + √h_target)) NM (4/3 earth). Ship antenna heights from the table; AEW uses its altitude. No terrain masking, no cone of silence.
 - Blind spots: everything outside the union of coverage circles for the chosen target altitude (100 ft – 25K, picked under the layer row; default 1000 ft), tinted with the union edge dashed.
+
+## Case I port hold (layer "Case I port hold", Approach group, off by default)
+- Left-hand circle 5 NM across, tangent to the BRC with the ship at its 3 o'clock (CV NATOPS overhead/port holding as remembered; the NATOPS PDF was not available to check against).
+- Positions numbered in the direction of flight from overhead: 1 overhead heading BRC, 2 ahead, 3 abeam to port (reciprocal), 4 astern. Commence drawn from 3, descending through 4 to the initial (3 NM astern on the BRC, 800 ft). Numbering and commence point are assumptions pending the user's confirmation.

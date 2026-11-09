@@ -880,6 +880,80 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   }
 
   // ------------------------------------------------ overlay pieces per carrier
+  /**
+   * Case I port holding: a left-hand circle 5 NM across, tangent to the BRC with the ship at its
+   * 3 o'clock. Positions are numbered in the direction of flight from overhead the ship: 1 overhead
+   * (heading the BRC), 2 ahead, 3 abeam to port (reciprocal), 4 astern (turning back toward the
+   * ship). Commence from 3, descending through 4 to the initial, 3 NM astern on the BRC at 800 ft.
+   */
+  const portHold = (c: Carrier) => {
+    const C = '#9FD9A8';
+    const R = 2.5;
+    const b = c.ship.brc * D2R;
+    const u: Pt = [Math.sin(b), -Math.cos(b)];
+    const l: Pt = [-Math.cos(b), -Math.sin(b)];
+    const s = c.track.p;
+    const o = add(s, mul(l, R));
+    // flight order from overhead: directions from the circle's centre
+    const dirs: Pt[] = [mul(l, -1), u, l, mul(u, -1)];
+    const pos = dirs.map((d) => add(o, mul(d, R)));
+    const initial = add(s, mul(u, -3));
+    const txt = (extra?: React.CSSProperties): React.CSSProperties => ({ fill: C, fontSize: '0.85px', fontWeight: 600, letterSpacing: '0.05em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round', ...extra });
+    return (
+      <g key={`ph${c.track.id}`} style={{ pointerEvents: 'none' }}>
+        <circle cx={f2(o[0])} cy={f2(o[1])} r={R} fill="none" stroke={C} strokeOpacity="0.75" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} />
+        {/* commence: from 3, descending through 4 to the initial */}
+        <path d={`M${f2(pos[2][0])} ${f2(pos[2][1])}A${R} ${R} 0 0 0 ${f2(pos[3][0])} ${f2(pos[3][1])}L${f2(initial[0])} ${f2(initial[1])}`} fill="none" stroke={C} strokeOpacity="0.9" strokeDasharray="5 4" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
+        {pos.map((p, i) => {
+          // left-hand flow: the direction of flight at each position is the radius turned 90° left
+          const d = dirs[i];
+          const fwd: Pt = [d[1], -d[0]];
+          const lab = add(p, mul(d, 1.1 * zkO));
+          const a = add(p, mul(fwd, 0.45 * zkO));
+          const w1 = add(p, add(mul(fwd, -0.15 * zkO), mul(d, 0.35 * zkO)));
+          const w2 = add(p, add(mul(fwd, -0.15 * zkO), mul(d, -0.35 * zkO)));
+          return (
+            <g key={i}>
+              <path d={`M${f2(w1[0])} ${f2(w1[1])}L${f2(a[0])} ${f2(a[1])}L${f2(w2[0])} ${f2(w2[1])}`} fill="none" stroke={C} strokeLinejoin="round" style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} />
+              <g className="zs" transform={zs(lab, zkO)}>
+                <circle cx={f2(lab[0])} cy={f2(lab[1])} r="0.62" fill="#0B0E12" stroke={C} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
+                <text x={f2(lab[0])} y={f2(lab[1])} textAnchor="middle" dominantBaseline="central" style={txt({ fontSize: '0.8px' })}>
+                  {i + 1}
+                </text>
+              </g>
+            </g>
+          );
+        })}
+        {(() => {
+          const q = add(pos[2], mul(l, 2.1 * zkO));
+          return (
+            <g className="zs" transform={zs(q, zkO)}>
+              <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={txt()}>
+                COMMENCE
+              </text>
+            </g>
+          );
+        })()}
+        <g className="zs" transform={zs(initial, zkO)}>
+          <circle cx={f2(initial[0])} cy={f2(initial[1])} r="0.3" fill={C} />
+          <text x={f2(initial[0] + 0.7)} y={f2(initial[1] + 0.9)} stroke="#0B0E12" style={txt()}>
+            INITIAL 3 NM · 800 FT
+          </text>
+        </g>
+        {(() => {
+          const q = add(pos[1], mul(u, 2.6 * zkO));
+          return (
+            <g className="zs" transform={zs(q, zkO)}>
+              <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={txt({ fillOpacity: 0.85 })}>
+                {`${c.track.hull ?? ''} PORT HOLD`.trim()}
+              </text>
+            </g>
+          );
+        })()}
+      </g>
+    );
+  };
+
   const carrierOverlays = (c: Carrier) => {
     const blue = !c.focus;
     const o = blue ? ov2 : ov;
@@ -1663,6 +1737,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 );
               })}
           {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
+          {pic.carriers.filter((c) => (c.focus ? ov.port : ov2.port)).map(portHold)}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}
           {ov.blind &&
