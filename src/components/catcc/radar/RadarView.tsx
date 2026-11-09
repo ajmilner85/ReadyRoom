@@ -14,6 +14,7 @@ import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.
 import type { RoomState } from '../useCatccRoom.ts';
 import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
+import type { SeatDef } from '../seats.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
 import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
@@ -77,6 +78,8 @@ const PHASES: [Phase, string][] = [
 // ---------------------------------------------------------------- view
 
 export interface RadarViewProps {
+  /** the seat this radar is for: its preset gives the default layers, zoom and tool, and its own saved layers */
+  seat: SeatDef;
   state: RoomState;
   pic: Picture;
   offH?: number;
@@ -93,30 +96,27 @@ export interface RadarViewProps {
   envCase: { ceiling: number | null; vis: number | null };
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, refOpen, setRefOpen, deckClear, envCase, conflict, setConflict }) => {
-  const [tool, setTool] = useState<Tool>('marshal');
-  const [ov, setOv] = useState<Record<string, boolean>>(() => {
-    const v = load('catcc.ov', OV_DEFAULT);
-    // one-time: the radar sweep became off by default after it had been saved on
+export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, refOpen, setRefOpen, deckClear, envCase, conflict, setConflict }) => {
+  const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
+  const [tool, setTool] = useState<Tool>(pre.tool);
+  // layers are kept per seat; the CATCC seats fall back to the layers saved before there were seats
+  const legacy = (k: string, d: Record<string, boolean>) => {
     try {
-      if (!localStorage.getItem('catcc.ov.sweepOff')) {
-        localStorage.setItem('catcc.ov.sweepOff', '1');
-        return { ...v, sweep: false };
-      }
+      return (seat.id === 'catcc' || seat.id === 'airops') && !localStorage.getItem(`${k}.${seat.id}`) && localStorage.getItem(k) ? { ...load(k, d), sweep: false } : load(`${k}.${seat.id}`, d);
     } catch {
-      /* private mode */
+      return d;
     }
-    return v;
-  });
-  const [ov2, setOv2] = useState<Record<string, boolean>>(() => load('catcc.ov2', OV2_DEFAULT));
+  };
+  const [ov, setOv] = useState<Record<string, boolean>>(() => legacy('catcc.ov', pre.ov));
+  const [ov2, setOv2] = useState<Record<string, boolean>>(() => legacy('catcc.ov2', pre.ov2));
   const [ui, setUi] = useState<UiScale>(() => load('catcc.ui', UI_DEF));
   const [layersOpen, setLayersOpen] = useState(false);
   // target altitude the radar blind spots are drawn for, ft
-  const [blind, setBlind] = useState<{ alt: number }>(() => load('catcc.blind', { alt: 1000 }));
+  const [blind, setBlind] = useState<{ alt: number }>(() => load(`catcc.blind.${seat.id}`, { alt: 1000 }));
   const [freqOpen, setFreqOpen] = useState(false);
   const [commsOpen, setCommsOpen] = useState(false);
   const [commsSel, setCommsSel] = useState<string | null>(null);
-  const [fit, setFit] = useState<Fit>('r50');
+  const [fit, setFit] = useState<Fit>(pre.fit);
   const [goTo, setGoTo] = useState<{ p: Pt; nonce: number; fit?: Pt[] } | undefined>();
   const [hookedId, setHookedId] = useState<string | null>(null);
   const [hl, setHl] = useState<Highlight | null>(null);
@@ -128,10 +128,10 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const comms = useCommsPlan();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
-  useEffect(() => save('catcc.ov', ov), [ov]);
-  useEffect(() => save('catcc.ov2', ov2), [ov2]);
+  useEffect(() => save(`catcc.ov.${seat.id}`, ov), [ov, seat.id]);
+  useEffect(() => save(`catcc.ov2.${seat.id}`, ov2), [ov2, seat.id]);
   useEffect(() => save('catcc.ui', ui), [ui]);
-  useEffect(() => save('catcc.blind', blind), [blind]);
+  useEffect(() => save(`catcc.blind.${seat.id}`, blind), [blind, seat.id]);
 
   const focus = pic.focus;
   const ship = focus?.ship;
@@ -440,7 +440,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((o) => !o)}
         onToggleBulls={() => setOv((o) => ({ ...o, bulls: !o.bulls }))}
-        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} extra={{ blind: ov.blind ? (
+        layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} defaults={pre} extra={{ blind: ov.blind ? (
           <div role="radiogroup" aria-label="Blind spots for targets at" style={{ display: 'flex', flexWrap: 'wrap', gap: 4, padding: '2px 0 6px 6px', alignItems: 'center' }}>
             <span className="mono" style={{ fontSize: 9.5, color: '#93A1B0', letterSpacing: '.06em', marginRight: 2 }}>TARGET AT</span>
             {BLIND_ALTS.map((a) => (

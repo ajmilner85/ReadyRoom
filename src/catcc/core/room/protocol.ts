@@ -25,8 +25,34 @@ import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
 
 export const ROOM_PROTO = 1;
 
-export type SeatRole = 'departure' | 'marshal' | 'approach' | 'final' | 'boss' | 'lso' | 'mission_commander';
-export const SEAT_ROLES: SeatRole[] = ['departure', 'marshal', 'approach', 'final', 'boss', 'lso', 'mission_commander'];
+/**
+ * Seats: a function within a location on the ship (see src/components/catcc/seats.ts for the
+ * condensed and expanded layouts). Condensed seats cover a whole location (catcc, ood, lso, ...).
+ */
+export type SeatRole =
+  // CDC
+  | 'strike'
+  | 'aw'
+  | 'suw'
+  // CATCC
+  | 'catcc'
+  | 'airops'
+  | 'departure'
+  | 'marshal'
+  | 'approach'
+  | 'final'
+  // PriFly
+  | 'boss'
+  | 'miniboss'
+  // Bridge
+  | 'ood'
+  // LSO platform
+  | 'lso'
+  | 'clso'
+  | 'blso'
+  | 'writer'
+  | 'mission_commander';
+export const SEAT_ROLES: SeatRole[] = ['strike', 'aw', 'suw', 'catcc', 'airops', 'departure', 'marshal', 'approach', 'final', 'boss', 'miniboss', 'ood', 'lso', 'clso', 'blso', 'writer', 'mission_commander'];
 
 /** A seat is a role on one carrier (hull, e.g. "CVN-72"); the mission commander seat uses carrier "*". */
 export interface SeatKey {

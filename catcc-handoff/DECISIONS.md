@@ -308,3 +308,12 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 ## Case I port hold (layer "Case I port hold", Approach group, off by default)
 - Left-hand circle 5 NM across, tangent to the BRC with the ship at its 3 o'clock (CV NATOPS overhead/port holding as remembered; the NATOPS PDF was not available to check against).
 - Positions numbered in the direction of flight from overhead: 1 overhead heading BRC, 2 ahead, 3 abeam to port (reciprocal), 4 astern. Commence drawn from 3, descending through 4 to the initial (3 NM astern on the BRC, 800 ft). Numbering and commence point are assumptions pending the user's confirmation.
+
+## Locations and seats (phase 1 of the seats / CDC / Bridge / Final work)
+- Locations: CDC, CATCC, PriFly, Bridge, LSO. Seats are functions within a location (src/components/catcc/seats.ts).
+- Layouts (Options dialog, per browser, default condensed): condensed = Strike / CATCC / Air Boss / OOD / LSO; expanded = AW, Strike, SUW / Air Ops, Departure, Marshal, Approach, Final / Air Boss, Mini Boss / OOD / Controlling LSO, Backup LSO, Writer.
+- URL ?seat=<role>; old ?m=radar|lso|boss links map to CATCC / LSO / Air Boss. A seat not in the current layout resolves to its location's equivalent.
+- Radar seats each have a preset (default layers for own/other carriers, zoom, tool) and their own saved layers (catcc.ov.<seat>); Layers → Reset restores the seat's preset. CDC seats open at the new THTR zoom (200 NM; max zoom-out raised to 440 NM wide).
+- Seat roles added to the room protocol (room server must be restarted / rebundled). Carrier plans are editable by anyone until a CATCC seat is held for that carrier, then only by CATCC seat holders.
+- Header: location tabs, seat tabs (expanded) with a holder dot, claim pill for the current seat only.
+- Interfaces not yet built (Strike tasking, Bridge, Final/Approach displays) show the radar with the seat's preset for now.

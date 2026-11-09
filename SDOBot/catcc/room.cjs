@@ -3985,7 +3985,7 @@ var HookTrackStore = class {
 
 // src/catcc/core/room/protocol.ts
 var ROOM_PROTO = 1;
-var SEAT_ROLES = ["departure", "marshal", "approach", "final", "boss", "lso", "mission_commander"];
+var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
 var r = (n, dp) => n === void 0 || !Number.isFinite(n) ? void 0 : Math.round(n * 10 ** dp) / 10 ** dp;
 function toWire(t) {
   return {

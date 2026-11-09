@@ -170,7 +170,7 @@ const msS = (t: number) => {
 };
 const zs = (a: Pt, k: number) => `translate(${f2(a[0])} ${f2(a[1])}) scale(${k.toFixed(4)}) translate(${f2(-a[0])} ${f2(-a[1])})`;
 const HELO_HOLD: HoldSpec = { legNm: 2, turnNm: 0.5 };
-const clampW = (w: number) => Math.max(12, Math.min(220, w));
+const clampW = (w: number) => Math.max(12, Math.min(440, w));
 
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
@@ -490,6 +490,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     return { zw: clampW(Math.max(w, h / asp)), zx: (xa + xb) / 2, zy: (ya + yb) / 2 };
   };
   const fits: Record<Exclude<Fit, null>, () => { zw: number; zx: number; zy: number }> = {
+    thr: () => fitBox([[-200, -200], [200, 200]], 0),
     r50: () => fitBox([[-50, -50], [50, 50]], 0),
     cca: () => fitBox([[-70, -70], [70, 70]], 0),
     dep: () => fitBox([[0, 0] as Pt, ...plan.deps.map((r) => P(r, 50)), P(ship?.brc ?? 0, 10)], 3),
@@ -1516,6 +1517,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['vec', 'Vector / heading line', <IcVec key="v" />],
   ];
   const fitDefs: [Exclude<Fit, null>, string, string][] = [
+    ['thr', 'THTR', 'Theatre: 200 NM around the carrier'],
     ['r50', '50NM', 'Default range: 50 NM around the carrier'],
     ['cca', 'CCA', 'Fit CCA + 20 NM'],
     ['dep', 'DEP', 'Fit carrier and departure radials'],

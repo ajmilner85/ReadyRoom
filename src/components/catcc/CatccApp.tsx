@@ -1,6 +1,8 @@
 /**
- * CATCC & PriFly shell: one room connection, three modules (Radar, PriFly · LSO, PriFly · Boss)
- * selected by ?m=. Headers ported from catcc-handoff/mockup/*.dc.html.
+ * CATCC & PriFly shell: one room connection; locations on the ship (CDC, CATCC, PriFly, Bridge, LSO)
+ * each with one seat (condensed) or several (expanded), selected by ?seat=. Each seat shows its
+ * interface (radar with the seat's preset, PriFly boss, LSO). Headers ported from
+ * catcc-handoff/mockup/*.dc.html.
  */
 import React, { useEffect, useMemo, useState } from 'react';
 import { THEATRE_UTC_OFFSET_H } from '../../catcc/core/dcs/aircraft.ts';
@@ -16,14 +18,25 @@ import { buildPicture } from './scopeModel.ts';
 import { SCAN_S, useSweep } from './radar/sweep.ts';
 import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
+import { CATCC_ROLES, LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
+import { OptionsDialog } from './OptionsDialog.tsx';
 import './catcc.css';
 
-type Module = 'radar' | 'lso' | 'boss';
 const hms = (d: Date) => [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
 
 const CatccApp: React.FC = () => {
   const params = new URLSearchParams(window.location.search);
-  const [mod, setMod] = useState<Module>(() => (['radar', 'lso', 'boss'].includes(params.get('m') ?? '') ? (params.get('m') as Module) : 'radar'));
+  const [layout, setLayoutState] = useState<SeatLayout>(() => {
+    try {
+      return localStorage.getItem('catcc.layout') === 'expanded' ? 'expanded' : 'condensed';
+    } catch {
+      return 'condensed';
+    }
+  });
+  const [seatWant, setSeatWant] = useState<string | null>(() => params.get('seat') ?? params.get('m'));
+  const seatDef = resolveSeat(layout, seatWant);
+  const mod = seatDef.view;
+  const [optsOpen, setOptsOpen] = useState(false);
   const { state, history, selectSource, claim, release, setPlan, assign } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
   const [uiOpen, setUiOpen] = useState(false);
@@ -72,12 +85,23 @@ const CatccApp: React.FC = () => {
   useEffect(() => {
     if (!focusHull && hull) setFocusHull(hull);
   }, [focusHull, hull]);
-  const switchMod = (m: Module) => {
-    setMod(m);
+  const switchSeat = (id: string) => {
+    setSeatWant(id);
     const u = new URL(window.location.href);
-    u.searchParams.set('m', m);
+    u.searchParams.delete('m');
+    u.searchParams.set('seat', id);
     window.history.replaceState(null, '', u.toString());
   };
+  const setLayout = (l: SeatLayout) => {
+    setLayoutState(l);
+    try {
+      localStorage.setItem('catcc.layout', l);
+    } catch {
+      /* private mode */
+    }
+  };
+  const locSeats = seatsAt(layout, seatDef.loc);
+  const locLabel = (LOCATIONS.find((l) => l.id === seatDef.loc)?.label ?? '').toUpperCase();
 
   const offH = state.theatre ? THEATRE_UTC_OFFSET_H[state.theatre] : undefined;
   const utc = state.utc;
@@ -91,7 +115,8 @@ const CatccApp: React.FC = () => {
   const live = state.lastFrameAt !== undefined && Date.now() - state.lastFrameAt < 5000;
   const user = state.user;
   const mine = state.seats.filter((s) => s.userId === user?.userId);
-  const carrierSeats = state.seats.filter((s) => s.carrier === hull || s.carrier === '*');
+  // carrier plans are edited from CATCC: once any CATCC seat is held, only its holders may edit
+  const carrierSeats = state.seats.filter((s) => (s.carrier === hull || s.carrier === '*') && CATCC_ROLES.includes(s.role));
   const mayEdit = carrierSeats.length === 0 || carrierSeats.some((s) => s.userId === user?.userId);
 
   const seatPill = (key: SeatKey, label: string) => {
@@ -126,23 +151,47 @@ const CatccApp: React.FC = () => {
       <div style={{ fontWeight: 700, fontSize: 18, letterSpacing: '.08em' }}>{text}</div>
     </div>
   );
+  // seat tabs carry a dot for who holds the seat on this carrier (orange: you, blue: someone else)
+  const holderDot = (id: string) => {
+    const h = hull ? state.seats.find((s) => s.carrier === hull && s.role === id) : undefined;
+    if (!h) return null;
+    const me = h.userId === user?.userId;
+    return <span aria-label={me ? 'held by you' : `held by ${h.name}`} title={me ? 'You hold this seat' : `Held by ${h.name}`} style={{ display: 'inline-block', width: 7, height: 7, borderRadius: '50%', marginLeft: 6, verticalAlign: 'middle', background: me ? '#F15822' : '#3E9BD4', opacity: h.away ? 0.5 : 1 }} />;
+  };
+  const tabLink = (id: string, label: string, on: boolean, title?: string, dot?: React.ReactNode) => (
+    <a
+      key={id}
+      href={`?seat=${id}`}
+      title={title}
+      aria-current={on ? 'page' : undefined}
+      onClick={(e) => {
+        if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
+        e.preventDefault();
+        switchSeat(id);
+      }}
+      style={{ textDecoration: 'none', padding: '6px 12px', borderRadius: 4, background: on ? '#222C37' : 'transparent', color: on ? '#E6EDF3' : '#93A1B0', fontSize: 13, fontWeight: on ? 600 : 400 }}
+    >
+      {label}
+      {dot}
+    </a>
+  );
+  // locations, then (expanded layout) the seats at this location
   const nav = (
-    <nav aria-label="Module" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }}>
-      {([['radar', 'Radar'], ['lso', 'PriFly · LSO'], ['boss', 'PriFly · Boss']] as const).map(([k, l]) => (
-        <a
-          key={k}
-          href={`?m=${k}`}
-          onClick={(e) => {
-            if (e.button !== 0 || e.ctrlKey || e.metaKey || e.shiftKey) return;
-            e.preventDefault();
-            switchMod(k);
-          }}
-          style={{ textDecoration: 'none', padding: '6px 12px', borderRadius: 4, background: mod === k ? '#222C37' : 'transparent', color: mod === k ? '#E6EDF3' : '#93A1B0', fontSize: 13, fontWeight: mod === k ? 600 : 400 }}
-        >
-          {l}
-        </a>
-      ))}
-    </nav>
+    <>
+      <nav aria-label="Location" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }}>
+        {LOCATIONS.map((l) => tabLink(seatsAt(layout, l.id)[0].id, l.label, l.id === seatDef.loc, l.name))}
+      </nav>
+      {locSeats.length > 1 && (
+        <nav aria-label="Seat" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }}>
+          {locSeats.map((s) => tabLink(s.id, s.label, s.id === seatDef.id, undefined, holderDot(s.id)))}
+        </nav>
+      )}
+    </>
+  );
+  const optsBtn = (
+    <button onClick={() => setOptsOpen(true)} aria-label="Options" title="Options: seat layout" style={{ height: 36, display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', background: optsOpen ? 'rgba(241,88,34,.18)' : '#0E1116', border: '1px solid #374250', borderRadius: 5, color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>
+      Options
+    </button>
   );
   const feed = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: '#93A1B0' }} title={src?.lastError ?? ''}>
@@ -174,7 +223,7 @@ const CatccApp: React.FC = () => {
     <div className="cc-root" data-theme="dark" onContextMenu={(e) => e.preventDefault()}>
       {mod === 'radar' ? (
         <header style={headerStyle}>
-          {logo(<IcCatcc />, 'CATCC')}
+          {logo(<IcCatcc />, locLabel)}
           {nav}
           {sourceSelect}
           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
@@ -190,10 +239,7 @@ const CatccApp: React.FC = () => {
           </div>
           {caseBadge(`CASE ${env?.case ?? 'III'} · CV-1`)}
           <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} aria-label="Controller positions">
-            {seat('departure', 'DEPARTURE')}
-            {seat('marshal', 'MARSHAL')}
-            {seat('approach', 'APPROACH')}
-            {seat('final', 'FINAL')}
+            {seat(seatDef.id, seatDef.short)}
             {!mine.length && <span className="mono" style={{ fontSize: 11, padding: '4px 8px', borderRadius: 4, border: '1px solid #374250', color: '#93A1B0' }}>VIEW ONLY</span>}
           </div>
           <div style={{ flex: 1 }} />
@@ -220,10 +266,11 @@ const CatccApp: React.FC = () => {
             <IcDisplays />
             Displays
           </button>
+          {optsBtn}
         </header>
       ) : (
         <header style={headerStyle}>
-          {logo(<IcPrifly />, 'PRIFLY')}
+          {logo(<IcPrifly />, locLabel)}
           {nav}
           {sourceSelect}
           {mod === 'boss' && (
@@ -241,7 +288,7 @@ const CatccApp: React.FC = () => {
               <div className="mono" style={{ fontSize: 12.5, color: '#E6EDF3' }}>{lsoHeaderInfo(pic)}</div>
             </>
           )}
-          {seat(mod === 'lso' ? 'lso' : 'boss', mod === 'lso' ? 'LSO' : 'AIR BOSS')}
+          {seat(seatDef.id, seatDef.short)}
           <div style={{ flex: 1 }} />
           {mod === 'boss' && <BossChips pic={pic} />}
           {mod === 'lso' && deckClear != null && (
@@ -254,11 +301,14 @@ const CatccApp: React.FC = () => {
             <div style={{ fontSize: 17, fontWeight: 600 }}>{local ? `${hms(local)}L` : '--:--:--'}</div>
             <div style={{ fontSize: 11, color: '#93A1B0' }}>{mod === 'lso' ? `RECOVERY · ${deck?.jets.length ?? 0} aboard` : `${hull ?? '—'} · RECOVERY`}</div>
           </div>
+          {optsBtn}
         </header>
       )}
 
       {mod === 'radar' && (
         <RadarView
+          key={seatDef.id}
+          seat={seatDef}
           state={state}
           pic={pic}
           offH={offH}
@@ -277,6 +327,7 @@ const CatccApp: React.FC = () => {
       )}
       {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
       {mod === 'boss' && <BossView pic={pic} mode={bossMode} log={log} landedAt={landedAt} />}
+      {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
     </div>
   );
 };

@@ -369,7 +369,7 @@ const SHARED: Record<string, true> = { dl: true, blind: true, coord: true, latlo
 /** layers that only show while another layer is on */
 const DEPENDS: Record<string, string> = { arr: 'marshal' };
 
-export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<string, boolean>; set: (ov: Record<string, boolean>, ov2: Record<string, boolean>) => void; hull: string; other?: string; extra?: Record<string, React.ReactNode> }> = ({ ov, ov2, set, hull, other, extra }) => {
+export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<string, boolean>; set: (ov: Record<string, boolean>, ov2: Record<string, boolean>) => void; hull: string; other?: string; extra?: Record<string, React.ReactNode>; defaults?: { ov: Record<string, boolean>; ov2: Record<string, boolean> } }> = ({ ov, ov2, set, hull, other, extra, defaults }) => {
   const labels = LAYER_GROUPS.flatMap((g) => g[1]);
   const allOn = labels.every(([k]) => ov[k] && (SHARED[k] || ov2[k]));
   const toggleAll = () => {
@@ -387,8 +387,8 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
         <span className="lbl">Layers</span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button
-            onClick={() => set({ ...OV_DEFAULT, bulls: ov.bulls }, { ...OV2_DEFAULT })}
-            title="Restore the default layers" style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
+            onClick={() => set({ ...(defaults?.ov ?? OV_DEFAULT), bulls: ov.bulls }, { ...(defaults?.ov2 ?? OV2_DEFAULT) })}
+            title="Restore this seat's default layers" style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
             Reset
           </button>
           <button onClick={toggleAll} style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
