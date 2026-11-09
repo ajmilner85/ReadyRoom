@@ -31,6 +31,7 @@ export const IcMarshal = ({ size = 20 }: P) => S(size, 1.8, <><path d="M4 6h10M4
 export const IcCpa = ({ size = 20 }: P) => S(size, 1.8, <><path d="M3 19L12 12M21 19L12 12" /><circle cx="12" cy="12" r="3" /><path d="M12 3v4" /></>);
 export const IcVec = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="6" cy="18" r="2.2" /><path d="M7.6 16.4L19 5M19 5h-5M19 5v5" /></>);
 export const IcLayers = ({ size = 20 }: P) => S(size, 1.8, <><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>);
+export const IcBulls = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="12" cy="12" r="2.5" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="9.5" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" /></>);
 export const IcComms = ({ size = 20 }: P) => S(size, 1.8, <><path d="M4 5h16v10H9l-5 4z" /><path d="M8 9h8M8 12h5" /></>);
 export const IcZoomOut = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6" /></>);
 export const IcZoomIn = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6M10.5 7.5v6" /></>);

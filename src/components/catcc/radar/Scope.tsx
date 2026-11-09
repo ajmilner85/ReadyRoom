@@ -93,7 +93,7 @@ const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number }> =
 };
 import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
-import { IcBra, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
+import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
 
@@ -142,6 +142,8 @@ export interface ScopeProps {
   goTo?: { p: Pt; nonce: number; fit?: Pt[] };
   layersOpen: boolean;
   onToggleLayers: () => void;
+  /** bullseye visibility (its own button beside Layers) */
+  onToggleBulls: () => void;
   layersPanel: React.ReactNode;
   freqOpen: boolean;
   onToggleFreq: () => void;
@@ -2001,9 +2003,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
         {/* ---------------- layers (top right, mirrors the frequencies button) */}
         <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: props.layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
-            <IcLayers />
-          </button>
+          <div style={{ display: 'flex', gap: 6 }}>
+            <button className="tbtn" aria-label="Bullseye" title={ov.bulls ? 'Hide the bullseye' : 'Show the bullseye'} aria-pressed={!!ov.bulls} onClick={props.onToggleBulls} style={{ background: ov.bulls ? '#3D2521' : 'rgba(21,26,33,.96)', color: ov.bulls ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
+              <IcBulls />
+            </button>
+            <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: props.layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
+              <IcLayers />
+            </button>
+          </div>
           {props.layersOpen && <div style={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto' }}>{props.layersPanel}</div>}
         </div>
 

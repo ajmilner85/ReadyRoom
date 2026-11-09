@@ -387,7 +387,7 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
         <span className="lbl">Layers</span>
         <span style={{ display: 'flex', gap: 6 }}>
           <button
-            onClick={() => set({ ...OV_DEFAULT }, { ...OV2_DEFAULT })}
+            onClick={() => set({ ...OV_DEFAULT, bulls: ov.bulls }, { ...OV2_DEFAULT })}
             title="Restore the default layers" style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
             Reset
           </button>

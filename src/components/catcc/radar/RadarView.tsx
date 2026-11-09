@@ -406,6 +406,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
         goTo={goTo}
         layersOpen={layersOpen}
         onToggleLayers={() => setLayersOpen((o) => !o)}
+        onToggleBulls={() => setOv((o) => ({ ...o, bulls: !o.bulls }))}
         layersPanel={<LayersPanel ov={ov} ov2={ov2} set={(a, b) => { setOv(a); setOv2(b); }} hull={hull} other={other} />}
         freqOpen={freqOpen}
         onToggleFreq={() => setFreqOpen((o) => !o)}
