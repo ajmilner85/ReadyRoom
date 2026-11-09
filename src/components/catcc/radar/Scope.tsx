@@ -504,10 +504,41 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return fitBox(q, 3);
     },
   };
+  // the view stays inside the theatre (its map data's extent); outside a known theatre, within 100 NM
+  const tBounds = useMemo(() => {
+    const tb = tBox ?? (fTrack ? THEATRE_BOXES[theatreAt(fTrack.lat, fTrack.lon) ?? ''] : undefined);
+    if (!tb || !pic.proj) return null;
+    const [s, w, n, e] = tb;
+    // the box's edges are curved in the carrier-centred projection: take the largest rectangle inside
+    const at = (la: number, lo: number) => pic.proj!.toScope(la, lo);
+    const k = Array.from({ length: 9 }, (_, i) => i / 8);
+    const x0 = Math.max(...k.map((f) => at(s + (n - s) * f, w)[0]));
+    const x1 = Math.min(...k.map((f) => at(s + (n - s) * f, e)[0]));
+    const y0 = Math.max(...k.map((f) => at(n, w + (e - w) * f)[1]));
+    const y1 = Math.min(...k.map((f) => at(s, w + (e - w) * f)[1]));
+    return x1 > x0 && y1 > y0 ? { x0, x1, y0, y1 } : null;
+    // re-derived when the carrier has moved a few NM (the projection is about it)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tBox, Math.round((fTrack?.lat ?? 0) * 20), Math.round((fTrack?.lon ?? 0) * 20), !!pic.proj]);
+  /** widest view the theatre allows */
+  const maxW = (w: number) => (tBounds ? Math.min(w, tBounds.x1 - tBounds.x0, (tBounds.y1 - tBounds.y0) / asp) : w);
+  const clampCore = (x: number, y: number, w: number) => {
+    if (!tBounds) {
+      const r = Math.hypot(x, y);
+      const k = r > 100 ? 100 / r : 1;
+      return { zx: x * k, zy: y * k };
+    }
+    const hw = w / 2;
+    const hh = (w * asp) / 2;
+    const cl = (v: number, a: number, b: number) => (a > b ? (a + b) / 2 : Math.max(a, Math.min(b, v)));
+    return { zx: cl(x, tBounds.x0 + hw, tBounds.x1 - hw), zy: cl(y, tBounds.y0 + hh, tBounds.y1 - hh) };
+  };
   const FIT = fit ? fits[fit]() : null;
-  const VW = FIT ? FIT.zw : view.zw;
-  const VX = FIT ? FIT.zx : anc ? anc[0] : view.zx;
-  const VY = FIT ? FIT.zy : anc ? anc[1] : view.zy;
+  // presets and the carrier lock can ask for a view past the theatre's edge: held inside it here too
+  const VW = maxW(FIT ? FIT.zw : view.zw);
+  const VC = clampCore(FIT ? FIT.zx : anc ? anc[0] : view.zx, FIT ? FIT.zy : anc ? anc[1] : view.zy, VW);
+  const VX = VC.zx;
+  const VY = VC.zy;
   const VH = VW * asp;
   const vx = VX - VW / 2;
   const vy = VY - VH / 2;
@@ -522,20 +553,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const KX = box.w / VW;
   const toPx = (q: Pt): Pt => [(q[0] - vx) * KX, (q[1] - vy) * KX];
   const inView = (q: Pt, pad = 0) => q[0] >= vx - pad && q[0] <= vx + VW + pad && q[1] >= vy - pad && q[1] <= vy + VH + pad;
-  const clampC = (x: number, y: number) => {
-    const r = Math.hypot(x, y);
-    const k = r > 100 ? 100 / r : 1;
-    return { zx: x * k, zy: y * k };
-  };
+  const clampC = (x: number, y: number, w: number = VW) => clampCore(x, y, w);
   const zoomBy = (k: number, about?: Pt) => {
     zoomedAt.current = performance.now();
     clearTimeout(zoomIdleT.current);
     zoomIdleT.current = setTimeout(() => setZoomIdle((n) => n + 1), 260);
-    const nw = clampW(VW * k);
+    const nw = maxW(clampW(VW * k));
     // locked on the carrier: zoom about the view centre so the lock holds (only panning unlocks);
     // unlocked: zoom about the cursor and re-pin the new centre
     const c = lock ? [VX, VY] : (about ?? [VX, VY]);
-    const nc = clampC(c[0] + ((VX - c[0]) * nw) / VW, c[1] + ((VY - c[1]) * nw) / VW);
+    const nc = clampC(c[0] + ((VX - c[0]) * nw) / VW, c[1] + ((VY - c[1]) * nw) / VW, nw);
     setView({ zw: nw, ...nc });
     if (!lock) unlockAt(nc.zx, nc.zy);
     onFit(null);
@@ -549,8 +576,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       const xs = g.fit.map((q) => q[0]);
       const ys = g.fit.map((q) => q[1]);
       const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
-      const nc = clampC((x0 + x1) / 2, (y0 + y1) / 2);
-      const zw = clampW(Math.max(8, (x1 - x0) * 1.8, ((y1 - y0) * 1.8) / asp));
+      const zw = maxW(clampW(Math.max(8, (x1 - x0) * 1.8, ((y1 - y0) * 1.8) / asp)));
+      const nc = clampC((x0 + x1) / 2, (y0 + y1) / 2, zw);
       setView({ zw, ...nc });
       unlockAt(nc.zx, nc.zy);
     } else {
@@ -759,7 +786,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         setPanning(true);
       }
       onFit(null);
-      const nc = clampC(cx - dx / k, cy - dy / k);
+      const nc = clampC(cx - dx / k, cy - dy / k, w);
       setView({ zw: w, ...nc });
       unlockAt(nc.zx, nc.zy);
     };
