@@ -22,7 +22,7 @@ import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
 import { LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
 import { OptionsDialog } from './OptionsDialog.tsx';
 import { Reference } from './radar/Panels.tsx';
-import type { HandoffCtx } from './Handoff.tsx';
+import type { HandoffCtx } from './ownership.ts';
 import './catcc.css';
 
 const hms = (d: Date) => [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join(':');

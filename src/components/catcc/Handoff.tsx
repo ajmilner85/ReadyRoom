@@ -3,29 +3,9 @@
  * sequence and PriFly. The receiving seat accepts; the sender can recall until then.
  */
 import React from 'react';
-import type { SeatHolder, SeatKey, SeatRole } from '../../catcc/core/room/protocol.ts';
-import { mayActFor, nextRole, OWNER_LABEL, type OwnerView } from './ownership.ts';
-import { seatsIn, type SeatLayout } from './seats.ts';
-
-export interface HandoffCtx {
-  layout: SeatLayout;
-  /** the seat this screen is acting as (the active seat on the focus carrier) */
-  me: SeatKey;
-  seats: SeatHolder[];
-  userId?: string;
-  onHandoff: (key: string, from: SeatKey, to: SeatKey | null) => void;
-  onAccept: (key: string) => void;
-}
-
-const same = (a: SeatKey, b: SeatKey) => a.carrier === b.carrier && a.role === b.role;
-
-/** What this screen can do about a flight's ownership right now. */
-export function handoffState(v: OwnerView, ctx: HandoffCtx) {
-  const mine = same(v.owner, ctx.me) && mayActFor(ctx.me, ctx.seats, ctx.userId);
-  const incoming = !!v.pending && same(v.pending.to, ctx.me) && mayActFor(ctx.me, ctx.seats, ctx.userId);
-  const outgoing = !!v.pending && mine;
-  return { mine, incoming, outgoing };
-}
+import type { SeatRole } from '../../catcc/core/room/protocol.ts';
+import { handoffState, nextRole, OWNER_LABEL, type HandoffCtx, type OwnerView } from './ownership.ts';
+import { seatsIn } from './seats.ts';
 
 const chip = (role: SeatRole, mine: boolean) => (
   <span

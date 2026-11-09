@@ -14,8 +14,8 @@ import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.
 import type { RoomState } from '../useCatccRoom.ts';
 import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
-import { HandoffRow, handoffState, type HandoffCtx } from '../Handoff.tsx';
-import { flightKey, OWNER_LABEL, ownerOf } from '../ownership.ts';
+import { HandoffRow } from '../Handoff.tsx';
+import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { DeckPanel, DonorsPanel, HelmPanel } from './SidePanels.tsx';
 import type { SeatDef } from '../seats.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
