@@ -115,6 +115,16 @@ export function lateralStandardNm(rangeNm: number, onFinal = false): number {
 
 export const VERTICAL_STANDARD_FT = 1000;
 
+/**
+ * The carrier's own pattern (bolter / waveoff downwind, the turn to final, final itself) is
+ * separated procedurally: aircraft there pass each other at a mile or so by design. Within this
+ * range and below this altitude, the lateral standard is PATTERN_LAT_NM (pairs both on final keep
+ * the 1.5 NM in-trail standard).
+ */
+export const PATTERN_RANGE_NM = 10;
+export const PATTERN_TOP_FT = 2500;
+export const PATTERN_LAT_NM = 1;
+
 export interface ConflictOptions {
   lookAheadS?: number;
   /** climb/descent is extrapolated for at most this long, then the aircraft is assumed level */
@@ -144,7 +154,8 @@ export function predictConflict(A: Kinematic, B: Kinematic, opts: ConflictOption
   const range = Math.min(Math.hypot(...A.p), Math.hypot(...B.p));
   const onFinal =
     opts.fb !== undefined && [A, B].every((k) => angDiff(k.crs, opts.fb!) < 15 && Math.hypot(...k.p) < 6);
-  const latStd = lateralStandardNm(range, onFinal);
+  const inPattern = [A, B].every((k) => Math.hypot(...k.p) < PATTERN_RANGE_NM && k.altFt < PATTERN_TOP_FT);
+  const latStd = inPattern && !(onFinal && range <= 5) ? PATTERN_LAT_NM : lateralStandardNm(range, onFinal);
   if (c.latNm < latStd && c.vertFt < VERTICAL_STANDARD_FT) return { ...c, latStd };
   return null;
 }

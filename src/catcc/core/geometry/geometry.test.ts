@@ -241,3 +241,29 @@ describe('marshalRoute (hold entry, established inbound)', () => {
     expect(direct.dist).toBeLessThan(24 + 42);
   });
 });
+
+describe('pattern traffic', () => {
+  // FB 061: one aircraft 4 NM out on final at 900 ft, another passing the other way 1.6 NM abeam
+  // on the bolter downwind at 1200 ft (the reported false alarm)
+  const D = Math.PI / 180;
+  const at = (fromShipBrg: number, r: number, side: number) => {
+    const u = [Math.sin(fromShipBrg * D), -Math.cos(fromShipBrg * D)];
+    const n = [-u[1], u[0]];
+    return [u[0] * r + n[0] * side, u[1] * r + n[1] * side] as [number, number];
+  };
+  it('passing at a mile and a half in the pattern is not a conflict', () => {
+    const fin = { p: at(241, 4, 0), crs: 61, gs: 133, altFt: 900 };
+    const dw = { p: at(241, 4, 1.6), crs: 241, gs: 149, altFt: 1200 };
+    expect(predictConflict(fin, dw, { lookAheadS: 120, fb: 61 })).toBeNull();
+  });
+  it('the same geometry outside the pattern still is', () => {
+    const fin = { p: at(241, 25, 0), crs: 61, gs: 300, altFt: 5000 };
+    const dw = { p: at(241, 25, 1.6), crs: 241, gs: 300, altFt: 5400 };
+    expect(predictConflict(fin, dw, { lookAheadS: 120, fb: 61 })).not.toBeNull();
+  });
+  it('closer than a mile in the pattern is', () => {
+    const fin = { p: at(241, 4, 0), crs: 61, gs: 133, altFt: 900 };
+    const dw = { p: at(241, 4, 0.6), crs: 241, gs: 149, altFt: 1200 };
+    expect(predictConflict(fin, dw, { lookAheadS: 120, fb: 61 })).not.toBeNull();
+  });
+});
