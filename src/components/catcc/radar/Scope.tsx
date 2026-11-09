@@ -270,7 +270,7 @@ const AltSlider: React.FC<{ value: { lo: number; hi: number } | null; onChange: 
         if (which === 'lo') set(Math.max(0, Math.min(lo + d, hi - 1)), hi);
         else set(lo, Math.min(ALT_MAX, Math.max(hi + d, lo + 1)));
       }}
-      style={{ position: 'absolute', left: -10, top: yOf(a) - 8, width: 36, height: 16, borderRadius: 4, background: on ? '#F15822' : '#374250', border: `1px solid ${on ? '#FFB08F' : '#5E6A78'}`, color: on ? '#0E1116' : '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 600, lineHeight: '14px', textAlign: 'center', cursor: 'ns-resize', touchAction: 'none' }}
+      style={{ position: 'absolute', left: -10, top: yOf(a) - 8, width: 36, height: 16, borderRadius: 4, background: '#0E1116', border: `1.5px solid ${on ? '#F15822' : '#5E6A78'}`, color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 600, lineHeight: '14px', textAlign: 'center', cursor: 'ns-resize', touchAction: 'none' }}
     >
       {a}
     </div>
