@@ -95,7 +95,19 @@ export interface RadarViewProps {
 
 export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, refOpen, setRefOpen, deckClear, envCase, conflict, setConflict }) => {
   const [tool, setTool] = useState<Tool>('marshal');
-  const [ov, setOv] = useState<Record<string, boolean>>(() => load('catcc.ov', OV_DEFAULT));
+  const [ov, setOv] = useState<Record<string, boolean>>(() => {
+    const v = load('catcc.ov', OV_DEFAULT);
+    // one-time: the radar sweep became off by default after it had been saved on
+    try {
+      if (!localStorage.getItem('catcc.ov.sweepOff')) {
+        localStorage.setItem('catcc.ov.sweepOff', '1');
+        return { ...v, sweep: false };
+      }
+    } catch {
+      /* private mode */
+    }
+    return v;
+  });
   const [ov2, setOv2] = useState<Record<string, boolean>>(() => load('catcc.ov2', OV2_DEFAULT));
   const [ui, setUi] = useState<UiScale>(() => load('catcc.ui', UI_DEF));
   const [layersOpen, setLayersOpen] = useState(false);
