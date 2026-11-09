@@ -374,7 +374,7 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
 
 // ---------------------------------------------------------------- layers
 
-const SHARED: Record<string, true> = { dl: true, blind: true, coord: true, latlon: true, grid: true, sweep: true, bulls: true, terr: true, coast: true, bathy: true, places: true, airports: true };
+const SHARED: Record<string, true> = { csg: true, dl: true, blind: true, coord: true, latlon: true, grid: true, sweep: true, bulls: true, terr: true, coast: true, bathy: true, places: true, airports: true };
 /** layers that only show while another layer is on */
 const DEPENDS: Record<string, string> = { arr: 'marshal' };
 

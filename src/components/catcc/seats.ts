@@ -21,7 +21,7 @@ export interface RadarPreset {
 
 /** Sidebar sections a radar seat shows. */
 export type LeftTab = 'info' | 'strips';
-export type RightSection = 'dep' | 'marshal' | 'coord' | 'deck' | 'donors' | 'helm' | 'notes';
+export type RightSection = 'dep' | 'marshal' | 'coord' | 'deck' | 'donors' | 'helm' | 'csg' | 'blights' | 'notes';
 
 /** What a radar seat's interface offers: scope tools, range presets, sidebars. */
 export interface SeatUi {
@@ -75,7 +75,7 @@ const P_MARSHAL = preset({ dep: false }, { dep: false }, 'app', 'marshal');
 const P_APPROACH = preset({ dep: false, cv1: true }, { dep: false }, 'app', 'cpa');
 const P_FINAL = preset({ dep: false, cv1: true, bolter: true, tanker: false }, { dep: false, marshal: false, arr: false }, 'cca', 'cpa');
 /** Bridge: the ship's track, PIM, nearby water and other groups */
-const P_OOD = preset({ ...CV_TRAFFIC_OFF, brc: true, fb: false, pim: true, terr: true, bathy: true, coast: true, coord: true, cca: true, tanker: false }, { ...ALL_OTHER_OFF, pim: true, brc: true }, 'r50', 'bra');
+const P_OOD = preset({ ...CV_TRAFFIC_OFF, csg: true, brc: true, fb: false, pim: true, terr: true, bathy: true, coast: true, coord: true, cca: true, tanker: false }, { ...ALL_OTHER_OFF, pim: true, brc: true }, 'r50', 'bra');
 
 // ---------------------------------------------------------------- seats
 
@@ -92,7 +92,7 @@ const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'],
 /** CDC: the air picture across the theatre and the sensors feeding it */
 const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true });
 /** Bridge: conning the ship; no traffic control */
-const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm'], { trackUp: true });
+const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm', 'csg', 'blights'], { trackUp: true });
 
 export const SEATS: Record<SeatRole, SeatDef> = {
   strike: S('strike', 'cdc', 'Strike', 'STRIKE', 'radar', P_STRIKE, U_CDC),

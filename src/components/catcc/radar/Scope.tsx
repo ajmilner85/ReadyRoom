@@ -7,6 +7,8 @@
  */
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { BLIND_ALTS } from '../../../catcc/core/sensors/radar.ts';
+import type { Station } from '../../../catcc/core/room/ops.ts';
+import { sectorWidth, stationCentre } from '../../../catcc/core/geometry/formation.ts';
 import { cpa as cpaOf, eat as eatOf, fly, marshalRoute, marshalTimeS, turnRadiusNm, type Cpa } from '../../../catcc/core/geometry/maneuver.ts';
 import {
   arrivalPath,
@@ -140,6 +142,8 @@ export interface ScopeProps {
   comms?: boolean;
   /** opens the radar display settings (sizes, conflict detection) */
   onOpenDisplay?: () => void;
+  /** escorts' formation stations around the own carrier (CSG stations layer) */
+  stations?: { label: string; st: Station; p: Pt; state: { t: string; c: string } }[];
   /** friendly air-search radars (Datalink sources layer) and their coverage (Radar blindspots layer) */
   donors?: RadarDonor[];
   /** target altitude the blind spots are drawn for, ft */
@@ -1129,6 +1133,50 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     );
   };
 
+  /** Escort stations about the carrier: sectors and points in true bearings (relative + BRC), each unit's label, a dotted leader when off station. */
+  const csgOverlay = (c: Carrier) => {
+    const brc = c.ship.brc;
+    const at = (relB: number, r: number) => add(c.track.p, P(brc + relB, r));
+    return (
+      <g key="csg" style={{ pointerEvents: 'none' }}>
+        {(props.stations ?? []).map((s, i) => {
+          const st = s.st;
+          const cen = stationCentre(st);
+          const ok = s.state.t === 'ON STA';
+          let d = '';
+          if (st.kind === 'sector') {
+            const w = sectorWidth(st);
+            const lg = w > 180 ? 1 : 0;
+            const a = at(st.b0, st.r1);
+            const b = at(st.b0 + w, st.r1);
+            const cc = at(st.b0 + w, st.r0);
+            const dd = at(st.b0, st.r0);
+            d = `M${f2(dd[0])} ${f2(dd[1])}L${f2(a[0])} ${f2(a[1])}A${st.r1} ${st.r1} 0 ${lg} 1 ${f2(b[0])} ${f2(b[1])}L${f2(cc[0])} ${f2(cc[1])}A${st.r0} ${st.r0} 0 ${lg} 0 ${f2(dd[0])} ${f2(dd[1])}Z`;
+          }
+          const q = cen ? at(cen.b, cen.r) : null;
+          return (
+            <g key={i}>
+              {d && <path d={d} fill="rgba(62,155,212,.07)" stroke="rgba(62,155,212,.55)" strokeDasharray="4 3" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />}
+              {st.kind === 'point' && q && (
+                <g className="zs" transform={zs(q, zkO)}>
+                  <circle cx={f2(q[0])} cy={f2(q[1])} r="0.45" fill="none" stroke="#3E9BD4" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} />
+                </g>
+              )}
+              {q && !ok && <line x1={f2(s.p[0])} y1={f2(s.p[1])} x2={f2(q[0])} y2={f2(q[1])} stroke="#E7B04F" strokeOpacity="0.8" strokeDasharray="2 3" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />}
+              {q && (
+                <g className="zs" transform={zs(q, zkO)}>
+                  <text x={f2(q[0])} y={f2(q[1] + (st.kind === 'point' ? -0.9 : 0))} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={{ fill: ok ? '#6FB6E6' : '#E7B04F', fontSize: '0.8px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                    {`${s.label} · ${s.state.t}`}
+                  </text>
+                </g>
+              )}
+            </g>
+          );
+        })}
+      </g>
+    );
+  };
+
   const carrierOverlays = (c: Carrier) => {
     const blue = !c.focus;
     const o = blue ? ov2 : ov;
@@ -1951,6 +1999,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 );
               })}
           {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
+          {ov.csg && pic.focus && csgOverlay(pic.focus)}
           {pic.carriers.filter((c) => (c.focus ? ov.port : ov2.port)).map(portHold)}
           {pic.carriers.map(carrierOverlays)}
           {focusExtras()}

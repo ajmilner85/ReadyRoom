@@ -349,6 +349,9 @@ const CatccApp: React.FC = () => {
           key={seatDef.id}
           seat={seatDef}
           handoffCtx={handoffCtx}
+          ops={ops}
+          setOps={setHullOps}
+          mayEditOps={mayEditOps}
           state={state}
           pic={pic}
           offH={offH}

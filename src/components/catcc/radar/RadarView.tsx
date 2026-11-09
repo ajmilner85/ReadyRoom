@@ -18,6 +18,12 @@ import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { finalPicture, patternIds } from '../final/finalModel.ts';
 import { DeckPanel, DonorsPanel, HelmPanel } from './SidePanels.tsx';
+import { FormationPanel } from '../bridge/Formation.tsx';
+import { escortsOf, stateOf } from '../bridge/escorts.ts';
+import { formationFor } from '../../../catcc/core/geometry/formation.ts';
+import { LightsPanel } from '../prifly/BossPanels.tsx';
+import { BRIDGE_LIGHTS } from '../prifly/lights.ts';
+import type { OpsState } from '../../../catcc/core/room/ops.ts';
 import type { SeatDef } from '../seats.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
@@ -82,6 +88,10 @@ const PHASES: [Phase, string][] = [
 // ---------------------------------------------------------------- view
 
 export interface RadarViewProps {
+  /** the carrier's shared ops state (formation, lights) and who may change it */
+  ops?: OpsState;
+  setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void;
+  mayEditOps: boolean;
   /** owner chips and handoff actions on strips and notifications */
   handoffCtx: HandoffCtx;
   /** the seat this radar is for: its preset gives the default layers, zoom and tool, and its own saved layers */
@@ -98,7 +108,7 @@ export interface RadarViewProps {
   setUiOpen: (b: boolean) => void;
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
   const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
   const [tool, setTool] = useState<Tool>(pre.tool);
   // layers are kept per seat; the CATCC seats fall back to the layers saved before there were seats
@@ -184,6 +194,15 @@ export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, p
     }
     return out;
   }, [pic.carriers, pic.ships, pic.air, focus?.track.sd, blind.alt]);
+
+  // ------------------------------------------------ CSG stations (the active formation preset)
+  const csgStations = useMemo(() => {
+    if (!ov.csg || !focus) return [];
+    const es = escortsOf(pic);
+    const f = formationFor(ops?.formation, es.map((e) => e.id));
+    const act = f.presets[f.active];
+    return es.map((e) => ({ label: e.label, st: act[e.id], p: e.t.p, state: stateOf(act[e.id], focus.ship.brc, e) }));
+  }, [ov.csg, pic, ops?.formation, focus]);
 
   // ------------------------------------------------ PIM / waypoints: carrier groups with a planned route
   const routes = state.env?.routes;
@@ -459,6 +478,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, p
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
         onOpenDisplay={() => setUiOpen(true)}
         donors={donors}
+        stations={csgStations}
         blindAlt={blind.alt}
         bulls={state.env?.bulls?.filter((b) => b.side === (focus?.track.sd ?? 'blue'))}
         showAssigned={stripHov}
@@ -525,6 +545,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, p
             dayStart={state.env?.start}
           />
         )}
+        {rights.includes('csg') && <FormationPanel pic={pic} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
+        {rights.includes('blights') && <LightsPanel title="Lights" items={BRIDGE_LIGHTS} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
         {rights.includes('deck') && <DeckPanel pic={pic} />}
         {rights.includes('donors') && <DonorsPanel donors={donors} alt={blind.alt} />}
         {ship && (rights.includes('dep') || rights.includes('marshal') || rights.includes('coord')) && (

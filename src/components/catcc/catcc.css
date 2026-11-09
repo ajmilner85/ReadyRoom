@@ -83,3 +83,6 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 
 /* precision approach displays: strokes keep their width in the stretched viewBox */
 .par * { vector-effect: non-scaling-stroke; }
+
+/* CSG formation plot: strokes keep their width in the 44 NM viewBox */
+.fm * { vector-effect: non-scaling-stroke; }
