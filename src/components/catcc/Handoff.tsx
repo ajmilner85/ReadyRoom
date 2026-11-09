@@ -66,10 +66,10 @@ export const HandoffRow: React.FC<{ v: OwnerView; ctx: HandoffCtx; compact?: boo
             value=""
             onClick={(e) => e.stopPropagation()}
             onChange={(e) => e.target.value && ctx.onHandoff(v.key, v.owner, { carrier: v.owner.carrier, role: e.target.value as SeatRole })}
-            style={{ height: 22, maxWidth: 30, background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, fontSize: 11, padding: 0 }}
+            style={{ height: 22, width: 26, background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, fontSize: 11, padding: '0 0 0 6px', appearance: 'none', WebkitAppearance: 'none', cursor: 'pointer' }}
             title="Hand off to another seat"
           >
-            <option value="">…</option>
+            <option value="">▾</option>
             {others.map((s) => (
               <option key={s.id} value={s.id}>
                 {OWNER_LABEL[s.id]} · {s.label}

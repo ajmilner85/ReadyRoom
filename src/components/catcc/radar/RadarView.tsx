@@ -16,6 +16,7 @@ import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type
 import { InfoPanels } from './InfoPanels.tsx';
 import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
+import { finalPicture, patternIds } from '../final/finalModel.ts';
 import { DeckPanel, DonorsPanel, HelmPanel } from './SidePanels.tsx';
 import type { SeatDef } from '../seats.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
@@ -293,6 +294,9 @@ export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, p
     for (const arr of by.values()) arr.sort((a, b) => a.f.lead.rng - b.f.lead.rng);
     return by;
   }, [pic.formations, marshalled, hull]);
+  // aircraft in the pattern belong to Approach / Final (the same rule as the Approach / Final screen)
+  const inPattern = useMemo(() => patternIds(finalPicture(pic)), [pic]);
+  const ownPhase = (f: Formation, p: Phase): Phase => (inPattern.has(f.lead.id) ? 'approach' : p);
   const nFl = [...strips.values()].reduce((s, a) => s + a.length, 0);
   const nAc = [...strips.values()].reduce((s, a) => s + a.reduce((t, x) => t + x.f.members.length, 0), 0);
   const conflictIds = new Set(pic.conflicts.flatMap((c) => [c.a.id, c.b.id]));
@@ -304,7 +308,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, p
   // handoffs offered to this seat
   for (const f of pic.formations) {
     if (f.lead.owner && f.lead.owner !== hull) continue;
-    const v = ownerOf(flightKey(f), hull, phaseOf(f, marshalled), f.lead.rng, handoffCtx.layout, state.owners);
+    const v = ownerOf(flightKey(f), hull, ownPhase(f, phaseOf(f, marshalled)), f.lead.rng, handoffCtx.layout, state.owners);
     if (!v.pending || !handoffState(v, handoffCtx).incoming) continue;
     notes.push({
       id: `h:${v.key}:${v.pending.at}`,
@@ -431,7 +435,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, p
                       style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
                       <FlightCard {...flight} />
-                      <HandoffRow v={ownerOf(flightKey(f), hull, p, f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />
+                      <HandoffRow v={ownerOf(flightKey(f), hull, ownPhase(f, p), f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />
                     </div>
                   );
                 })}

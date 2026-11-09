@@ -7,6 +7,8 @@
  *        and accepts any token (CATCC_DEV_NOAUTH).
  *        --acmi latest: CATCC_ACMI if set, else the newest .acmi in ~/Downloads (then
  *        ~/Documents/Tacview). `npm run catcc:replay` is that, from 3300 s.
+ *        --demo-pattern adds synthetic pattern traffic (final, bolter downwind, inbound) for the
+ *        Approach / Final displays.
  *
  * Env: CATCC_PORT (default 3002), plus everything attach.ts reads.
  */
@@ -15,6 +17,7 @@ import http from 'node:http';
 import os from 'node:os';
 import path from 'node:path';
 import { FakeHookServer } from '../dcs/fakeHook.ts';
+import { withDemoPattern } from '../dcs/demoPattern.ts';
 import { readAcmiFile, replayAcmi } from '../tacview/replay.ts';
 import { attachCatccRoom } from './attach.ts';
 import type { SourceConfig } from './roomService.ts';
@@ -52,7 +55,9 @@ async function main() {
     const fake = new FakeHookServer({ port: 0, token, name: 'replay' });
     const fakePort = await fake.listen();
     const text = readAcmiFile(acmi);
-    void replayAcmi(text, fake.apply, { speed: Number(opt('speed') ?? 1), from: opt('from') ? Number(opt('from')) : undefined }).then(() =>
+    // --demo-pattern: synthetic final / bolter / inbound traffic around the first carrier
+    const sink = args.includes('--demo-pattern') ? withDemoPattern(fake.apply, fake.store) : fake.apply;
+    void replayAcmi(text, sink, { speed: Number(opt('speed') ?? 1), from: opt('from') ? Number(opt('from')) : undefined }).then(() =>
       console.log('[CATCC] replay finished'),
     );
     extra.push({ id: 'replay', name: 'Replay', kind: 'hook', host: '127.0.0.1', port: fakePort, token });

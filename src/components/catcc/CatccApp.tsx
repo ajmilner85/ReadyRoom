@@ -22,6 +22,8 @@ import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
 import { LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
 import { OptionsDialog } from './OptionsDialog.tsx';
 import { Reference } from './radar/Panels.tsx';
+import { FinalView } from './final/FinalView.tsx';
+import { deckCall } from './deck.ts';
 import type { HandoffCtx } from './ownership.ts';
 import './catcc.css';
 
@@ -104,7 +106,25 @@ const CatccApp: React.FC = () => {
     }
   };
   const locSeats = seatsAt(layout, seatDef.loc);
-  void setOps;
+  // CATCC seats switch between the radar and the Approach / Final displays (Approach and Final open on the latter)
+  const [catccView, setCatccViewState] = useState<Record<string, 'radar' | 'final'>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('catcc.view') ?? '{}');
+    } catch {
+      return {};
+    }
+  });
+  const cview = seatDef.loc === 'catcc' ? (catccView[seatDef.id] ?? (seatDef.id === 'approach' || seatDef.id === 'final' ? 'final' : 'radar')) : 'radar';
+  const setCatccView = (v: 'radar' | 'final') => {
+    const n = { ...catccView, [seatDef.id]: v };
+    setCatccViewState(n);
+    try {
+      localStorage.setItem('catcc.view', JSON.stringify(n));
+    } catch {
+      /* private mode */
+    }
+  };
+  const setHullOps = (patch: Record<string, unknown>) => hull && setOps(hull, patch);
   const locLabel = (LOCATIONS.find((l) => l.id === seatDef.loc)?.label ?? '').toUpperCase();
 
   const offH = state.theatre ? THEATRE_UTC_OFFSET_H[state.theatre] : undefined;
@@ -112,7 +132,10 @@ const CatccApp: React.FC = () => {
   const local = utc && offH !== undefined ? new Date(utc.getTime() + offH * 3_600_000) : undefined;
   const env = envSummary(pic.focus, state.env, utc);
   const deck = deckStatus(pic);
-  const deckClear = deck ? deck.foul.length === 0 : null;
+  const ops = hull ? state.ops[hull] : undefined;
+  // PriFly's call wins over the picture
+  const dc = deckCall(pic, ops);
+  const deckClear = dc ? !dc.foul : null;
   const { log, landedAt } = useDeckLog(pic.focus, pic.air, local);
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
   const src = state.sources.find((s) => s.id === state.src);
@@ -242,6 +265,15 @@ const CatccApp: React.FC = () => {
             {!pic.carriers.length && <option value="">No carrier</option>}
           </select>
         </div>
+        {seatDef.loc === 'catcc' && (
+          <div style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }} aria-label="CATCC view">
+            {([['radar', 'Radar'], ['final', 'Approach / Final']] as const).map(([k, l]) => (
+              <button key={k} aria-pressed={cview === k} onClick={() => setCatccView(k)} style={{ border: 0, height: 28, padding: '0 10px', borderRadius: 4, background: cview === k ? '#222C37' : 'transparent', color: cview === k ? '#E6EDF3' : '#93A1B0', fontFamily: "'Saira', sans-serif", fontSize: 12.5, fontWeight: cview === k ? 600 : 400, cursor: 'pointer' }}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )}
         {caseBadge(`CASE ${env?.case ?? 'III'} · CV-1`)}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} aria-label="Seat">
           {seat(seatDef.id, seatDef.short)}
@@ -295,7 +327,21 @@ const CatccApp: React.FC = () => {
         </div>
       )}
 
-      {mod === 'radar' && (
+      {mod === 'radar' && cview === 'final' && (
+        <FinalView
+          key={`final-${seatDef.id}`}
+          pic={pic}
+          ops={ops}
+          setOps={setHullOps}
+          deck={dc}
+          local={local}
+          defaultRange={seatDef.id === 'final' ? 12 : 24}
+          handoffCtx={handoffCtx}
+          owners={state.owners}
+          readOnly={!mayEdit}
+        />
+      )}
+      {mod === 'radar' && cview === 'radar' && (
         <RadarView
           key={seatDef.id}
           seat={seatDef}
