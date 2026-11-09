@@ -127,6 +127,8 @@ export interface ScopeProps {
   pimRoutes?: PimShip[];
   /** track-up display: the own ship's heading at the top */
   trackUp?: boolean;
+  /** range rings from the carrier out to the theatre's edge (CDC) instead of 10-40 NM */
+  ringsFar?: boolean;
   /** offer the north-up / track-up switch (and its state handler) */
   onTrackUp?: (on: boolean) => void;
   /** the seat's scope tools, range presets and whether it has comms scripts */
@@ -946,8 +948,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   /**
    * Case I port holding: a left-hand circle 5 NM across, tangent to the BRC with the ship at its
    * 3 o'clock. Positions are numbered in the direction of flight from overhead the ship: 1 overhead
-   * (heading the BRC), 2 ahead, 3 abeam to port (reciprocal), 4 astern (turning back toward the
-   * ship). Commence from 3, descending through 4 to the initial, 3 NM astern on the BRC at 800 ft.
+   * (heading the BRC), 2 ahead, 3 abeam to port (reciprocal), 4 astern. Commence from 3 on BRC + 210°
+   * (30° right of the downwind heading), descending to 800 ft and accelerating to 350 kt, then a
+   * left turn rolling out on the BRC at the initial, 3 NM astern.
    */
   const portHold = (c: Carrier) => {
     const C = '#9FD9A8';
@@ -960,13 +963,22 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     // flight order from overhead: directions from the circle's centre
     const dirs: Pt[] = [mul(l, -1), u, l, mul(u, -1)];
     const pos = dirs.map((d) => add(o, mul(d, R)));
-    const initial = add(s, mul(u, -3));
-    const txt = (extra?: React.CSSProperties): React.CSSProperties => ({ fill: C, fontSize: '0.85px', fontWeight: 600, letterSpacing: '0.05em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round', ...extra });
+    // ship frame: x to starboard, y along the BRC
+    const at = (x: number, y: number): Pt => add(s, add(mul(l, -x), mul(u, y)));
+    // commence: straight from 3 (-5, 0) on BRC + 210° for L, then a left turn of radius Rt onto the
+    // BRC ending at the initial (0, -3). The two end conditions fix L and Rt:
+    //   L·sinθ + Rt(1 − cosθ) = 5,   L·cosθ + Rt·sinθ = −3
+    const th = 210 * D2R;
+    const [sn, cs] = [Math.sin(th), Math.cos(th)];
+    const det = sn * sn - cs * (1 - cs);
+    const L = (5 * sn - -3 * (1 - cs)) / det;
+    const Rt = (sn * -3 - cs * 5) / det;
+    const p1 = at(-5 + L * sn, L * cs);
+    const initial = at(0, -3);
     return (
       <g key={`ph${c.track.id}`} style={{ pointerEvents: 'none' }}>
         <circle cx={f2(o[0])} cy={f2(o[1])} r={R} fill="none" stroke={C} strokeOpacity="0.75" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} />
-        {/* commence: from 3, descending through 4 to the initial */}
-        <path d={`M${f2(pos[2][0])} ${f2(pos[2][1])}A${R} ${R} 0 0 0 ${f2(pos[3][0])} ${f2(pos[3][1])}L${f2(initial[0])} ${f2(initial[1])}`} fill="none" stroke={C} strokeOpacity="0.9" strokeDasharray="5 4" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
+        <path d={`M${f2(pos[2][0])} ${f2(pos[2][1])}L${f2(p1[0])} ${f2(p1[1])}A${f2(Rt)} ${f2(Rt)} 0 1 0 ${f2(initial[0])} ${f2(initial[1])}`} fill="none" stroke={C} strokeOpacity="0.9" strokeDasharray="5 4" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
         {pos.map((p, i) => {
           // left-hand flow: the direction of flight at each position is the radius turned 90° left
           const d = dirs[i];
@@ -980,39 +992,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <path d={`M${f2(w1[0])} ${f2(w1[1])}L${f2(a[0])} ${f2(a[1])}L${f2(w2[0])} ${f2(w2[1])}`} fill="none" stroke={C} strokeLinejoin="round" style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} />
               <g className="zs" transform={zs(lab, zkO)}>
                 <circle cx={f2(lab[0])} cy={f2(lab[1])} r="0.62" fill="#0B0E12" stroke={C} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
-                <text x={f2(lab[0])} y={f2(lab[1])} textAnchor="middle" dominantBaseline="central" style={txt({ fontSize: '0.8px' })}>
+                <text x={f2(lab[0])} y={f2(lab[1])} textAnchor="middle" dominantBaseline="central" style={{ fill: C, fontSize: '0.8px', fontWeight: 600 }}>
                   {i + 1}
                 </text>
               </g>
             </g>
           );
         })}
-        {(() => {
-          const q = add(pos[2], mul(l, 2.1 * zkO));
-          return (
-            <g className="zs" transform={zs(q, zkO)}>
-              <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={txt()}>
-                COMMENCE
-              </text>
-            </g>
-          );
-        })()}
         <g className="zs" transform={zs(initial, zkO)}>
           <circle cx={f2(initial[0])} cy={f2(initial[1])} r="0.3" fill={C} />
-          <text x={f2(initial[0] + 0.7)} y={f2(initial[1] + 0.9)} stroke="#0B0E12" style={txt()}>
-            INITIAL 3 NM · 800 FT
-          </text>
         </g>
-        {(() => {
-          const q = add(pos[1], mul(u, 2.6 * zkO));
-          return (
-            <g className="zs" transform={zs(q, zkO)}>
-              <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={txt({ fillOpacity: 0.85 })}>
-                {`${c.track.hull ?? ''} PORT HOLD`.trim()}
-              </text>
-            </g>
-          );
-        })()}
       </g>
     );
   };
@@ -1682,15 +1671,23 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <path style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} d={frame.grid} stroke="rgba(147,161,176,.14)" fill="none" />
             </g>
           )}
-          {ov.rings && (
+          {ov.rings && (() => {
+            // CATCC: 10-40 NM. Far rings (CDC): from the carrier out past the theatre's farthest corner,
+            // spaced for the zoom; the compass sits on the first ring at or beyond 30 NM
+            const far = !!props.ringsFar;
+            const step = far ? (VW > 300 ? 50 : VW > 120 ? 25 : 10) : 10;
+            const rMax = far ? (tBounds ? Math.max(...[[tBounds.x0, tBounds.y0], [tBounds.x1, tBounds.y0], [tBounds.x0, tBounds.y1], [tBounds.x1, tBounds.y1]].map(([x, y]) => Math.hypot(x, y))) : 500) : 40;
+            const rings = Array.from({ length: Math.floor(rMax / step) + (far ? 1 : 0) }, (_, i) => (i + 1) * step);
+            const RC0 = rings.find((r) => r >= 30) ?? 30;
+            return (
             <g className="rg">
-              {[10, 20, 30, 40].map((r) => (
+              {rings.map((r) => (
                 <circle key={r} cx="0" cy="0" r={r} className="ring" />
               ))}
-              {[10, 20, 30, 40].map((r) => {
+              {rings.map((r) => {
                 // stacked straight up from the carrier (top of the screen), just outside each ring
-                // the 30 NM label clears the 000 compass tick (which spans ±1 ref unit about the ring)
-                const q: Pt = [0, -r - (r === 30 ? 1.25 : 0.3) * zkO];
+                // the compass ring's label clears the 000 tick (which spans ±1 ref unit about the ring)
+                const q: Pt = rpInv([0, -r - (r === RC0 ? 1.25 : 0.3) * zkO]);
                 return (
                   <text key={`rl${r}`} x={f2(q[0])} y={f2(q[1])} textAnchor="middle">
                     {r} NM
@@ -1699,9 +1696,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               })}
               <g className="tick">
                 {Array.from({ length: 12 }, (_, i) => i * 30).map((b) => {
-                  const c = P(b, 30);
-                  const a = P(b, 29);
-                  const e = P(b, 31);
+                  const c = P(b, RC0);
+                  const a = P(b, RC0 - 1);
+                  const e = P(b, RC0 + 1);
                   return (
                     <g key={b} className="zs" transform={zs(c, zkO)}>
                       <line x1={f2(a[0])} y1={f2(a[1])} x2={f2(e[0])} y2={f2(e[1])} />
@@ -1711,7 +1708,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </g>
               {Array.from({ length: 12 }, (_, i) => i * 30).map((b) => {
                 // just inside the tick (tick half-length 1 ref unit), constant gap on screen
-                const q = P(b, 30 - 1.9 * zkO);
+                const q = P(b, RC0 - 1.9 * zkO);
                 return (
                   <text key={`c${b}`} x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central">
                     {r3(b)}
@@ -1719,7 +1716,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 );
               })}
             </g>
-          )}
+            );
+          })()}
           {pic.carriers.map((c) => {
             // "CVN-71 CCA 50NM" on the circle at 12 o'clock, the circle broken under it
             const ccaText = `${c.track.hull ? `${c.track.hull} ` : ''}CCA 50NM`;

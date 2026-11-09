@@ -108,7 +108,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
     let v = legacy('catcc.ov', pre.ov);
     // seat defaults changed after seats had saved their layers: each change is applied once
     // (1: bathymetry Bridge-only; 2: blind spots on for CDC)
-    const CHANGED: string[][] = [['bathy'], ['blind']];
+    // (3: range rings on for CDC)
+    const CHANGED: string[][] = [['bathy'], ['blind'], ['rings']];
     try {
       const k = `catcc.ov.defaultsV.${seat.id}`;
       // the earlier bathymetry-only marker counts as version 1
@@ -426,6 +427,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
         fits={sui?.fits}
         comms={sui?.comms ?? true}
         trackUp={!!sui?.trackUp && tu.on}
+        ringsFar={!!sui?.ringsFar}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
         onOpenDisplay={() => setUiOpen(true)}
         donors={donors}

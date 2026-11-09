@@ -31,6 +31,8 @@ export interface SeatUi {
   comms: boolean;
   /** north-up / track-up switch */
   trackUp: boolean;
+  /** range rings out to the theatre's edge */
+  ringsFar: boolean;
   left: LeftTab[];
   right: RightSection[];
 }
@@ -65,9 +67,9 @@ const preset = (ov: Record<string, boolean>, ov2: Record<string, boolean>, fit: 
 /** CATCC: the carrier control area with marshal, approach and departure overlays */
 const P_CATCC = preset({}, {}, 'r50', 'marshal');
 /** CDC air picture: theatre zoom, bullseye, datalink donors, no carrier traffic overlays */
-const P_STRIKE = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: true, blind: true, tanker: true, cca: true, pim: false, terr: true, places: true, airports: true }, { ...ALL_OTHER_OFF, cca: false }, 'thr', 'select');
-const P_AW = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: true, blind: true, tanker: true, cca: true, pim: false, terr: true }, { ...ALL_OTHER_OFF, cca: false }, 'thr', 'select');
-const P_SUW = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: false, blind: true, tanker: false, cca: false, pim: true, terr: true, coast: true }, { ...ALL_OTHER_OFF, pim: true, cca: false }, 'thr', 'select');
+const P_STRIKE = preset({ ...CV_TRAFFIC_OFF, rings: true, bulls: true, dl: true, blind: true, tanker: true, cca: true, pim: false, terr: true, places: true, airports: true }, { ...ALL_OTHER_OFF, cca: false }, 'thr', 'select');
+const P_AW = preset({ ...CV_TRAFFIC_OFF, rings: true, bulls: true, dl: true, blind: true, tanker: true, cca: true, pim: false, terr: true }, { ...ALL_OTHER_OFF, cca: false }, 'thr', 'select');
+const P_SUW = preset({ ...CV_TRAFFIC_OFF, rings: true, bulls: true, dl: false, blind: true, tanker: false, cca: false, pim: true, terr: true, coast: true }, { ...ALL_OTHER_OFF, pim: true, cca: false }, 'thr', 'select');
 const P_DEP = preset({ marshal: false, arr: false, cv1: false, cv2: false, cv3: false, port: false }, { marshal: false, arr: false }, 'dep', 'vec');
 const P_MARSHAL = preset({ dep: false }, { dep: false }, 'app', 'marshal');
 const P_APPROACH = preset({ dep: false, cv1: true }, { dep: false }, 'app', 'cpa');
@@ -80,7 +82,7 @@ const P_OOD = preset({ ...CV_TRAFFIC_OFF, brc: true, fb: false, pim: true, terr:
 const S = (id: SeatRole, loc: LocationId, label: string, short: string, view: SeatView, radar?: RadarPreset, ui?: SeatUi): SeatDef => ({ id, loc, label, short, view, radar, ui });
 
 // ---------------------------------------------------------------- seat interfaces
-const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp });
+const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean; ringsFar?: boolean } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp, ringsFar: !!o.ringsFar });
 /** CATCC as one seat: every control tool and panel */
 const U_CATCC = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 'dep', 'app'], ['info', 'strips'], ['dep', 'marshal', 'coord', 'deck', 'notes'], { comms: true });
 const U_DEP = ui(['select', 'bra', 'cpa', 'vec'], ['dep', 'cca', 'r50'], ['info', 'strips'], ['dep', 'coord', 'notes'], { comms: true });
@@ -88,7 +90,7 @@ const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['app', 'cca', 
 const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['app', 'cca'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
 const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'], ['deck', 'notes'], { comms: true });
 /** CDC: the air picture across the theatre and the sensors feeding it */
-const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'r50', 'cca'], ['info', 'strips'], ['donors', 'notes']);
+const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'r50', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true });
 /** Bridge: conning the ship; no traffic control */
 const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm'], { trackUp: true });
 
