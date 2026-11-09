@@ -50,7 +50,7 @@ const P_CATCC = preset({}, {}, 'r50', 'marshal');
 /** CDC air picture: theatre zoom, bullseye, datalink donors, no carrier traffic overlays */
 const P_STRIKE = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: true, tanker: true, cca: true, pim: false, terr: true, places: true, airports: true }, { ...ALL_OTHER_OFF, cca: false }, 'thr', 'select');
 const P_AW = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: true, blind: true, tanker: true, cca: true, pim: false, terr: true }, { ...ALL_OTHER_OFF, cca: false }, 'thr', 'select');
-const P_SUW = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: false, tanker: false, cca: false, pim: true, terr: true, bathy: true, coast: true }, { ...ALL_OTHER_OFF, pim: true, cca: false }, 'thr', 'select');
+const P_SUW = preset({ ...CV_TRAFFIC_OFF, bulls: true, dl: false, tanker: false, cca: false, pim: true, terr: true, coast: true }, { ...ALL_OTHER_OFF, pim: true, cca: false }, 'thr', 'select');
 const P_DEP = preset({ marshal: false, arr: false, cv1: false, cv2: false, cv3: false, port: false }, { marshal: false, arr: false }, 'dep', 'vec');
 const P_MARSHAL = preset({ dep: false }, { dep: false }, 'app', 'marshal');
 const P_APPROACH = preset({ dep: false, cv1: true }, { dep: false }, 'app', 'cpa');

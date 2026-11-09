@@ -72,5 +72,5 @@ export const LAYER_GROUPS: [string, [string, string, string][]][] = [
   ['Sensors', [['dl', 'Datalink sources', '#E7C66B'], ['blind', 'Radar blindspots', '#FF8A85']]],
   ['Reference', [['rings', 'Range rings / compass', '#5E9A6C'], ['latlon', 'Border scale', '#93A1B0'], ['grid', 'Lat / lon grid', '#93A1B0']]],
 ];
-export const OV_DEFAULT = { port: false, dl: false, blind: false, pim: true, terr: false, bulls: true, sweep: false, places: true, airports: true, coast: true, bathy: true, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
+export const OV_DEFAULT = { port: false, dl: false, blind: false, pim: true, terr: false, bulls: true, sweep: false, places: true, airports: true, coast: true, bathy: false, cca: true, coord: true, rings: true, latlon: true, grid: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: true, sar: false, cv1: false, cv2: false, cv3: false };
 export const OV2_DEFAULT = { port: false, pim: false, cca: true, rings: false, brc: true, fb: true, marshal: true, arr: true, bolter: false, dep: true, tanker: false, sar: false, cv1: false, cv2: false, cv3: false };

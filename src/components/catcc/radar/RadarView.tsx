@@ -107,7 +107,20 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
       return d;
     }
   };
-  const [ov, setOv] = useState<Record<string, boolean>>(() => legacy('catcc.ov', pre.ov));
+  const [ov, setOv] = useState<Record<string, boolean>>(() => {
+    const v = legacy('catcc.ov', pre.ov);
+    // one-time: bathymetry became a Bridge-only default after seats had saved it on
+    try {
+      const k = `catcc.ov.bathyDefault.${seat.id}`;
+      if (!localStorage.getItem(k)) {
+        localStorage.setItem(k, '1');
+        return { ...v, bathy: pre.ov.bathy };
+      }
+    } catch {
+      /* private mode */
+    }
+    return v;
+  });
   const [ov2, setOv2] = useState<Record<string, boolean>>(() => legacy('catcc.ov2', pre.ov2));
   const [ui, setUi] = useState<UiScale>(() => load('catcc.ui', UI_DEF));
   const [layersOpen, setLayersOpen] = useState(false);
