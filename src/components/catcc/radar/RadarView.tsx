@@ -14,6 +14,8 @@ import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.
 import type { RoomState } from '../useCatccRoom.ts';
 import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
+import { HandoffRow, handoffState, type HandoffCtx } from '../Handoff.tsx';
+import { flightKey, OWNER_LABEL, ownerOf } from '../ownership.ts';
 import { DeckPanel, DonorsPanel, HelmPanel } from './SidePanels.tsx';
 import type { SeatDef } from '../seats.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
@@ -79,6 +81,8 @@ const PHASES: [Phase, string][] = [
 // ---------------------------------------------------------------- view
 
 export interface RadarViewProps {
+  /** owner chips and handoff actions on strips and notifications */
+  handoffCtx: HandoffCtx;
   /** the seat this radar is for: its preset gives the default layers, zoom and tool, and its own saved layers */
   seat: SeatDef;
   state: RoomState;
@@ -93,7 +97,7 @@ export interface RadarViewProps {
   setUiOpen: (b: boolean) => void;
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ handoffCtx, seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
   const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
   const [tool, setTool] = useState<Tool>(pre.tool);
   // layers are kept per seat; the CATCC seats fall back to the layers saved before there were seats
@@ -297,6 +301,21 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
   const label = (t: { bd?: string; cs?: string; pi?: string; id: string }) => t.bd ?? t.cs ?? t.pi ?? t.id;
   const tLocal = localNow ? hhmm(localNow) : '';
   const notes: Note[] = [];
+  // handoffs offered to this seat
+  for (const f of pic.formations) {
+    if (f.lead.owner && f.lead.owner !== hull) continue;
+    const v = ownerOf(flightKey(f), hull, phaseOf(f, marshalled), f.lead.rng, handoffCtx.layout, state.owners);
+    if (!v.pending || !handoffState(v, handoffCtx).incoming) continue;
+    notes.push({
+      id: `h:${v.key}:${v.pending.at}`,
+      k: 'handoff',
+      kind: 'HANDOFF',
+      t: tLocal,
+      title: `${label(f.lead)} ← ${OWNER_LABEL[v.owner.role]}`,
+      goTo: f.lead.p as [number, number],
+      action: { label: 'Accept', run: () => handoffCtx.onAccept(v.key) },
+    });
+  }
   for (const c of pic.conflicts) {
     const s = Math.round(c.cpa.tS);
     notes.push({
@@ -412,6 +431,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
                       style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
                       <FlightCard {...flight} />
+                      <HandoffRow v={ownerOf(flightKey(f), hull, p, f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />
                     </div>
                   );
                 })}

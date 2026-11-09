@@ -323,7 +323,7 @@ const CoordRow: React.FC<{ own: string; hull: string; g: CoordGeom; readOnly: bo
 
 export interface Note {
   id: string;
-  k: 'conflict' | 'warn' | 'coord' | 'info';
+  k: 'conflict' | 'warn' | 'coord' | 'info' | 'handoff';
   kind: string;
   t: string;
   title: string;
@@ -331,9 +331,12 @@ export interface Note {
   goTo?: [number, number];
   /** points to zoom to fit when going to this note (conflict encounters) */
   fit?: [number, number][];
+  /** replaces Ack (e.g. Accept for a handoff); the note goes away when its condition does */
+  action?: { label: string; run: () => void };
 }
 const KINDS = {
   conflict: { fg: '#FF8A85', bc: '#E0524E', bg: 'rgba(224,82,78,.10)' },
+  handoff: { fg: '#E7B04F', bc: '#E7B04F', bg: 'rgba(231,176,79,.10)' },
   warn: { fg: '#E7B04F', bc: '#8A6A2A', bg: 'rgba(222,154,31,.07)' },
   coord: { fg: '#6FB6E6', bc: '#2F5F80', bg: 'rgba(62,155,212,.07)' },
   info: { fg: '#93A1B0', bc: '#262F3A', bg: '#1A212A' },
@@ -360,8 +363,8 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
             <div style={{ fontSize: 13.5, fontWeight: 500, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{n.title}</div>
             {n.body && <div className="mono" style={{ fontSize: 11.5, color: '#FFC2BF' }}>{n.body}</div>}
           </div>
-          <button onClick={() => onAck(n.id)} style={{ height: 30, padding: '0 10px', background: 'transparent', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, fontFamily: "'Saira', sans-serif", fontSize: 12, cursor: 'pointer' }}>
-            Ack
+          <button onClick={() => (n.action ? n.action.run() : onAck(n.id))} style={{ height: 30, padding: '0 10px', background: n.action ? 'rgba(231,176,79,.12)' : 'transparent', color: n.action ? '#E7B04F' : '#E6EDF3', border: `1px solid ${n.action ? '#E7B04F' : '#374250'}`, borderRadius: 4, fontFamily: "'Saira', sans-serif", fontSize: 12, cursor: 'pointer' }}>
+            {n.action?.label ?? 'Ack'}
           </button>
         </article>
       );

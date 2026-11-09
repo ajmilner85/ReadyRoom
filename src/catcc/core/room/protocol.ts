@@ -22,6 +22,7 @@
  */
 import type { CarrierWx, HookEnv } from '../dcs/hookProtocol.ts';
 import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
+import type { OpsState, Ownership } from './ops.ts';
 
 export const ROOM_PROTO = 1;
 
@@ -158,6 +159,12 @@ export type ClientMsg =
   | { t: 'subscribe'; src: string }
   | { t: 'claim'; src: string; seat: SeatKey }
   | { t: 'release'; src: string; seat: SeatKey }
+  /** hand a flight from `from` (its current owner as the sender sees it) to `to`; `to` null recalls a pending handoff */
+  | { t: 'handoff'; src: string; key: string; from: SeatKey; to: SeatKey | null }
+  /** accept a handoff pending to a seat the user may act for */
+  | { t: 'accept'; src: string; key: string }
+  /** patch a carrier's shared ops state (deck, aids, lights, launch, formation) */
+  | { t: 'ops'; src: string; carrier: string; patch: Partial<Record<keyof OpsState, unknown>> }
   | { t: 'ping' };
 
 export type ServerMsg =
@@ -168,6 +175,8 @@ export type ServerMsg =
   | { t: 'plans'; src: string; plans: Record<string, CarrierPlan> }
   | { t: 'env'; src: string; env: HookEnv }
   | { t: 'assignments'; src: string; assignments: Record<string, Assignment> }
+  | { t: 'owners'; src: string; owners: Record<string, Ownership> }
+  | { t: 'ops'; src: string; ops: Record<string, OpsState> }
   | { t: 'pong' }
   | { t: 'error'; error: string };
 

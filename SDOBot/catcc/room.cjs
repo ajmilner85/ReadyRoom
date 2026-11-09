@@ -413,9 +413,9 @@ var require_permessage_deflate = __commonJS({
        * @param {Function} callback Callback
        * @public
        */
-      decompress(data, fin, callback) {
+      decompress(data, fin2, callback) {
         zlibLimiter.add((done) => {
-          this._decompress(data, fin, (err, result) => {
+          this._decompress(data, fin2, (err, result) => {
             done();
             callback(err, result);
           });
@@ -429,9 +429,9 @@ var require_permessage_deflate = __commonJS({
        * @param {Function} callback Callback
        * @public
        */
-      compress(data, fin, callback) {
+      compress(data, fin2, callback) {
         zlibLimiter.add((done) => {
-          this._compress(data, fin, (err, result) => {
+          this._compress(data, fin2, (err, result) => {
             done();
             callback(err, result);
           });
@@ -445,7 +445,7 @@ var require_permessage_deflate = __commonJS({
        * @param {Function} callback Callback
        * @private
        */
-      _decompress(data, fin, callback) {
+      _decompress(data, fin2, callback) {
         const endpoint = this._isServer ? "client" : "server";
         if (!this._inflate) {
           const key = `${endpoint}_max_window_bits`;
@@ -462,7 +462,7 @@ var require_permessage_deflate = __commonJS({
         }
         this._inflate[kCallback] = callback;
         this._inflate.write(data);
-        if (fin) this._inflate.write(TRAILER);
+        if (fin2) this._inflate.write(TRAILER);
         this._inflate.flush(() => {
           const err = this._inflate[kError];
           if (err) {
@@ -481,7 +481,7 @@ var require_permessage_deflate = __commonJS({
           } else {
             this._inflate[kTotalLength] = 0;
             this._inflate[kBuffers] = [];
-            if (fin && this.params[`${endpoint}_no_context_takeover`]) {
+            if (fin2 && this.params[`${endpoint}_no_context_takeover`]) {
               this._inflate.reset();
             }
           }
@@ -496,7 +496,7 @@ var require_permessage_deflate = __commonJS({
        * @param {Function} callback Callback
        * @private
        */
-      _compress(data, fin, callback) {
+      _compress(data, fin2, callback) {
         const endpoint = this._isServer ? "server" : "client";
         if (!this._deflate) {
           const key = `${endpoint}_max_window_bits`;
@@ -519,13 +519,13 @@ var require_permessage_deflate = __commonJS({
             this._deflate[kBuffers],
             this._deflate[kTotalLength]
           );
-          if (fin) {
+          if (fin2) {
             data2 = new FastBuffer(data2.buffer, data2.byteOffset, data2.length - 4);
           }
           this._deflate[kCallback] = null;
           this._deflate[kTotalLength] = 0;
           this._deflate[kBuffers] = [];
-          if (fin && this.params[`${endpoint}_no_context_takeover`]) {
+          if (fin2 && this.params[`${endpoint}_no_context_takeover`]) {
             this._deflate.reset();
           }
           callback(null, data2);
@@ -3697,6 +3697,191 @@ var devVerifier = async (token) => {
   return { userId: `dev:${token}`, name: token.slice(0, 24) || "dev" };
 };
 
+// src/catcc/core/room/protocol.ts
+var ROOM_PROTO = 1;
+var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
+var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
+var r = (n, dp) => n === void 0 || !Number.isFinite(n) ? void 0 : Math.round(n * 10 ** dp) / 10 ** dp;
+function toWire(t) {
+  return {
+    id: t.id,
+    k: t.kind,
+    ty: t.type,
+    sd: t.side,
+    cs: t.callsign,
+    fl: t.flight,
+    bd: t.board,
+    pl: t.player,
+    pi: t.pilot,
+    g: t.group,
+    hull: t.hull,
+    ip: t.isPlayer,
+    lat: r(t.lat, 6),
+    lon: r(t.lon, 6),
+    alt: Math.round(t.altFt),
+    hdg: r(t.headingDeg, 1),
+    crs: r(t.courseDeg, 1),
+    gs: r(t.gsKt, 0),
+    vs: r(t.vsFpm, -1),
+    f: r(t.fuelFrac, 3),
+    lb: r(t.fuelLb, -1),
+    air: t.inAir,
+    wx: t.wx
+  };
+}
+var seatId = (s) => `${s.carrier}:${s.role}`;
+function cleanPlan(p) {
+  if (!p || typeof p !== "object") return null;
+  const { deps, stacks } = p;
+  if (!Array.isArray(deps) || !Array.isArray(stacks) || deps.length > 8 || stacks.length > 8) return null;
+  const okAngle = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n < 360;
+  if (!deps.every(okAngle)) return null;
+  const out = [];
+  for (const s of stacks) {
+    if (!s || typeof s.id !== "string" || !/^[A-Z0-9]{1,2}$/.test(s.id) || !okAngle(s.r)) return null;
+    if (typeof s.base !== "number" || !Number.isInteger(s.base) || s.base < 1 || s.base > 30) return null;
+    out.push({ id: s.id, r: s.r, base: s.base, ...s.rh ? { rh: true } : {} });
+  }
+  const off = p.off;
+  if (off !== void 0 && (!Array.isArray(off) || off.length > 12 || !off.every((x) => typeof x === "string" && /^[A-Z0-9]{1,2}$/.test(x)))) return null;
+  const coordIn = p.coord;
+  let coord;
+  if (coordIn !== void 0) {
+    if (!coordIn || typeof coordIn !== "object" || Object.keys(coordIn).length > 4) return null;
+    coord = {};
+    for (const [hull, v] of Object.entries(coordIn)) {
+      if (hull.length > 16 || !v || typeof v.brg !== "number" || typeof v.off !== "number" || !Number.isFinite(v.brg) || !Number.isFinite(v.off)) return null;
+      if (v.brg < 0 || v.brg >= 360 || Math.abs(v.off) > 100) return null;
+      coord[hull] = { brg: v.brg, off: v.off };
+    }
+  }
+  const helmIn = p.helm;
+  let helm;
+  if (helmIn !== void 0) {
+    if (!helmIn || typeof helmIn !== "object" || !okAngle(helmIn.crs) || typeof helmIn.kt !== "number" || !Number.isFinite(helmIn.kt) || helmIn.kt < 0 || helmIn.kt > 40) return null;
+    helm = { crs: helmIn.crs, kt: helmIn.kt };
+  }
+  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {}, ...coord && Object.keys(coord).length ? { coord } : {}, ...helm ? { helm } : {} };
+}
+function cleanAssignment(a) {
+  if (!a || typeof a !== "object") return null;
+  const x = a;
+  const fin2 = (n) => typeof n === "number" && Number.isFinite(n);
+  if (typeof x.stackId !== "string" || x.stackId.length > 2 || !fin2(x.angels) || !fin2(x.eatS) || !fin2(x.fixS)) return null;
+  if (x.carrier !== void 0 && (typeof x.carrier !== "string" || x.carrier.length > 16)) return null;
+  return { stackId: x.stackId, angels: x.angels, eatS: x.eatS, fixS: x.fixS, carrier: x.carrier };
+}
+
+// src/catcc/core/room/ops.ts
+var okSeat = (s) => {
+  if (!s || typeof s !== "object") return false;
+  const { carrier, role } = s;
+  return typeof carrier === "string" && carrier.length >= 1 && carrier.length <= 16 && SEAT_ROLES.includes(role);
+};
+var okFlightKey = (k) => typeof k === "string" && k.length >= 1 && k.length <= 64;
+var cleanSeat = (s) => okSeat(s) ? { carrier: s.carrier, role: s.role } : null;
+var sameSeat = (a, b) => !!a && !!b && a.carrier === b.carrier && a.role === b.role;
+var LIGHTS = ["ON", "OFF", "AUTO", "NIGHT", "VIOLET", "YELLOW", "GREEN", "RED"];
+var CAT_STATUS = ["ready", "hold", "down", "suspended"];
+var MODES = ["I", "IA", "II", "III"];
+var ROLES = ["AAW", "ASW", "PG", "PKT"];
+var fin = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+var str = (s, max) => typeof s === "string" && s.length <= max;
+var entries = (o, max) => o && typeof o === "object" && !Array.isArray(o) && Object.keys(o).length <= max ? Object.entries(o) : null;
+function cleanStation(s) {
+  if (!s || typeof s !== "object") return null;
+  const x = s;
+  if (!ROLES.includes(x.role)) return null;
+  if (x.kind === "free") return { kind: "free", role: x.role };
+  if (x.kind === "point") return fin(x.b, 0, 360) && fin(x.r, 0, 60) ? { kind: "point", role: x.role, b: x.b % 360, r: x.r } : null;
+  if (x.kind === "sector") {
+    if (!fin(x.b0, 0, 360) || !fin(x.b1, 0, 360) || !fin(x.r0, 0, 60) || !fin(x.r1, 0, 60) || x.r1 <= x.r0) return null;
+    return { kind: "sector", role: x.role, b0: x.b0 % 360, b1: x.b1 % 360, r0: x.r0, r1: x.r1 };
+  }
+  return null;
+}
+function cleanOpsPatch(p) {
+  const e = entries(p, 8);
+  if (!e) return null;
+  const out = {};
+  for (const [k, v] of e) {
+    if (v === null) {
+      if (!["deck", "aids", "lights", "launch", "formation"].includes(k)) return null;
+      out[k] = null;
+      continue;
+    }
+    switch (k) {
+      case "deck": {
+        const d = v;
+        if (!d || typeof d.foul !== "boolean" || d.reason !== void 0 && !str(d.reason, 60) || !fin(d.at, 0, 1e13)) return null;
+        out.deck = { foul: d.foul, ...d.reason ? { reason: d.reason } : {}, at: d.at };
+        break;
+      }
+      case "aids": {
+        const a = v;
+        if (!a || typeof a.icls !== "boolean" || typeof a.acls !== "boolean") return null;
+        let modes;
+        if (a.modes !== void 0) {
+          const me = entries(a.modes, 40);
+          if (!me || !me.every(([id, m]) => okFlightKey(id) && MODES.includes(m))) return null;
+          modes = Object.fromEntries(me);
+        }
+        out.aids = { icls: a.icls, acls: a.acls, ...modes ? { modes } : {} };
+        break;
+      }
+      case "lights": {
+        const le = entries(v, 24);
+        if (!le || !le.every(([n, s]) => str(n, 24) && LIGHTS.includes(s))) return null;
+        out.lights = Object.fromEntries(le);
+        break;
+      }
+      case "launch": {
+        const ce = entries(v, 4);
+        if (!ce) return null;
+        const cats = {};
+        for (const [cat, c] of ce) {
+          const x = c;
+          if (!/^[1-4]$/.test(cat) || !x || !CAT_STATUS.includes(x.status) || !Array.isArray(x.queue) || x.queue.length > 12 || !x.queue.every(okFlightKey)) return null;
+          cats[cat] = { status: x.status, queue: [...x.queue] };
+        }
+        out.launch = cats;
+        break;
+      }
+      case "formation": {
+        const f = v;
+        if (!f || !str(f.active, 24)) return null;
+        const pe = entries(f.presets, 6);
+        if (!pe) return null;
+        const presets = {};
+        for (const [name, stations] of pe) {
+          const se = entries(stations, 12);
+          if (!str(name, 24) || !se) return null;
+          const st = {};
+          for (const [unit, s] of se) {
+            const c = cleanStation(s);
+            if (!okFlightKey(unit) || !c) return null;
+            st[unit] = c;
+          }
+          presets[name] = st;
+        }
+        out.formation = { active: f.active, presets };
+        break;
+      }
+      default:
+        return null;
+    }
+  }
+  return out;
+}
+function applyOpsPatch(cur, patch) {
+  const next = { ...cur };
+  for (const [k, v] of Object.entries(patch)) {
+    if (v === null) delete next[k];
+    else next[k] = v;
+  }
+  return next;
+}
+
 // node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);
 var import_receiver = __toESM(require_receiver(), 1);
@@ -3982,81 +4167,6 @@ var HookTrackStore = class {
     if (drop) h.splice(0, drop);
   }
 };
-
-// src/catcc/core/room/protocol.ts
-var ROOM_PROTO = 1;
-var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
-var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
-var r = (n, dp) => n === void 0 || !Number.isFinite(n) ? void 0 : Math.round(n * 10 ** dp) / 10 ** dp;
-function toWire(t) {
-  return {
-    id: t.id,
-    k: t.kind,
-    ty: t.type,
-    sd: t.side,
-    cs: t.callsign,
-    fl: t.flight,
-    bd: t.board,
-    pl: t.player,
-    pi: t.pilot,
-    g: t.group,
-    hull: t.hull,
-    ip: t.isPlayer,
-    lat: r(t.lat, 6),
-    lon: r(t.lon, 6),
-    alt: Math.round(t.altFt),
-    hdg: r(t.headingDeg, 1),
-    crs: r(t.courseDeg, 1),
-    gs: r(t.gsKt, 0),
-    vs: r(t.vsFpm, -1),
-    f: r(t.fuelFrac, 3),
-    lb: r(t.fuelLb, -1),
-    air: t.inAir,
-    wx: t.wx
-  };
-}
-var seatId = (s) => `${s.carrier}:${s.role}`;
-function cleanPlan(p) {
-  if (!p || typeof p !== "object") return null;
-  const { deps, stacks } = p;
-  if (!Array.isArray(deps) || !Array.isArray(stacks) || deps.length > 8 || stacks.length > 8) return null;
-  const okAngle = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n < 360;
-  if (!deps.every(okAngle)) return null;
-  const out = [];
-  for (const s of stacks) {
-    if (!s || typeof s.id !== "string" || !/^[A-Z0-9]{1,2}$/.test(s.id) || !okAngle(s.r)) return null;
-    if (typeof s.base !== "number" || !Number.isInteger(s.base) || s.base < 1 || s.base > 30) return null;
-    out.push({ id: s.id, r: s.r, base: s.base, ...s.rh ? { rh: true } : {} });
-  }
-  const off = p.off;
-  if (off !== void 0 && (!Array.isArray(off) || off.length > 12 || !off.every((x) => typeof x === "string" && /^[A-Z0-9]{1,2}$/.test(x)))) return null;
-  const coordIn = p.coord;
-  let coord;
-  if (coordIn !== void 0) {
-    if (!coordIn || typeof coordIn !== "object" || Object.keys(coordIn).length > 4) return null;
-    coord = {};
-    for (const [hull, v] of Object.entries(coordIn)) {
-      if (hull.length > 16 || !v || typeof v.brg !== "number" || typeof v.off !== "number" || !Number.isFinite(v.brg) || !Number.isFinite(v.off)) return null;
-      if (v.brg < 0 || v.brg >= 360 || Math.abs(v.off) > 100) return null;
-      coord[hull] = { brg: v.brg, off: v.off };
-    }
-  }
-  const helmIn = p.helm;
-  let helm;
-  if (helmIn !== void 0) {
-    if (!helmIn || typeof helmIn !== "object" || !okAngle(helmIn.crs) || typeof helmIn.kt !== "number" || !Number.isFinite(helmIn.kt) || helmIn.kt < 0 || helmIn.kt > 40) return null;
-    helm = { crs: helmIn.crs, kt: helmIn.kt };
-  }
-  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {}, ...coord && Object.keys(coord).length ? { coord } : {}, ...helm ? { helm } : {} };
-}
-function cleanAssignment(a) {
-  if (!a || typeof a !== "object") return null;
-  const x = a;
-  const fin = (n) => typeof n === "number" && Number.isFinite(n);
-  if (typeof x.stackId !== "string" || x.stackId.length > 2 || !fin(x.angels) || !fin(x.eatS) || !fin(x.fixS)) return null;
-  if (x.carrier !== void 0 && (typeof x.carrier !== "string" || x.carrier.length > 16)) return null;
-  return { stackId: x.stackId, angels: x.angels, eatS: x.eatS, fixS: x.fixS, carrier: x.carrier };
-}
 
 // src/catcc/core/acmi/state.ts
 var T_FIELDS = {
@@ -4459,6 +4569,8 @@ var Source = class {
   seats = /* @__PURE__ */ new Map();
   plans = {};
   assignments = {};
+  owners = {};
+  ops = {};
   subscribers = /* @__PURE__ */ new Set();
   seq = 0;
   stopFn;
@@ -4555,6 +4667,39 @@ var Source = class {
       }
     }
     if (dropped) this.broadcastAssignments();
+    const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...t.g ? [t.g] : []]));
+    let gone = false;
+    for (const k of Object.keys(this.owners)) {
+      if (!flights.has(k)) {
+        delete this.owners[k];
+        gone = true;
+      }
+    }
+    if (gone) this.broadcastOwners();
+  }
+  ownersMsg() {
+    return JSON.stringify({ t: "owners", src: this.cfg.id, owners: this.owners });
+  }
+  opsMsg() {
+    return JSON.stringify({ t: "ops", src: this.cfg.id, ops: this.ops });
+  }
+  broadcastOwners() {
+    const m = this.ownersMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+  broadcastOps() {
+    const m = this.opsMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+  /** A user may act for a seat they hold, or for one nobody holds (its work rolls up to whoever is there). */
+  mayActFor(userId, seat) {
+    const h = this.seats.get(seatId(seat));
+    return !h || h.userId === userId;
+  }
+  /** Ops state is edited by anyone holding a seat on the carrier, or by anyone while none are held. */
+  mayEditOps(userId, carrier) {
+    const relevant = [...this.seats.values()].filter((s) => s.carrier === carrier || s.carrier === "*");
+    return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
   seatsMsg() {
     return JSON.stringify({ t: "seats", src: this.cfg.id, seats: [...this.seats.values()] });
@@ -4712,6 +4857,8 @@ var RoomService = class {
         send(c, src.seatsMsg());
         send(c, src.plansMsg());
         send(c, src.assignmentsMsg());
+        send(c, src.ownersMsg());
+        send(c, src.opsMsg());
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -4737,6 +4884,40 @@ var RoomService = class {
         if (a) src.assignments[msg.trackId] = a;
         else delete src.assignments[msg.trackId];
         src.broadcastAssignments();
+        return;
+      }
+      case "handoff": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        const from = cleanSeat(msg.from);
+        const to = msg.to === null ? null : cleanSeat(msg.to);
+        if (!okFlightKey(msg.key) || !from || msg.to !== null && !to) return send(c, { t: "error", error: "invalid handoff" });
+        const cur = src.owners[msg.key];
+        const owner = cur?.owner ?? from;
+        if (!src.mayActFor(c.user.userId, owner)) return send(c, { t: "error", error: "only the owning seat can hand this flight off" });
+        if (to && sameSeat(to, owner)) return send(c, { t: "error", error: "already owned by that seat" });
+        src.owners[msg.key] = to ? { owner, pending: { to, at: Date.now() } } : { owner };
+        src.broadcastOwners();
+        return;
+      }
+      case "accept": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        const cur = okFlightKey(msg.key) ? src.owners[msg.key] : void 0;
+        if (!cur?.pending) return send(c, { t: "error", error: "no handoff pending" });
+        if (!src.mayActFor(c.user.userId, cur.pending.to)) return send(c, { t: "error", error: "that handoff is for another seat" });
+        src.owners[msg.key] = { owner: cur.pending.to };
+        src.broadcastOwners();
+        return;
+      }
+      case "ops": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        const patch = cleanOpsPatch(msg.patch);
+        if (!patch || typeof msg.carrier !== "string" || msg.carrier.length < 1 || msg.carrier.length > 16) return send(c, { t: "error", error: "invalid ops update" });
+        if (!src.mayEditOps(c.user.userId, msg.carrier)) return send(c, { t: "error", error: `claim a ${msg.carrier} seat to change this` });
+        src.ops[msg.carrier] = applyOpsPatch(src.ops[msg.carrier] ?? {}, patch);
+        src.broadcastOps();
         return;
       }
       case "claim":

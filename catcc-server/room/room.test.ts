@@ -176,4 +176,52 @@ describe('room service with fake DCS hook', () => {
     a.ws.close();
     b.ws.close();
   });
+
+  it('hands flights off between seats (offer, recall, accept) and shares ops state', async () => {
+    const a = new Client(url);
+    const b = new Client(url);
+    await Promise.all([a.open(), b.open()]);
+    a.send({ t: 'auth', token: 'alpha3' });
+    b.send({ t: 'auth', token: 'bravo3' });
+    await Promise.all([a.waitFor('hello'), b.waitFor('hello')]);
+    a.send({ t: 'subscribe', src: 'fox3' });
+    b.send({ t: 'subscribe', src: 'fox3' });
+    await b.waitFor('frame', (f) => f.tracks.length === 2);
+    await a.waitFor('seats', (s) => s.seats.length === 0, 3000);
+    const strike = { carrier: 'CVN-72', role: 'strike' };
+    const marshal = { carrier: 'CVN-72', role: 'marshal' };
+    a.send({ t: 'claim', src: 'fox3', seat: strike });
+    b.send({ t: 'claim', src: 'fox3', seat: marshal });
+    await a.waitFor('seats', (s) => s.seats.length === 2);
+
+    // only the owning seat's holder can offer the flight
+    b.send({ t: 'handoff', src: 'fox3', key: 'Volt 3', from: strike, to: marshal });
+    expect((await b.waitFor('error', (e) => /owning seat/.test(e.error))).error).toMatch(/owning/);
+    a.send({ t: 'handoff', src: 'fox3', key: 'Volt 3', from: strike, to: marshal });
+    await b.waitFor('owners', (m) => m.owners['Volt 3']?.pending?.to.role === 'marshal');
+    // recall, then offer again
+    a.send({ t: 'handoff', src: 'fox3', key: 'Volt 3', from: strike, to: null });
+    await b.waitFor('owners', (m) => !!m.owners['Volt 3'] && !m.owners['Volt 3'].pending);
+    a.send({ t: 'handoff', src: 'fox3', key: 'Volt 3', from: strike, to: marshal });
+    await b.waitFor('owners', (m) => m.owners['Volt 3']?.pending?.to.role === 'marshal');
+    // the sender can't accept its own offer to another held seat; the receiver can
+    b.msgs.length = 0;
+    a.send({ t: 'accept', src: 'fox3', key: 'Volt 3' });
+    expect((await a.waitFor('error', (e) => /another seat/.test(e.error))).error).toMatch(/another/);
+    b.send({ t: 'accept', src: 'fox3', key: 'Volt 3' });
+    await a.waitFor('owners', (m) => m.owners['Volt 3']?.owner.role === 'marshal' && !m.owners['Volt 3'].pending);
+    // ownership of a flight that isn't in the picture is dropped on the next frame
+    b.send({ t: 'handoff', src: 'fox3', key: 'Ghost 9', from: marshal, to: strike });
+    await a.waitFor('owners', (m) => !!m.owners['Volt 3'] && !m.owners['Ghost 9']);
+
+    // ops: PriFly's deck call and the launch queue round-trip; malformed patches are refused
+    a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { deck: { foul: true, reason: '216 clearing', at: 1 }, launch: { '1': { status: 'ready', queue: ['Volt 3'] } } } });
+    await b.waitFor('ops', (m) => m.ops['CVN-72']?.deck?.foul === true && m.ops['CVN-72']?.launch?.['1']?.queue[0] === 'Volt 3');
+    a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { deck: null } });
+    await b.waitFor('ops', (m) => !!m.ops['CVN-72'] && !m.ops['CVN-72'].deck && !!m.ops['CVN-72'].launch);
+    a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { lights: { deck: 'PURPLE' } } });
+    expect((await a.waitFor('error', (e) => e.error === 'invalid ops update')).error).toBe('invalid ops update');
+    a.ws.close();
+    b.ws.close();
+  });
 });

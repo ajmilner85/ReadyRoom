@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import type { HookEnv } from '../../catcc/core/dcs/hookProtocol.ts';
 import type { Assignment, CarrierPlan, RoomUser, SeatHolder, SeatKey, ServerMsg, SourceStatus, WireTrack } from '../../catcc/core/room/protocol.ts';
+import type { OpsState, Ownership } from '../../catcc/core/room/ops.ts';
 import type { Trail } from './scopeModel.ts';
 
 /**
@@ -30,6 +31,10 @@ export interface RoomState {
   plans: Record<string, CarrierPlan>;
   env?: HookEnv;
   assignments: Record<string, Assignment>;
+  /** flight key → owner seat and pending handoff */
+  owners: Record<string, Ownership>;
+  /** carrier hull → shared ops state */
+  ops: Record<string, OpsState>;
   tracks: WireTrack[];
   /** model time (s) and UTC of the latest frame */
   mt: number;
@@ -42,7 +47,7 @@ export interface RoomState {
 const HISTORY_S = 40;
 
 export function useCatccRoom(preferredSrc?: string) {
-  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, tracks: [], mt: 0 });
+  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, owners: {}, ops: {}, tracks: [], mt: 0 });
   const history = useRef(new Map<string, Trail[]>());
   const wsRef = useRef<WebSocket | null>(null);
   const srcRef = useRef<string | undefined>(preferredSrc);
@@ -102,6 +107,12 @@ export function useCatccRoom(preferredSrc?: string) {
           case 'assignments':
             if (m.src === srcRef.current) setState((s) => ({ ...s, assignments: m.assignments }));
             break;
+          case 'owners':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, owners: m.owners }));
+            break;
+          case 'ops':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, ops: m.ops }));
+            break;
           case 'frame': {
             if (m.src !== srcRef.current) break;
             const h = history.current;
@@ -156,7 +167,7 @@ export function useCatccRoom(preferredSrc?: string) {
     (src: string) => {
       srcRef.current = src;
       history.current.clear();
-      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, env: undefined }));
+      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, owners: {}, ops: {}, env: undefined }));
       send({ t: 'subscribe', src });
     },
     [send],
@@ -168,7 +179,10 @@ export function useCatccRoom(preferredSrc?: string) {
     (trackId: string, assignment: Assignment | null) => send({ t: 'assign', src: srcRef.current, trackId, assignment }),
     [send],
   );
+  const handoff = useCallback((key: string, from: SeatKey, to: SeatKey | null) => send({ t: 'handoff', src: srcRef.current, key, from, to }), [send]);
+  const accept = useCallback((key: string) => send({ t: 'accept', src: srcRef.current, key }), [send]);
+  const setOps = useCallback((carrier: string, patch: Partial<OpsState> | Record<string, unknown>) => send({ t: 'ops', src: srcRef.current, carrier, patch }), [send]);
   const clearError = useCallback(() => setState((s) => ({ ...s, error: undefined })), []);
 
-  return { state, history: history.current, selectSource, claim, release, setPlan, assign, clearError };
+  return { state, history: history.current, selectSource, claim, release, setPlan, assign, handoff, accept, setOps, clearError };
 }

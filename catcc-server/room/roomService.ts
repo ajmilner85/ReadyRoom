@@ -1,3 +1,4 @@
+import { applyOpsPatch, cleanOpsPatch, cleanSeat, okFlightKey, sameSeat, type OpsState, type Ownership } from '../../src/catcc/core/room/ops.ts';
 import type http from 'node:http';
 import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
@@ -50,6 +51,8 @@ class Source {
   readonly seats = new Map<string, SeatHolder>();
   readonly plans: Record<string, CarrierPlan> = {};
   readonly assignments: Record<string, Assignment> = {};
+  readonly owners: Record<string, Ownership> = {};
+  readonly ops: Record<string, OpsState> = {};
   readonly subscribers = new Set<Conn>();
   private seq = 0;
   private stopFn?: () => void;
@@ -151,6 +154,46 @@ class Source {
       }
     }
     if (dropped) this.broadcastAssignments();
+    // ownership of flights no longer in the picture is dropped
+    const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...(t.g ? [t.g] : [])]));
+    let gone = false;
+    for (const k of Object.keys(this.owners)) {
+      if (!flights.has(k)) {
+        delete this.owners[k];
+        gone = true;
+      }
+    }
+    if (gone) this.broadcastOwners();
+  }
+
+  ownersMsg(): string {
+    return JSON.stringify({ t: 'owners', src: this.cfg.id, owners: this.owners } satisfies ServerMsg);
+  }
+
+  opsMsg(): string {
+    return JSON.stringify({ t: 'ops', src: this.cfg.id, ops: this.ops } satisfies ServerMsg);
+  }
+
+  broadcastOwners(): void {
+    const m = this.ownersMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+
+  broadcastOps(): void {
+    const m = this.opsMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+
+  /** A user may act for a seat they hold, or for one nobody holds (its work rolls up to whoever is there). */
+  mayActFor(userId: string, seat: SeatKey): boolean {
+    const h = this.seats.get(seatId(seat));
+    return !h || h.userId === userId;
+  }
+
+  /** Ops state is edited by anyone holding a seat on the carrier, or by anyone while none are held. */
+  mayEditOps(userId: string, carrier: string): boolean {
+    const relevant = [...this.seats.values()].filter((s) => s.carrier === carrier || s.carrier === '*');
+    return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
 
   seatsMsg(): string {
@@ -329,6 +372,8 @@ export class RoomService {
         send(c, src.seatsMsg());
         send(c, src.plansMsg());
         send(c, src.assignmentsMsg());
+        send(c, src.ownersMsg());
+        send(c, src.opsMsg());
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -354,6 +399,40 @@ export class RoomService {
         if (a) src.assignments[msg.trackId] = a;
         else delete src.assignments[msg.trackId];
         src.broadcastAssignments();
+        return;
+      }
+      case 'handoff': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        const from = cleanSeat(msg.from);
+        const to = msg.to === null ? null : cleanSeat(msg.to);
+        if (!okFlightKey(msg.key) || !from || (msg.to !== null && !to)) return send(c, { t: 'error', error: 'invalid handoff' });
+        const cur = src.owners[msg.key];
+        const owner = cur?.owner ?? from;
+        if (!src.mayActFor(c.user.userId, owner)) return send(c, { t: 'error', error: 'only the owning seat can hand this flight off' });
+        if (to && sameSeat(to, owner)) return send(c, { t: 'error', error: 'already owned by that seat' });
+        src.owners[msg.key] = to ? { owner, pending: { to, at: Date.now() } } : { owner };
+        src.broadcastOwners();
+        return;
+      }
+      case 'accept': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        const cur = okFlightKey(msg.key) ? src.owners[msg.key] : undefined;
+        if (!cur?.pending) return send(c, { t: 'error', error: 'no handoff pending' });
+        if (!src.mayActFor(c.user.userId, cur.pending.to)) return send(c, { t: 'error', error: 'that handoff is for another seat' });
+        src.owners[msg.key] = { owner: cur.pending.to };
+        src.broadcastOwners();
+        return;
+      }
+      case 'ops': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        const patch = cleanOpsPatch(msg.patch);
+        if (!patch || typeof msg.carrier !== 'string' || msg.carrier.length < 1 || msg.carrier.length > 16) return send(c, { t: 'error', error: 'invalid ops update' });
+        if (!src.mayEditOps(c.user.userId, msg.carrier)) return send(c, { t: 'error', error: `claim a ${msg.carrier} seat to change this` });
+        src.ops[msg.carrier] = applyOpsPatch(src.ops[msg.carrier] ?? {}, patch);
+        src.broadcastOps();
         return;
       }
       case 'claim':

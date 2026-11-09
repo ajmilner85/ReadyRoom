@@ -22,6 +22,7 @@ import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
 import { LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
 import { OptionsDialog } from './OptionsDialog.tsx';
 import { Reference } from './radar/Panels.tsx';
+import type { HandoffCtx } from './Handoff.tsx';
 import './catcc.css';
 
 const hms = (d: Date) => [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
@@ -39,7 +40,7 @@ const CatccApp: React.FC = () => {
   const seatDef = resolveSeat(layout, seatWant);
   const mod = seatDef.view;
   const [optsOpen, setOptsOpen] = useState(false);
-  const { state, history, selectSource, claim, release, setPlan, assign } = useCatccRoom(params.get('src') ?? undefined);
+  const { state, history, selectSource, claim, release, setPlan, assign, handoff, accept, setOps } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
   const [uiOpen, setUiOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
@@ -103,6 +104,7 @@ const CatccApp: React.FC = () => {
     }
   };
   const locSeats = seatsAt(layout, seatDef.loc);
+  void setOps;
   const locLabel = (LOCATIONS.find((l) => l.id === seatDef.loc)?.label ?? '').toUpperCase();
 
   const offH = state.theatre ? THEATRE_UTC_OFFSET_H[state.theatre] : undefined;
@@ -120,6 +122,7 @@ const CatccApp: React.FC = () => {
   // carrier plans are edited from CATCC and the bridge: once any of those seats is held, only its holders may edit
   const carrierSeats = state.seats.filter((s) => (s.carrier === hull || s.carrier === '*') && PLAN_ROLES.includes(s.role));
   const mayEdit = carrierSeats.length === 0 || carrierSeats.some((s) => s.userId === user?.userId);
+  const handoffCtx: HandoffCtx = { layout, me: { carrier: hull ?? '', role: seatDef.id }, seats: state.seats, userId: user?.userId, onHandoff: handoff, onAccept: accept };
 
   const seatPill = (key: SeatKey, label: string) => {
     const h = state.seats.find((s) => s.carrier === key.carrier && s.role === key.role);
@@ -296,6 +299,7 @@ const CatccApp: React.FC = () => {
         <RadarView
           key={seatDef.id}
           seat={seatDef}
+          handoffCtx={handoffCtx}
           state={state}
           pic={pic}
           offH={offH}
