@@ -28,7 +28,7 @@ const id = (t: ScopeTrack) => t.bd ?? t.cs ?? t.id;
 
 const REASONS = ['Clearing landing area', 'Aircraft in landing area', 'Pack not ready', 'Barricade rig', 'Wires reset', 'Foul line'];
 
-export const DeckBar: React.FC<{ pic: Picture; deck: DeckCall | null; ops?: OpsState; setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void; readOnly: boolean }> = ({ pic, deck, ops, setOps, readOnly }) => {
+export const DeckBar: React.FC<{ pic: Picture; deck: DeckCall | null; ops?: OpsState; setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void; readOnly: boolean }> = ({ pic, deck, setOps, readOnly }) => {
   if (!deck) return null;
   const foul = deck.foul;
   const fp = finalPicture(pic);
