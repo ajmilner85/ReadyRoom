@@ -35,6 +35,14 @@ describe('track ownership', () => {
     expect(ownerOf('Volt 3', 'CVN-71', 'inbound', 80, 'expanded', {}).owner.role).toBe('strike');
   });
 
+  it('flags a handoff due when the flight has reached the next seat in the chain', () => {
+    const owners = { 'Volt 3': { owner: { carrier: 'CVN-71', role: 'approach' as const } } };
+    expect(ownerOf('Volt 3', 'CVN-71', 'approach', 4, 'expanded', owners).due).toBe('final');
+    expect(ownerOf('Volt 3', 'CVN-71', 'approach', 12, 'expanded', owners).due).toBeUndefined();
+    // handed on early: not due back
+    expect(ownerOf('Volt 3', 'CVN-71', 'inbound', 40, 'expanded', owners).due).toBeUndefined();
+  });
+
   it('acts for held-by-me and unheld seats only', () => {
     const seats = [{ carrier: 'CVN-71', role: 'marshal' as const, userId: 'u1', name: 'a', since: 0 }];
     expect(mayActFor({ carrier: 'CVN-71', role: 'marshal' }, seats, 'u1')).toBe(true);

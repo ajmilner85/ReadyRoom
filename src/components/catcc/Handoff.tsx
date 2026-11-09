@@ -33,7 +33,8 @@ const btn = (label: string, onClick: () => void, tone: 'amber' | 'plain' = 'plai
 /** One row: owner chip, then the handoff state with its action. */
 export const HandoffRow: React.FC<{ v: OwnerView; ctx: HandoffCtx; compact?: boolean }> = ({ v, ctx, compact }) => {
   const st = handoffState(v, ctx);
-  const nxt = nextRole(v.owner.role, ctx.layout);
+  // a due handoff targets the seat the chain says; otherwise the next seat along it
+  const nxt = v.due ?? nextRole(v.owner.role, ctx.layout);
   // other seats this one could hand to (same carrier, this layout)
   const others = seatsIn(ctx.layout).filter((s) => s.id !== v.owner.role && s.id !== 'mission_commander' && s.id !== 'boss' && s.id !== 'miniboss' && s.id !== 'ood' && s.id !== 'writer' && s.id !== 'blso');
   return (
@@ -60,7 +61,7 @@ export const HandoffRow: React.FC<{ v: OwnerView; ctx: HandoffCtx; compact?: boo
       ) : st.mine ? (
         <>
           <span style={{ flex: 1 }} />
-          {nxt && btn(`Handoff ${OWNER_LABEL[nxt]}`, () => ctx.onHandoff(v.key, v.owner, { carrier: v.owner.carrier, role: nxt }), 'plain', `Offer ${v.key} to ${OWNER_LABEL[nxt]}`)}
+          {nxt && btn(`Handoff ${OWNER_LABEL[nxt]}`, () => ctx.onHandoff(v.key, v.owner, { carrier: v.owner.carrier, role: nxt }), v.due ? 'amber' : 'plain', v.due ? `${v.key} is at the ${OWNER_LABEL[nxt]} handoff point: offer it` : `Offer ${v.key} to ${OWNER_LABEL[nxt]}`)}
           <select
             aria-label={`Hand ${v.key} to another seat`}
             value=""

@@ -68,6 +68,10 @@ export function nextRole(owner: SeatRole, layout: SeatLayout): SeatRole | null {
   return s === owner ? null : s;
 }
 
+/** position along the recovery chain (departures and support sit before it) */
+const CHAIN: SeatRole[] = ['departure', 'airops', 'strike', 'aw', 'suw', 'catcc', 'marshal', 'approach', 'final', 'lso', 'clso'];
+const chainIndex = (r: SeatRole) => CHAIN.indexOf(r);
+
 /** Short owner chip label. */
 export const OWNER_LABEL: Record<SeatRole, string> = {
   strike: 'STRIKE',
@@ -95,11 +99,24 @@ export interface OwnerView {
   /** true when the owner comes from the room (a completed handoff), not the default chain */
   explicit: boolean;
   pending?: { to: SeatKey; at: number };
+  /** the seat the standard chain puts the flight with now, when that isn't its owner: a handoff is due */
+  due?: SeatRole;
 }
 
 export function ownerOf(key: string, carrier: string, phase: Phase, rngNm: number, layout: SeatLayout, owners: Record<string, Ownership>): OwnerView {
   const o = owners[key];
-  if (o) return { key, owner: { carrier: o.owner.carrier, role: seatFor(o.owner.role, layout) }, explicit: true, ...(o.pending ? { pending: { to: { carrier: o.pending.to.carrier, role: seatFor(o.pending.to.role, layout) }, at: o.pending.at } } : {}) };
+  if (o) {
+    const role = seatFor(o.owner.role, layout);
+    const expected = seatFor(autoRole(phase, rngNm), layout);
+    return {
+      key,
+      owner: { carrier: o.owner.carrier, role },
+      explicit: true,
+      ...(o.pending ? { pending: { to: { carrier: o.pending.to.carrier, role: seatFor(o.pending.to.role, layout) }, at: o.pending.at } } : {}),
+      // only forward along the chain (a flight handed on early isn't "due" back)
+      ...(expected !== role && chainIndex(expected) > chainIndex(role) ? { due: expected } : {}),
+    };
+  }
   return { key, owner: { carrier, role: seatFor(autoRole(phase, rngNm), layout) }, explicit: false };
 }
 
