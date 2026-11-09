@@ -122,7 +122,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
   const hull = focus?.track.hull ?? '';
   const plans = useMemo(() => {
     const out: Record<string, CarrierPlan> = {};
-    for (const c of pic.carriers) if (c.track.hull) out[c.track.hull] = state.plans[c.track.hull] ?? { deps: [], stacks: [defaultStack(c.ship)] };
+    for (const c of pic.carriers) if (c.track.hull) out[c.track.hull] = state.plans[c.track.hull] ?? { deps: [], stacks: [defaultStack(c.ship)], off: ['E', 'H'] };
     return out;
   }, [pic.carriers, state.plans]);
   const plan = useMemo(() => plans[hull] ?? { deps: [], stacks: [] }, [plans, hull]);
