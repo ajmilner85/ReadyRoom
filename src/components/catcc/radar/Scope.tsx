@@ -1780,27 +1780,28 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               // one blind-spot picture: the view outside every donor's circle, tinted, the union's edge dashed
               // labels on the edge at NE / SE / SW / NW of each circle, where that point is on the
               // union's edge (not inside another donor's coverage), in view, and clear of other labels
-              const placed: Pt[] = [];
-              const labels = (r: (d: RadarDonor) => number, text: string, op: number, skip?: (d: RadarDonor) => boolean) =>
-                ds.filter((d) => !skip?.(d)).flatMap((d) =>
-                  [45, 135, 225, 315].map((b) => {
+              type Lab = { key: string; q: Pt; ang: number; text: string; op: number };
+              const labs: Lab[] = [];
+              const addLabels = (r: (d: RadarDonor) => number, text: string, op: number, skip?: (d: RadarDonor, q: Pt) => boolean) => {
+                for (const d of ds)
+                  for (const b of [45, 135, 225, 315]) {
                     const q: Pt = [d.p[0] + r(d) * Math.sin(b * D2R), d.p[1] - r(d) * Math.cos(b * D2R)];
-                    if (!inView(q, -1.5 * zkO)) return null;
-                    if (ds.some((o) => o !== d && Math.hypot(q[0] - o.p[0], q[1] - o.p[1]) < r(o) - 0.05)) return null;
-                    if (placed.some((s) => Math.hypot(q[0] - s[0], q[1] - s[1]) < 6 * zkO)) return null;
-                    placed.push(q);
+                    if (!inView(q, -4 * zkO) || skip?.(d, q)) continue;
+                    if (ds.some((o) => o !== d && Math.hypot(q[0] - o.p[0], q[1] - o.p[1]) < r(o) - 0.05)) continue;
+                    if (labs.some((l) => Math.hypot(q[0] - l.q[0], q[1] - l.q[1]) < 6 * zkO)) continue;
                     // along the perimeter (tangent), kept upright
-                    const ang = b > 90 && b < 270 ? b - 180 : b;
-                    return (
-                      <g key={`${d.id}${b}${text}`} className="zs" transform={`${zs(q, zkO)} rotate(${ang} ${f2(q[0])} ${f2(q[1])})`}>
-                        <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={{ fill: '#FF8A85', fillOpacity: op, fontSize: '0.72px', fontWeight: 600, letterSpacing: '0.05em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                          {text}
-                        </text>
-                      </g>
-                    );
-                  }),
-                );
-              const altTxt = (a: number) => `BLIND < ${a >= 1000 ? `${a / 1000}K` : a} FT`;
+                    labs.push({ key: `${d.id}${b}${text}`, q, ang: b > 90 && b < 270 ? b - 180 : b, text, op });
+                  }
+              };
+              // a point of the lowest-altitude edge that is also on the selected altitude's edge (the two
+              // coincide where a radar is range-limited at both): labelled once, as the selected altitude
+              const onSelEdge = (d: RadarDonor, q: Pt) => Math.abs(d.covLow - d.cov) < 0.5 && !ds.some((o) => o !== d && Math.hypot(q[0] - o.p[0], q[1] - o.p[1]) < o.cov - 0.05);
+              const altTxt = (a: number) => `< ${a >= 1000 ? `${a / 1000}K` : a} FT`;
+              addLabels((d) => d.cov, altTxt(alt), 0.95);
+              if (alt !== BLIND_ALTS[0]) addLabels((d) => d.covLow, altTxt(BLIND_ALTS[0]), 0.6, onSelEdge);
+              // the contour lines are broken under each label so it reads cleanly
+              const FS = 0.72;
+              const gapW = (t: string) => (t.length * FS * 0.62 + 0.9) * zkO;
               const layer = (id: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number) => (
                 <>
                   <defs>
@@ -1813,19 +1814,36 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   </defs>
                   <g mask={`url(#${id})`}>
                     <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#FF8A85" fillOpacity={fillOp} />
-                    {ds.map((d) => (
-                      <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={{ strokeWidth: `calc(${sw}px * var(--lw, 1))` }} />
-                    ))}
+                    <g mask="url(#catccBlindGaps)">
+                      {ds.map((d) => (
+                        <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={{ strokeWidth: `calc(${sw}px * var(--lw, 1))` }} />
+                      ))}
+                    </g>
                   </g>
                 </>
               );
               return (
                 <g style={{ pointerEvents: 'none' }}>
+                  <defs>
+                    <mask id="catccBlindGaps" maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
+                      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#fff" />
+                      {labs.map((l) => {
+                        const w = gapW(l.text);
+                        const h = 1.05 * zkO;
+                        return <rect key={l.key} x={f2(l.q[0] - w / 2)} y={f2(l.q[1] - h / 2)} width={f2(w)} height={f2(h)} fill="#000" transform={`rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`} />;
+                      })}
+                    </mask>
+                  </defs>
                   {/* the lowest altitude's blind spots are always shown, faintly, under the selected one */}
                   {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2)}
                   {layer('catccBlind', (d) => d.cov, 0.085, 0.7, 2)}
-                  {labels((d) => d.cov, altTxt(alt), 0.95)}
-                  {alt !== BLIND_ALTS[0] && labels((d) => d.covLow, altTxt(BLIND_ALTS[0]), 0.55, (d) => Math.abs(d.covLow - d.cov) < 0.5)}
+                  {labs.map((l) => (
+                    <g key={l.key} className="zs" transform={`${zs(l.q, zkO)} rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`}>
+                      <text x={f2(l.q[0])} y={f2(l.q[1])} textAnchor="middle" dominantBaseline="central" style={{ fill: '#FF8A85', fillOpacity: l.op, fontSize: `${FS}px`, fontWeight: 600, letterSpacing: '0.05em' }}>
+                        {l.text}
+                      </text>
+                    </g>
+                  ))}
                   {ds.length === 0 && (
                     <text x={f2(vx + VW / 2)} y={f2(vy + VH - 3 * zkO)} textAnchor="middle" style={{ fill: '#FF8A85', fontSize: `${(0.9 * zkO).toFixed(3)}px`, fontWeight: 600 }}>
                       {`NO FRIENDLY RADAR · ALL BLIND BELOW ${alt} FT`}
