@@ -80,6 +80,8 @@ export interface MarinePaths {
   depth: { d: number; path: string; band: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
   terrLabels: { x: number; y: number; ang: number; t: string }[];
+  /** the 12 o'clock (northernmost) point of each visible territorial-limit ring, and the ring's width */
+  terrTops: { x: number; y: number; w: number }[];
   places: { x: number; y: number; n: string; r: number; island: boolean }[];
   /** rw: runways as [dx1, dy1, dx2, dy2] NM from the airport point; long: longest runway >= 8069 ft */
   airports: { x: number; y: number; id: string; n: string; r: number; mil: boolean; rw: number[][]; ext: number; long: boolean }[];
@@ -128,6 +130,17 @@ export function buildPaths(g: MarineGeom, v: { x0: number; y0: number; x1: numbe
     depth: g.depth.map((x, k) => ({ d: x.d, path: d(x.lines, false), band: fills[k] + (k > 0 ? fills[k - 1] : '') })),
     labels: g.labels,
     terrLabels: g.terrLabels,
+    terrTops: g.terr
+      .filter((q) => !(q.x1 < v.x0 || q.x0 > v.x1 || q.y0 > v.y1 || q.y0 < v.y0))
+      .map((q) => {
+        let iy = 1;
+        for (let i = 3; i < q.p.length; i += 2) if (q.p[i] < q.p[iy]) iy = i;
+        // a line cut open at the data's edge may peak at its end: no top there
+        const n = q.p.length;
+        const closed = Math.hypot(q.p[0] - q.p[n - 2], q.p[1] - q.p[n - 1]) < 0.5;
+        return closed || (iy !== 1 && iy !== n - 1) ? { x: q.p[iy - 1], y: q.p[iy], w: q.x1 - q.x0 } : null;
+      })
+      .filter((t): t is { x: number; y: number; w: number } => !!t),
     places: g.places,
     airports: g.airports,
   };

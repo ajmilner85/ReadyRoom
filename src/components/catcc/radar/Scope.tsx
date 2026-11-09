@@ -239,26 +239,33 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                     ))}
                   </>
                 )}
-                {terr && (
-                  // territorial limit: dashed, chart violet (approximate: 12 NM from the shoreline, not baselines)
-                  <>
-                    <path d={marine.terr} fill="none" stroke="#B48AD9" strokeOpacity="0.7" strokeDasharray="6 4" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
-                    {marine.terrLabels.map((l, i) => (
-                      <text
-                        key={`t${i}`}
-                        x={f2(l.x)}
-                        y={f2(l.y)}
-                        className="geo"
-                        textAnchor="middle"
-                        dominantBaseline="central"
-                        transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
-                        style={{ fill: '#C7A6E6', fillOpacity: 0.85, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
-                      >
-                        {l.t}
-                      </text>
-                    ))}
-                  </>
-                )}
+                {terr &&
+                  (() => {
+                    // territorial limit: dashed, chart violet (approximate: 12 NM from the shoreline, not
+                    // baselines). Each ring is labelled at its 12 o'clock point, the line broken under the label;
+                    // rings too small to carry the label at this zoom go unlabelled
+                    const hw = 1.25 * k;
+                    const hh = 0.5 * k;
+                    const tops = marine.terrTops.filter((t) => t.w > 6 * hw);
+                    return (
+                      <>
+                        <defs>
+                          <mask id="catccTerrGap" maskUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000">
+                            <rect x="-100000" y="-100000" width="200000" height="200000" fill="#fff" />
+                            {tops.map((t, i) => (
+                              <rect key={i} x={f2(t.x - hw)} y={f2(t.y - hh)} width={f2(2 * hw)} height={f2(2 * hh)} fill="#000" />
+                            ))}
+                          </mask>
+                        </defs>
+                        <path d={marine.terr} mask="url(#catccTerrGap)" fill="none" stroke="#B48AD9" strokeOpacity="0.7" strokeDasharray="6 4" strokeLinejoin="round" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                        {tops.map((t, i) => (
+                          <text key={`t${i}`} x={f2(t.x)} y={f2(t.y)} className="geo" textAnchor="middle" dominantBaseline="central" style={{ fill: '#C7A6E6', fillOpacity: 0.85 }}>
+                            12 NM
+                          </text>
+                        ))}
+                      </>
+                    );
+                  })()}
                 {coast && (
                   <>
                     <path d={marine.land} fill="#1A2119" fillRule="evenodd" stroke="none" />
@@ -1562,12 +1569,18 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             </g>
           )}
           {pic.carriers.map((c) => {
-            // "CVN-71 CCA 50NM" just outside the 12 o'clock point of the CCA circle
+            // "CVN-71 CCA 50NM" on the circle at 12 o'clock, the circle broken under it
+            const ccaText = `${c.track.hull ? `${c.track.hull} ` : ''}CCA 50NM`;
+            const ccaGap = Math.min(0.5, ((ccaText.length * 0.6 + 1.2) * 0.9 * zkO) / 2 / 50);
+            const ccaArc = (o: Pt) => {
+              const a: Pt = [o[0] + 50 * Math.sin(ccaGap), o[1] - 50 * Math.cos(ccaGap)];
+              return `M${f2(a[0])} ${f2(a[1])}A50 50 0 1 1 ${f2(2 * o[0] - a[0])} ${f2(a[1])}`;
+            };
             const ccaLabel = (o: Pt, color: string) => {
-              const q: Pt = [o[0], o[1] - 50 - 0.35 * zkO];
+              const q: Pt = [o[0], o[1] - 50];
               return (
                 <g className="zs" transform={zs(q, zkO)} style={{ pointerEvents: 'none' }}>
-                  <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" stroke="#0B0E12" strokeDasharray="none" style={{ fill: color, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                  <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" strokeDasharray="none" style={{ fill: color, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                     {`${c.track.hull ? `${c.track.hull} ` : ''}CCA 50NM`}
                   </text>
                 </g>
@@ -1576,7 +1589,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             return c.focus ? (
               ov.cca && (
                 <g key={`cca${c.track.id}`} style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} fill="none" strokeDasharray="10 5">
-                  <circle cx="0" cy="0" r="50" stroke="rgba(64,168,91,.75)" />
+                  <path d={ccaArc([0, 0])} stroke="rgba(64,168,91,.75)" />
                   {ccaLabel([0, 0], 'rgba(110,200,130,.95)')}
                 </g>
               )
@@ -1584,7 +1597,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <g key={`cca${c.track.id}`}>
                 {ov2.cca && (
                   <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} fill="none" strokeDasharray="10 5">
-                    <circle cx={f2(c.track.p[0])} cy={f2(c.track.p[1])} r="50" stroke="rgba(62,155,212,.55)" />
+                    <path d={ccaArc(c.track.p)} stroke="rgba(62,155,212,.55)" />
                     {ccaLabel(c.track.p, 'rgba(110,182,230,.9)')}
                   </g>
                 )}
