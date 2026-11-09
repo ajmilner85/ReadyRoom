@@ -208,6 +208,12 @@ const IFLOLS_NM = 0.75 * 0.868976;
 
 const ALT_MAX = 50;
 
+/** a + (b − a)·t for #rrggbb colours */
+const mixHex = (a: string, b: string, t: number) => {
+  const p = (h: string, i: number) => parseInt(h.slice(1 + 2 * i, 3 + 2 * i), 16);
+  return `#${[0, 1, 2].map((i) => Math.round(p(a, i) + (p(b, i) - p(a, i)) * t).toString(16).padStart(2, '0')).join('')}`;
+};
+
 /**
  * Vertical two-handle slider (angels 0-50) setting the altitude block; Reset clears it. Inactive it
  * spans the whole range in grey; set, the block is orange and labelled.
@@ -1422,7 +1428,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (dimConflict) props.onAltFilter?.(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [dimConflict]);
-  const dimOp = (id: string) => (dim.has(id) ? 0.22 : 1);
+  // dimmed contacts are drawn in a solid darker colour (mixed toward the scope background), not with
+  // opacity: translucent vector and symbol would stack where they overlap, and faded trails vanish
+  const dimC = (id: string, c: string) => (dim.has(id) ? mixHex(c, '#0B0E12', 0.55) : c);
 
   // ------------------------------------------------ tags
   type TagItem = { t: ScopeTrack; rows: string[]; color: 'own' | 'red' | 'blue' };
@@ -2210,8 +2218,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             {pic.air
               .filter((t) => !hidden.has(t.id))
               .map((t) => {
-                const c = conflictIds.has(t.id) ? '#B8433F' : isBlue(t) ? BLUE_TRAIL : TRK_TRAIL;
-                return t.trail.map((q, i) => <path key={`${t.id}t${i}`} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} stroke={c} opacity={([0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2) * dimOp(t.id)} />);
+                const c = dimC(t.id, conflictIds.has(t.id) ? '#B8433F' : isBlue(t) ? BLUE_TRAIL : TRK_TRAIL);
+                return t.trail.map((q, i) => <path key={`${t.id}t${i}`} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} stroke={c} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />);
               })}
           </g>
           {/* velocity vectors */}
@@ -2221,8 +2229,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               .map((t) => {
                 const e = velocityEnd(t);
                 if (!e) return null;
-                const c = conflictIds.has(t.id) ? '#FF8A85' : isBlue(t) ? BLUE_TAG : TRK;
-                return <line key={`v${t.id}`} x1={f2(t.p[0])} y1={f2(t.p[1])} x2={f2(e[0])} y2={f2(e[1])} stroke={c} opacity={dimOp(t.id)} />;
+                const c = dimC(t.id, conflictIds.has(t.id) ? '#FF8A85' : isBlue(t) ? BLUE_TAG : TRK);
+                return <line key={`v${t.id}`} x1={f2(t.p[0])} y1={f2(t.p[1])} x2={f2(e[0])} y2={f2(e[1])} stroke={c} />;
               })}
           </g>
           {/* ships */}
@@ -2249,7 +2257,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             .filter((t) => !hidden.has(t.id))
             .map((t) => {
               const red = conflictIds.has(t.id);
-              const col = red ? '#FF8A85' : isBlue(t) ? BLUE_HIT : TRK;
+              const col = dimC(t.id, red ? '#FF8A85' : isBlue(t) ? BLUE_HIT : TRK);
               const fi = fmInfo.get(t.id);
               const shape = /tanker|^KC|S-3B/i.test(t.ty) ? (
                 <circle cx="0" cy="0" r="0.45" fill={col} className="hit" />
@@ -2259,7 +2267,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <rect x="-0.4" y="-0.4" width="0.8" height="0.8" fill={col} className="hit" />
               );
               return (
-                <g key={`h${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkH.toFixed(4)})`} opacity={(isBlue(t) ? 0.85 : 1) * dimOp(t.id)}>
+                <g key={`h${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkH.toFixed(4)})`} opacity={isBlue(t) ? 0.85 : 1}>
                   {fi && !fi.sel ? (
                     <>
                       {shape}
