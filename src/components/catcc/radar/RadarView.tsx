@@ -371,7 +371,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ state, pic, offH, mayEdit,
       {/* ---------------- scope */}
       <Scope
         theatre={state.theatre}
-        bulls={state.env?.bulls}
+        bulls={state.env?.bulls?.filter((b) => b.side === (focus?.track.sd ?? 'blue'))}
         showAssigned={stripHov}
         pimRoutes={pimShips.filter((s) => (s.own ? ov.pim : ov2.pim))}
         mt={state.mt}

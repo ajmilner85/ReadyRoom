@@ -19,7 +19,7 @@ import {
 } from '../../../catcc/core/geometry/procedures.ts';
 import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
 import { maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
-import { add, bearingOf, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
+import { add, bearingOf, D2R, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
@@ -1410,10 +1410,15 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           const dg = Math.floor(a);
           return `${String(dg).padStart(w, '0')}°${((a - dg) * 60).toFixed(1).padStart(4, '0')}'${x >= 0 ? pos : neg}`;
         };
-        const be = props.bulls?.find((b) => b.side === 'blue');
+        // own-coalition bullseye (RadarView passes only the focus carrier's side)
+        const be = props.bulls?.[0];
         const bp = be ? pic.proj!.toScope(be.lat, be.lon) : null;
-        const beTxt = bp ? ` · BE ${r3(bearingOf(sub(cur, bp)))}/${Math.round(len(sub(cur, bp)))}` : '';
-        return `CURSOR ${r3(bearingOf(cur))}° / ${len(cur).toFixed(1)} NM${beTxt} · ${f(ll.lat, 2, 'N', 'S')} ${f(ll.lon, 3, 'E', 'W')}`;
+        return (
+          <>
+            <div>{`CURSOR ${r3(bearingOf(cur))}° / ${len(cur).toFixed(1)} NM · ${f(ll.lat, 2, 'N', 'S')} ${f(ll.lon, 3, 'E', 'W')}`}</div>
+            {bp && <div style={{ color: be!.side === 'blue' ? '#6FB6E6' : '#FF8A85' }}>{`BULLSEYE ${r3(bearingOf(sub(cur, bp)))}° / ${len(sub(cur, bp)).toFixed(1)} NM`}</div>}
+          </>
+        );
       })()
     : null;
   const toolDefs: [Tool, string, React.ReactNode][] = [
@@ -1633,8 +1638,37 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             (props.bulls ?? []).map((b) => {
               const p = pic.proj!.toScope(b.lat, b.lon);
               const c = b.side === 'blue' ? '#6FB6E6' : '#FF8A85';
+              // compass rose: 30° spokes out to 100 NM, ticks every 25 NM, bearings at the ends
+              const at = (brg: number, r: number): Pt => [p[0] + r * Math.sin(brg * D2R), p[1] - r * Math.cos(brg * D2R)];
+              const spokes = Array.from({ length: 12 }, (_, i) => i * 30);
+              const tick = 0.35 * zkO;
               return (
-                <g key={b.side} className="zs" transform={zs(p, zkO)} stroke={c} fill="none" style={{ pointerEvents: 'none', strokeWidth: 'calc(1.1px * var(--lw, 1))' }}>
+                <g key={b.side}>
+                <g stroke={c} fill="none" style={{ pointerEvents: 'none' }}>
+                  {spokes.map((brg) => {
+                    const a = at(brg, 2.3 * zkO);
+                    const e = at(brg, 100);
+                    const ticks = [25, 50, 75].map((r) => {
+                      const m = at(brg, r);
+                      const v: Pt = [tick * Math.cos(brg * D2R), tick * Math.sin(brg * D2R)];
+                      return `M${f2(m[0] - v[0])} ${f2(m[1] - v[1])}L${f2(m[0] + v[0])} ${f2(m[1] + v[1])}`;
+                    });
+                    return (
+                      <path key={brg} d={`M${f2(a[0])} ${f2(a[1])}L${f2(e[0])} ${f2(e[1])}${ticks.join('')}`} strokeOpacity={brg % 90 === 0 ? 0.34 : 0.22} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+                    );
+                  })}
+                </g>
+                {spokes.map((brg) => {
+                  const q = at(brg, 100 + 1.1 * zkO);
+                  return (
+                    <g key={`bl${brg}`} className="zs" transform={zs(q, zkO)} style={{ pointerEvents: 'none' }}>
+                      <text x={f2(q[0])} y={f2(q[1] + 0.32)} textAnchor="middle" stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.75, fontSize: '0.8px', fontWeight: 600, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                        {String(brg).padStart(3, '0')}
+                      </text>
+                    </g>
+                  );
+                })}
+                <g className="zs" transform={zs(p, zkO)} stroke={c} fill="none" style={{ pointerEvents: 'none', strokeWidth: 'calc(1.1px * var(--lw, 1))' }}>
                   {[0.55, 1.1, 1.65].map((r) => (
                     <circle key={r} cx={f2(p[0])} cy={f2(p[1])} r={r} strokeOpacity={r === 0.55 ? 0.95 : 0.6} />
                   ))}
@@ -1642,6 +1676,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   <text x={f2(p[0] + 1.95)} y={f2(p[1] - 1.75)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                     BULLSEYE
                   </text>
+                </g>
                 </g>
               );
             })}
@@ -1898,7 +1933,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
         {/* ---------------- frequencies */}
         <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
-          <button className="tbtn" onClick={props.onToggleFreq} aria-expanded={props.freqOpen} aria-label="Frequencies" title="Frequencies" style={{ background: props.freqOpen ? 'rgba(241,88,34,.18)' : 'rgba(21,26,33,.96)', color: props.freqOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
+          <button className="tbtn" onClick={props.onToggleFreq} aria-expanded={props.freqOpen} aria-label="Frequencies" title="Frequencies" style={{ background: props.freqOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: props.freqOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
             <IcRadio />
           </button>
           {props.freqOpen && props.freqPanel}
@@ -1971,7 +2006,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
         {/* ---------------- layers (top right, mirrors the frequencies button) */}
         <div style={{ position: 'absolute', top: 12, right: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
-          <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? 'rgba(241,88,34,.18)' : 'rgba(21,26,33,.96)', color: props.layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
+          <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: props.layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
             <IcLayers />
           </button>
           {props.layersOpen && <div style={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto' }}>{props.layersPanel}</div>}
