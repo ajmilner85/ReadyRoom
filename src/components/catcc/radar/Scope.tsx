@@ -2420,6 +2420,38 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <IcZoomIn />
             </button>
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+            {props.onTrackUp && (
+              <>
+                <div role="radiogroup" aria-label="Display orientation" style={{ display: 'flex', gap: 2 }}>
+                  {([
+                    [false, 'North up', (
+                      // compass rose with the north arrow fixed at the top
+                      <svg key="n" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <circle cx="12" cy="13" r="8" />
+                        <path d="M12 3.5 L14.6 10.5 L12 9.2 L9.4 10.5 Z" fill="currentColor" />
+                        <path d="M12 21v-1.6M4 13h1.6M20 13h-1.6" />
+                      </svg>
+                    )],
+                    [true, "Track up: the ship's heading at the top", (
+                      // ship pointing up with its heading line
+                      <svg key="t" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                        <path d="M12 2.5v4" strokeDasharray="1.6 1.6" />
+                        <path d="M12 7.5 L15 11 L15 20 L9 20 L9 11 Z" fill="currentColor" fillOpacity="0.25" />
+                        <path d="M5 13a7 7 0 0 1 2-4.9M19 13a7 7 0 0 0-2-4.9" />
+                      </svg>
+                    )],
+                  ] as const).map(([v, t, ic]) => {
+                    const on = !!props.trackUp === v;
+                    return (
+                      <button key={t} role="radio" aria-checked={on} aria-label={v ? 'Track up' : 'North up'} title={t} className="tbtn" onClick={() => props.onTrackUp!(v)} style={{ background: on ? 'rgba(241,88,34,.18)' : 'transparent', color: on ? '#FFB08F' : '#E6EDF3' }}>
+                        {ic}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+              </>
+            )}
             <button
               className="tbtn"
               aria-label="Centre on carrier"
@@ -2459,21 +2491,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 {l}
               </button>
             ))}
-            {props.onTrackUp && (
-              <>
-                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
-                <div role="radiogroup" aria-label="Display orientation" style={{ display: 'flex', gap: 2 }}>
-                  {([[false, 'N-UP', 'North up'], [true, 'T-UP', "Track up: the ship's heading at the top"]] as const).map(([v, l, t]) => {
-                    const on = !!props.trackUp === v;
-                    return (
-                      <button key={l} role="radio" aria-checked={on} title={t} onClick={() => props.onTrackUp!(v)} style={{ height: 32, padding: '0 9px', borderRadius: 5, border: `1px solid ${on ? '#F15822' : '#374250'}`, background: on ? 'rgba(241,88,34,.18)' : 'transparent', color: on ? '#FFB08F' : '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, cursor: 'pointer' }}>
-                        {l}
-                      </button>
-                    );
-                  })}
-                </div>
-              </>
-            )}
           </div>
           {af && (
             <div role="status" className="mono" style={{ alignSelf: 'center', padding: '4px 12px', borderRadius: 5, background: '#F15822', color: '#0E1116', fontSize: 12, fontWeight: 700, letterSpacing: '.1em', boxShadow: '0 4px 14px rgba(0,0,0,.45)' }}>
