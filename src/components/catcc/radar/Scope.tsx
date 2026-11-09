@@ -1827,8 +1827,23 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             (() => {
               // everything in view outside every donor's coverage circle, tinted; the union's edge drawn
               const ds = props.donors ?? [];
-              const m = 2;
-              const box = { x: f2(vx - m * VW), y: f2(vy - m * VH), w: f2((2 * m + 1) * VW), h: f2((2 * m + 1) * VH) };
+              // masks and tint cover just the view (a square about its centre, so a turned view is covered
+              // too): masks are re-rasterised on every pan frame, so their size is what panning costs
+              const hv = 0.55 * Math.hypot(VW, VH);
+              const box = { x: f2(VX - hv), y: f2(VY - hv), w: f2(2 * hv), h: f2(2 * hv) };
+              // only the visible part of a coverage edge is stroked: a whole dashed 200 NM circle at close
+              // zoom is tens of thousands of dashes
+              // 'full': the circle is small next to the view and drawn whole; null: no part of it is in view
+              const edge = (c: Pt, r: number): string | 'full' | null => {
+                const d = Math.hypot(VX - c[0], VY - c[1]);
+                if (d + hv < r || d - hv > r) return null;
+                const a0 = Math.atan2(VY - c[1], VX - c[0]);
+                const span = d > hv ? Math.asin(Math.min(1, hv / d)) * 1.2 : Math.PI;
+                if (span >= Math.PI / 2) return 'full';
+                const pa: Pt = [c[0] + r * Math.cos(a0 - span), c[1] + r * Math.sin(a0 - span)];
+                const pb: Pt = [c[0] + r * Math.cos(a0 + span), c[1] + r * Math.sin(a0 + span)];
+                return `M${f2(pa[0])} ${f2(pa[1])}A${f2(r)} ${f2(r)} 0 0 1 ${f2(pb[0])} ${f2(pb[1])}`;
+              };
               const alt = props.blindAlt ?? 1000;
               // one blind-spot picture: the view outside every donor's circle, tinted, the union's edge dashed
               // labels on the edge at NE / SE / SW / NW of each circle, where that point is on the
@@ -1869,7 +1884,15 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#FF8A85" fillOpacity={fillOp} />
                     <g mask="url(#catccBlindGaps)">
                       {ds.map((d) => (
-                        <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={{ strokeWidth: `calc(${sw}px * var(--lw, 1))` }} />
+                        (() => {
+                          const e = edge(d.p, r(d));
+                          const st = { strokeWidth: `calc(${sw}px * var(--lw, 1))` };
+                          return e === 'full' ? (
+                            <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={st} />
+                          ) : e ? (
+                            <path key={d.id} d={e} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={st} />
+                          ) : null;
+                        })()
                       ))}
                     </g>
                   </g>
