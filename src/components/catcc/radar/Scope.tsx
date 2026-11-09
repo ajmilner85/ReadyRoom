@@ -1778,6 +1778,29 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               const box = { x: f2(vx - m * VW), y: f2(vy - m * VH), w: f2((2 * m + 1) * VW), h: f2((2 * m + 1) * VH) };
               const alt = props.blindAlt ?? 1000;
               // one blind-spot picture: the view outside every donor's circle, tinted, the union's edge dashed
+              // labels on the edge at NE / SE / SW / NW of each circle, where that point is on the
+              // union's edge (not inside another donor's coverage), in view, and clear of other labels
+              const placed: Pt[] = [];
+              const labels = (r: (d: RadarDonor) => number, text: string, op: number, skip?: (d: RadarDonor) => boolean) =>
+                ds.filter((d) => !skip?.(d)).flatMap((d) =>
+                  [45, 135, 225, 315].map((b) => {
+                    const q: Pt = [d.p[0] + r(d) * Math.sin(b * D2R), d.p[1] - r(d) * Math.cos(b * D2R)];
+                    if (!inView(q, -1.5 * zkO)) return null;
+                    if (ds.some((o) => o !== d && Math.hypot(q[0] - o.p[0], q[1] - o.p[1]) < r(o) - 0.05)) return null;
+                    if (placed.some((s) => Math.hypot(q[0] - s[0], q[1] - s[1]) < 6 * zkO)) return null;
+                    placed.push(q);
+                    // along the perimeter (tangent), kept upright
+                    const ang = b > 90 && b < 270 ? b - 180 : b;
+                    return (
+                      <g key={`${d.id}${b}${text}`} className="zs" transform={`${zs(q, zkO)} rotate(${ang} ${f2(q[0])} ${f2(q[1])})`}>
+                        <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={{ fill: '#FF8A85', fillOpacity: op, fontSize: '0.72px', fontWeight: 600, letterSpacing: '0.05em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                          {text}
+                        </text>
+                      </g>
+                    );
+                  }),
+                );
+              const altTxt = (a: number) => `BLIND < ${a >= 1000 ? `${a / 1000}K` : a} FT`;
               const layer = (id: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number) => (
                 <>
                   <defs>
@@ -1801,6 +1824,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   {/* the lowest altitude's blind spots are always shown, faintly, under the selected one */}
                   {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2)}
                   {layer('catccBlind', (d) => d.cov, 0.085, 0.7, 2)}
+                  {labels((d) => d.cov, altTxt(alt), 0.95)}
+                  {alt !== BLIND_ALTS[0] && labels((d) => d.covLow, altTxt(BLIND_ALTS[0]), 0.55, (d) => Math.abs(d.covLow - d.cov) < 0.5)}
                   {ds.length === 0 && (
                     <text x={f2(vx + VW / 2)} y={f2(vy + VH - 3 * zkO)} textAnchor="middle" style={{ fill: '#FF8A85', fontSize: `${(0.9 * zkO).toFixed(3)}px`, fontWeight: 600 }}>
                       {`NO FRIENDLY RADAR · ALL BLIND BELOW ${alt} FT`}
