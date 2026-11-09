@@ -45,6 +45,8 @@ export interface RadarDonor {
   kind: 'ship' | 'aew';
   /** coverage radius against the selected blind-spot altitude, NM */
   cov: number;
+  /** coverage radius against the lowest blind-spot altitude (always shown, faintly), NM */
+  covLow: number;
   /** the scope already draws a symbol here (carrier, aircraft): the datalink icon sits above it */
   sym: boolean;
 }

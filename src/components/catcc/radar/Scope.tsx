@@ -6,6 +6,7 @@
  * hooked tools) → HTML helper tags → floating controls.
  */
 import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import { BLIND_ALTS } from '../../../catcc/core/sensors/radar.ts';
 import { cpa as cpaOf, eat as eatOf, fly, marshalRoute, marshalTimeS, turnRadiusNm, type Cpa } from '../../../catcc/core/geometry/maneuver.ts';
 import {
   arrivalPath,
@@ -1776,22 +1777,30 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               const m = 2;
               const box = { x: f2(vx - m * VW), y: f2(vy - m * VH), w: f2((2 * m + 1) * VW), h: f2((2 * m + 1) * VH) };
               const alt = props.blindAlt ?? 1000;
-              return (
-                <g style={{ pointerEvents: 'none' }}>
+              // one blind-spot picture: the view outside every donor's circle, tinted, the union's edge dashed
+              const layer = (id: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number) => (
+                <>
                   <defs>
-                    <mask id="catccBlind" maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
+                    <mask id={id} maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
                       <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#fff" />
                       {ds.map((d) => (
-                        <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(d.cov)} fill="#000" />
+                        <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="#000" />
                       ))}
                     </mask>
                   </defs>
-                  <g mask="url(#catccBlind)">
-                    <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#FF8A85" fillOpacity="0.085" />
+                  <g mask={`url(#${id})`}>
+                    <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#FF8A85" fillOpacity={fillOp} />
                     {ds.map((d) => (
-                      <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(d.cov)} fill="none" stroke="#FF8A85" strokeOpacity="0.7" strokeDasharray="8 5" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
+                      <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={{ strokeWidth: `calc(${sw}px * var(--lw, 1))` }} />
                     ))}
                   </g>
+                </>
+              );
+              return (
+                <g style={{ pointerEvents: 'none' }}>
+                  {/* the lowest altitude's blind spots are always shown, faintly, under the selected one */}
+                  {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2)}
+                  {layer('catccBlind', (d) => d.cov, 0.085, 0.7, 2)}
                   {ds.length === 0 && (
                     <text x={f2(vx + VW / 2)} y={f2(vy + VH - 3 * zkO)} textAnchor="middle" style={{ fill: '#FF8A85', fontSize: `${(0.9 * zkO).toFixed(3)}px`, fontWeight: 600 }}>
                       {`NO FRIENDLY RADAR · ALL BLIND BELOW ${alt} FT`}

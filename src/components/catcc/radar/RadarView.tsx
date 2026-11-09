@@ -108,14 +108,16 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
     }
   };
   const [ov, setOv] = useState<Record<string, boolean>>(() => {
-    const v = legacy('catcc.ov', pre.ov);
-    // one-time: bathymetry became a Bridge-only default after seats had saved it on
+    let v = legacy('catcc.ov', pre.ov);
+    // seat defaults changed after seats had saved their layers: each change is applied once
+    // (1: bathymetry Bridge-only; 2: blind spots on for CDC)
+    const CHANGED: string[][] = [['bathy'], ['blind']];
     try {
-      const k = `catcc.ov.bathyDefault.${seat.id}`;
-      if (!localStorage.getItem(k)) {
-        localStorage.setItem(k, '1');
-        return { ...v, bathy: pre.ov.bathy };
-      }
+      const k = `catcc.ov.defaultsV.${seat.id}`;
+      // the earlier bathymetry-only marker counts as version 1
+      const had = Number(localStorage.getItem(k) ?? (localStorage.getItem(`catcc.ov.bathyDefault.${seat.id}`) ? 1 : 0));
+      for (let i = had; i < CHANGED.length; i++) for (const key of CHANGED[i]) v = { ...v, [key]: (pre.ov as Record<string, boolean>)[key] };
+      localStorage.setItem(k, String(CHANGED.length));
     } catch {
       /* private mode */
     }
@@ -167,7 +169,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
       if (!spec) continue;
       // an AEW aircraft on deck or on the ground isn't radiating
       if (spec.kind === 'aew' && (t.air === false || t.alt < 500)) continue;
-      out.push({ id: t.id, p: t.p, name: t.hull ?? (spec.kind === 'aew' ? (t.cs ?? t.ty) : (spec.cls ?? t.ty.replace(/_/g, ' '))), radar: spec.radar, kind: spec.kind, sym: t.k !== 'ship', cov: coverageNm(spec, antennaFtOf(spec, t.alt), blind.alt) });
+      out.push({ id: t.id, p: t.p, name: t.hull ?? (spec.kind === 'aew' ? (t.cs ?? t.ty) : (spec.cls ?? t.ty.replace(/_/g, ' '))), radar: spec.radar, kind: spec.kind, sym: t.k !== 'ship', cov: coverageNm(spec, antennaFtOf(spec, t.alt), blind.alt), covLow: coverageNm(spec, antennaFtOf(spec, t.alt), BLIND_ALTS[0]) });
     }
     return out;
   }, [pic.carriers, pic.ships, pic.air, focus?.track.sd, blind.alt]);
