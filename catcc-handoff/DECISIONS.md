@@ -317,3 +317,11 @@ npm run catcc:tacview -- --serve <file.zip.acmi> --port 42675 --from 2380   (the
 - Seat roles added to the room protocol (room server must be restarted / rebundled). Carrier plans are editable by anyone until a CATCC seat is held for that carrier, then only by CATCC seat holders.
 - Header: location tabs, seat tabs (expanded) with a holder dot, claim pill for the current seat only.
 - Interfaces not yet built (Strike tasking, Bridge, Final/Approach displays) show the radar with the seat's preset for now.
+
+## Seat interfaces (toolbars, sidebars, header)
+- Each radar seat has a SeatUi (seats.ts): scope tools, range presets, comms scripts, the N-UP/T-UP switch, left tabs (info/strips) and right sections (dep, marshal, coord, deck, donors, helm, notes).
+  - CATCC / Air Ops: everything. Departure: dep + coord. Marshal: marshal + coord. Approach: marshal + deck. Final: deck. CDC: radar donors (no comms scripts, THTR/50/CCA fits). Bridge (OOD): Info only on the left, Helm on the right, select/BRA/CPA tools, N-UP/T-UP; no strips, radials, stacks, coordination or notifications.
+- Header holds only what every seat shares (location/seat tabs, source, ship, case, seat pill, feed, clocks, Reference, Displays, Options). Display settings moved to the scope's top-right buttons. PriFly/LSO status (deck clear/foul, LA/cat chips, live/sand-table, WOD) moved to a status bar under the header. Deck stats left the Info panel; a Deck section is in the CATCC, Approach and Final sidebars.
+- Track-up (Bridge): the picture turns about the carrier so its heading is up. Map coordinates stay north-up; rp()/rpInv() convert to the turned frame used by the viewBox, HTML overlays and the mouse. Text is turned back upright with the CSS `rotate` property (.nr groups — tags, BRA, CPA labels, along-line labels — handle it in their transforms). Border scale hidden while turned; the marine layer re-snapshots when the turn changes. North pointer under the toolbar.
+- Helm: ordered course/speed stored in the shared carrier plan (plan.helm); "Into the wind" fills 30 kt down the angled deck (course = wind + 9°). Orders aren't sent to DCS yet: the hook is read-only (needs a command channel in the Lua hook).
+- Plan editing seats (protocol PLAN_ROLES): CATCC seats, OOD and mission commander, same rule on client and room server.

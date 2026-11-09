@@ -94,6 +94,7 @@ const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number }> =
 };
 import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
+import { IcSliders } from '../icons.tsx';
 import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
@@ -124,6 +125,16 @@ export interface ScopeProps {
   bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
   /** planned routes to draw (PIM / waypoints overlay), already filtered to the ones switched on */
   pimRoutes?: PimShip[];
+  /** track-up display: the own ship's heading at the top */
+  trackUp?: boolean;
+  /** offer the north-up / track-up switch (and its state handler) */
+  onTrackUp?: (on: boolean) => void;
+  /** the seat's scope tools, range presets and whether it has comms scripts */
+  tools?: Tool[];
+  fits?: Exclude<Fit, null>[];
+  comms?: boolean;
+  /** opens the radar display settings (sizes, conflict detection) */
+  onOpenDisplay?: () => void;
   /** friendly air-search radars (Datalink sources layer) and their coverage (Radar blindspots layer) */
   donors?: RadarDonor[];
   /** target altitude the blind spots are drawn for, ft */
@@ -209,10 +220,14 @@ const MarineLayer = React.memo(function MarineLayer(props: {
   VW: number;
   k: number;
   sL: number;
+  /** track-up: degrees the picture is turned (anticlockwise) about rc, the carrier in this layer's frame */
+  rot?: number;
+  rc?: Pt;
 }) {
   const { marine, bathy, coast, places, airports, terr, KX, VW, k, sL } = props;
   return (
     <svg className="scope" viewBox={props.vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', '--z': k.toFixed(4), '--lw': sL } as React.CSSProperties}>
+      <g transform={props.rot && props.rc ? `rotate(${-props.rot} ${f2(props.rc[0])} ${f2(props.rc[1])})` : undefined}>
       {(() => {
             const n = marine.depth.length;
             // shallow → deep: lines go from light to dark blue
@@ -395,6 +410,7 @@ const MarineLayer = React.memo(function MarineLayer(props: {
               </g>
             );
       })()}
+    </g>
     </svg>
   );
 });
@@ -541,8 +557,18 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const VX = VC.zx;
   const VY = VC.zy;
   const VH = VW * asp;
-  const vx = VX - VW / 2;
-  const vy = VY - VH / 2;
+  // Track-up: the picture is turned about the carrier so its heading points up. Scope (map) coordinates
+  // stay north-up; rp() takes a map point to the turned frame the SVG viewBox and screen use.
+  const ROT = props.trackUp && fTrack ? Math.round(norm360(fTrack.hdg ?? fTrack.crs ?? 0)) % 360 : 0;
+  const rA = (-ROT * Math.PI) / 180;
+  const rCo = Math.cos(rA);
+  const rSi = Math.sin(rA);
+  const rp = (q: Pt): Pt => (ROT ? [q[0] * rCo - q[1] * rSi, q[0] * rSi + q[1] * rCo] : q);
+  const rpInv = (q: Pt): Pt => (ROT ? [q[0] * rCo + q[1] * rSi, -q[0] * rSi + q[1] * rCo] : q);
+  const rotT = ROT ? `rotate(${-ROT})` : undefined;
+  const RC = rp([VX, VY]);
+  const vx = RC[0] - VW / 2;
+  const vy = RC[1] - VH / 2;
   const z = (VW / 97) * (860 / Math.max(300, box.w));
   const sH = UI_STEPS[ui.h - 1];
   const sT = UI_STEPS[ui.t - 1];
@@ -552,8 +578,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const zkT = z * sT;
   const zkO = z * sO;
   const KX = box.w / VW;
-  const toPx = (q: Pt): Pt => [(q[0] - vx) * KX, (q[1] - vy) * KX];
-  const inView = (q: Pt, pad = 0) => q[0] >= vx - pad && q[0] <= vx + VW + pad && q[1] >= vy - pad && q[1] <= vy + VH + pad;
+  const toPx = (q0: Pt): Pt => {
+    const q = rp(q0);
+    return [(q[0] - vx) * KX, (q[1] - vy) * KX];
+  };
+  const inView = (q0: Pt, pad = 0) => {
+    const q = rp(q0);
+    return q[0] >= vx - pad && q[0] <= vx + VW + pad && q[1] >= vy - pad && q[1] <= vy + VH + pad;
+  };
   const clampC = (x: number, y: number, w: number = VW) => clampCore(x, y, w);
   const zoomBy = (k: number, about?: Pt) => {
     zoomedAt.current = performance.now();
@@ -690,7 +722,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     q.x = e.clientX;
     q.y = e.clientY;
     const v = q.matrixTransform(m.inverse());
-    return [v.x, v.y];
+    return rpInv([v.x, v.y]);
   };
   /** Placement bearing: 5° steps, or 1° while Ctrl is held (fine tuning). */
   const bearingAt = (q: Pt | null, fine = false) => {
@@ -735,8 +767,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     return { hull: pc.hull, brg, off: sign * range };
   };
 
-  const latest = useRef({ VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy });
-  latest.current = { VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy };
+  const latest = useRef({ VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy, svgPoint });
+  latest.current = { VX, VY, VW, fmHov, fmSel, hooked, cur, hk, placing: placement.placing, formations: pic.formations, zoomBy, svgPoint };
   useEffect(() => {
     const el = svgRef.current;
     if (!el) return;
@@ -759,7 +791,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         } else setVspd(Math.max(150, Math.min(650, L.hk.spd + up * 10)));
         return;
       }
-      const q = svgPoint(e);
+      // the current render's conversion (track-up turns it)
+      const q = L.svgPoint(e);
       if (q) L.zoomBy(e.deltaY > 0 ? 1.15 : 1 / 1.15, q);
     };
     el.addEventListener('wheel', onWheel, { passive: false });
@@ -787,7 +820,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         setPanning(true);
       }
       onFit(null);
-      const nc = clampC(cx - dx / k, cy - dy / k, w);
+      const d = rpInv([dx / k, dy / k]);
+      const nc = clampC(cx - d[0], cy - d[1], w);
       setView({ zw: w, ...nc });
       unlockAt(nc.zx, nc.zy);
     };
@@ -1236,7 +1270,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const q = toPx(add(P(b, d), origin));
     const h = outbound ? b : (b + 180) % 360;
     const w = Math.round(t.length * 6.4 + 18);
-    return { x: q[0], y: q[1], rot: h - 90, tr: h > 180 ? 180 : 0, t, w, ml: -w / 2, tw: w - 7, sc, tc, d: `M0.5 0.5 H${w - 7.5} L${w - 0.5} 8 L${w - 7.5} 15.5 H0.5 Z` };
+    const hs = norm360(h - ROT);
+    return { x: q[0], y: q[1], rot: hs - 90, tr: hs > 180 ? 180 : 0, t, w, ml: -w / 2, tw: w - 7, sc, tc, d: `M0.5 0.5 H${w - 7.5} L${w - 0.5} 8 L${w - 7.5} 15.5 H0.5 Z` };
   };
   const flags: ReturnType<typeof flag>[] = [];
   for (const c of pic.carriers) {
@@ -1280,10 +1315,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const offs = pic.air
     .filter((t) => !hidden.has(t.id) && t.rng <= 60 && !inView(t.p, 0.4 * z))
     .map((t) => {
-      const dx = t.p[0] - VX;
-      const dy = t.p[1] - VY;
+      const [dx, dy] = sub(rp(t.p), RC);
       const k = Math.min(dx ? (VW / 2 - ins) / Math.abs(dx) : Infinity, dy ? (VH / 2 - ins) / Math.abs(dy) : Infinity);
-      const q = toPx([VX + dx * k, VY + dy * k]);
+      const q: Pt = [(RC[0] + dx * k - vx) * KX, (RC[1] + dy * k - vy) * KX];
       const red = conflictIds.has(t.id);
       return { id: t.id, x: q[0], y: q[1], rot: (Math.atan2(dy, dx) * 180) / Math.PI, c: red ? '#FF8A85' : isBlue(t) ? BLUE_HIT : TRK, ring: red };
     });
@@ -1334,7 +1368,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const cls = color === 'red' ? 'tg tgr' : color === 'blue' ? 'tg tgb' : 'tg';
     const stroke = color === 'red' ? '#FF8A85' : color === 'blue' ? BLUE_TAG : undefined;
     return (
-      <g key={`tag${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkT.toFixed(4)})`} style={{ pointerEvents: 'none' }}>
+      <g key={`tag${t.id}`} className="zs nr" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`} style={{ pointerEvents: 'none' }}>
         <line style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x1={f2(L0[0])} y1={f2(L0[1])} x2={f2(L1[0])} y2={f2(L1[1])} className={stroke ? undefined : 'ldr'} stroke={stroke} />
         <rect
           style={color === 'red' ? { strokeWidth: 'calc(1.1px * var(--lw, 1))' } : undefined}
@@ -1394,10 +1428,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     .map((c) => ({ c, mid: mul(add(c.cpa.a, c.cpa.b), 0.5) }))
     .filter(({ mid }) => !inView(mid))
     .map(({ c, mid }) => {
-      const dx = mid[0] - VX;
-      const dy = mid[1] - VY;
+      const [dx, dy] = sub(rp(mid), RC);
       const k = Math.min(dx ? (VW / 2 - ins) / Math.abs(dx) : Infinity, dy ? (VH / 2 - ins) / Math.abs(dy) : Infinity);
-      const q = toPx([VX + dx * k, VY + dy * k]);
+      const q: Pt = [(RC[0] + dx * k - vx) * KX, (RC[1] + dy * k - vy) * KX];
       const w = 196;
       const h = 20;
       const BH = box.w * asp;
@@ -1557,7 +1590,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const MO = 0.2;
   const oM = marine && pic.proj ? pic.proj.toScope(marine.lat, marine.lon) : null;
   const curM = oM ? { x: vx - oM[0], y: vy - oM[1] } : null;
-  const [mSnap, setMSnap] = useState<{ x: number; y: number; w: number; h: number; m: MarineGeom; kx: number; k: number } | null>(null);
+  const [mSnap, setMSnap] = useState<{ x: number; y: number; w: number; h: number; m: MarineGeom; kx: number; k: number; rot: number; om: Pt; ux: number; uy: number } | null>(null);
   const offOf = (sn: { x: number; y: number } | null) => (sn && curM ? [(sn.x - curM.x) * KX, (sn.y - curM.y) * KX] : [0, 0]);
   const zooming = performance.now() - zoomedAt.current < 250;
   const scaleChanged = !!mSnap && (Math.abs(mSnap.w - VW) > 1e-9 || Math.abs(mSnap.h - VH) > 1e-9);
@@ -1567,9 +1600,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     (!mSnap ||
       mSnap.m !== marine ||
       (scaleChanged && (!zooming || mSnap.w / VW > 4 || mSnap.w / VW < 0.25)) ||
-      (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * box.w * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * box.h * 0.8)));
+      (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * box.w * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * box.h * 0.8)) ||
+      mSnap.rot !== ROT ||
+      (!!ROT && !!oM && Math.hypot(mSnap.om[0] - oM[0], mSnap.om[1] - oM[1]) > 0.1));
   // the snapshot also freezes the scale-dependent props, so the memoised layer does not re-render mid-zoom
-  const snap = stale && curM && marine ? { x: curM.x, y: curM.y, w: VW, h: VH, m: marine, kx: KX, k: zkO } : mSnap;
+  const snap = stale && curM && marine && oM ? { x: curM.x, y: curM.y, w: VW, h: VH, m: marine, kx: KX, k: zkO, rot: ROT, om: oM, ux: VX - oM[0], uy: VY - oM[1] } : mSnap;
   useEffect(() => {
     if (stale && snap) setMSnap(snap);
   });
@@ -1577,9 +1612,15 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   // then translate so the snapshot's view corner lands where it belongs on screen.
   // level-of-detail paths for this snapshot (only rebuilt when the snapshot changes)
   const mPaths = useMemo(
-    () => (snap ? buildPaths(snap.m, { x0: snap.x - MO * snap.w, y0: snap.y - MO * snap.h, x1: snap.x + (1 + MO) * snap.w, y1: snap.y + (1 + MO) * snap.h }, 0.5 / snap.kx) : null),
+    () => {
+      if (!snap) return null;
+      // turned, the drawn region is the view's circumscribed square about its (unturned) centre
+      const hr = ((1 + 2 * MO) * Math.hypot(snap.w, snap.h)) / 2;
+      const v = snap.rot ? { x0: snap.ux - hr, y0: snap.uy - hr, x1: snap.ux + hr, y1: snap.uy + hr } : { x0: snap.x - MO * snap.w, y0: snap.y - MO * snap.h, x1: snap.x + (1 + MO) * snap.w, y1: snap.y + (1 + MO) * snap.h };
+      return buildPaths(snap.m, v, 0.5 / snap.kx);
+    },
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [snap?.m, snap?.x, snap?.y, snap?.w, snap?.h, snap?.kx],
+    [snap?.m, snap?.x, snap?.y, snap?.w, snap?.h, snap?.kx, snap?.rot, snap?.ux, snap?.uy],
   );
   const mScale = snap ? snap.w / VW : 1;
   const mT = snap && curM ? [(snap.x - curM.x - MO * snap.w) * KX + MO * box.w, (snap.y - curM.y - MO * snap.h) * KX + MO * box.h] : [0, 0];
@@ -1588,7 +1629,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
   return (
     <main style={{ flex: '999 1 560px', minWidth: 0, position: 'relative', background: '#0B0E12', display: 'flex', flexDirection: 'column' }}>
-      <div ref={boxRef} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden' }}>
+      <div ref={boxRef} data-tu={ROT ? '' : undefined} style={{ position: 'relative', flex: 1, minHeight: 0, overflow: 'hidden', '--tu': `${ROT}deg` } as React.CSSProperties}>
         {ov.sweep && pic.focus && (() => {
           const c = toPx([0, 0]);
           const len = Math.min(8000, Math.ceil(Math.hypot(Math.max(c[0], box.w - c[0]), Math.max(c[1], box.h - c[1]))) + 4);
@@ -1608,12 +1649,15 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               VW={snap.w}
               k={snap.k}
               sL={sL}
+              rot={snap.rot}
+              rc={[-snap.om[0], -snap.om[1]]}
             />
           </div>
         )}
         {/* ---------------- background */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
-          {ov.latlon && (
+          <g transform={rotT}>
+          {ov.latlon && !ROT && (
             <g>
               <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(frame.x0)} y={f2(frame.y0)} width={f2(frame.x1 - frame.x0)} height={f2(frame.y1 - frame.y0)} fill="none" stroke="rgba(147,161,176,.4)" />
               <path style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} d={frame.ticks} stroke="rgba(147,161,176,.6)" fill="none" />
@@ -1719,10 +1763,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </g>
             );
           })}
+        </g>
         </svg>
 
         {/* ---------------- overlays */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
+          <g transform={rotT}>
           {ov.coord &&
             pic.carriers
               .filter((c) => !c.focus && c.track.hull)
@@ -1757,7 +1803,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   <g key={`coord${c.track.id}`}>
                     {pv && <line style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x1="0" y1="0" x2={f2(g.p0[0])} y2={f2(g.p0[1])} stroke="#FFB08F" strokeDasharray="2 3" />}
                     <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(p1[0])} y1={f2(p1[1])} x2={f2(p2[0])} y2={f2(p2[1])} stroke={stroke} strokeDasharray={pv ? '6 4' : '2 3'} />
-                    <g className="zs" transform={`${zs(m, zkT)} rotate(${f2(ang)} ${f2(m[0])} ${f2(m[1])})`}>
+                    <g className="zs nr" transform={`${zs(m, zkT)} rotate(${f2(ang)} ${f2(m[0])} ${f2(m[1])})`}>
                       <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(m[0] - w / 2)} y={f2(m[1] - 0.72)} width={f2(w)} height="1.44" rx="0.72" fill="#0F1A24" stroke={pv ? '#FFB08F' : 'rgba(111,182,230,.9)'} />
                       <text x={f2(m[0])} y={f2(m[1] + 0.3)} textAnchor="middle" className="tg tgb" style={pv ? { fill: '#FFB08F' } : undefined}>
                         {pv ? `${r3(bearingOf(g.p0))}° · ${Math.abs(g.off).toFixed(1)} NM` : label}
@@ -1838,7 +1884,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2)}
                   {layer('catccBlind', (d) => d.cov, 0.085, 0.7, 2)}
                   {labs.map((l) => (
-                    <g key={l.key} className="zs" transform={`${zs(l.q, zkO)} rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`}>
+                    <g key={l.key} className="zs nr" transform={`${zs(l.q, zkO)} rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`}>
                       <text x={f2(l.q[0])} y={f2(l.q[1])} textAnchor="middle" dominantBaseline="central" style={{ fill: '#FF8A85', fillOpacity: l.op, fontSize: `${FS}px`, fontWeight: 600, letterSpacing: '0.05em' }}>
                         {l.text}
                       </text>
@@ -1927,7 +1973,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             return (
               <g>
                 <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(braA.p[0])} y1={f2(braA.p[1])} x2={f2(b.p[0])} y2={f2(b.p[1])} stroke="#FFD7A8" />
-                <g className="zs" transform={`translate(${f2(braA.p[0])} ${f2(braA.p[1])}) scale(${zkT.toFixed(4)})`}>
+                <g className="zs nr" transform={`translate(${f2(braA.p[0])} ${f2(braA.p[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`}>
                   <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x="-0.3" y="0.77" width={f2(w)} height="2.2" rx="0.25" fill="#151A21" stroke="#FFD7A8" />
                   {rows.map((r, i) => (
                     <text key={i} x="0.2" y={f2(1.67 + i)} className="tg" style={{ fill: '#FFD7A8' }}>
@@ -1962,6 +2008,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               );
             })}
           </g>
+        </g>
         </svg>
 
         {/* ---------------- HTML labels: flags, edge markers, pinned CPA */}
@@ -2022,6 +2069,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             } as React.CSSProperties
           }
         >
+          <g transform={rotT}>
           {/* trails */}
           <g fill="none" strokeLinecap="square" strokeWidth={trailPx}>
             {pic.air
@@ -2139,7 +2187,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             const label = cpaLabel(cpa);
             const w = label.length * 0.54 + 0.6;
             return (
-              <g key={`cl${a.id}${b.id}`} className="zs" transform={`translate(${f2(mid[0])} ${f2(mid[1])}) scale(${zkT.toFixed(4)})`} style={{ pointerEvents: 'none' }}>
+              <g key={`cl${a.id}${b.id}`} className="zs nr" transform={`translate(${f2(mid[0])} ${f2(mid[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`} style={{ pointerEvents: 'none' }}>
                 <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(-w / 2)} y="-3.2" width={f2(w)} height="1.45" rx="0.2" fill="#0E1116" stroke={pr ? '#FFD7A8' : '#E0524E'} />
                 <text x="0" y="-2.2" textAnchor="middle" className="tgr" style={pr ? { fill: '#FFD7A8' } : undefined}>
                   {label}
@@ -2147,6 +2195,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </g>
             );
           })}
+        </g>
         </svg>
 
         {/* ---------------- HTML helper tags */}
@@ -2176,15 +2225,19 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         {/* ---------------- toolbar */}
         <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <div role="toolbar" aria-label="Radar tools" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, background: 'rgba(21,26,33,.96)', border: '1px solid #374250', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.45)' }}>
-            {toolDefs.map(([k, l, ic]) => (
+            {toolDefs.filter(([k]) => !props.tools || props.tools.includes(k)).map(([k, l, ic]) => (
               <button key={k} className="tbtn" aria-label={l} title={l} onClick={() => props.onTool(k)} style={{ background: tool === k ? 'rgba(241,88,34,.18)' : 'transparent', color: tool === k ? '#FFB08F' : '#E6EDF3' }}>
                 {ic}
               </button>
             ))}
-            <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
-            <button className="tbtn" aria-label="Comms scripts" title="Comms scripts" onClick={props.onOpenComms} style={{ color: '#E6EDF3' }}>
-              <IcComms />
-            </button>
+            {props.comms !== false && (
+              <>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+                <button className="tbtn" aria-label="Comms scripts" title="Comms scripts" onClick={props.onOpenComms} style={{ color: '#E6EDF3' }}>
+                  <IcComms />
+                </button>
+              </>
+            )}
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
             <button className="tbtn" aria-label="Zoom out" title="Zoom out" onClick={() => zoomBy(1.4)} style={{ color: '#E6EDF3' }}>
               <IcZoomOut />
@@ -2221,7 +2274,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" />
               </svg>
             </button>
-            {fitDefs.map(([k, l, t]) => (
+            {fitDefs.filter(([k]) => !props.fits || props.fits.includes(k)).map(([k, l, t]) => (
               <button
                 key={k}
                 onClick={() => {
@@ -2235,7 +2288,31 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 {l}
               </button>
             ))}
+            {props.onTrackUp && (
+              <>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+                <div role="radiogroup" aria-label="Display orientation" style={{ display: 'flex', gap: 2 }}>
+                  {([[false, 'N-UP', 'North up'], [true, 'T-UP', "Track up: the ship's heading at the top"]] as const).map(([v, l, t]) => {
+                    const on = !!props.trackUp === v;
+                    return (
+                      <button key={l} role="radio" aria-checked={on} title={t} onClick={() => props.onTrackUp!(v)} style={{ height: 32, padding: '0 9px', borderRadius: 5, border: `1px solid ${on ? '#F15822' : '#374250'}`, background: on ? 'rgba(241,88,34,.18)' : 'transparent', color: on ? '#FFB08F' : '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, cursor: 'pointer' }}>
+                        {l}
+                      </button>
+                    );
+                  })}
+                </div>
+              </>
+            )}
           </div>
+          {!!ROT && (
+            // north pointer while the picture is turned
+            <div aria-label={`North is ${Math.round(norm360(-ROT))}° from up`} title="North" style={{ alignSelf: 'center', width: 34, height: 34, borderRadius: '50%', background: 'rgba(21,26,33,.96)', border: '1px solid #374250', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <svg width="26" height="26" viewBox="-13 -13 26 26" style={{ transform: `rotate(${-ROT}deg)` }} aria-hidden="true">
+                <path d="M0 -10 L4 2 L0 0 L-4 2 Z" fill="#E6EDF3" />
+                <text x="0" y="9.5" textAnchor="middle" style={{ fill: '#93A1B0', fontSize: 7, fontFamily: "'IBM Plex Mono', monospace" }} transform={`rotate(${ROT} 0 7)`}>N</text>
+              </svg>
+            </div>
+          )}
         </div>
 
         {/* ---------------- layers (top right, mirrors the frequencies button) */}
@@ -2244,6 +2321,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             <button className="tbtn" aria-label="Bullseye" title={ov.bulls ? 'Hide the bullseye' : 'Show the bullseye'} aria-pressed={!!ov.bulls} onClick={props.onToggleBulls} style={{ background: ov.bulls ? '#3D2521' : 'rgba(21,26,33,.96)', color: ov.bulls ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
               <IcBulls />
             </button>
+            {props.onOpenDisplay && (
+              <button className="tbtn" aria-label="Display settings" title="Display settings: sizes, conflict detection" onClick={props.onOpenDisplay} style={{ background: 'rgba(21,26,33,.96)', color: '#E6EDF3', borderColor: '#374250' }}>
+                <IcSliders />
+              </button>
+            )}
             <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={props.layersOpen} onClick={props.onToggleLayers} style={{ background: props.layersOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: props.layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
               <IcLayers />
             </button>

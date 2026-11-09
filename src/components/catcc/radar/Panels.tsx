@@ -39,6 +39,8 @@ export interface RadialsProps {
   hull: string;
   air: ScopeTrack[];
   readOnly: boolean;
+  /** sections this seat shows (all by default) */
+  show?: { dep?: boolean; marshal?: boolean; coord?: boolean };
 }
 
 export const RadialsPanel: React.FC<RadialsProps> = (p) => {
@@ -154,6 +156,7 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
   };
   return (
     <section className="pnl" aria-label="Departure and marshal radials" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+      {(p.show?.dep ?? true) && (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <span className="lbl">Departure radials</span>
@@ -177,7 +180,9 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
           {!p.plan.deps.length && <div className="mono" style={{ fontSize: 11.5, color: '#6B7683', padding: '2px 2px' }}>None</div>}
         </div>
       </div>
-      <div style={{ height: 1, background: '#262F3A' }} />
+      )}
+      {(p.show?.dep ?? true) && (p.show?.marshal ?? true) && <div style={{ height: 1, background: '#262F3A' }} />}
+      {(p.show?.marshal ?? true) && (
       <div>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
           <span className="lbl">Marshal</span>
@@ -206,10 +211,11 @@ export const RadialsPanel: React.FC<RadialsProps> = (p) => {
           {row({ key: 'h', name: 'Helo', fg: '#6FB6E6', r: `${r3(p.hel)}R`, alt: '1000 ft', lit: p.hl?.k === 'h', sel: false, onPick: () => p.onHl(p.hl?.k === 'h' ? null : { k: 'h' }), toggleId: 'H' })}
         </div>
       </div>
+      )}
       {placing && !editing && <div className="mono" style={{ fontSize: 12, color: p.status.color }}>{p.status.text}</div>}
-      {p.coords.length > 0 && (
+      {(p.show?.coord ?? true) && p.coords.length > 0 && (
         <>
-          <div style={{ height: 1, background: '#262F3A' }} />
+          {((p.show?.dep ?? true) || (p.show?.marshal ?? true)) && <div style={{ height: 1, background: '#262F3A' }} />}
           <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
               <span className="lbl">Coordination</span>

@@ -14,8 +14,9 @@ import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.
 import type { RoomState } from '../useCatccRoom.ts';
 import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
+import { DeckPanel, DonorsPanel, HelmPanel } from './SidePanels.tsx';
 import type { SeatDef } from '../seats.ts';
-import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, Reference, useCommsPlan, type Note } from './Panels.tsx';
+import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
 import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
 
@@ -90,13 +91,9 @@ export interface RadarViewProps {
   conflict: ConflictCfg;
   setConflict: (c: ConflictCfg) => void;
   setUiOpen: (b: boolean) => void;
-  refOpen: boolean;
-  setRefOpen: (b: boolean) => void;
-  deckClear: boolean | null;
-  envCase: { ceiling: number | null; vis: number | null };
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, refOpen, setRefOpen, deckClear, envCase, conflict, setConflict }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
   const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
   const [tool, setTool] = useState<Tool>(pre.tool);
   // layers are kept per seat; the CATCC seats fall back to the layers saved before there were seats
@@ -138,7 +135,13 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
   // aircraft of the strip under the cursor: their marshal assignments show on the scope
   const [stripHov, setStripHov] = useState<string[] | null>(null);
   const [placement, setPlacement] = useState<Placement>({ placing: null, editing: null, hov: null });
-  const [ltab, setLtab] = useState<'info' | 'strips'>('strips');
+  const sui = seat.ui;
+  const lefts = sui?.left ?? ['info', 'strips'];
+  const rights = sui?.right ?? ['dep', 'marshal', 'coord', 'notes'];
+  const [ltab, setLtab] = useState<'info' | 'strips'>(lefts.includes('strips') ? 'strips' : 'info');
+  // north-up / track-up, per seat
+  const [tu, setTu] = useState<{ on: boolean }>(() => load(`catcc.tu.${seat.id}`, { on: false }));
+  useEffect(() => save(`catcc.tu.${seat.id}`, tu), [tu, seat.id]);
   const [acked, setAcked] = useState<Record<string, true>>({});
   const comms = useCommsPlan();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
@@ -373,16 +376,18 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
     <div style={{ flex: 1, display: 'flex', minHeight: 0, position: 'relative' }}>
       {/* ---------------- left sidebar */}
       <aside aria-label="Left sidebar" style={{ flex: '0 0 344px', width: 344, borderRight: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto' }}>
+        {lefts.length > 1 && (
         <div role="tablist" aria-label="Sidebar" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2, flex: 'none' }}>
-          {([['info', 'Info', ''], ['strips', 'Strips', `${nFl} · ${nAc}`]] as const).map(([k, l, n]) => (
+          {([['info', 'Info', ''], ['strips', 'Strips', `${nFl} · ${nAc}`]] as const).filter(([k]) => lefts.includes(k)).map(([k, l, n]) => (
             <button key={k} role="tab" aria-selected={ltab === k} onClick={() => setLtab(k)} style={{ flex: 1, height: 30, border: 0, borderRadius: 4, background: ltab === k ? '#222C37' : 'transparent', color: ltab === k ? '#E6EDF3' : '#93A1B0', fontFamily: "'Saira', sans-serif", fontSize: 13, fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6 }}>
               {l}
               <span className="mono" style={{ fontSize: 10.5, fontWeight: 500, color: '#93A1B0' }}>{n}</span>
             </button>
           ))}
         </div>
+        )}
         {ltab === 'info' ? (
-          <InfoPanels focus={focus} env={state.env} utc={utc} offH={offH} mt={state.mt} deckClear={deckClear} />
+          <InfoPanels focus={focus} env={state.env} utc={utc} offH={offH} mt={state.mt} deckClear={null} />
         ) : (
           <DndContext sensors={sensors}>
             {PHASES.filter(([p]) => strips.get(p)?.length).map(([p, t]) => (
@@ -417,6 +422,12 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
       {/* ---------------- scope */}
       <Scope
         theatre={state.theatre}
+        tools={sui?.tools}
+        fits={sui?.fits}
+        comms={sui?.comms ?? true}
+        trackUp={!!sui?.trackUp && tu.on}
+        onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
+        onOpenDisplay={() => setUiOpen(true)}
         donors={donors}
         blindAlt={blind.alt}
         bulls={state.env?.bulls?.filter((b) => b.side === (focus?.track.sd ?? 'blue'))}
@@ -472,9 +483,23 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
       />
 
       {/* ---------------- right sidebar */}
-      <aside aria-label="Radials and notifications" style={{ flex: '0 0 344px', width: 344, borderLeft: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto' }}>
-        {ship && (
+      <aside aria-label="Right sidebar" style={{ flex: '0 0 344px', width: 344, borderLeft: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto' }}>
+        {rights.includes('helm') && (
+          <HelmPanel
+            carrier={focus}
+            ordered={plan.helm}
+            onOrder={(h) => setPlan((p) => ({ ...p, helm: h }))}
+            readOnly={!mayEdit}
+            route={pimShips.find((s) => s.own)?.pts}
+            nowS={state.mt}
+            dayStart={state.env?.start}
+          />
+        )}
+        {rights.includes('deck') && <DeckPanel pic={pic} />}
+        {rights.includes('donors') && <DonorsPanel donors={donors} alt={blind.alt} />}
+        {ship && (rights.includes('dep') || rights.includes('marshal') || rights.includes('coord')) && (
           <RadialsPanel
+            show={{ dep: rights.includes('dep'), marshal: rights.includes('marshal'), coord: rights.includes('coord') }}
             plan={plan}
             emr={emergencyMarshalRadial(ship)}
             hel={heloMarshalRadial(ship)}
@@ -511,7 +536,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
             readOnly={!mayEdit}
           />
         )}
-        <Notifications notes={shown} onAck={(id) => setAcked((a) => ({ ...a, [id]: true }))} onGoTo={(p, fit) => setGoTo({ p, fit, nonce: Date.now() })} />
+        {rights.includes('notes') && <Notifications notes={shown} onAck={(id) => setAcked((a) => ({ ...a, [id]: true }))} onGoTo={(p, fit) => setGoTo({ p, fit, nonce: Date.now() })} />}
       </aside>
 
       {uiOpen && (
@@ -526,7 +551,6 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
           }}
         />
       )}
-      {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull, ceiling: envCase.ceiling, vis: envCase.vis }} />}
       {commsOpen && <CommsScripts fields={commsFields} candidates={commsCands} selected={commsTrack?.id ?? null} onSelect={setCommsSel} onClose={() => setCommsOpen(false)} />}
     </div>
   );

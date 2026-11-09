@@ -8,7 +8,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { THEATRE_UTC_OFFSET_H } from '../../catcc/core/dcs/aircraft.ts';
 import { carrierByHull } from '../../catcc/core/tracks/naming.ts';
 import type { SeatKey, SeatRole } from '../../catcc/core/room/protocol.ts';
-import { IcBook, IcCatcc, IcDisplays, IcPrifly, IcSliders } from './icons.tsx';
+import { IcBook, IcCatcc, IcDisplays, IcPrifly } from './icons.tsx';
 import { BossChips, BossView, deckStatus } from './prifly/BossView.tsx';
 import { LsoView, lsoHeaderInfo } from './prifly/LsoView.tsx';
 import { useDeckLog } from './prifly/useDeckLog.ts';
@@ -18,8 +18,10 @@ import { buildPicture } from './scopeModel.ts';
 import { SCAN_S, useSweep } from './radar/sweep.ts';
 import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
-import { CATCC_ROLES, LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
+import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
+import { LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
 import { OptionsDialog } from './OptionsDialog.tsx';
+import { Reference } from './radar/Panels.tsx';
 import './catcc.css';
 
 const hms = (d: Date) => [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
@@ -115,8 +117,8 @@ const CatccApp: React.FC = () => {
   const live = state.lastFrameAt !== undefined && Date.now() - state.lastFrameAt < 5000;
   const user = state.user;
   const mine = state.seats.filter((s) => s.userId === user?.userId);
-  // carrier plans are edited from CATCC: once any CATCC seat is held, only its holders may edit
-  const carrierSeats = state.seats.filter((s) => (s.carrier === hull || s.carrier === '*') && CATCC_ROLES.includes(s.role));
+  // carrier plans are edited from CATCC and the bridge: once any of those seats is held, only its holders may edit
+  const carrierSeats = state.seats.filter((s) => (s.carrier === hull || s.carrier === '*') && PLAN_ROLES.includes(s.role));
   const mayEdit = carrierSeats.length === 0 || carrierSeats.some((s) => s.userId === user?.userId);
 
   const seatPill = (key: SeatKey, label: string) => {
@@ -221,58 +223,54 @@ const CatccApp: React.FC = () => {
 
   return (
     <div className="cc-root" data-theme="dark" onContextMenu={(e) => e.preventDefault()}>
-      {mod === 'radar' ? (
-        <header style={headerStyle}>
-          {logo(<IcCatcc />, locLabel)}
-          {nav}
-          {sourceSelect}
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-            <label className="lbl" htmlFor="boat">Ship</label>
-            <select id="boat" value={hull ?? ''} onChange={(e) => setFocusHull(e.target.value)} style={{ background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '5px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>
-              {pic.carriers.map((c) => (
-                <option key={c.track.id} value={c.track.hull}>
-                  {c.track.hull} · {carrierByHull(c.track.hull)?.nick ?? ''}
-                </option>
-              ))}
-              {!pic.carriers.length && <option value="">No carrier</option>}
-            </select>
+      {/* the header carries only what every seat shares; view-specific status lives in the views */}
+      <header style={headerStyle}>
+        {logo(mod === 'radar' ? <IcCatcc /> : <IcPrifly />, locLabel)}
+        {nav}
+        {sourceSelect}
+        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <label className="lbl" htmlFor="boat">Ship</label>
+          <select id="boat" value={hull ?? ''} onChange={(e) => setFocusHull(e.target.value)} style={{ background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '5px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5 }}>
+            {pic.carriers.map((c) => (
+              <option key={c.track.id} value={c.track.hull}>
+                {c.track.hull} · {carrierByHull(c.track.hull)?.nick ?? ''}
+              </option>
+            ))}
+            {!pic.carriers.length && <option value="">No carrier</option>}
+          </select>
+        </div>
+        {caseBadge(`CASE ${env?.case ?? 'III'} · CV-1`)}
+        <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} aria-label="Seat">
+          {seat(seatDef.id, seatDef.short)}
+          {!mine.length && <span className="mono" style={{ fontSize: 11, padding: '4px 8px', borderRadius: 4, border: '1px solid #374250', color: '#93A1B0' }}>VIEW ONLY</span>}
+        </div>
+        <div style={{ flex: 1 }} />
+        {feed}
+        <div style={{ display: 'flex', gap: 14, fontFamily: "'IBM Plex Mono', monospace" }} aria-label="Time">
+          <div style={{ textAlign: 'right', lineHeight: 1.1 }}>
+            <div style={{ fontSize: 10, color: '#93A1B0', letterSpacing: '.12em' }}>LOCAL{offH !== undefined ? ` · UTC${offH >= 0 ? '+' : ''}${offH}` : ''}</div>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>{local ? hms(local) : '--:--:--'}</div>
           </div>
-          {caseBadge(`CASE ${env?.case ?? 'III'} · CV-1`)}
-          <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} aria-label="Controller positions">
-            {seat(seatDef.id, seatDef.short)}
-            {!mine.length && <span className="mono" style={{ fontSize: 11, padding: '4px 8px', borderRadius: 4, border: '1px solid #374250', color: '#93A1B0' }}>VIEW ONLY</span>}
+          <div style={{ width: 1, background: '#374250' }} />
+          <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
+            <div style={{ fontSize: 10, color: '#93A1B0', letterSpacing: '.12em' }}>ZULU</div>
+            <div style={{ fontSize: 17, fontWeight: 600 }}>{utc ? `${hms(utc)}Z` : '--:--:--'}</div>
           </div>
-          <div style={{ flex: 1 }} />
-          {feed}
-          <div style={{ display: 'flex', gap: 14, fontFamily: "'IBM Plex Mono', monospace" }} aria-label="Time">
-            <div style={{ textAlign: 'right', lineHeight: 1.1 }}>
-              <div style={{ fontSize: 10, color: '#93A1B0', letterSpacing: '.12em' }}>LOCAL{offH !== undefined ? ` · UTC${offH >= 0 ? '+' : ''}${offH}` : ''}</div>
-              <div style={{ fontSize: 17, fontWeight: 600 }}>{local ? hms(local) : '--:--:--'}</div>
-            </div>
-            <div style={{ width: 1, background: '#374250' }} />
-            <div style={{ textAlign: 'left', lineHeight: 1.1 }}>
-              <div style={{ fontSize: 10, color: '#93A1B0', letterSpacing: '.12em' }}>ZULU</div>
-              <div style={{ fontSize: 17, fontWeight: 600 }}>{utc ? `${hms(utc)}Z` : '--:--:--'}</div>
-            </div>
-          </div>
-          <button onClick={() => setRefOpen(!refOpen)} aria-expanded={refOpen} aria-label="Reference" title="Reference: minimums, approaches, CV NATOPS" style={hdrBtn(refOpen)}>
-            <IcBook />
-            Reference
-          </button>
-          <button onClick={() => setUiOpen(true)} aria-label="Display settings" title="Display settings" style={{ ...hdrBtn(uiOpen), width: 36, padding: 0, justifyContent: 'center' }}>
-            <IcSliders />
-          </button>
-          <button aria-label="Open another display" title="Pop out to another monitor / device" onClick={() => window.open(window.location.href, '_blank', 'popup,width=1440,height=900')} style={hdrBtn(false)}>
-            <IcDisplays />
-            Displays
-          </button>
-          {optsBtn}
-        </header>
-      ) : (
-        <header style={headerStyle}>
-          {logo(<IcPrifly />, locLabel)}
-          {nav}
-          {sourceSelect}
+        </div>
+        <button onClick={() => setRefOpen(!refOpen)} aria-expanded={refOpen} aria-label="Reference" title="Reference: minimums, approaches, CV NATOPS" style={hdrBtn(refOpen)}>
+          <IcBook />
+          Reference
+        </button>
+        <button aria-label="Open another display" title="Pop out to another monitor / device" onClick={() => window.open(window.location.href, '_blank', 'popup,width=1440,height=900')} style={hdrBtn(false)}>
+          <IcDisplays />
+          Displays
+        </button>
+        {optsBtn}
+      </header>
+
+      {/* PriFly / LSO: the view's own status bar (deck state, wind over deck, view mode) */}
+      {mod !== 'radar' && (
+        <div role="toolbar" aria-label="View status" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 16px', borderBottom: '1px solid #262F3A', background: '#11161C', flex: 'none', overflowX: 'auto', whiteSpace: 'nowrap' }}>
           {mod === 'boss' && (
             <div style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }} aria-label="Deck view mode">
               {([['live', 'Live positions'], ['sand', 'Sand table']] as const).map(([k, l]) => (
@@ -282,27 +280,16 @@ const CatccApp: React.FC = () => {
               ))}
             </div>
           )}
-          {mod === 'lso' && (
-            <>
-              {caseBadge(`${hull ?? '—'} · CASE ${env?.case ?? 'III'}`)}
-              <div className="mono" style={{ fontSize: 12.5, color: '#E6EDF3' }}>{lsoHeaderInfo(pic)}</div>
-            </>
-          )}
-          {seat(seatDef.id, seatDef.short)}
+          {mod === 'lso' && <div className="mono" style={{ fontSize: 12.5, color: '#E6EDF3' }}>{lsoHeaderInfo(pic)}</div>}
           <div style={{ flex: 1 }} />
           {mod === 'boss' && <BossChips pic={pic} />}
-          {mod === 'lso' && deckClear != null && (
-            <div style={{ padding: '6px 14px', borderRadius: 5, background: deckClear ? 'rgba(64,168,91,.2)' : 'rgba(224,82,78,.2)', border: `1px solid ${deckClear ? '#40A85B' : '#E0524E'}`, color: deckClear ? '#8FE0A6' : '#FF9C98', fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 13, letterSpacing: '.12em' }}>
+          {deckClear != null && (
+            <div style={{ padding: '4px 12px', borderRadius: 5, background: deckClear ? 'rgba(64,168,91,.2)' : 'rgba(224,82,78,.2)', border: `1px solid ${deckClear ? '#40A85B' : '#E0524E'}`, color: deckClear ? '#8FE0A6' : '#FF9C98', fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 12.5, letterSpacing: '.12em' }}>
               {deckClear ? 'CLEAR DECK' : 'FOUL DECK'}
             </div>
           )}
-          {feed}
-          <div style={{ textAlign: 'right', fontFamily: "'IBM Plex Mono', monospace", lineHeight: 1.15 }}>
-            <div style={{ fontSize: 17, fontWeight: 600 }}>{local ? `${hms(local)}L` : '--:--:--'}</div>
-            <div style={{ fontSize: 11, color: '#93A1B0' }}>{mod === 'lso' ? `RECOVERY · ${deck?.jets.length ?? 0} aboard` : `${hull ?? '—'} · RECOVERY`}</div>
-          </div>
-          {optsBtn}
-        </header>
+          <span className="mono" style={{ fontSize: 11.5, color: '#93A1B0' }}>{`${hull ?? '—'} · RECOVERY · ${deck?.jets.length ?? 0} aboard`}</span>
+        </div>
       )}
 
       {mod === 'radar' && (
@@ -317,10 +304,6 @@ const CatccApp: React.FC = () => {
           assign={assign}
           uiOpen={uiOpen}
           setUiOpen={setUiOpen}
-          refOpen={refOpen}
-          setRefOpen={setRefOpen}
-          deckClear={deckClear}
-          envCase={{ ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }}
           conflict={conflict}
           setConflict={setConflict}
         />
@@ -328,6 +311,7 @@ const CatccApp: React.FC = () => {
       {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
       {mod === 'boss' && <BossView pic={pic} mode={bossMode} log={log} landedAt={landedAt} />}
       {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
+      {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull: hull ?? '', ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }} />}
     </div>
   );
 };

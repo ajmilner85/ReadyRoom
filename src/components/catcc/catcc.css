@@ -75,3 +75,8 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 /* info panel headline figures: left, centre, right */
 .stat3 > :nth-child(2) { text-align: center; }
 .stat3 > :nth-child(3) { text-align: right; }
+
+/* track-up: the picture is turned about the carrier; text is turned back upright about its own centre
+   (screen-aligned tags and along-line labels, .nr, are handled in their transforms) */
+[data-tu] .scope text { transform-box: fill-box; transform-origin: center; rotate: var(--tu); }
+[data-tu] .scope .nr text { rotate: none; }

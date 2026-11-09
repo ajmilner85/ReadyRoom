@@ -52,6 +52,11 @@ export type SeatRole =
   | 'blso'
   | 'writer'
   | 'mission_commander';
+/**
+ * Seats that edit a carrier's shared plan (radials, stacks, coordination lines, helm orders). While
+ * any of them is held for a carrier (or the mission commander seat), only their holders may edit it.
+ */
+export const PLAN_ROLES: SeatRole[] = ['catcc', 'airops', 'departure', 'marshal', 'approach', 'final', 'ood', 'mission_commander'];
 export const SEAT_ROLES: SeatRole[] = ['strike', 'aw', 'suw', 'catcc', 'airops', 'departure', 'marshal', 'approach', 'final', 'boss', 'miniboss', 'ood', 'lso', 'clso', 'blso', 'writer', 'mission_commander'];
 
 /** A seat is a role on one carrier (hull, e.g. "CVN-72"); the mission commander seat uses carrier "*". */
@@ -132,6 +137,8 @@ export interface CarrierPlan {
   off?: string[];
   /** manual coordination lines toward other carriers (by hull): line bearing and offset (NM) from this ship */
   coord?: Record<string, { brg: number; off: number }>;
+  /** the bridge's ordered course (°T) and speed (kt) */
+  helm?: { crs: number; kt: number };
 }
 
 /** Marshal assignment for one track. Times are seconds of the UTC day. */
@@ -223,7 +230,13 @@ export function cleanPlan(p: unknown): CarrierPlan | null {
       coord[hull] = { brg: v.brg, off: v.off };
     }
   }
-  return { deps: [...deps], stacks: out, ...(off?.length ? { off: [...off] } : {}), ...(coord && Object.keys(coord).length ? { coord } : {}) };
+  const helmIn = (p as CarrierPlan).helm;
+  let helm: { crs: number; kt: number } | undefined;
+  if (helmIn !== undefined) {
+    if (!helmIn || typeof helmIn !== 'object' || !okAngle(helmIn.crs) || typeof helmIn.kt !== 'number' || !Number.isFinite(helmIn.kt) || helmIn.kt < 0 || helmIn.kt > 40) return null;
+    helm = { crs: helmIn.crs, kt: helmIn.kt };
+  }
+  return { deps: [...deps], stacks: out, ...(off?.length ? { off: [...off] } : {}), ...(coord && Object.keys(coord).length ? { coord } : {}), ...(helm ? { helm } : {}) };
 }
 
 export function cleanAssignment(a: unknown): Assignment | null {

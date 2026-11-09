@@ -5,6 +5,7 @@ import { AcmiLineParser } from '../../src/catcc/core/acmi/parser.ts';
 import { HookTrackStore } from '../../src/catcc/core/dcs/hookTrackStore.ts';
 import {
   ROOM_PROTO,
+  PLAN_ROLES,
   SEAT_ROLES,
   cleanAssignment,
   cleanPlan,
@@ -176,7 +177,7 @@ class Source {
 
   /** Open to all until someone holds a seat on this carrier (or MC); then seat holders only. */
   mayEdit(userId: string, carrier: string): boolean {
-    const relevant = [...this.seats.values()].filter((s) => s.carrier === carrier || s.carrier === '*');
+    const relevant = [...this.seats.values()].filter((s) => (s.carrier === carrier || s.carrier === '*') && PLAN_ROLES.includes(s.role));
     return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
 

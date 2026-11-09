@@ -19,6 +19,22 @@ export interface RadarPreset {
   tool: Tool;
 }
 
+/** Sidebar sections a radar seat shows. */
+export type LeftTab = 'info' | 'strips';
+export type RightSection = 'dep' | 'marshal' | 'coord' | 'deck' | 'donors' | 'helm' | 'notes';
+
+/** What a radar seat's interface offers: scope tools, range presets, sidebars. */
+export interface SeatUi {
+  tools: Tool[];
+  fits: Exclude<Fit, null>[];
+  /** comms scripts (CATCC phraseology) */
+  comms: boolean;
+  /** north-up / track-up switch */
+  trackUp: boolean;
+  left: LeftTab[];
+  right: RightSection[];
+}
+
 export interface SeatDef {
   id: SeatRole;
   loc: LocationId;
@@ -27,6 +43,7 @@ export interface SeatDef {
   short: string;
   view: SeatView;
   radar?: RadarPreset;
+  ui?: SeatUi;
 }
 
 export const LOCATIONS: { id: LocationId; label: string; name: string }[] = [
@@ -60,26 +77,39 @@ const P_OOD = preset({ ...CV_TRAFFIC_OFF, brc: true, fb: false, pim: true, terr:
 
 // ---------------------------------------------------------------- seats
 
-const S = (id: SeatRole, loc: LocationId, label: string, short: string, view: SeatView, radar?: RadarPreset): SeatDef => ({ id, loc, label, short, view, radar });
+const S = (id: SeatRole, loc: LocationId, label: string, short: string, view: SeatView, radar?: RadarPreset, ui?: SeatUi): SeatDef => ({ id, loc, label, short, view, radar, ui });
+
+// ---------------------------------------------------------------- seat interfaces
+const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp });
+/** CATCC as one seat: every control tool and panel */
+const U_CATCC = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 'dep', 'app'], ['info', 'strips'], ['dep', 'marshal', 'coord', 'deck', 'notes'], { comms: true });
+const U_DEP = ui(['select', 'bra', 'cpa', 'vec'], ['dep', 'cca', 'r50'], ['info', 'strips'], ['dep', 'coord', 'notes'], { comms: true });
+const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['app', 'cca', 'r50'], ['info', 'strips'], ['marshal', 'coord', 'notes'], { comms: true });
+const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['app', 'cca'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
+const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'], ['deck', 'notes'], { comms: true });
+/** CDC: the air picture across the theatre and the sensors feeding it */
+const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'r50', 'cca'], ['info', 'strips'], ['donors', 'notes']);
+/** Bridge: conning the ship; no traffic control */
+const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm'], { trackUp: true });
 
 export const SEATS: Record<SeatRole, SeatDef> = {
-  strike: S('strike', 'cdc', 'Strike', 'STRIKE', 'radar', P_STRIKE),
-  aw: S('aw', 'cdc', 'Air Warfare', 'AW', 'radar', P_AW),
-  suw: S('suw', 'cdc', 'Surface Warfare', 'SUW', 'radar', P_SUW),
-  catcc: S('catcc', 'catcc', 'CATCC', 'CATCC', 'radar', P_CATCC),
-  airops: S('airops', 'catcc', 'Air Ops', 'AIR OPS', 'radar', P_CATCC),
-  departure: S('departure', 'catcc', 'Departure', 'DEPARTURE', 'radar', P_DEP),
-  marshal: S('marshal', 'catcc', 'Marshal', 'MARSHAL', 'radar', P_MARSHAL),
-  approach: S('approach', 'catcc', 'Approach', 'APPROACH', 'radar', P_APPROACH),
-  final: S('final', 'catcc', 'Final', 'FINAL', 'radar', P_FINAL),
+  strike: S('strike', 'cdc', 'Strike', 'STRIKE', 'radar', P_STRIKE, U_CDC),
+  aw: S('aw', 'cdc', 'Air Warfare', 'AW', 'radar', P_AW, U_CDC),
+  suw: S('suw', 'cdc', 'Surface Warfare', 'SUW', 'radar', P_SUW, U_CDC),
+  catcc: S('catcc', 'catcc', 'CATCC', 'CATCC', 'radar', P_CATCC, U_CATCC),
+  airops: S('airops', 'catcc', 'Air Ops', 'AIR OPS', 'radar', P_CATCC, U_CATCC),
+  departure: S('departure', 'catcc', 'Departure', 'DEPARTURE', 'radar', P_DEP, U_DEP),
+  marshal: S('marshal', 'catcc', 'Marshal', 'MARSHAL', 'radar', P_MARSHAL, U_MARSHAL),
+  approach: S('approach', 'catcc', 'Approach', 'APPROACH', 'radar', P_APPROACH, U_APPROACH),
+  final: S('final', 'catcc', 'Final', 'FINAL', 'radar', P_FINAL, U_FINAL),
   boss: S('boss', 'prifly', 'Air Boss', 'AIR BOSS', 'boss'),
   miniboss: S('miniboss', 'prifly', 'Mini Boss (Tower)', 'MINI BOSS', 'boss'),
-  ood: S('ood', 'bridge', 'Officer of the Deck', 'OOD', 'radar', P_OOD),
+  ood: S('ood', 'bridge', 'Officer of the Deck', 'OOD', 'radar', P_OOD, U_OOD),
   lso: S('lso', 'lso', 'LSO', 'LSO', 'lso'),
   clso: S('clso', 'lso', 'Controlling LSO', 'CONTROLLING', 'lso'),
   blso: S('blso', 'lso', 'Backup LSO', 'BACKUP', 'lso'),
   writer: S('writer', 'lso', 'Writer', 'WRITER', 'lso'),
-  mission_commander: S('mission_commander', 'cdc', 'Mission Commander', 'MC', 'radar', P_STRIKE),
+  mission_commander: S('mission_commander', 'cdc', 'Mission Commander', 'MC', 'radar', P_STRIKE, U_CDC),
 };
 
 const LAYOUTS: Record<SeatLayout, Record<LocationId, SeatRole[]>> = {
@@ -113,5 +143,3 @@ export function resolveSeat(layout: SeatLayout, want: string | null | undefined)
   return here.find((s) => s.view === def.view && (s.radar?.fit ?? null) === (def.radar?.fit ?? null)) ?? here[0];
 }
 
-/** Seats at CATCC: holding any of them for a carrier is what lets a controller edit its plan. */
-export const CATCC_ROLES: SeatRole[] = ['catcc', 'airops', 'departure', 'marshal', 'approach', 'final'];

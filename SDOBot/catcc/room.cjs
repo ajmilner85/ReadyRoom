@@ -3985,6 +3985,7 @@ var HookTrackStore = class {
 
 // src/catcc/core/room/protocol.ts
 var ROOM_PROTO = 1;
+var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
 var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
 var r = (n, dp) => n === void 0 || !Number.isFinite(n) ? void 0 : Math.round(n * 10 ** dp) / 10 ** dp;
 function toWire(t) {
@@ -4040,7 +4041,13 @@ function cleanPlan(p) {
       coord[hull] = { brg: v.brg, off: v.off };
     }
   }
-  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {}, ...coord && Object.keys(coord).length ? { coord } : {} };
+  const helmIn = p.helm;
+  let helm;
+  if (helmIn !== void 0) {
+    if (!helmIn || typeof helmIn !== "object" || !okAngle(helmIn.crs) || typeof helmIn.kt !== "number" || !Number.isFinite(helmIn.kt) || helmIn.kt < 0 || helmIn.kt > 40) return null;
+    helm = { crs: helmIn.crs, kt: helmIn.kt };
+  }
+  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {}, ...coord && Object.keys(coord).length ? { coord } : {}, ...helm ? { helm } : {} };
 }
 function cleanAssignment(a) {
   if (!a || typeof a !== "object") return null;
@@ -4568,7 +4575,7 @@ var Source = class {
   }
   /** Open to all until someone holds a seat on this carrier (or MC); then seat holders only. */
   mayEdit(userId, carrier) {
-    const relevant = [...this.seats.values()].filter((s) => s.carrier === carrier || s.carrier === "*");
+    const relevant = [...this.seats.values()].filter((s) => (s.carrier === carrier || s.carrier === "*") && PLAN_ROLES.includes(s.role));
     return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
   broadcastSeats() {
