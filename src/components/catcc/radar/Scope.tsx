@@ -1638,24 +1638,19 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             (props.bulls ?? []).map((b) => {
               const p = pic.proj!.toScope(b.lat, b.lon);
               const c = b.side === 'blue' ? '#6FB6E6' : '#FF8A85';
-              // compass rose: 30° spokes out to 100 NM, ticks every 25 NM, bearings at the ends
+              // compass rose: 30° spokes and range rings every 10 NM out to 100 NM, bearings at the ends
               const at = (brg: number, r: number): Pt => [p[0] + r * Math.sin(brg * D2R), p[1] - r * Math.cos(brg * D2R)];
               const spokes = Array.from({ length: 12 }, (_, i) => i * 30);
-              const tick = 0.35 * zkO;
               return (
                 <g key={b.side}>
-                <g stroke={c} fill="none" style={{ pointerEvents: 'none' }}>
+                <g stroke={c} fill="none" style={{ pointerEvents: 'none', strokeWidth: 'calc(1px * var(--lw, 1))' }}>
+                  {Array.from({ length: 10 }, (_, i) => (i + 1) * 10).map((r) => (
+                    <circle key={`r${r}`} cx={f2(p[0])} cy={f2(p[1])} r={r} strokeOpacity={r % 50 === 0 ? 0.3 : 0.16} />
+                  ))}
                   {spokes.map((brg) => {
                     const a = at(brg, 2.3 * zkO);
                     const e = at(brg, 100);
-                    const ticks = [25, 50, 75].map((r) => {
-                      const m = at(brg, r);
-                      const v: Pt = [tick * Math.cos(brg * D2R), tick * Math.sin(brg * D2R)];
-                      return `M${f2(m[0] - v[0])} ${f2(m[1] - v[1])}L${f2(m[0] + v[0])} ${f2(m[1] + v[1])}`;
-                    });
-                    return (
-                      <path key={brg} d={`M${f2(a[0])} ${f2(a[1])}L${f2(e[0])} ${f2(e[1])}${ticks.join('')}`} strokeOpacity={brg % 90 === 0 ? 0.34 : 0.22} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
-                    );
+                    return <path key={brg} d={`M${f2(a[0])} ${f2(a[1])}L${f2(e[0])} ${f2(e[1])}`} strokeOpacity={brg % 90 === 0 ? 0.34 : 0.22} />;
                   })}
                 </g>
                 {spokes.map((brg) => {
