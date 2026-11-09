@@ -187,7 +187,7 @@ const msS = (t: number) => {
 };
 const zs = (a: Pt, k: number) => `translate(${f2(a[0])} ${f2(a[1])}) scale(${k.toFixed(4)}) translate(${f2(-a[0])} ${f2(-a[1])})`;
 const HELO_HOLD: HoldSpec = { legNm: 2, turnNm: 0.5 };
-const clampW = (w: number) => Math.max(12, Math.min(440, w));
+const clampW = (w: number) => Math.max(12, Math.min(900, w));
 
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
@@ -276,7 +276,7 @@ const AltSlider: React.FC<{ value: { lo: number; hi: number } | null; onChange: 
     </div>
   );
   return (
-    <div aria-label="Altitude filter" style={{ width: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '9px 0 9px', background: 'rgba(21,26,33,.96)', border: `1px solid ${on ? '#F15822' : '#374250'}`, borderRadius: 6 }}>
+    <div aria-label="Altitude filter" style={{ userSelect: 'none', WebkitUserSelect: 'none', width: 48, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 6, padding: '9px 0 9px', background: 'rgba(21,26,33,.96)', border: `1px solid ${on ? '#F15822' : '#374250'}`, borderRadius: 6 }}>
       <span className="mono" title="Altitude filter (angels)" style={{ fontSize: 9, letterSpacing: '.08em', color: on ? '#FFB08F' : '#93A1B0' }}>ALT</span>
       {/* the handles overhang the track's ends by half their height: the margin keeps them clear of the label and reset */}
       <div ref={ref} onPointerDown={onTrack} style={{ position: 'relative', width: 16, height: H, margin: '12px 0', cursor: 'pointer', touchAction: 'none' }}>
@@ -606,7 +606,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     return { zw: clampW(Math.max(w, h / asp)), zx: (xa + xb) / 2, zy: (ya + yb) / 2 };
   };
   const fits: Record<Exclude<Fit, null>, () => { zw: number; zx: number; zy: number }> = {
-    thr: () => fitBox([[-200, -200], [200, 200]], 0),
+    // as much of the theatre as the view can show (the theatre clamp then keeps it inside)
+    thr: () => (tBounds ? fitBox([[tBounds.x0, tBounds.y0], [tBounds.x1, tBounds.y1]], 0) : fitBox([[-200, -200], [200, 200]], 0)),
+    // everything of interest: aircraft, carriers and other ships
+    fit: () => fitBox([[0, 0] as Pt, ...pic.air.map((t) => t.p), ...pic.carriers.map((c) => c.track.p), ...(pic.ships ?? []).map((t) => t.p)], 8),
+    // the own side's bullseye, 100 NM around it
+    bulls: () => {
+      const be = props.bulls?.[0];
+      const b = be && pic.proj ? pic.proj.toScope(be.lat, be.lon) : null;
+      return b ? fitBox([[b[0] - 100, b[1] - 100], [b[0] + 100, b[1] + 100]], 0) : fitBox([[-100, -100], [100, 100]], 0);
+    },
     r50: () => fitBox([[-50, -50], [50, 50]], 0),
     cca: () => fitBox([[-70, -70], [70, 70]], 0),
     dep: () => fitBox([[0, 0] as Pt, ...plan.deps.map((r) => P(r, 50)), P(ship?.brc ?? 0, 10)], 3),
@@ -1690,7 +1699,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['vec', 'Vector / heading line', <IcVec key="v" />],
   ];
   const fitDefs: [Exclude<Fit, null>, string, string][] = [
-    ['thr', 'THTR', 'Theatre: 200 NM around the carrier'],
+    ['thr', 'THEATRE', 'As much of the theatre as fits'],
+    ['fit', 'FIT', 'Fit all contacts, carriers and ships'],
+    ['bulls', 'BULLS', 'The bullseye, 100 NM around it'],
     ['r50', '50NM', 'Default range: 50 NM around the carrier'],
     ['cca', 'CCA', 'Fit CCA + 20 NM'],
     ['dep', 'DEP', 'Fit carrier and departure radials'],

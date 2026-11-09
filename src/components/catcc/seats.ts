@@ -90,7 +90,7 @@ const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['app', 'cca', 
 const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['app', 'cca'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
 const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'], ['deck', 'notes'], { comms: true });
 /** CDC: the air picture across the theatre and the sensors feeding it */
-const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'r50', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true });
+const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true });
 /** Bridge: conning the ship; no traffic control */
 const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm'], { trackUp: true });
 

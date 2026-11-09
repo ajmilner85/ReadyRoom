@@ -2,7 +2,7 @@ import type { RoutePoint } from '../../../catcc/core/dcs/hookProtocol.ts';
 import type { Pt } from '../../../catcc/core/geometry/vec.ts';
 /** Radar UI types and display-scale constants (handoff §8). */
 export type Tool = 'select' | 'bra' | 'marshal' | 'cpa' | 'vec';
-export type Fit = 'thr' | 'r50' | 'cca' | 'dep' | 'app' | null;
+export type Fit = 'thr' | 'fit' | 'bulls' | 'r50' | 'cca' | 'dep' | 'app' | null;
 export type Highlight = { k: 'dep'; id: number } | { k: 'm'; id: string } | { k: 'e' } | { k: 'h' };
 export type Editing = { k: 'dep'; r: number } | { k: 'm'; id: string } | { k: 'coord'; hull: string };
 export interface Placement {
