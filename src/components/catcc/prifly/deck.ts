@@ -3,7 +3,7 @@
  * (blueprint-traced, metres; X forward, Y port; origin = 3-wire touchdown point), plus helpers to
  * place live aircraft on the deck.
  */
-import type { ScopeTrack, Carrier } from '../scopeModel.ts';
+import type { ScopeTrack, Carrier, Picture } from '../scopeModel.ts';
 
 type V = [number, number];
 const G = {
@@ -151,4 +151,14 @@ export function inLandingArea(x: number, y: number): boolean {
 export function onCat(jets: DeckJet[], k: string): DeckJet | undefined {
   const a = G.cats[k][0];
   return jets.find((j) => Math.hypot(j.x - a[0], j.y - a[1]) < 12);
+}
+
+/** Jets on the focus carrier's deck, those in the landing area, and what's spotted on each catapult. */
+export function deckStatus(pic: Picture) {
+  const f = pic.focus;
+  if (!f) return null;
+  const jets = onDeck(f, pic.air);
+  const foul = jets.filter((j) => inLandingArea(j.x, j.y));
+  const cats = Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(jets, k)]));
+  return { jets, foul, cats };
 }

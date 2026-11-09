@@ -3,7 +3,7 @@
  * one, the deck is foul while an aircraft is in the landing area.
  */
 import type { OpsState } from '../../catcc/core/room/ops.ts';
-import { deckStatus } from './prifly/BossView.tsx';
+import { deckStatus } from './prifly/deck.ts';
 import type { Picture } from './scopeModel.ts';
 
 export interface DeckCall {

@@ -8,7 +8,7 @@ import { nextPimTurn, pimAt } from '../../../catcc/core/env/weather.ts';
 import type { RoutePoint } from '../../../catcc/core/dcs/hookProtocol.ts';
 import type { Carrier, Picture } from '../scopeModel.ts';
 import { intoWind, windOverDeck } from '../../../catcc/core/env/wod.ts';
-import { deckStatus } from '../prifly/BossView.tsx';
+import { deckStatus } from '../prifly/deck.ts';
 import type { RadarDonor } from './types.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');

@@ -2,20 +2,16 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import { fuelK, type Picture } from '../scopeModel.ts';
-import { CATS, DECK, FOLDED, SPREAD, inLandingArea, jetShape, onCat, onDeck, type DeckJet } from './deck.ts';
+import { CATS, DECK, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, onCat, type DeckJet } from './deck.ts';
 import type { DeckEvent } from './useDeckLog.ts';
+import type { OpsState } from '../../../catcc/core/room/ops.ts';
+import type { DeckCall } from '../deck.ts';
+import { DeckBar, LaunchTab, LightsPanel } from './BossPanels.tsx';
+import { PRIFLY_LIGHTS } from './lights.ts';
 
 type Mode = 'live' | 'sand';
 type V = [number, number];
 
-export function deckStatus(pic: Picture) {
-  const f = pic.focus;
-  if (!f) return null;
-  const jets = onDeck(f, pic.air);
-  const foul = jets.filter((j) => inLandingArea(j.x, j.y));
-  const cats = Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(jets, k)]));
-  return { jets, foul, cats };
-}
 
 export const BossChips: React.FC<{ pic: Picture }> = ({ pic }) => {
   const st = deckStatus(pic);
@@ -77,7 +73,19 @@ function useAirPlan(): { rows: AirPlanRow[]; day: string } {
   return { rows, day: new Date().toLocaleDateString(undefined, { day: 'numeric', month: 'short' }) };
 }
 
-export const BossView: React.FC<{ pic: Picture; mode: Mode; log: DeckEvent[]; landedAt: Map<string, number> }> = ({ pic, mode, log, landedAt }) => {
+export const BossView: React.FC<{
+  pic: Picture;
+  mode: Mode;
+  log: DeckEvent[];
+  landedAt: Map<string, number>;
+  ops?: OpsState;
+  setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void;
+  deck: DeckCall | null;
+  readOnly: boolean;
+  /** Mini Boss opens on the air plan, the Air Boss on launch */
+  defaultTab?: 'launch' | 'lights' | 'plan';
+}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, defaultTab }) => {
+  const [tab, setTab] = useState<'launch' | 'lights' | 'plan'>(defaultTab ?? 'launch');
   const st = deckStatus(pic);
   const plan = useAirPlan();
   const [chits, setChits] = useState<Record<string, { x: number; y: number; a: number }>>({});
@@ -129,7 +137,10 @@ export const BossView: React.FC<{ pic: Picture; mode: Mode; log: DeckEvent[]; la
   const labelCol: Record<string, string> = { sel: '#FFB08F', green: '#7FD397', white: '#C9D3DD', gray: '#93A1B0' };
 
   return (
-    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 14, padding: 14, overflow: 'auto', minHeight: 0 }}>
+    <div style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: 14, padding: 14, overflow: 'auto', minHeight: 0, alignContent: 'flex-start' }}>
+      <div style={{ flex: '1 1 100%' }}>
+        <DeckBar pic={pic} deck={deck} ops={ops} setOps={setOps} readOnly={readOnly} />
+      </div>
       <section aria-label="Flight deck" style={{ flex: '999 1 720px', minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10 }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap' }}>
           <span className="lbl">Flight deck · {mode === 'live' ? 'live from DCS' : 'sand table (manual chits)'}</span>
@@ -255,7 +266,26 @@ export const BossView: React.FC<{ pic: Picture; mode: Mode; log: DeckEvent[]; la
         </div>
       </section>
 
-      <aside aria-label="Events" style={{ flex: '1 1 380px', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 12 }}>
+      <aside aria-label="PLAT, launch, lights and plan" style={{ flex: '1 1 380px', maxWidth: 440, display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <section className="pnl" style={{ padding: 8 }} aria-label="PLAT">
+          <div style={{ position: 'relative', aspectRatio: '16 / 9', background: '#07090C', borderRadius: 4, overflow: 'hidden' }}>
+            <span style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(230,237,243,.25)' }} />
+            <span style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: 'rgba(230,237,243,.25)' }} />
+            <span className="mono" style={{ position: 'absolute', left: 8, top: 6, fontSize: 10.5, color: '#93A1B0' }}>PLAT</span>
+            <span className="mono" style={{ position: 'absolute', left: 8, bottom: 6, fontSize: 10.5, color: '#5E6A78' }}>NO SIGNAL · RTMP</span>
+          </div>
+        </section>
+        <div role="tablist" aria-label="PriFly panels" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2, flex: 'none' }}>
+          {([['launch', 'Launch'], ['lights', 'Lights'], ['plan', 'Air plan']] as const).map(([k, l]) => (
+            <button key={k} role="tab" aria-selected={tab === k} onClick={() => setTab(k)} style={{ flex: 1, height: 30, border: 0, borderRadius: 4, fontFamily: "'Saira', sans-serif", fontWeight: 600, fontSize: 13, cursor: 'pointer', background: tab === k ? '#222C37' : 'transparent', color: tab === k ? '#E6EDF3' : '#93A1B0' }}>
+              {l}
+            </button>
+          ))}
+        </div>
+        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={setOps} readOnly={readOnly} />}
+        {tab === 'lights' && <LightsPanel items={PRIFLY_LIGHTS} ops={ops} setOps={setOps} readOnly={readOnly} />}
+        {tab === 'plan' && (
+        <>
         <section style={{ border: '1px solid #262F3A', borderRadius: 8, background: '#151A21', padding: 12 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 }}>
             <span className="lbl">Air plan · {plan.day}</span>
@@ -299,6 +329,8 @@ export const BossView: React.FC<{ pic: Picture; mode: Mode; log: DeckEvent[]; la
             {!log.length && <span style={{ color: '#6B7683' }}>No traps or launches seen yet</span>}
           </div>
         </section>
+        </>
+        )}
       </aside>
     </div>
   );

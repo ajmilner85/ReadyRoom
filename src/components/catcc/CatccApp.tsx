@@ -9,7 +9,8 @@ import { THEATRE_UTC_OFFSET_H } from '../../catcc/core/dcs/aircraft.ts';
 import { carrierByHull } from '../../catcc/core/tracks/naming.ts';
 import type { SeatKey, SeatRole } from '../../catcc/core/room/protocol.ts';
 import { IcBook, IcCatcc, IcDisplays, IcPrifly } from './icons.tsx';
-import { BossChips, BossView, deckStatus } from './prifly/BossView.tsx';
+import { BossView } from './prifly/BossView.tsx';
+import { deckStatus } from './prifly/deck.ts';
 import { LsoView, lsoHeaderInfo } from './prifly/LsoView.tsx';
 import { useDeckLog } from './prifly/useDeckLog.ts';
 import { envSummary } from './radar/InfoPanels.tsx';
@@ -145,6 +146,9 @@ const CatccApp: React.FC = () => {
   // carrier plans are edited from CATCC and the bridge: once any of those seats is held, only its holders may edit
   const carrierSeats = state.seats.filter((s) => (s.carrier === hull || s.carrier === '*') && PLAN_ROLES.includes(s.role));
   const mayEdit = carrierSeats.length === 0 || carrierSeats.some((s) => s.userId === user?.userId);
+  // ops state (deck call, lights, launch, aids, formation): anyone with a seat on this carrier, or anyone while none are held
+  const anyCarrierSeat = state.seats.filter((s) => s.carrier === hull || s.carrier === '*');
+  const mayEditOps = anyCarrierSeat.length === 0 || anyCarrierSeat.some((s) => s.userId === user?.userId);
   const handoffCtx: HandoffCtx = { layout, me: { carrier: hull ?? '', role: seatDef.id }, seats: state.seats, userId: user?.userId, onHandoff: handoff, onAccept: accept };
 
   const seatPill = (key: SeatKey, label: string) => {
@@ -317,8 +321,7 @@ const CatccApp: React.FC = () => {
           )}
           {mod === 'lso' && <div className="mono" style={{ fontSize: 12.5, color: '#E6EDF3' }}>{lsoHeaderInfo(pic)}</div>}
           <div style={{ flex: 1 }} />
-          {mod === 'boss' && <BossChips pic={pic} />}
-          {deckClear != null && (
+          {mod === 'lso' && deckClear != null && (
             <div style={{ padding: '4px 12px', borderRadius: 5, background: deckClear ? 'rgba(64,168,91,.2)' : 'rgba(224,82,78,.2)', border: `1px solid ${deckClear ? '#40A85B' : '#E0524E'}`, color: deckClear ? '#8FE0A6' : '#FF9C98', fontFamily: "'IBM Plex Mono', monospace", fontWeight: 600, fontSize: 12.5, letterSpacing: '.12em' }}>
               {deckClear ? 'CLEAR DECK' : 'FOUL DECK'}
             </div>
@@ -338,7 +341,7 @@ const CatccApp: React.FC = () => {
           defaultRange={seatDef.id === 'final' ? 12 : 24}
           handoffCtx={handoffCtx}
           owners={state.owners}
-          readOnly={!mayEdit}
+          readOnly={!mayEditOps}
         />
       )}
       {mod === 'radar' && cview === 'radar' && (
@@ -359,7 +362,7 @@ const CatccApp: React.FC = () => {
         />
       )}
       {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
-      {mod === 'boss' && <BossView pic={pic} mode={bossMode} log={log} landedAt={landedAt} />}
+      {mod === 'boss' && <BossView key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} />}
       {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
       {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull: hull ?? '', ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }} />}
     </div>
