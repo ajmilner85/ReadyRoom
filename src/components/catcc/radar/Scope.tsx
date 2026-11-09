@@ -2456,7 +2456,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           </div>
           {af && (
             <div role="status" className="mono" style={{ alignSelf: 'center', padding: '4px 12px', borderRadius: 5, background: '#F15822', color: '#0E1116', fontSize: 12, fontWeight: 700, letterSpacing: '.1em', boxShadow: '0 4px 14px rgba(0,0,0,.45)' }}>
-              {`ALT FILTER · A${af.lo / 1000}–A${af.hi / 1000} · ${dim.size} DIMMED`}
+              {`Altitude Filter Applied · A${af.lo / 1000}–A${af.hi / 1000} · ${dim.size} ${dim.size === 1 ? 'Contact' : 'Contacts'} Dimmed`}
             </div>
           )}
           {!!ROT && (
