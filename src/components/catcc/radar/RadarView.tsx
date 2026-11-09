@@ -140,6 +140,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
   const lefts = sui?.left ?? ['info', 'strips'];
   const rights = sui?.right ?? ['dep', 'marshal', 'coord', 'notes'];
   const [ltab, setLtab] = useState<'info' | 'strips'>(lefts.includes('strips') ? 'strips' : 'info');
+  // altitude filter (not saved: it's a moment's tool, and a conflict outside it clears it)
+  const [altF, setAltF] = useState<{ lo: number; hi: number } | null>(null);
   // north-up / track-up, per seat
   const [tu, setTu] = useState<{ on: boolean }>(() => load(`catcc.tu.${seat.id}`, { on: false }));
   useEffect(() => save(`catcc.tu.${seat.id}`, tu), [tu, seat.id]);
@@ -428,6 +430,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ seat, state, pic, offH, ma
         comms={sui?.comms ?? true}
         trackUp={!!sui?.trackUp && tu.on}
         ringsFar={!!sui?.ringsFar}
+        altFilter={altF}
+        onAltFilter={setAltF}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
         onOpenDisplay={() => setUiOpen(true)}
         donors={donors}

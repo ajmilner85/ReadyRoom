@@ -92,7 +92,7 @@ const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number }> =
     </svg>
   );
 };
-import { STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { inAltBlock, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
 import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
@@ -129,6 +129,9 @@ export interface ScopeProps {
   trackUp?: boolean;
   /** range rings from the carrier out to the theatre's edge (CDC) instead of 10-40 NM */
   ringsFar?: boolean;
+  /** altitude block (ft): aircraft outside it, and not climbing or descending into it, are dimmed and untagged */
+  altFilter?: { lo: number; hi: number } | null;
+  onAltFilter?: (f: { lo: number; hi: number } | null) => void;
   /** offer the north-up / track-up switch (and its state handler) */
   onTrackUp?: (on: boolean) => void;
   /** the seat's scope tools, range presets and whether it has comms scripts */
@@ -200,6 +203,93 @@ const BATHY_K = 1;
 const FB_U: Pt = [6.1 / Math.hypot(6.1, 13.7), 13.7 / Math.hypot(6.1, 13.7)];
 /** IFLOLS / LSO handover: 3/4 SM astern, NM */
 const IFLOLS_NM = 0.75 * 0.868976;
+
+// ---------------------------------------------------------------- altitude filter
+
+const ALT_MAX = 50;
+
+/**
+ * Vertical two-handle slider (angels 0-50) setting the altitude block; Reset clears it. Inactive it
+ * spans the whole range in grey; set, the block is orange and labelled.
+ */
+const AltSlider: React.FC<{ value: { lo: number; hi: number } | null; onChange: (f: { lo: number; hi: number } | null) => void }> = ({ value, onChange }) => {
+  const H = 260;
+  const ref = useRef<HTMLDivElement>(null);
+  const lo = value ? value.lo / 1000 : 0;
+  const hi = value ? value.hi / 1000 : ALT_MAX;
+  const yOf = (a: number) => H - (a / ALT_MAX) * H;
+  const aOf = (clientY: number) => {
+    const r = ref.current!.getBoundingClientRect();
+    return Math.max(0, Math.min(ALT_MAX, Math.round(((r.bottom - clientY) / r.height) * ALT_MAX)));
+  };
+  const set = (l: number, h: number) => (l <= 0 && h >= ALT_MAX ? onChange(null) : onChange({ lo: l * 1000, hi: h * 1000 }));
+  const drag = (which: 'lo' | 'hi') => (e: React.PointerEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    const mv = (ev: PointerEvent) => {
+      const a = aOf(ev.clientY);
+      if (which === 'lo') set(Math.min(a, hi - 1), hi);
+      else set(lo, Math.max(a, lo + 1));
+    };
+    const up = () => {
+      window.removeEventListener('pointermove', mv);
+      window.removeEventListener('pointerup', up);
+    };
+    window.addEventListener('pointermove', mv);
+    window.addEventListener('pointerup', up);
+  };
+  // a click on the track moves the nearer handle there
+  const onTrack = (e: React.PointerEvent) => {
+    const a = aOf(e.clientY);
+    if (Math.abs(a - lo) <= Math.abs(a - hi)) set(Math.min(a, hi - 1), hi);
+    else set(lo, Math.max(a, lo + 1));
+    drag(Math.abs(a - lo) <= Math.abs(a - hi) ? 'lo' : 'hi')(e);
+  };
+  const on = !!value;
+  const C = on ? '#F15822' : '#5E6A78';
+  const handle = (which: 'lo' | 'hi', a: number) => (
+    <div
+      role="slider"
+      aria-label={which === 'lo' ? 'Altitude filter floor' : 'Altitude filter ceiling'}
+      aria-valuemin={0}
+      aria-valuemax={ALT_MAX}
+      aria-valuenow={a}
+      aria-valuetext={`Angels ${a}`}
+      tabIndex={0}
+      onPointerDown={drag(which)}
+      onKeyDown={(e) => {
+        const d = e.key === 'ArrowUp' ? 1 : e.key === 'ArrowDown' ? -1 : 0;
+        if (!d) return;
+        e.preventDefault();
+        if (which === 'lo') set(Math.max(0, Math.min(lo + d, hi - 1)), hi);
+        else set(lo, Math.min(ALT_MAX, Math.max(hi + d, lo + 1)));
+      }}
+      style={{ position: 'absolute', left: -9, top: yOf(a) - 8, width: 34, height: 16, borderRadius: 4, background: on ? '#F15822' : '#374250', border: `1px solid ${on ? '#FFB08F' : '#5E6A78'}`, color: on ? '#0E1116' : '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10, fontWeight: 600, lineHeight: '14px', textAlign: 'center', cursor: 'ns-resize', touchAction: 'none' }}
+    >
+      {a}
+    </div>
+  );
+  return (
+    <div aria-label="Altitude filter" style={{ width: 40, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 8, padding: '8px 0 6px', background: 'rgba(21,26,33,.96)', border: `1px solid ${on ? '#F15822' : '#374250'}`, borderRadius: 6 }}>
+      <span className="mono" title="Altitude filter (angels)" style={{ fontSize: 9, letterSpacing: '.08em', color: on ? '#FFB08F' : '#93A1B0' }}>ALT</span>
+      <div ref={ref} onPointerDown={onTrack} style={{ position: 'relative', width: 16, height: H, cursor: 'pointer', touchAction: 'none' }}>
+        <div style={{ position: 'absolute', left: 6, width: 4, top: 0, bottom: 0, borderRadius: 2, background: '#262F3A' }} />
+        <div style={{ position: 'absolute', left: 5, width: 6, top: yOf(hi), height: yOf(lo) - yOf(hi), borderRadius: 3, background: C, opacity: on ? 1 : 0.6 }} />
+        {[10, 20, 30, 40].map((a) => (
+          <div key={a} style={{ position: 'absolute', left: 0, width: 3, top: yOf(a), height: 1, background: '#5E6A78' }} />
+        ))}
+        {handle('hi', hi)}
+        {handle('lo', lo)}
+      </div>
+      <button onClick={() => onChange(null)} disabled={!on} title="Reset the altitude filter" aria-label="Reset altitude filter" style={{ width: 28, height: 24, padding: 0, borderRadius: 4, border: `1px solid ${on ? '#F15822' : '#374250'}`, background: 'transparent', color: on ? '#FFB08F' : '#5E6A78', cursor: on ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+          <path d="M4 12a8 8 0 1 0 2.4-5.7" />
+          <path d="M4 4v5h5" />
+        </svg>
+      </button>
+    </div>
+  );
+};
 
 // ---------------------------------------------------------------- component
 
@@ -1322,11 +1412,24 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return { id: t.id, x: q[0], y: q[1], rot: (Math.atan2(dy, dx) * 180) / Math.PI, c: red ? '#FF8A85' : isBlue(t) ? BLUE_HIT : TRK, ring: red };
     });
 
+  // ------------------------------------------------ altitude filter
+  const af = props.altFilter;
+  const dim = new Set<string>();
+  if (af) for (const t of pic.air) if (!inAltBlock(t, af)) dim.add(t.id);
+  // a conflict involving an aircraft the filter hides clears the filter at once
+  const dimConflict = !!af && pic.conflicts.some((c) => dim.has(c.a.id) || dim.has(c.b.id));
+  useEffect(() => {
+    if (dimConflict) props.onAltFilter?.(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dimConflict]);
+  const dimOp = (id: string) => (dim.has(id) ? 0.22 : 1);
+
   // ------------------------------------------------ tags
   type TagItem = { t: ScopeTrack; rows: string[]; color: 'own' | 'red' | 'blue' };
   const tagItems: TagItem[] = [];
   for (const t of pic.air) {
     if (hidden.has(t.id)) continue;
+    if (dim.has(t.id) && t.id !== hookedId) continue;
     if (pic.formations.some((f) => f.collapsible && f.lead !== t && f.members.includes(t) && (fmSel[f.id] ?? 0) > 0)) continue;
     const fi = fmInfo.get(t.id);
     const color = conflictIds.has(t.id) ? 'red' : isBlue(t) ? 'blue' : 'own';
@@ -2108,7 +2211,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               .filter((t) => !hidden.has(t.id))
               .map((t) => {
                 const c = conflictIds.has(t.id) ? '#B8433F' : isBlue(t) ? BLUE_TRAIL : TRK_TRAIL;
-                return t.trail.map((q, i) => <path key={`${t.id}t${i}`} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} stroke={c} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />);
+                return t.trail.map((q, i) => <path key={`${t.id}t${i}`} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} stroke={c} opacity={([0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2) * dimOp(t.id)} />);
               })}
           </g>
           {/* velocity vectors */}
@@ -2119,7 +2222,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 const e = velocityEnd(t);
                 if (!e) return null;
                 const c = conflictIds.has(t.id) ? '#FF8A85' : isBlue(t) ? BLUE_TAG : TRK;
-                return <line key={`v${t.id}`} x1={f2(t.p[0])} y1={f2(t.p[1])} x2={f2(e[0])} y2={f2(e[1])} stroke={c} />;
+                return <line key={`v${t.id}`} x1={f2(t.p[0])} y1={f2(t.p[1])} x2={f2(e[0])} y2={f2(e[1])} stroke={c} opacity={dimOp(t.id)} />;
               })}
           </g>
           {/* ships */}
@@ -2156,7 +2259,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <rect x="-0.4" y="-0.4" width="0.8" height="0.8" fill={col} className="hit" />
               );
               return (
-                <g key={`h${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkH.toFixed(4)})`} opacity={isBlue(t) ? 0.85 : 1}>
+                <g key={`h${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkH.toFixed(4)})`} opacity={(isBlue(t) ? 0.85 : 1) * dimOp(t.id)}>
                   {fi && !fi.sel ? (
                     <>
                       {shape}
@@ -2254,6 +2357,13 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           {props.freqOpen && props.freqPanel}
         </div>
 
+        {/* ---------------- altitude filter (left edge, vertically centred) */}
+        {props.onAltFilter && (
+          <div style={{ position: 'absolute', left: 12, top: '50%', transform: 'translateY(-50%)' }}>
+            <AltSlider value={af ?? null} onChange={props.onAltFilter} />
+          </div>
+        )}
+
         {/* ---------------- toolbar */}
         <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
           <div role="toolbar" aria-label="Radar tools" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, background: 'rgba(21,26,33,.96)', border: '1px solid #374250', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.45)' }}>
@@ -2336,6 +2446,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </>
             )}
           </div>
+          {af && (
+            <div role="status" className="mono" style={{ alignSelf: 'center', padding: '4px 12px', borderRadius: 5, background: '#F15822', color: '#0E1116', fontSize: 12, fontWeight: 700, letterSpacing: '.1em', boxShadow: '0 4px 14px rgba(0,0,0,.45)' }}>
+              {`ALT FILTER · A${af.lo / 1000}–A${af.hi / 1000} · ${dim.size} DIMMED`}
+            </div>
+          )}
           {!!ROT && (
             // north pointer while the picture is turned
             <div aria-label={`North is ${Math.round(norm360(-ROT))}° from up`} title="North" style={{ alignSelf: 'center', width: 34, height: 34, borderRadius: '50%', background: 'rgba(21,26,33,.96)', border: '1px solid #374250', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../catcc/core/geo.ts';
 import type { WireTrack } from '../../catcc/core/room/protocol.ts';
-import { buildPicture, phaseOf, shortType, tagRows, type Trail } from './scopeModel.ts';
+import { buildPicture, inAltBlock, phaseOf, shortType, tagRows, type Trail } from './scopeModel.ts';
 
 const CV = { lat: 26.2, lon: 56.8 };
 function at(brg: number, rng: number) {
@@ -113,5 +113,17 @@ describe('tags and phases', () => {
     const ph = Object.fromEntries(pic.formations.map((f) => [f.lead.id, phaseOf(f, new Set(['none']))]));
     expect(ph).toEqual({ in: 'inbound', out: 'departure', app: 'approach', tk: 'support' });
     expect(phaseOf(pic.formations.find((f) => f.lead.id === 'in')!, new Set(['in']))).toBe('marshal');
+  });
+});
+
+describe('altitude filter block', () => {
+  const f = { lo: 10000, hi: 15000 };
+  it('keeps aircraft in the block and those climbing or descending into it within 2 minutes', () => {
+    expect(inAltBlock({ alt: 12000 }, f)).toBe(true);
+    expect(inAltBlock({ alt: 8000, vs: 1500 }, f)).toBe(true);
+    expect(inAltBlock({ alt: 8000, vs: 500 }, f)).toBe(false);
+    expect(inAltBlock({ alt: 18000, vs: -2000 }, f)).toBe(true);
+    expect(inAltBlock({ alt: 18000, vs: 2000 }, f)).toBe(false);
+    expect(inAltBlock({ alt: 9000 }, f)).toBe(false);
   });
 });

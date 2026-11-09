@@ -268,3 +268,17 @@ export interface ScopeScale {
 }
 
 export const DEFAULT_SCALE: ScopeScale = { hits: 1.3, tags: 1.3, lines: 1.5, text: 1.3 };
+
+// ---------------------------------------------------------------- altitude filter
+
+/** Look-ahead for "climbing or descending into" the filtered block, s. */
+const ALT_LOOKAHEAD_S = 120;
+
+/** In the block, or climbing / descending into it within the look-ahead. */
+export function inAltBlock(t: { alt: number; vs?: number }, f: { lo: number; hi: number }): boolean {
+  if (t.alt >= f.lo && t.alt <= f.hi) return true;
+  const vs = t.vs ?? 0;
+  if (Math.abs(vs) < 300) return false;
+  const later = t.alt + (vs * ALT_LOOKAHEAD_S) / 60;
+  return (t.alt < f.lo && vs > 0 && later >= f.lo) || (t.alt > f.hi && vs < 0 && later <= f.hi);
+}
