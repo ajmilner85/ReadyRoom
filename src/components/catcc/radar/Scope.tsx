@@ -1561,11 +1561,23 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               })}
             </g>
           )}
-          {pic.carriers.map((c) =>
-            c.focus ? (
+          {pic.carriers.map((c) => {
+            // "CVN-71 CCA 50NM" just outside the 12 o'clock point of the CCA circle
+            const ccaLabel = (o: Pt, color: string) => {
+              const q: Pt = [o[0], o[1] - 50 - 0.35 * zkO];
+              return (
+                <g className="zs" transform={zs(q, zkO)} style={{ pointerEvents: 'none' }}>
+                  <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" stroke="#0B0E12" strokeDasharray="none" style={{ fill: color, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                    {`${c.track.hull ? `${c.track.hull} ` : ''}CCA 50NM`}
+                  </text>
+                </g>
+              );
+            };
+            return c.focus ? (
               ov.cca && (
                 <g key={`cca${c.track.id}`} style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} fill="none" strokeDasharray="10 5">
                   <circle cx="0" cy="0" r="50" stroke="rgba(64,168,91,.75)" />
+                  {ccaLabel([0, 0], 'rgba(110,200,130,.95)')}
                 </g>
               )
             ) : (
@@ -1573,6 +1585,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 {ov2.cca && (
                   <g style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} fill="none" strokeDasharray="10 5">
                     <circle cx={f2(c.track.p[0])} cy={f2(c.track.p[1])} r="50" stroke="rgba(62,155,212,.55)" />
+                    {ccaLabel(c.track.p, 'rgba(110,182,230,.9)')}
                   </g>
                 )}
                 {ov2.rings && (
@@ -1583,8 +1596,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   </g>
                 )}
               </g>
-            ),
-          )}
+            );
+          })}
         </svg>
 
         {/* ---------------- overlays */}
