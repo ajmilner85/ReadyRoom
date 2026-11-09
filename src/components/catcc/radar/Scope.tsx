@@ -965,20 +965,29 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const pos = dirs.map((d) => add(o, mul(d, R)));
     // ship frame: x to starboard, y along the BRC
     const at = (x: number, y: number): Pt => add(s, add(mul(l, -x), mul(u, y)));
-    // commence: straight from 3 (-5, 0) on BRC + 210° for L, then a left turn of radius Rt onto the
-    // BRC ending at the initial (0, -3). The two end conditions fix L and Rt:
-    //   L·sinθ + Rt(1 − cosθ) = 5,   L·cosθ + Rt·sinθ = −3
+    // commence, flown accelerating from 250 to 350 kt: leave the orbit at 3 (heading the reciprocal)
+    // with a 30° right turn at the 250 kt radius onto BRC + 210°, straight, then a left turn at the
+    // 350 kt radius onto the BRC; the straight leg is sized so the turn rolls out on the BRC line,
+    // which leads on to the initial (3 NM astern)
+    const r1 = turnRadiusNm(250);
+    const r2 = turnRadiusNm(350);
     const th = 210 * D2R;
     const [sn, cs] = [Math.sin(th), Math.cos(th)];
-    const det = sn * sn - cs * (1 - cs);
-    const L = (5 * sn - -3 * (1 - cs)) / det;
-    const Rt = (sn * -3 - cs * 5) / det;
-    const p1 = at(-5 + L * sn, L * cs);
+    // end of the fillet: turned 30° right about (-5 - r1, 0)
+    const qx = -5 - r1 + r1 * Math.cos(30 * D2R);
+    const qy = -r1 * Math.sin(30 * D2R);
+    const L = Math.max(0, (qx + r2 * (1 - cs)) / -sn);
+    const p0 = at(-5, 0);
+    const q = at(qx, qy);
+    const p1x = qx + L * sn;
+    const p1y = qy + L * cs;
+    const p1 = at(p1x, p1y);
+    const e = at(p1x + r2 * (1 - cs), p1y + r2 * sn);
     const initial = at(0, -3);
     return (
       <g key={`ph${c.track.id}`} style={{ pointerEvents: 'none' }}>
         <circle cx={f2(o[0])} cy={f2(o[1])} r={R} fill="none" stroke={C} strokeOpacity="0.75" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} />
-        <path d={`M${f2(pos[2][0])} ${f2(pos[2][1])}L${f2(p1[0])} ${f2(p1[1])}A${f2(Rt)} ${f2(Rt)} 0 1 0 ${f2(initial[0])} ${f2(initial[1])}`} fill="none" stroke={C} strokeOpacity="0.9" strokeDasharray="5 4" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
+        <path d={`M${f2(p0[0])} ${f2(p0[1])}A${f2(r1)} ${f2(r1)} 0 0 1 ${f2(q[0])} ${f2(q[1])}L${f2(p1[0])} ${f2(p1[1])}A${f2(r2)} ${f2(r2)} 0 1 0 ${f2(e[0])} ${f2(e[1])}L${f2(initial[0])} ${f2(initial[1])}`} fill="none" stroke={C} strokeOpacity="0.9" strokeDasharray="5 4" style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} />
         {pos.map((p, i) => {
           // left-hand flow: the direction of flight at each position is the radius turned 90° left
           const d = dirs[i];
