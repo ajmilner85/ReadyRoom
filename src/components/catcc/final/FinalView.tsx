@@ -122,7 +122,7 @@ export const FinalView: React.FC<{
   const gsInt = 1200 / GP_FT_PER_NM;
   const DM: [number, string][] = (
     [
-      [BALL_NM, '3/4 BALL'],
+      [BALL_NM, '3/4 NM - BALL CALL'],
       [gsInt, 'GS INTCP'],
       [6, 'FINAL'],
       [10, 'DIRTY UP'],
