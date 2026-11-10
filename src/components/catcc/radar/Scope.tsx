@@ -755,8 +755,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const SCALE_NM = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200];
   const scaleNm = SCALE_NM.find((s) => s * KX >= 60) ?? 200;
   const cornerPx = 0.5 * z * KX + 8;
-  const cornerW = scaleNm * KX + 150;
-  const cornerH = 74;
+  const cornerW = Math.max(58, scaleNm * KX + 52) + 22;
+  const cornerH = 102;
   const vc = pic.proj?.toLatLon([VX, VY]);
   const mv = vc ? magVar(vc.lat, vc.lon, 0, props.magYear ?? new Date().getUTCFullYear() + new Date().getUTCMonth() / 12) : null;
   const frame = useMemo(() => {
@@ -2645,7 +2645,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         </div>
 
         {/* bottom-left: magnetic variation at the view centre and the range scale, inside the lat/lon frame (its labels keep clear) */}
-        <div className="mono" style={{ position: 'absolute', left: cornerPx, bottom: cornerPx, height: cornerH, boxSizing: 'border-box', fontSize: 11, color: '#93A1B0', display: 'flex', alignItems: 'flex-end', gap: 14, padding: '6px 10px 8px', background: 'rgba(11,14,18,.88)', border: '1px solid #262F3A', borderRadius: 4, pointerEvents: 'none' }}>
+        <div className="mono" style={{ position: 'absolute', left: cornerPx, bottom: cornerPx, height: cornerH, boxSizing: 'border-box', fontSize: 11, color: '#93A1B0', display: 'flex', flexDirection: 'column', alignItems: 'flex-start', justifyContent: 'flex-end', gap: 8, padding: '6px 10px 8px', background: 'rgba(21,26,33,.94)', border: '1px solid #262F3A', borderRadius: 4, pointerEvents: 'none' }}>
           {mv != null && (() => {
             // true north (full arrowhead) and magnetic north (half arrowhead) from one foot, turned with the picture
             const up = -ROT;
