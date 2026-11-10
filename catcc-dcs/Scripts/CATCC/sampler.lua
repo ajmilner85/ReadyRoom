@@ -194,6 +194,72 @@ local function envBody()
   return table.concat(parts)
 end
 
+-- ---------------------------------------------------------------- ship orders
+-- Called by catcc.lua (already validated there). Each returns "OK" or "ERR:<reason>".
+-- DCS AI ships take routes, not rudder or engine orders: the route's first point is where the
+-- lead ship is now, so the group starts on it at once.
+
+local KT = 1852 / 3600
+
+local function shipGroup(name)
+  local g = Group.getByName(name)
+  if not g or not g:isExist() then return nil, nil, 'no group ' .. name end
+  if g:getCategory() ~= Group.Category.SHIP then return nil, nil, name .. ' is not a ship group' end
+  local u = g:getUnit(1)
+  if not u or not u:isExist() then return nil, nil, name .. ' has no units' end
+  return g, u
+end
+
+local function routePoint(x, z, mps)
+  return {
+    x = x, y = z, alt = 0, alt_type = 'BARO', type = 'Turning Point', action = 'Turning Point',
+    speed = mps, speed_locked = true, ETA = 0, ETA_locked = false,
+    task = { id = 'ComboTask', params = { tasks = {} } },
+  }
+end
+
+-- pts: { {lat, lon, kt}, ... }
+local function setRoute(g, u, pts)
+  local here = u:getPoint()
+  local route = { routePoint(here.x, here.z, pts[1][3] * KT) }
+  for _, p in ipairs(pts) do
+    local lo = coord.LLtoLO(p[1], p[2])
+    route[#route + 1] = routePoint(lo.x, lo.z, p[3] * KT)
+  end
+  g:getController():setTask({ id = 'Mission', params = { route = { points = route } } })
+end
+
+local function guarded(f)
+  return function(...)
+    local ok, res = pcall(f, ...)
+    if not ok then return 'ERR:' .. tostring(res) end
+    return res
+  end
+end
+
+-- Steer a true course at a speed: a waypoint 60 NM ahead (the room re-sends it before it is reached).
+-- DCS ships don't go astern: a speed at or below zero stops the ship on its present heading.
+CATCC_cmd_helm = guarded(function(name, crs, kt)
+  local g, u, err = shipGroup(name)
+  if not g then return 'ERR:' .. err end
+  local p = u:getPoint()
+  local lat, lon = coord.LOtoLL(p)
+  local d = 60 / 60 -- 60 NM in degrees of latitude
+  local r = math.rad(crs)
+  local lat2 = lat + d * math.cos(r)
+  local lon2 = lon + d * math.sin(r) / math.cos(math.rad(lat))
+  setRoute(g, u, { { lat2, lon2, kt > 0 and kt or 0 } })
+  if kt < 0 then return 'ERR:DCS ships cannot go astern; ordered stop' end
+  return 'OK'
+end)
+
+CATCC_cmd_route = guarded(function(name, pts)
+  local g, u, err = shipGroup(name)
+  if not g then return 'ERR:' .. err end
+  setRoute(g, u, pts)
+  return 'OK'
+end)
+
 CATCC_env = function()
   local ok, res = pcall(envBody)
   if ok then return res end

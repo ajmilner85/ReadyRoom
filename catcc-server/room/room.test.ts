@@ -224,4 +224,27 @@ describe('room service with fake DCS hook', () => {
     a.ws.close();
     b.ws.close();
   });
+
+  it('sends helm orders and routes to the DCS hook and reports its answer', async () => {
+    const a = new Client(url);
+    await a.open();
+    a.send({ t: 'auth', token: 'alpha4' });
+    await a.waitFor('hello');
+    a.send({ t: 'subscribe', src: 'fox3' });
+    await a.waitFor('frame', (f) => f.tracks.length === 2);
+    await a.waitFor('seats', (s) => s.seats.length === 0, 3000);
+    const st = [...a.msgs].reverse().find((m) => m.t === 'status' || m.t === 'hello') as Extract<ServerMsg, { t: 'status' | 'hello' }>;
+    expect(st.sources[0].cmds).toBe(true);
+    const base = { deps: [], stacks: [] };
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { ...base, helm: { crs: 120, kt: 18 } } });
+    await a.waitFor('orders', (m) => m.orders['CVN-72']?.op === 'helm' && m.orders['CVN-72'].ok === true);
+    // following plotted waypoints replaces the helm order
+    const pts = [{ lat: 26.3, lon: 57, kt: 20 }];
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { ...base, helm: { crs: 120, kt: 18 }, route: { pts, active: true } } });
+    await a.waitFor('orders', (m) => m.orders['CVN-72']?.op === 'route' && m.orders['CVN-72'].ok === true);
+    // an unknown carrier has no DCS group to order
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-99', plan: { ...base, helm: { crs: 10, kt: 5 } } });
+    await a.waitFor('orders', (m) => m.orders['CVN-99']?.ok === false && /no DCS group/.test(m.orders['CVN-99'].error ?? ''));
+    a.ws.close();
+  });
 });

@@ -107,8 +107,22 @@ export interface HookEnv {
   bulls?: { side: 'blue' | 'red'; lat: number; lon: number }[];
 }
 
+/** A waypoint of a ship order. */
+export interface OrderPoint {
+  lat: number;
+  lon: number;
+  kt: number;
+}
+
+/**
+ * Ship orders the hook accepts when its config sets commands = true. DCS AI ships take routes only (no
+ * rudder or engine orders): a helm order becomes a waypoint 60 NM ahead on the course.
+ */
+export type ShipCmd = { op: 'helm'; g: string; crs: number; kt: number } | { op: 'route'; g: string; pts: OrderPoint[] };
+
 export type HookMessage =
-  | { type: 'hello'; proto: number; version: string; server: string }
+  | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean }
+  | { type: 'cmd'; id: number | null; ok: boolean; error?: string }
   | { type: 'auth'; ok: true }
   | { type: 'mission'; state: 'running' | 'stopped'; name: string }
   | { type: 'pong' }

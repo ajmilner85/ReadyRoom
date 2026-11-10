@@ -18,9 +18,10 @@
  *   { t:'seats', src, seats }
  *   { t:'plans', src, plans } | { t:'assignments', src, assignments }
  *   { t:'env', src, env }                  mission weather + ship routes (hook sources), ~30 s
+ *   { t:'orders', src, orders }            what the DCS hook did with each ship order (helm, route, station)
  *   { t:'pong' } | { t:'error', error }
  */
-import type { CarrierWx, HookEnv } from '../dcs/hookProtocol.ts';
+import type { CarrierWx, HookEnv, OrderPoint } from '../dcs/hookProtocol.ts';
 import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
 import type { OpsState, Ownership } from './ops.ts';
 
@@ -91,6 +92,19 @@ export interface SourceStatus {
   mission?: { state: 'running' | 'stopped'; name: string };
   lastError?: string;
   lastFrameAt?: number;
+  /** hook: it accepts ship orders (its config sets commands = true) */
+  cmds?: boolean;
+}
+
+/**
+ * The last ship order the room sent to DCS for one ship (keyed by carrier hull, or escort track id):
+ * what it was, when (ms), and the hook's answer (absent while waiting).
+ */
+export interface OrderStatus {
+  op: 'helm' | 'route' | 'station';
+  at: number;
+  ok?: boolean;
+  error?: string;
 }
 
 /** Compact track for the wire. Units: alt ft, gs kt, vs fpm, angles deg true. */
@@ -140,6 +154,11 @@ export interface CarrierPlan {
   coord?: Record<string, { brg: number; off: number }>;
   /** the bridge's ordered course (°T) and speed (kt) */
   helm?: { crs: number; kt: number };
+  /**
+   * The bridge's plotted waypoints (from the ship, in order) and whether the ship is following them.
+   * Following a route and a helm order exclude each other: whichever was set last is in force.
+   */
+  route?: { pts: OrderPoint[]; active: boolean };
 }
 
 /** Marshal assignment for one track. Times are seconds of the UTC day. */
@@ -177,6 +196,7 @@ export type ServerMsg =
   | { t: 'assignments'; src: string; assignments: Record<string, Assignment> }
   | { t: 'owners'; src: string; owners: Record<string, Ownership> }
   | { t: 'ops'; src: string; ops: Record<string, OpsState> }
+  | { t: 'orders'; src: string; orders: Record<string, OrderStatus> }
   | { t: 'pong' }
   | { t: 'error'; error: string };
 
@@ -245,7 +265,22 @@ export function cleanPlan(p: unknown): CarrierPlan | null {
     if (!helmIn || typeof helmIn !== 'object' || !okAngle(helmIn.crs) || typeof helmIn.kt !== 'number' || !Number.isFinite(helmIn.kt) || helmIn.kt < -20 || helmIn.kt > 40) return null;
     helm = { crs: helmIn.crs, kt: helmIn.kt };
   }
-  return { deps: [...deps], stacks: out, ...(off?.length ? { off: [...off] } : {}), ...(coord && Object.keys(coord).length ? { coord } : {}), ...(helm ? { helm } : {}) };
+  const routeIn = (p as CarrierPlan).route;
+  let route: CarrierPlan['route'];
+  if (routeIn !== undefined) {
+    if (!routeIn || typeof routeIn !== 'object' || typeof routeIn.active !== 'boolean' || !Array.isArray(routeIn.pts) || routeIn.pts.length > 20) return null;
+    const fin = (n: unknown, lo: number, hi: number): n is number => typeof n === 'number' && Number.isFinite(n) && n >= lo && n <= hi;
+    if (!routeIn.pts.every((q) => q && fin(q.lat, -90, 90) && fin(q.lon, -180, 180) && fin(q.kt, 0, 40))) return null;
+    route = { pts: routeIn.pts.map((q) => ({ lat: q.lat, lon: q.lon, kt: q.kt })), active: routeIn.active && routeIn.pts.length > 0 };
+  }
+  return {
+    deps: [...deps],
+    stacks: out,
+    ...(off?.length ? { off: [...off] } : {}),
+    ...(coord && Object.keys(coord).length ? { coord } : {}),
+    ...(helm ? { helm } : {}),
+    ...(route && route.pts.length ? { route } : {}),
+  };
 }
 
 export function cleanAssignment(a: unknown): Assignment | null {

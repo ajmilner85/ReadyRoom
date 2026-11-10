@@ -1,6 +1,6 @@
 # CATCC DCS export hook: install
 
-The hook runs inside the DCS dedicated server. It streams every aircraft and ship to the CATCC room service once per second: position, true heading and course, groundspeed, vertical speed, **fuel**, identity, and carrier winds. It is read-only for now; commands are reserved for Phase 2.
+The hook runs inside the DCS dedicated server. It streams every aircraft and ship to the CATCC room service once per second: position, true heading and course, groundspeed, vertical speed, **fuel**, identity, and carrier winds. With `commands = true` in its config it also takes ship orders from the room (step 6); otherwise it is read-only.
 
 Paths below are relative to the server's Saved Games folder, `Saved Games\DCS.server\` (the folder that holds `Scripts`, `Mods`, `Config` and `Logs`).
 
@@ -69,6 +69,26 @@ npm run catcc:tacview -- --hook dcs.fightingstingrays.com:10310 --token <token> 
 ```
 
 This prints the picture around the carrier every 5 s. It includes a FUEL column: thousands of lb for known types, percent otherwise.
+
+## 6. Ship orders (optional)
+
+Set `commands = true` in `Config\CATCC.lua` to let the room steer ships: the Bridge's helm orders and plotted waypoints for its carrier, and escorts ordered to their formation stations. Any signed-in user holding the carrier's Bridge seat (or anyone, while no seat on that carrier is held) can give them, so only enable it on servers where that's acceptable.
+
+What DCS allows: AI ships take **routes only**. There is no rudder or engine-order API for them (the Supercarrier Air Boss ship panel is a client-side UI, not exposed to scripts). So:
+
+- a helm order becomes a waypoint 60 NM ahead on the ordered course at the ordered speed, re-sent every 10 minutes;
+- the ship always turns at its full-rudder radius (for CVN-71/72/... 0.36 NM at every speed, measured in DCS);
+- DCS ships can't go astern: an astern order stops the ship and says so;
+- escorts can only be ordered if each is in **its own** DCS group. Ships in the carrier's group follow DCS's own group formation.
+
+Each order is logged in `dcs.log` as `CATCC: order helm for <group> from <ip>`.
+
+### Testing on a local DCS first
+
+1. Install the files into your own `Saved Games\DCS\` (not `DCS.server`) exactly as above, with `commands = true` and any 16+ character token.
+2. Start a mission with a carrier group (single player is fine). If the log says the sampler failed in state `server`, set `state = 'mission'` in the config.
+3. On the same PC: `npm run catcc:local -- --token <token>` (the room on port 3002, source "DCS (localhost)"), then `npm run dev` and open `/catcc`.
+4. Take the Bridge seat and give a helm order. The ship should start turning within a second or two.
 
 ## Room service (SDOBot on Fly)
 

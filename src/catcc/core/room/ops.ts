@@ -38,6 +38,8 @@ export type Station =
 export interface Formation {
   /** active preset name */
   active: string;
+  /** the room orders escorts to their stations through the DCS hook */
+  drive?: boolean;
   /** preset → escort track id → station */
   presets: Record<string, Record<string, Station>>;
 }
@@ -143,7 +145,8 @@ export function cleanOpsPatch(p: unknown): Partial<Record<keyof OpsState, unknow
           }
           presets[name] = st;
         }
-        out.formation = { active: f.active, presets };
+        if (f.drive !== undefined && typeof f.drive !== 'boolean') return null;
+        out.formation = { active: f.active, presets, ...(f.drive ? { drive: true } : {}) };
         break;
       }
       default:

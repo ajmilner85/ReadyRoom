@@ -9,6 +9,9 @@
  *        ~/Documents/Tacview). `npm run catcc:replay` is that, from 3300 s.
  *        --demo-pattern adds synthetic pattern traffic (final, bolter downwind, inbound) for the
  *        Approach / Final displays.
+ *   node catcc-server/room/main.ts --hook <host[:port]> --token <token>
+ *        dev mode against a real DCS hook (e.g. a local DCS with the hook installed: --hook localhost),
+ *        as source "local", accepting any sign-in token (CATCC_DEV_NOAUTH). `npm run catcc:local`.
  *
  * Env: CATCC_PORT (default 3002), plus everything attach.ts reads.
  */
@@ -72,6 +75,16 @@ async function main() {
     extra.push({ id: 'replay', name: 'Replay', kind: 'hook', host: '127.0.0.1', port: fakePort, token });
     env.CATCC_DEV_NOAUTH = '1';
     console.log(`[CATCC] dev replay of ${acmi} via fake hook on :${fakePort}`);
+  }
+
+  const hook = opt('hook');
+  if (hook) {
+    const [host, p] = hook.split(':');
+    const token = opt('token') ?? process.env.CATCC_HOOK_TOKEN;
+    if (!token) throw new Error('--hook needs --token <the token in Config/CATCC.lua> (or CATCC_HOOK_TOKEN)');
+    extra.push({ id: 'local', name: `DCS (${host})`, kind: 'hook', host, port: p ? Number(p) : 10310, token });
+    env.CATCC_DEV_NOAUTH = '1';
+    console.log(`[CATCC] dev: DCS hook at ${host}:${p ?? 10310}`);
   }
 
   const server = http.createServer((req, res) => {

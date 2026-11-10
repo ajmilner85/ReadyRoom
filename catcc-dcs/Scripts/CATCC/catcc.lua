@@ -12,7 +12,12 @@
 --   server -> client  {"type":"frame","seq":n,"mt":..,"abs":..,"date":"..","units":[...]}
 --   server -> client  {"type":"env","start":..,"date":..,"theatre":..,"wx":{...},"routes":[...]}  every 30 s
 --   client -> server  PING                       -> {"type":"pong"}
---   client -> server  CMD <json>                 -> reserved (phase 2); currently rejected
+--   client -> server  CMD <json>                 -> {"type":"cmd","id":n,"ok":true} or {...,"ok":false,"error":".."}
+--     Ship orders, only when Config/CATCC.lua sets commands = true (the hello says "cmds":true):
+--       {"id":n,"op":"helm","g":"<ship group>","crs":<deg true>,"kt":<kt>}   steer a course at a speed
+--       {"id":n,"op":"route","g":"<ship group>","pts":[{"lat":..,"lon":..,"kt":..},...]}   follow waypoints
+--     DCS has no rudder or engine-order API for AI ships: both become a route (Mission task) the AI
+--     steers at its own full-rudder radius. A helm order is a waypoint 60 NM ahead on the course.
 --
 -- Everything runs inside pcall: an error here must never affect the server.
 
@@ -37,6 +42,8 @@ local cfg = {
   auth_timeout_s = 10,
   state = 'server', -- net.dostring_in state that reaches the mission scripting environment
   name = 'DCS',
+  commands = false, -- accept ship orders (helm, route) from authenticated clients
+  max_cmds_per_s = 5,
 }
 
 do
@@ -200,6 +207,128 @@ local function sampleEnv()
   broadcast('{"type":"env",' .. res:sub(2))
 end
 
+-- ---------------------------------------------------------------- commands
+-- A small JSON decoder (objects, arrays, strings, numbers, true/false/null): the GameGUI's
+-- net.json2lua isn't in every build, and this keeps the hook testable offline.
+local function decodeJson(s)
+  local i = 1
+  local function ws() i = s:find('[^ \t\r\n]', i) or (#s + 1) end
+  local val
+  local function str()
+    local out = {}
+    i = i + 1
+    while true do
+      local ch = s:sub(i, i)
+      if ch == '' then error('unterminated string') end
+      if ch == '"' then i = i + 1 break end
+      if ch == '\\' then
+        local e = s:sub(i + 1, i + 1)
+        local map = { ['"'] = '"', ['\\'] = '\\', ['/'] = '/', b = '\b', f = '\f', n = '\n', r = '\r', t = '\t' }
+        if map[e] then out[#out + 1] = map[e]; i = i + 2
+        elseif e == 'u' then
+          local cp = tonumber(s:sub(i + 2, i + 5), 16) or 63
+          out[#out + 1] = cp < 128 and string.char(cp) or '?'
+          i = i + 6
+        else error('bad escape') end
+      else
+        out[#out + 1] = ch
+        i = i + 1
+      end
+    end
+    return table.concat(out)
+  end
+  val = function(depth)
+    if depth > 8 then error('too deep') end
+    ws()
+    local ch = s:sub(i, i)
+    if ch == '{' then
+      local o = {}
+      i = i + 1; ws()
+      if s:sub(i, i) == '}' then i = i + 1 return o end
+      while true do
+        ws()
+        if s:sub(i, i) ~= '"' then error('expected key') end
+        local k = str(); ws()
+        if s:sub(i, i) ~= ':' then error('expected :') end
+        i = i + 1
+        o[k] = val(depth + 1); ws()
+        local d = s:sub(i, i); i = i + 1
+        if d == '}' then return o end
+        if d ~= ',' then error('expected , or }') end
+      end
+    elseif ch == '[' then
+      local a = {}
+      i = i + 1; ws()
+      if s:sub(i, i) == ']' then i = i + 1 return a end
+      while true do
+        a[#a + 1] = val(depth + 1); ws()
+        local d = s:sub(i, i); i = i + 1
+        if d == ']' then return a end
+        if d ~= ',' then error('expected , or ]') end
+        if #a > 64 then error('array too long') end
+      end
+    elseif ch == '"' then return str()
+    elseif s:sub(i, i + 3) == 'true' then i = i + 4 return true
+    elseif s:sub(i, i + 4) == 'false' then i = i + 5 return false
+    elseif s:sub(i, i + 3) == 'null' then i = i + 4 return nil
+    else
+      local n = s:match('^-?%d+%.?%d*[eE]?[-+]?%d*', i)
+      if not n or n == '' then error('unexpected ' .. ch) end
+      i = i + #n
+      return tonumber(n)
+    end
+  end
+  local v = val(0)
+  return v
+end
+
+local function finite(n, lo, hi) return type(n) == 'number' and n == n and n >= lo and n <= hi end
+
+-- Validate an order and turn it into a call of the sampler's CATCC_cmd (mission environment).
+local function cmdCode(m)
+  if type(m) ~= 'table' then return nil, 'not an object' end
+  if type(m.g) ~= 'string' or #m.g < 1 or #m.g > 64 then return nil, 'bad group' end
+  if m.op == 'helm' then
+    if not finite(m.crs, 0, 360) or not finite(m.kt, -40, 40) then return nil, 'bad course or speed' end
+    return string.format('return CATCC_cmd_helm(%q, %.2f, %.2f)', m.g, m.crs, m.kt)
+  elseif m.op == 'route' then
+    if type(m.pts) ~= 'table' or #m.pts < 1 or #m.pts > 20 then return nil, 'route needs 1-20 points' end
+    local pts = {}
+    for _, p in ipairs(m.pts) do
+      if type(p) ~= 'table' or not finite(p.lat, -90, 90) or not finite(p.lon, -180, 180) or not finite(p.kt, 0, 40) then
+        return nil, 'bad route point'
+      end
+      pts[#pts + 1] = string.format('{%.7f,%.7f,%.2f}', p.lat, p.lon, p.kt)
+    end
+    return string.format('return CATCC_cmd_route(%q, {%s})', m.g, table.concat(pts, ','))
+  end
+  return nil, 'unknown op'
+end
+
+local function handleCmd(c, body)
+  local ok, m = pcall(decodeJson, body)
+  local id = (ok and type(m) == 'table' and finite(m.id, 0, 1e12)) and string.format('%d', m.id) or 'null'
+  local function reply(err)
+    send(c, '{"type":"cmd","id":' .. id .. ',"ok":' .. (err and 'false,"error":' .. jstr(err) or 'true') .. '}')
+  end
+  if not cfg.commands then return reply('commands are off (Config/CATCC.lua: commands = true)') end
+  if not ok then return reply('bad JSON') end
+  local t = now()
+  if t - (c.cmdWindow or 0) >= 1 then c.cmdWindow = t; c.cmdCount = 0 end
+  c.cmdCount = (c.cmdCount or 0) + 1
+  if c.cmdCount > cfg.max_cmds_per_s then return reply('too many commands') end
+  if not missionRunning then return reply('no mission running') end
+  if not samplerInstalled and not installSampler() then return reply('sampler not installed') end
+  local code, err = cmdCode(m)
+  if not code then return reply(err) end
+  local res = dostring(code)
+  if res == 'OK' then
+    info('order ' .. tostring(m.op) .. ' for ' .. m.g .. ' from ' .. c.peer)
+    return reply(nil)
+  end
+  reply(type(res) == 'string' and res:gsub('^ERR:', ''):sub(1, 200) or 'no reply')
+end
+
 -- ---------------------------------------------------------------- client I/O
 local function handleLine(c, line)
   if not c.authed then
@@ -217,8 +346,8 @@ local function handleLine(c, line)
   end
   if line:match('^PING') then
     send(c, '{"type":"pong"}')
-  elseif line:match('^CMD') then
-    send(c, '{"type":"error","error":"commands not enabled"}')
+  elseif line:match('^CMD ') then
+    handleCmd(c, line:sub(5))
   end
 end
 
@@ -271,7 +400,7 @@ local function acceptClients()
       c.closeAfterFlush = true
     else
       send(c, '{"type":"hello","proto":' .. CATCC.proto .. ',"version":' .. jstr(CATCC.version) ..
-        ',"server":' .. jstr(cfg.name) .. '}')
+        ',"server":' .. jstr(cfg.name) .. ',"cmds":' .. (cfg.commands and 'true' or 'false') .. '}')
     end
   end
 end

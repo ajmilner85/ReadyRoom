@@ -98,7 +98,17 @@ local function newMissionEnv()
     math = math, string = string, table = table, pcall = pcall, ipairs = ipairs, pairs = pairs,
     tostring = tostring, tonumber = tonumber, type = type,
     Group = { Category = { AIRPLANE = 0, HELICOPTER = 1, GROUND = 2, SHIP = 3, TRAIN = 4 },
-      getByName = function(n) if n == 'CSG-1' then return {} end return nil end },
+      getByName = function(n)
+        local cat = (n == 'CSG-1' and 3) or (n == 'Volt 3' and 0) or nil
+        if not cat then return nil end
+        local unit = cat == 3 and CV or HORNET
+        return {
+          isExist = function() return true end,
+          getCategory = function() return cat end,
+          getUnit = function() return unit end,
+          getController = function() return { setTask = function(_, task) M.lastTask = task end } end,
+        }
+      end },
     coalition = {
       side = { NEUTRAL = 0, RED = 1, BLUE = 2 },
       getGroups = function(side, cat) return (GROUPS[side] or {})[cat] or {} end,
@@ -145,7 +155,7 @@ DCS = {
 local realLoadfile = loadfile
 loadfile = function(path)
   if path == 'W/Config/CATCC.lua' then
-    return function() return { token = 'abcdefghijklmnop-token', rate_hz = 1, name = 'Test' } end
+    return function() return { token = 'abcdefghijklmnop-token', rate_hz = 1, name = 'Test', commands = true, max_cmds_per_s = 5 } end
   end
   return realLoadfile(path)
 end
@@ -191,6 +201,32 @@ tick(1.1)
 tick(0.2) -- too soon for another frame
 tick(1.0)
 drain(good, 'run')
+
+-- 3b. ship orders
+local function cmd(line)
+  good.inbox[#good.inbox + 1] = line
+  M.lastTask = nil
+  tick(0.01)
+  local t = M.lastTask
+  if t then
+    local pts = {}
+    for _, p in ipairs(t.params.route.points) do
+      local lat, lon = LOtoLL({ x = p.x, y = 0, z = p.y })
+      pts[#pts + 1] = string.format('{"lat":%.5f,"lon":%.5f,"kt":%.2f}', lat, lon, p.speed / KT)
+    end
+    rec('task', '{"id":"' .. t.id .. '","pts":[' .. table.concat(pts, ',') .. ']}')
+  else
+    rec('task', 'null')
+  end
+end
+tick(1.0) -- a fresh rate-limit window
+cmd('CMD {"id":1,"op":"helm","g":"CSG-1","crs":90,"kt":20}')
+cmd('CMD {"id":2,"op":"route","g":"CSG-1","pts":[{"lat":26.1,"lon":56.2,"kt":15},{"lat":26.2,"lon":56.2,"kt":12}]}')
+cmd('CMD {"id":3,"op":"helm","g":"Volt 3","crs":90,"kt":20}')
+cmd('CMD {"id":4,"op":"helm","g":"CSG-1","crs":400,"kt":20}')
+cmd('CMD {"id":5,"op":"helm","g":"CSG-1","crs":0,"kt":-5}')
+cmd('CMD {"id":6,"op":"helm","g":"CSG-1","crs":0,"kt":5}')
+drain(good, 'cmd')
 
 -- 4. mission env reset (sampler lost) is recovered automatically
 M.env = newMissionEnv()

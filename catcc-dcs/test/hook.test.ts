@@ -37,7 +37,7 @@ describe('CATCC DCS hook', () => {
 
   it('authenticates and sends nothing but status before the mission runs', () => {
     expect(msgs('pre')).toEqual([
-      { type: 'hello', proto: 1, version: '0.1.0', server: 'Test' },
+      { type: 'hello', proto: 1, version: '0.1.0', server: 'Test', cmds: true },
       { type: 'auth', ok: true },
       { type: 'mission', state: 'stopped', name: 'Cruise Wk6' },
     ]);
@@ -87,6 +87,38 @@ describe('CATCC DCS hook', () => {
     expect(e.routes[0]).toMatchObject({ g: 'CSG-1', side: 'blue' });
     expect(e.routes[0].pts[1]).toMatchObject({ spd: 12.9, eta: 1600 });
     expect(e.routes[0].pts[1].lat).toBeGreaterThan(26);
+  });
+
+  it('turns ship orders into DCS routes, starting where the ship is', () => {
+    const tasks = t.filter((x) => x.label === 'task').map((x) => (x.payload === 'null' ? null : JSON.parse(x.payload)));
+    const replies = msgs('cmd').filter((m) => m.type === 'cmd');
+    expect(replies.slice(0, 2)).toEqual([
+      { type: 'cmd', id: 1, ok: true },
+      { type: 'cmd', id: 2, ok: true },
+    ]);
+    // helm 090 at 20 kt: from the carrier (26N 56E) to a point 60 NM east
+    const helm = tasks[0];
+    expect(helm.id).toBe('Mission');
+    expect(helm.pts).toHaveLength(2);
+    expect(helm.pts[0].lat).toBeCloseTo(26, 3);
+    expect(helm.pts[0].lon).toBeCloseTo(56, 3);
+    expect(helm.pts[1].lat).toBeCloseTo(26, 2);
+    expect((helm.pts[1].lon - 56) * 60 * Math.cos((26 * Math.PI) / 180)).toBeCloseTo(60, 0);
+    expect(helm.pts[1].kt).toBeCloseTo(20, 1);
+    // route: here, then the two points at their speeds
+    expect(tasks[1].pts.map((p: { kt: number }) => Math.round(p.kt))).toEqual([15, 15, 12]);
+    expect(tasks[1].pts[2]).toMatchObject({ lat: 26.2, lon: 56.2 });
+  });
+
+  it('refuses orders for aircraft, out-of-range values and astern', () => {
+    const replies = msgs('cmd').filter((m) => m.type === 'cmd');
+    expect(replies[2]).toMatchObject({ id: 3, ok: false, error: 'Volt 3 is not a ship group' });
+    expect(replies[3]).toMatchObject({ id: 4, ok: false, error: 'bad course or speed' });
+    // astern: DCS can't, the ship is stopped instead and the reply says so; then the rate limit (5/s)
+    expect(replies[4]).toMatchObject({ id: 5, ok: false });
+    expect(replies[4].error).toMatch(/astern/);
+    expect(t.filter((x) => x.label === 'task')[4].payload).not.toBe('null');
+    expect(replies[5]).toMatchObject({ id: 6, ok: false, error: 'too many commands' });
   });
 
   it('reinstalls the sampler after the mission environment resets', () => {

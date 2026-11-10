@@ -6,4 +6,6 @@ return {
   rate_hz = 1,         -- frames per second
   name = 'Fox3',       -- shown to clients
   -- state = 'server', -- net.dostring_in state for the mission scripting environment
+  commands = false,    -- true: accept ship orders (helm, waypoints, escort stations) from the room
+  -- max_cmds_per_s = 5,
 }

@@ -3761,7 +3761,22 @@ function cleanPlan(p) {
     if (!helmIn || typeof helmIn !== "object" || !okAngle(helmIn.crs) || typeof helmIn.kt !== "number" || !Number.isFinite(helmIn.kt) || helmIn.kt < -20 || helmIn.kt > 40) return null;
     helm = { crs: helmIn.crs, kt: helmIn.kt };
   }
-  return { deps: [...deps], stacks: out, ...off?.length ? { off: [...off] } : {}, ...coord && Object.keys(coord).length ? { coord } : {}, ...helm ? { helm } : {} };
+  const routeIn = p.route;
+  let route;
+  if (routeIn !== void 0) {
+    if (!routeIn || typeof routeIn !== "object" || typeof routeIn.active !== "boolean" || !Array.isArray(routeIn.pts) || routeIn.pts.length > 20) return null;
+    const fin2 = (n, lo, hi) => typeof n === "number" && Number.isFinite(n) && n >= lo && n <= hi;
+    if (!routeIn.pts.every((q) => q && fin2(q.lat, -90, 90) && fin2(q.lon, -180, 180) && fin2(q.kt, 0, 40))) return null;
+    route = { pts: routeIn.pts.map((q) => ({ lat: q.lat, lon: q.lon, kt: q.kt })), active: routeIn.active && routeIn.pts.length > 0 };
+  }
+  return {
+    deps: [...deps],
+    stacks: out,
+    ...off?.length ? { off: [...off] } : {},
+    ...coord && Object.keys(coord).length ? { coord } : {},
+    ...helm ? { helm } : {},
+    ...route && route.pts.length ? { route } : {}
+  };
 }
 function cleanAssignment(a) {
   if (!a || typeof a !== "object") return null;
@@ -3864,7 +3879,8 @@ function cleanOpsPatch(p) {
           }
           presets[name] = st;
         }
-        out.formation = { active: f.active, presets };
+        if (f.drive !== void 0 && typeof f.drive !== "boolean") return null;
+        out.formation = { active: f.active, presets, ...f.drive ? { drive: true } : {} };
         break;
       }
       default:
@@ -4169,6 +4185,79 @@ var HookTrackStore = class {
   }
 };
 
+// src/catcc/core/geometry/formation.ts
+var PLANE_GUARD = { kind: "point", role: "PG", b: 170, r: 2 };
+var n360 = (b) => (b % 360 + 360) % 360;
+var sectorWidth = (s) => n360(s.b1 - s.b0) || 360;
+function stationCentre(st) {
+  if (st.kind === "point") return { b: st.b, r: st.r };
+  if (st.kind === "sector") return { b: n360(st.b0 + sectorWidth(st) / 2), r: (st.r0 + st.r1) / 2 };
+  return null;
+}
+var PRESETS = ["Flight ops", "Transit", "Combat"];
+function defaultFormation(units) {
+  const L = {
+    "Flight ops": [
+      { kind: "sector", role: "AAW", b0: 330, b1: 30, r0: 4, r1: 8 },
+      { kind: "sector", role: "AAW", b0: 35, b1: 75, r0: 9, r1: 15 },
+      PLANE_GUARD
+    ],
+    Transit: [
+      { kind: "sector", role: "AAW", b0: 330, b1: 30, r0: 6, r1: 10 },
+      { kind: "sector", role: "ASW", b0: 240, b1: 300, r0: 6, r1: 10 },
+      { kind: "sector", role: "ASW", b0: 60, b1: 120, r0: 6, r1: 10 }
+    ],
+    Combat: [
+      { kind: "sector", role: "AAW", b0: 10, b1: 50, r0: 12, r1: 20 },
+      { kind: "sector", role: "AAW", b0: 300, b1: 340, r0: 10, r1: 18 },
+      { kind: "sector", role: "ASW", b0: 160, b1: 200, r0: 6, r1: 12 }
+    ]
+  };
+  const presets = {};
+  for (const p of PRESETS) presets[p] = Object.fromEntries(units.map((u, i) => [u, L[p][i] ?? { kind: "free", role: "AAW" }]));
+  return { active: "Flight ops", presets };
+}
+function formationFor(stored, units) {
+  const def = defaultFormation(units);
+  if (!stored) return def;
+  const presets = {};
+  for (const p of /* @__PURE__ */ new Set([...PRESETS, ...Object.keys(stored.presets)])) {
+    presets[p] = Object.fromEntries(units.map((u) => [u, stored.presets[p]?.[u] ?? def.presets[p]?.[u] ?? { kind: "free", role: "AAW" }]));
+  }
+  return { active: presets[stored.active] ? stored.active : "Flight ops", presets };
+}
+
+// src/catcc/core/geometry/stationKeeping.ts
+var STATION_LEAD_MIN = 10;
+var STATION_MIN_KT = 3;
+var STATION_MAX_KT = 30;
+function offsetLl(p, brg, nm) {
+  const r2 = brg * Math.PI / 180;
+  return { lat: p.lat + nm * Math.cos(r2) / 60, lon: p.lon + nm * Math.sin(r2) / (60 * Math.cos(p.lat * Math.PI / 180)) };
+}
+function distNm(a, b) {
+  const k = Math.cos((a.lat + b.lat) / 2 * Math.PI / 180);
+  return Math.hypot((b.lat - a.lat) * 60, (b.lon - a.lon) * 60 * k);
+}
+function stationOrder(station, axis, carrier, escort) {
+  const c = stationCentre(station);
+  if (!c) return null;
+  const lead = STATION_LEAD_MIN / 60;
+  const ahead = offsetLl(carrier, carrier.crs, Math.max(0, carrier.kt) * lead);
+  const target = offsetLl(ahead, axis + c.b, c.r);
+  const kt = Math.min(STATION_MAX_KT, Math.max(STATION_MIN_KT, distNm(escort, target) / lead));
+  const beyond = offsetLl(target, carrier.crs, 60);
+  const r2 = (n, dp) => Math.round(n * 10 ** dp) / 10 ** dp;
+  return [
+    { lat: r2(target.lat, 6), lon: r2(target.lon, 6), kt: r2(kt, 1) },
+    { lat: r2(beyond.lat, 6), lon: r2(beyond.lon, 6), kt: r2(Math.max(STATION_MIN_KT, carrier.kt), 1) }
+  ];
+}
+function orderChanged(prev, next, ageS) {
+  if (!prev || ageS > 120) return true;
+  return distNm(prev[0], next[0]) > 0.3 || Math.abs(prev[0].kt - next[0].kt) > 1;
+}
+
 // src/catcc/core/acmi/state.ts
 var T_FIELDS = {
   3: ["lon", "lat", "alt"],
@@ -4390,6 +4479,8 @@ var HookClient = class {
   timer;
   hsTimer;
   backoff;
+  cmdSeq = 0;
+  waiting = /* @__PURE__ */ new Map();
   status = { connected: false, authed: false, bytesIn: 0 };
   opts;
   constructor(opts) {
@@ -4410,6 +4501,29 @@ var HookClient = class {
     clearTimeout(this.timer);
     clearTimeout(this.hsTimer);
     this.sock?.destroy();
+  }
+  /** Send a ship order; resolves with the hook's reply (or a local failure after 10 s). */
+  command(cmd) {
+    const sock = this.sock;
+    if (!sock || !this.status.authed) return Promise.resolve({ ok: false, error: "not connected to the DCS hook" });
+    if (!this.status.cmds) return Promise.resolve({ ok: false, error: "the DCS hook does not accept orders (commands = true in Config/CATCC.lua)" });
+    const id = ++this.cmdSeq;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.waiting.delete(id);
+        resolve({ ok: false, error: "no reply from the DCS hook" });
+      }, 1e4);
+      this.waiting.set(id, { resolve, timer });
+      sock.write(`CMD ${JSON.stringify({ id, ...cmd })}
+`);
+    });
+  }
+  failWaiting(why) {
+    for (const [id, w] of this.waiting) {
+      clearTimeout(w.timer);
+      w.resolve({ ok: false, error: why });
+      this.waiting.delete(id);
+    }
   }
   emit() {
     this.opts.onStatus?.({ ...this.status });
@@ -4445,6 +4559,7 @@ var HookClient = class {
       clearTimeout(this.hsTimer);
       this.status.connected = false;
       this.status.authed = false;
+      this.failWaiting("connection to the DCS hook lost");
       this.emit();
       if (this.stopped) return;
       this.timer = setTimeout(() => this.connect(), this.backoff);
@@ -4462,6 +4577,7 @@ var HookClient = class {
     switch (msg.type) {
       case "hello":
         this.status.server = msg.server;
+        this.status.cmds = msg.cmds === true;
         if (msg.proto !== 1) {
           sock.destroy(new Error(`unsupported hook protocol ${msg.proto}`));
           return;
@@ -4484,6 +4600,15 @@ var HookClient = class {
         this.status.lastError = msg.error;
         this.emit();
         break;
+      case "cmd": {
+        const w = msg.id === null ? void 0 : this.waiting.get(msg.id);
+        if (w) {
+          clearTimeout(w.timer);
+          this.waiting.delete(msg.id);
+          w.resolve({ ok: msg.ok, ...msg.error ? { error: msg.error } : {} });
+        }
+        break;
+      }
       case "frame":
         this.opts.onFrame(msg);
         break;
@@ -4572,7 +4697,15 @@ var Source = class {
   assignments = {};
   owners = {};
   ops = {};
+  /** the last ship order sent to DCS per ship (carrier hull or escort track id) and its answer */
+  orders = {};
   subscribers = /* @__PURE__ */ new Set();
+  /** the latest picture (for ship groups and positions) */
+  tracks = [];
+  hook;
+  /** what was last sent per ship, to refresh helm orders and skip unchanged station orders */
+  sent = /* @__PURE__ */ new Map();
+  orderTimer;
   seq = 0;
   stopFn;
   timer;
@@ -4608,12 +4741,14 @@ var Source = class {
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
-          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError });
+          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds });
           if (s.mission?.state === "stopped") store.reset();
           if (JSON.stringify(this.status) !== was) this.onStatus();
         }
       });
       client.start();
+      this.hook = client;
+      this.orderTimer = setInterval(() => this.orderTick(), 15e3);
       this.stopFn = () => client.stop();
     } else {
       const store = new TrackStore();
@@ -4644,6 +4779,7 @@ var Source = class {
   }
   stop() {
     clearInterval(this.timer);
+    clearInterval(this.orderTimer);
     this.stopFn?.();
   }
   publish(mt, utc, theatre, tracks) {
@@ -4657,6 +4793,7 @@ var Source = class {
       tracks: [...tracks].map(toWire)
     };
     this.lastFrame = JSON.stringify(msg);
+    this.tracks = msg.tracks;
     this.status.lastFrameAt = Date.now();
     for (const c of this.subscribers) send(c, this.lastFrame);
     const live = new Set(msg.tracks.map((t) => t.id));
@@ -4677,6 +4814,85 @@ var Source = class {
       }
     }
     if (gone) this.broadcastOwners();
+  }
+  ordersMsg() {
+    return JSON.stringify({ t: "orders", src: this.cfg.id, orders: this.orders });
+  }
+  broadcastOrders() {
+    const m = this.ordersMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+  /** Send one ship order to DCS and publish what became of it. */
+  order(key, op, cmd) {
+    const at = Date.now();
+    if ("error" in cmd) {
+      this.orders[key] = { op, at, ok: false, error: cmd.error };
+      this.broadcastOrders();
+      return;
+    }
+    if (!this.hook) {
+      this.orders[key] = { op, at, ok: false, error: "this source is a Tacview feed: orders need the DCS hook" };
+      this.broadcastOrders();
+      return;
+    }
+    this.sent.set(key, { at, ...cmd.op === "route" ? { pts: cmd.pts } : {} });
+    this.orders[key] = { op, at };
+    this.broadcastOrders();
+    void this.hook.command(cmd).then((r2) => {
+      if (this.orders[key]?.at !== at) return;
+      this.orders[key] = { op, at, ok: r2.ok, ...r2.error ? { error: r2.error } : {} };
+      this.log(`[${this.cfg.id}] ${op} order for ${key}: ${r2.ok ? "ok" : r2.error}`);
+      this.broadcastOrders();
+    });
+  }
+  carrierTrack(hull) {
+    return this.tracks.find((t) => t.k === "carrier" && t.hull === hull);
+  }
+  /** A carrier's plan changed: a new helm order or a route to follow goes to DCS. */
+  onPlan(carrier, prev, next) {
+    const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+    const g = this.carrierTrack(carrier)?.g;
+    if (next.route?.active && !same(prev?.route, next.route)) {
+      this.order(carrier, "route", g ? { op: "route", g, pts: next.route.pts } : { error: `no DCS group found for ${carrier}` });
+    } else if (next.helm && (!same(prev?.helm, next.helm) || prev?.route?.active && !next.route?.active)) {
+      this.order(carrier, "helm", g ? { op: "helm", g, crs: next.helm.crs, kt: next.helm.kt } : { error: `no DCS group found for ${carrier}` });
+    }
+  }
+  /**
+   * Every 15 s: helm orders are re-sent before the ship reaches the end of the 60 NM leg, and escorts of a
+   * formation the bridge drives are ordered (again) toward their stations.
+   */
+  orderTick() {
+    if (!this.hook || !this.status.authed || !this.status.cmds) return;
+    const now = Date.now();
+    for (const [hull, plan] of Object.entries(this.plans)) {
+      const last = this.sent.get(hull);
+      const g = this.carrierTrack(hull)?.g;
+      if (plan.helm && !plan.route?.active && g && last && this.orders[hull]?.ok && now - last.at > 10 * 6e4) {
+        this.order(hull, "helm", { op: "helm", g, crs: plan.helm.crs, kt: plan.helm.kt });
+      }
+    }
+    for (const [hull, ops] of Object.entries(this.ops)) {
+      if (!ops.formation?.drive) continue;
+      const cv = this.carrierTrack(hull);
+      if (!cv) continue;
+      const stations = formationFor(ops.formation, Object.keys(ops.formation.presets[ops.formation.active] ?? {})).presets[ops.formation.active] ?? {};
+      const crs = cv.crs ?? cv.hdg ?? 0;
+      const axis = this.plans[hull]?.helm?.crs ?? crs;
+      for (const [id, st] of Object.entries(stations)) {
+        const t = this.tracks.find((x) => x.id === id);
+        if (!t?.g) continue;
+        if (t.g === cv.g) {
+          if (!this.orders[id]) this.order(id, "station", { error: `${t.g} is the carrier's DCS group: it keeps DCS's own formation` });
+          continue;
+        }
+        const pts = stationOrder(st, axis, { lat: cv.lat, lon: cv.lon, crs, kt: cv.gs ?? 0 }, t);
+        if (!pts) continue;
+        const prev = this.sent.get(id);
+        if (!orderChanged(prev?.pts, pts, prev ? (now - prev.at) / 1e3 : Infinity)) continue;
+        this.order(id, "station", { op: "route", g: t.g, pts });
+      }
+    }
   }
   ownersMsg() {
     return JSON.stringify({ t: "owners", src: this.cfg.id, owners: this.owners });
@@ -4860,6 +5076,7 @@ var RoomService = class {
         send(c, src.assignmentsMsg());
         send(c, src.ownersMsg());
         send(c, src.opsMsg());
+        send(c, src.ordersMsg());
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -4870,8 +5087,10 @@ var RoomService = class {
         const plan = cleanPlan(msg.plan);
         if (!plan || typeof msg.carrier !== "string" || msg.carrier.length > 16) return send(c, { t: "error", error: "invalid plan" });
         if (!src.mayEdit(c.user.userId, msg.carrier)) return send(c, { t: "error", error: `claim a ${msg.carrier} seat to edit its radials` });
+        const prev = src.plans[msg.carrier];
         src.plans[msg.carrier] = plan;
         src.broadcastPlans();
+        src.onPlan(msg.carrier, prev, plan);
         return;
       }
       case "assign": {

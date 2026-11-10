@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { HookEnv, HookFrame, HookMessage } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { HookEnv, HookFrame, HookMessage, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
 
 /**
  * Client for the CATCC DCS export hook (protocol v1): newline-delimited JSON, AUTH <token>.
@@ -21,6 +21,8 @@ export interface HookClientStatus {
   connected: boolean;
   authed: boolean;
   server?: string;
+  /** the hook accepts ship orders */
+  cmds?: boolean;
   mission?: { state: 'running' | 'stopped'; name: string };
   lastError?: string;
   bytesIn: number;
@@ -32,6 +34,8 @@ export class HookClient {
   private timer?: NodeJS.Timeout;
   private hsTimer?: NodeJS.Timeout;
   private backoff: number;
+  private cmdSeq = 0;
+  private readonly waiting = new Map<number, { resolve: (r: { ok: boolean; error?: string }) => void; timer: NodeJS.Timeout }>();
   readonly status: HookClientStatus = { connected: false, authed: false, bytesIn: 0 };
   private readonly opts: HookClientOptions & { port: number; reconnectMs: number; handshakeTimeoutMs: number };
 
@@ -55,6 +59,30 @@ export class HookClient {
     clearTimeout(this.timer);
     clearTimeout(this.hsTimer);
     this.sock?.destroy();
+  }
+
+  /** Send a ship order; resolves with the hook's reply (or a local failure after 10 s). */
+  command(cmd: ShipCmd): Promise<{ ok: boolean; error?: string }> {
+    const sock = this.sock;
+    if (!sock || !this.status.authed) return Promise.resolve({ ok: false, error: 'not connected to the DCS hook' });
+    if (!this.status.cmds) return Promise.resolve({ ok: false, error: 'the DCS hook does not accept orders (commands = true in Config/CATCC.lua)' });
+    const id = ++this.cmdSeq;
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => {
+        this.waiting.delete(id);
+        resolve({ ok: false, error: 'no reply from the DCS hook' });
+      }, 10_000);
+      this.waiting.set(id, { resolve, timer });
+      sock.write(`CMD ${JSON.stringify({ id, ...cmd })}\n`);
+    });
+  }
+
+  private failWaiting(why: string): void {
+    for (const [id, w] of this.waiting) {
+      clearTimeout(w.timer);
+      w.resolve({ ok: false, error: why });
+      this.waiting.delete(id);
+    }
   }
 
   private emit(): void {
@@ -94,6 +122,7 @@ export class HookClient {
       clearTimeout(this.hsTimer);
       this.status.connected = false;
       this.status.authed = false;
+      this.failWaiting('connection to the DCS hook lost');
       this.emit();
       if (this.stopped) return;
       this.timer = setTimeout(() => this.connect(), this.backoff);
@@ -112,6 +141,7 @@ export class HookClient {
     switch (msg.type) {
       case 'hello':
         this.status.server = msg.server;
+        this.status.cmds = msg.cmds === true;
         if (msg.proto !== 1) {
           sock.destroy(new Error(`unsupported hook protocol ${msg.proto}`));
           return;
@@ -133,6 +163,15 @@ export class HookClient {
         this.status.lastError = msg.error;
         this.emit();
         break;
+      case 'cmd': {
+        const w = msg.id === null ? undefined : this.waiting.get(msg.id);
+        if (w) {
+          clearTimeout(w.timer);
+          this.waiting.delete(msg.id!);
+          w.resolve({ ok: msg.ok, ...(msg.error ? { error: msg.error } : {}) });
+        }
+        break;
+      }
       case 'frame':
         this.opts.onFrame(msg);
         break;

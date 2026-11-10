@@ -184,7 +184,7 @@ export class FakeHookServer {
     this.clients.add(c);
     sock.on('close', () => this.clients.delete(c));
     sock.on('error', () => this.clients.delete(c));
-    sock.write(JSON.stringify({ type: 'hello', proto: 1, version: 'fake', server: this.opts.name }) + '\n');
+    sock.write(JSON.stringify({ type: 'hello', proto: 1, version: 'fake', server: this.opts.name, cmds: true }) + '\n');
     let buf = '';
     sock.on('data', (d) => {
       buf += d.toString('utf8');
@@ -202,6 +202,17 @@ export class FakeHookServer {
           }
         } else if (line === 'PING') {
           sock.write('{"type":"pong"}\n');
+        } else if (line.startsWith('CMD ')) {
+          // a replay can't be steered: orders are acknowledged (so the UI path can be tested) and logged
+          let id: number | null = null;
+          try {
+            const m = JSON.parse(line.slice(4)) as { id?: number; op?: string; g?: string };
+            id = typeof m.id === 'number' ? m.id : null;
+            console.log(`[fake hook] order ${m.op} for ${m.g} (not applied: replay) ${line.slice(4, 300)}`);
+          } catch {
+            /* reply below */
+          }
+          sock.write(JSON.stringify({ type: 'cmd', id, ok: id !== null, ...(id === null ? { error: 'bad JSON' } : {}) }) + '\n');
         }
         nl = buf.indexOf('\n');
       }
