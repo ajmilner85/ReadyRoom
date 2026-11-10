@@ -216,6 +216,8 @@ const MIN_RANGE_NM = 5;
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
 const BLUE_HIT = '#3E9BD4';
+/** the radar carrier symbol's hull centreline, symbol units right of its origin (bow 0.06..0.287, stern 0.001..0.316) */
+const CV_KEEL_X = 0.165;
 const BLUE_TAG = '#6FB6E6';
 const BLUE_TRAIL = '#2F6F99';
 
@@ -2449,9 +2451,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               );
             })()}
           {/* ships */}
+          {/* the symbol's keel (its hull centreline, x = CV_KEEL_X; the angled deck widens it to port) sits on the
+              ship's position, so lines drawn from the carrier start at the keel */}
           {pic.carriers.map((c) => (
             <g key={`ship${c.track.id}`}>
-              <g transform={`translate(${f2(c.track.p[0])} ${f2(c.track.p[1])}) scale(${zkH.toFixed(4)}) rotate(${f2(c.ship.brc)})${c.focus ? '' : ' scale(0.9)'}`}>
+              <g transform={`translate(${f2(c.track.p[0])} ${f2(c.track.p[1])}) scale(${zkH.toFixed(4)}) rotate(${f2(c.ship.brc)})${c.focus ? '' : ' scale(0.9)'} translate(${-CV_KEEL_X} 0)`}>
                 <path
                   style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }}
                   d="M0.287 -1.4 L0.06 -1.4 L-0.011 -0.703 L-0.178 -0.488 L-0.166 1.06 L-0.029 1.102 L0.001 1.4 L0.316 1.4 L0.465 1.013 L0.477 -0.429 L0.328 -0.727 Z"
