@@ -103,13 +103,13 @@ export function buildPaths(g: MarineGeom, v: { x0: number; y0: number; x1: numbe
       const n = p.length;
       let lx = p[0];
       let ly = p[1];
-      let s = `M${lx.toFixed(2)} ${ly.toFixed(2)}`;
+      let s = `M${lx.toFixed(3)} ${ly.toFixed(3)}`;
       for (let i = 2; i < n; i += 2) {
         const x = p[i];
         const y = p[i + 1];
         const last = i === n - 2;
         if (!last && (x - lx) * (x - lx) + (y - ly) * (y - ly) < t2) continue;
-        s += `L${x.toFixed(2)} ${y.toFixed(2)}`;
+        s += `L${x.toFixed(3)} ${y.toFixed(3)}`;
         lx = x;
         ly = y;
       }

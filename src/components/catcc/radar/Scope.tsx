@@ -194,7 +194,9 @@ export interface ScopeProps {
 
 // ---------------------------------------------------------------- helpers
 
-const f2 = (n: number) => (Math.round(n * 100) / 100).toString();
+// map coordinates (NM) to 0.001 NM (~2 m): at the closest zoom (5 NM) 0.01 NM was over a pixel, and curves
+// made of many short steps (turn trends, patterns) rounded into a visible wobble
+const f2 = (n: number) => (Math.round(n * 1000) / 1000).toString();
 const pts = (q: Pt[], close = false) => (q.length ? 'M' + q.map((p) => `${f2(p[0])} ${f2(p[1])}`).join('L') + (close ? 'Z' : '') : '');
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const hms = (t: number) => {
