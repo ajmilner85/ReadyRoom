@@ -61,6 +61,12 @@ function dataBox([s, w, n, e]) {
 /** water shallower than this is shaded as not navigable (a CVN draws about 12 m) */
 const NAV_M = 15;
 const COAST_TOL = 0.0003; // deg, ~30 m: keeps the full-resolution shoreline smooth at max zoom
+// Outside the theatre (the margin is only seen zoomed well out): about a pixel at the widest range, and
+// features smaller than that dropped. Rings that reach into the theatre keep full detail.
+const COAST_TOL_OUT = 0.004; // ~0.24 NM
+const MIN_RING_OUT_DEG = 0.03; // islets under ~2 NM across
+const LINE_TOL_OUT = 0.006;
+const MIN_LINE_OUT_NM = 6;
 const TERR_TOL = 0.005; // ~0.3 NM: segmented like a charted limit
 const LINE_TOL = 0.0012; // ~0.07 NM (the 15" grid is ~0.25 NM)
 const MIN_LINE_NM = 2;
@@ -622,15 +628,18 @@ function runwaysOf(ap) {
 /** Wikidata islands in a box; big boxes time out, so on failure the box is split into quarters */
 async function wikidataIslands([s, w, n, e], depth = 0) {
   const q = `SELECT ?i ?name ?c ?sl WHERE { SERVICE wikibase:box { ?i wdt:P625 ?c . bd:serviceParam wikibase:cornerSouthWest "Point(${w} ${s})"^^geo:wktLiteral . bd:serviceParam wikibase:cornerNorthEast "Point(${e} ${n})"^^geo:wktLiteral . } ?i wdt:P31 ?t . VALUES ?t { wd:Q23442 wd:Q1402592 wd:Q42523 } ?i wikibase:sitelinks ?sl . FILTER(?sl >= 8) ?i rdfs:label ?name . FILTER(lang(?name) = "en") }`;
-  for (let tries = 0; tries < 2; tries++) {
-    const res = await fetch(`https://query.wikidata.org/sparql?query=${encodeURIComponent(q)}`, { headers: { Accept: 'application/sparql-results+json', 'User-Agent': 'CATCC-marine-builder/1.0 (offline data build)' } });
-    if (res.ok) {
-      return (await res.json()).results.bindings.map((b) => {
+  for (let tries = 0; tries < 4; tries++) {
+    // a dropped connection throws rather than returning a failed response: treat it as one
+    const res = await fetch(`https://query.wikidata.org/sparql?query=${encodeURIComponent(q)}`, { headers: { Accept: 'application/sparql-results+json', 'User-Agent': 'CATCC-marine-builder/1.0 (offline data build)' } }).catch(() => null);
+    // the body can also arrive cut short: an unparsable reply is retried too
+    const body = res?.ok ? await res.json().catch(() => null) : null;
+    if (body) {
+      return body.results.bindings.map((b) => {
         const m = /Point\(([-\d.]+) ([-\d.]+)\)/.exec(b.c.value);
         return { n: b.name.value, lon: +m[1], lat: +m[2], sl: +b.sl.value };
       });
     }
-    await new Promise((r) => setTimeout(r, 5000));
+    await new Promise((r) => setTimeout(r, 5000 * (tries + 1)));
   }
   if (depth >= 3) throw new Error('Wikidata keeps timing out');
   const [ms, mw] = [(s + n) / 2, (w + e) / 2];
@@ -663,12 +672,26 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
   // the data reaches PAD_NM past the theatre on every side, so a view centred anywhere in the theatre at
   // the scope's widest range (turned or not) never runs off the chart
   const box = dataBox(cfg.bbox);
+  const [ts, tw, tn, te] = cfg.bbox;
+  /** extent of a [lon, lat] ring, and whether it reaches into the theatre box */
+  const extent = (r) => {
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (const q of r) {
+      if (q[0] < x0) x0 = q[0];
+      if (q[0] > x1) x1 = q[0];
+      if (q[1] < y0) y0 = q[1];
+      if (q[1] > y1) y1 = q[1];
+    }
+    return { size: Math.max(x1 - x0, y1 - y0), inside: !(x1 < tw || x0 > te || y1 < ts || y0 > tn) };
+  };
   const land = [];
   const coast = [];
   for (const ring of readShp(shpPath, box)) {
     const c = clipRing(ring, box);
     if (!c) continue;
-    const sr = simplify(c, COAST_TOL);
+    const ex = extent(c);
+    if (!ex.inside && ex.size < MIN_RING_OUT_DEG) continue;
+    const sr = simplify(c, ex.inside ? COAST_TOL : COAST_TOL_OUT);
     if (sr.length < 4) continue;
     land.push(flat4(sr));
     // the shoreline is the simplified land ring itself (minus the cut along the box), so the two match
@@ -690,8 +713,10 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
     const lines = [];
     const labels = [];
     for (const raw of contour(padded, -d)) {
-      const ring = simplify(chaikin(raw), LINE_TOL);
-      if (ring.length < 4 || lengthNm(ring) < 1) continue;
+      const sm = chaikin(raw);
+      const inside = extent(sm).inside;
+      const ring = simplify(sm, inside ? LINE_TOL : LINE_TOL_OUT);
+      if (ring.length < 4 || lengthNm(ring) < (inside ? 1 : MIN_LINE_OUT_NM)) continue;
       fill.push(flat3(ring));
       const pts = ring.slice(0, -1);
       const k0 = pts.findIndex(onBorder);
