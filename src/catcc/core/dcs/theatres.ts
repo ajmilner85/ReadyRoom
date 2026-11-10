@@ -21,17 +21,6 @@ export const THEATRE_BOXES: Record<string, [number, number, number, number]> = {
 /** The scope's widest view: 160 NM from the centre to the left and right edges. */
 export const MAX_RANGE_NM = 160;
 
-/**
- * The extent of a theatre's marine layer data, [south, west, north, east]: the theatre box plus 200 NM
- * on every side (a view at the widest range reaches ~200 NM from its centre once turned), in whole
- * 2-degree tiles. Keep in step with dataBox() in scripts/catcc-marine.mjs.
- */
-export function theatreDataBox([s, w, n, e]: [number, number, number, number]): [number, number, number, number] {
-  const PAD_NM = 200;
-  const padLat = Math.ceil(PAD_NM / 60 / 2) * 2;
-  const padLon = Math.ceil(PAD_NM / (60 * Math.cos((Math.max(Math.abs(s), Math.abs(n)) * Math.PI) / 180)) / 2) * 2;
-  return [Math.max(-88, s - padLat), w - padLon, Math.min(88, n + padLat), e + padLon];
-}
 
 export function theatreAt(lat: number, lon: number): string | undefined {
   for (const [k, [s, w, n, e]] of Object.entries(THEATRE_BOXES)) if (lat >= s && lat <= n && lon >= w && lon <= e) return k;

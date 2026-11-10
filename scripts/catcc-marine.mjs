@@ -47,11 +47,13 @@ const THEATRES = {
 };
 
 /**
- * Chart beyond the theatre box on every side, NM: the scope's widest view is 160 NM edge to centre, whose
- * corners reach ~200 NM from its centre. In whole ETOPO tiles (2 deg), so cached tiles stay aligned.
- * Keep in step with theatreDataBox() in src/catcc/core/dcs/theatres.ts.
+ * Chart beyond the theatre box on every side, NM. The view stays inside the theatre; the margin only
+ * fills what a track-up turn swings past it: a turned view reaches its half-diagonal from the centre,
+ * which is past the theatre edge by half-diagonal minus the shorter half-side. At the widest range
+ * (160 NM) and the scope's widest shape (height 0.4 x width) that is ~108 NM: 0.707 x 160 = 113 covers
+ * it. In whole ETOPO tiles (2 deg), so cached tiles stay aligned.
  */
-const PAD_NM = 200;
+const PAD_NM = 113;
 function dataBox([s, w, n, e]) {
   const padLat = Math.ceil(PAD_NM / 60 / 2) * 2;
   const padLon = Math.ceil(PAD_NM / (60 * Math.cos((Math.max(Math.abs(s), Math.abs(n)) * Math.PI) / 180)) / 2) * 2;
@@ -669,8 +671,8 @@ mkdirSync(outDir, { recursive: true });
 
 for (const [name, cfg] of Object.entries(THEATRES)) {
   if (only.length && !only.includes(name)) continue;
-  // the data reaches PAD_NM past the theatre on every side, so a view centred anywhere in the theatre at
-  // the scope's widest range (turned or not) never runs off the chart
+  // the data reaches PAD_NM past the theatre on every side, so a turned view at the theatre's edge never
+  // runs off the chart
   const box = dataBox(cfg.bbox);
   const [ts, tw, tn, te] = cfg.bbox;
   /** extent of a [lon, lat] ring, and whether it reaches into the theatre box */
