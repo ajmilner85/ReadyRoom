@@ -46,24 +46,36 @@ export function trendPath(from: Pt, hdg: number, kt: number, rateDegS: number, s
   return out;
 }
 
+/** DCS's Nimitz acceleration (GT.speedup = 0.119249 m/s^2, USS_CVN_71.lua), kt per second */
+export const SPEEDUP_KT_S = (0.119249 * 3600) / 1852;
+
 /**
- * Path over the next `seconds` under a helm order: the rudder follows the heading error (rudderFor), so
- * the ship turns at the ordered radius and eases out onto the ordered course. Speed is held.
+ * Path over the next `seconds` under a helm order: the speed runs from `kt` toward the ordered speed at
+ * SPEEDUP_KT_S, and the rudder follows the heading error (rudderFor), so the ship turns at the ordered
+ * radius and eases out onto the ordered course. Going astern the rudder is held amidships (the helm
+ * doesn't steer on a backing ship), so the path runs straight back along the heading.
  */
-export function orderedPath(from: Pt, hdg: number, kt: number, orderedCrs: number, seconds: number, dt = 5): Pt[] {
+export function orderedPath(from: Pt, hdg: number, kt: number, orderedCrs: number, seconds: number, dt = 5, orderedKt = kt): Pt[] {
   const out: Pt[] = [from];
   let [x, y] = from;
   let h = hdg;
-  const v = kt / 3600;
+  let v = kt;
   for (let t = 0; t < seconds; t += dt) {
-    const err = turnTo(h, orderedCrs);
-    let step = turnRate(kt, rudderFor(err)) * dt;
-    // never swing past the ordered course within a step
-    if (Math.abs(step) > Math.abs(err)) step = err;
+    const dv = Math.max(-SPEEDUP_KT_S * dt, Math.min(SPEEDUP_KT_S * dt, orderedKt - v));
+    const vm = v + dv / 2;
+    let step = 0;
+    if (vm > 0) {
+      const err = turnTo(h, orderedCrs);
+      step = turnRate(vm, rudderFor(err)) * dt;
+      // never swing past the ordered course within a step
+      if (Math.abs(step) > Math.abs(err)) step = err;
+    }
     const hm = (h + step / 2) * D2R;
-    x += Math.sin(hm) * v * dt;
-    y -= Math.cos(hm) * v * dt;
+    const d = (vm / 3600) * dt;
+    x += Math.sin(hm) * d;
+    y -= Math.cos(hm) * d;
     h += step;
+    v += dv;
     out.push([x, y]);
   }
   return out;

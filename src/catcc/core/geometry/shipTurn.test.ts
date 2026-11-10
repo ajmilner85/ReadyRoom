@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderedPath, rudderFor, trendPath, turnRate, turnTo } from './shipTurn.ts';
+import { orderedPath, rudderFor, SPEEDUP_KT_S, trendPath, turnRate, turnTo } from './shipTurn.ts';
 
 describe('ship turn prediction', () => {
   it('turns faster with more rudder and speed; full rudder at 25 kt is about 1.1 deg/s (DCS R_min 665.8 m)', () => {
@@ -29,5 +29,19 @@ describe('ship turn prediction', () => {
     // a left turn is the mirror image
     const q = orderedPath([0, 0], 0, 25, 270, 600);
     expect(q[q.length - 1][0]).toBeCloseTo(-b[0], 3);
+  });
+
+  it('follows the ordered speed: slowing shortens the path, going astern backs straight down the heading', () => {
+    expect(SPEEDUP_KT_S).toBeCloseTo(0.2318, 3);
+    const run = (q: [number, number][]) => q.slice(1).reduce((s, p, i) => s + Math.hypot(p[0] - q[i][0], p[1] - q[i][1]), 0);
+    const fast = orderedPath([0, 0], 0, 25, 0, 180, 5, 25);
+    const slow = orderedPath([0, 0], 0, 25, 0, 180, 5, 10);
+    expect(run(fast)).toBeCloseTo(1.25, 2); // 25 kt for 3 min
+    expect(run(slow)).toBeLessThan(run(fast) * 0.8);
+    // from stopped, astern 15 kt: moves south (backwards on 000) and doesn't turn though 090 is ordered
+    const back = orderedPath([0, 0], 0, 0, 90, 300, 5, -15);
+    const end = back[back.length - 1];
+    expect(end[1]).toBeGreaterThan(0.3);
+    expect(Math.abs(end[0])).toBeLessThan(1e-9);
   });
 });

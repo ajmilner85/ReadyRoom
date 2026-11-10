@@ -58,6 +58,8 @@ export interface Poly {
 export interface MarineGeom {
   lat: number;
   lon: number;
+  /** the data's extent, [south, west, north, east] deg (the theatre plus its margin) */
+  bbox: [number, number, number, number];
   land: Poly[];
   coast: Poly[];
   nav: Poly[];
@@ -231,6 +233,7 @@ export function useMarine(theatre: string | undefined, lat: number | undefined, 
     setGeom({
       lat,
       lon,
+      bbox: data.bbox,
       land: polys(data.land),
       coast: polys(data.coast),
       nav: polys(data.nav?.fill ?? []),

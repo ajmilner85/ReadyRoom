@@ -4,7 +4,7 @@
  * carrier-ops-handoff-2/mockup/Bridge.dc.html, laid out for the 344 px sidebar. Orders go to the
  * room's shared plan as soon as they're given.
  */
-import React from 'react';
+import React, { useRef } from 'react';
 import { rudderFor } from '../../../catcc/core/geometry/shipTurn.ts';
 import { distanceNm, norm360 } from '../../../catcc/core/geo.ts';
 import { nextPimTurn, pimAt } from '../../../catcc/core/env/weather.ts';
@@ -128,11 +128,16 @@ export const HelmPanel: React.FC<{
   const crs = t?.crs ?? t?.hdg ?? 0;
   const hdg = t?.hdg ?? crs;
   const sog = t?.gs ?? 0;
-  const ord = ordered ?? { crs: Math.round(crs), kt: Math.round(sog) };
+  // the order last sent: quick clicks build on it, not on the room's copy, which only arrives a moment later
+  const sent = useRef<{ crs: number; kt: number; at: number } | null>(null);
+  if (sent.current && (performance.now() - sent.current.at > 3000 || (ordered && ordered.crs === sent.current.crs && ordered.kt === sent.current.kt))) sent.current = null;
+  const ord = sent.current ?? ordered ?? { crs: Math.round(crs), kt: Math.round(sog) };
   const order = (p: Partial<{ crs: number; kt: number }>) => {
     if (readOnly) return;
     const n = { ...ord, ...p };
-    onOrder({ crs: Math.round(norm360(n.crs)) % 360, kt: Math.max(-15, Math.min(32, Math.round(n.kt))) });
+    const h = { crs: Math.round(norm360(n.crs)) % 360, kt: Math.max(-15, Math.min(32, Math.round(n.kt))) };
+    sent.current = { ...h, at: performance.now() };
+    onOrder(h);
   };
   const err = ((((ord.crs - hdg) % 360) + 540) % 360) - 180;
   const rud = ordered ? rudderFor(err) : 0;
@@ -254,7 +259,7 @@ export const HelmPanel: React.FC<{
                   disabled={readOnly}
                   aria-pressed={on}
                   onClick={() => order({ kt: v })}
-                  title={`${v} KT`}
+                  title={v < 0 ? `${-v} KT astern` : `${v} KT`}
                   style={{ height: 26, borderRadius: 3, border: `1px solid ${on ? c : '#374250'}`, background: on ? (v > 0 ? 'rgba(95,208,104,.28)' : v < 0 ? 'rgba(255,107,102,.25)' : '#2E3946') : 'transparent', color: c, fontFamily: MONO, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', cursor: readOnly ? 'default' : 'pointer' }}
                 >
                   {k}
@@ -263,16 +268,22 @@ export const HelmPanel: React.FC<{
             })}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
+            {/* astern reads as a speed and ASTERN, in red, not a minus sign */}
             <div className="lbl">Ordered speed</div>
             <div style={{ display: 'flex', alignItems: 'center', gap: 4 }}>
               <button disabled={readOnly} onClick={() => order({ kt: ord.kt - 1 })} aria-label="Slower" style={{ ...BTN, width: 28, padding: 0 }}>
                 −
               </button>
-              <span style={{ ...dig(0, 16), flex: 1 }}>{ordered ? `${ordered.kt} KT` : '--'}</span>
+              <span style={{ ...dig(0, 16), flex: 1, whiteSpace: 'nowrap', ...(ordered && ordered.kt < 0 ? { color: '#FF6B66' } : {}) }}>{ordered ? `${Math.abs(ordered.kt)} KT` : '--'}</span>
               <button disabled={readOnly} onClick={() => order({ kt: ord.kt + 1 })} aria-label="Faster" style={{ ...BTN, width: 28, padding: 0 }}>
                 +
               </button>
             </div>
+            {ordered && ordered.kt < 0 && (
+              <div className="mono" style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.12em', color: '#FF6B66', textAlign: 'center', marginTop: -2 }}>
+                ASTERN
+              </div>
+            )}
             <div className="lbl" style={{ marginTop: 6 }}>Speed over ground</div>
             <span style={dig(0, 16)}>{sog.toFixed(1)} KT</span>
           </div>

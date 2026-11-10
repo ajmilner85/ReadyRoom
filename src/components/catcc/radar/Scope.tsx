@@ -30,7 +30,7 @@ import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
 import { buildPaths, terrTopsFor, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
-import { MAX_RANGE_NM, THEATRE_BOXES, theatreAt, theatreDataBox } from '../../../catcc/core/dcs/theatres.ts';
+import { MAX_RANGE_NM, THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 import { pimAt } from '../../../catcc/core/env/weather.ts';
 import { distanceNm } from '../../../catcc/core/geo.ts';
 
@@ -689,9 +689,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return fitBox(q, 3);
     },
   };
-  // tBounds: the theatre itself (what THEATRE frames). dBounds: the chart data's extent, 200 NM past it
-  // on every side; the view stays inside that, so it never runs off the chart. Outside a known
-  // theatre the view stays within 100 NM.
+  // tBounds: the theatre itself: the view (as drawn north-up) stays inside it. dBounds: the chart data's
+  // extent (the theatre plus a margin, from the data file); a track-up turn swings the view's corners into
+  // that margin, and the view is also held inside it so a turn never shows past the chart. Outside a
+  // known theatre the view stays within 100 NM.
   const bounds = useMemo(() => {
     const tb = tBox ?? (fTrack ? THEATRE_BOXES[theatreAt(fTrack.lat, fTrack.lon) ?? ''] : undefined);
     if (!tb || !pic.proj) return null;
@@ -706,28 +707,34 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return x1 > x0 && y1 > y0 ? { x0, x1, y0, y1 } : null;
     };
     const t = rect(tb);
-    const d = rect(theatreDataBox(tb)) ?? t;
-    return t && d ? { t, d } : null;
+    // no chart drawn (its layers off): nothing to run off, so no footprint limit
+    const d = marine ? rect(marine.bbox) : null;
+    return t ? { t, d } : null;
     // re-derived when the carrier has moved a few NM (the projection is about it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tBox, Math.round((fTrack?.lat ?? 0) * 20), Math.round((fTrack?.lon ?? 0) * 20), !!pic.proj]);
+  }, [tBox, Math.round((fTrack?.lat ?? 0) * 20), Math.round((fTrack?.lon ?? 0) * 20), !!pic.proj, marine?.bbox]);
   const tBounds = bounds?.t ?? null;
   const dBounds = bounds?.d ?? null;
   // the view's footprint on the map: its bounding box once turned (track up), per NM of view width
   const fpW = Math.abs(rCo) + asp * Math.abs(rSi);
   const fpH = Math.abs(rSi) + asp * Math.abs(rCo);
-  /** widest view the chart allows */
+  /** widest view the chart allows (turned, its footprint must fit the data) */
   const maxW = (w: number) => Math.min(2 * MAX_RANGE_NM, dBounds ? Math.min(w, (dBounds.x1 - dBounds.x0) / fpW, (dBounds.y1 - dBounds.y0) / fpH) : w);
   const clampCore = (x: number, y: number, w: number) => {
-    if (!dBounds) {
+    if (!tBounds) {
       const r = Math.hypot(x, y);
       const k = r > 100 ? 100 / r : 1;
       return { zx: x * k, zy: y * k };
     }
-    const hw = (w * fpW) / 2;
-    const hh = (w * fpH) / 2;
     const cl = (v: number, a: number, b: number) => (a > b ? (a + b) / 2 : Math.max(a, Math.min(b, v)));
-    return { zx: cl(x, dBounds.x0 + hw, dBounds.x1 - hw), zy: cl(y, dBounds.y0 + hh, dBounds.y1 - hh) };
+    // the view as drawn north-up stays inside the theatre (centred on it when the theatre is smaller) ...
+    const zx = cl(x, tBounds.x0 + w / 2, tBounds.x1 - w / 2);
+    const zy = cl(y, tBounds.y0 + (w * asp) / 2, tBounds.y1 - (w * asp) / 2);
+    // ... and its turned footprint inside the chart data
+    if (!dBounds) return { zx, zy };
+    const fw = (w * fpW) / 2;
+    const fh = (w * fpH) / 2;
+    return { zx: cl(zx, dBounds.x0 + fw, dBounds.x1 - fw), zy: cl(zy, dBounds.y0 + fh, dBounds.y1 - fh) };
   };
   const FIT = fit ? fits[fit]() : null;
   // presets and the carrier lock can ask for a view past the theatre's edge: held inside it here too
@@ -2420,22 +2427,22 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               white in three segments, where it goes holding its present rate of turn */}
           {props.trend &&
             fTrack &&
-            (fTrack.gs ?? 0) >= 1 &&
+            ((fTrack.gs ?? 0) >= 1 || !!props.helm?.kt) &&
             (() => {
-              const kt = fTrack.gs!;
+              const kt = fTrack.gs ?? 0;
               const hdg = fTrack.hdg ?? fTrack.crs ?? 0;
               // a time ahead whose run is about a fifth of the view: three equal segments of it
               const T = [90, 180, 360, 720, 1200].reduce((best, s) => (Math.abs((kt * s) / 3600 - 0.2 * VW) < Math.abs((kt * best) / 3600 - 0.2 * VW) ? s : best), 90);
               const dt = T / 36;
               const pts = (q: Pt[]) => q.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('');
-              const white = trendPath(fTrack.p, hdg, kt, turnRateNow, T, dt);
-              const green = props.helm ? orderedPath(fTrack.p, hdg, kt, props.helm.crs, T, dt) : null;
+              const white = kt >= 1 ? trendPath(fTrack.p, hdg, kt, turnRateNow, T, dt) : null;
+              const green = props.helm ? orderedPath(fTrack.p, hdg, kt, props.helm.crs, T, dt, props.helm.kt) : null;
               return (
                 <g fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }}>
                   <title>{`Turn trend: the next ${T / 60} min in three segments; green is the helm order`}</title>
                   {green && <path d={pts(green)} stroke="#5FD068" style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} />}
                   {/* three segments with a short gap between them (one step of twelve left out) */}
-                  <path d={[0, 12, 24].map((k) => pts(white.slice(k, k + 12))).join('')} stroke="#E6EDF3" style={{ strokeWidth: 'calc(1.8px * var(--lw, 1))' }} />
+                  {white && <path d={[0, 12, 24].map((k) => pts(white.slice(k, k + 12))).join('')} stroke="#E6EDF3" style={{ strokeWidth: 'calc(1.8px * var(--lw, 1))' }} />}
                 </g>
               );
             })()}
