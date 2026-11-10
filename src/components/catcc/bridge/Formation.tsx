@@ -4,9 +4,10 @@
  * are relative to the formation axis (the BRC); the plot is axis-up. Apply saves every preset's
  * draft and makes the shown one active; the formation is shared room state.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import type { OrderStatus } from '../../../catcc/core/room/protocol.ts';
 import type { EscortRole, Formation, OpsState, Station } from '../../../catcc/core/room/ops.ts';
-import { formationFor, PLANE_GUARD, PRESETS, ROLE_LABEL, sectorWidth, stationText, ydOf } from '../../../catcc/core/geometry/formation.ts';
+import { formationFor, PLANE_GUARD, PRESETS, ROLE_LABEL, sectorWidth, stationState, stationText, ydOf } from '../../../catcc/core/geometry/formation.ts';
 import type { Picture } from '../scopeModel.ts';
 import { escortsOf, stateOf, type Escort } from './escorts.ts';
 
@@ -17,13 +18,54 @@ const r3 = (n: number) => String(((Math.round(n) % 360) + 360) % 360).padStart(3
 
 // ---------------------------------------------------------------- panel
 
-export const FormationPanel: React.FC<{ pic: Picture; ops?: OpsState; setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void; readOnly: boolean }> = ({ pic, ops, setOps, readOnly }) => {
+/** an escort off its station this long raises a station-keeping alarm, s */
+export const STATION_ALARM_S = 60;
+/** …if it is at least this far off, NM */
+export const STATION_ALARM_NM = 0.5;
+
+export const FormationPanel: React.FC<{
+  pic: Picture;
+  ops?: OpsState;
+  setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void;
+  readOnly: boolean;
+  /** the DCS hook takes ship orders: escorts can be ordered to their stations */
+  cmds?: boolean;
+  /** what became of the last order to each escort */
+  orders?: Record<string, OrderStatus>;
+}> = ({ pic, ops, setOps, readOnly, cmds, orders }) => {
   const escorts = escortsOf(pic);
   const ids = escorts.map((e) => e.id);
   const f = formationFor(ops?.formation, ids);
   const [open, setOpen] = useState(false);
   const brc = pic.focus?.ship.brc ?? 0;
   const act = f.presets[f.active];
+  // station-keeping alarms: off station (beyond the tolerance) for a minute; acknowledged until back on
+  const offSince = useRef(new Map<string, number>());
+  const [acked, setAcked] = useState<Record<string, true>>({});
+  const now = Date.now();
+  const alarms: { id: string; label: string; nm: number }[] = [];
+  for (const e of escorts) {
+    const st = act[e.id];
+    const ss = stationState(st, brc, e.brg, e.rng);
+    if (ss.k === 'off' && ss.nm >= STATION_ALARM_NM) {
+      if (!offSince.current.has(e.id)) offSince.current.set(e.id, now);
+      if (now - offSince.current.get(e.id)! >= STATION_ALARM_S * 1000 && !acked[e.id]) alarms.push({ id: e.id, label: e.label, nm: ss.nm });
+    } else {
+      offSince.current.delete(e.id);
+      if (acked[e.id]) setTimeout(() => setAcked((a) => { const n = { ...a }; delete n[e.id]; return n; }), 0);
+    }
+  }
+  const setStation = (id: string, st: Station) => setOps({ formation: { ...f, presets: { ...f.presets, [f.active]: { ...act, [id]: st } } } });
+  const orderMark = (id: string) => {
+    const o = orders?.[id];
+    if (!f.drive || !o) return null;
+    const [ch, c, t] = o.ok === undefined ? ['…', '#93A1B0', 'Order sent to DCS'] : o.ok ? ['✓', '#7FD397', 'DCS took the station order'] : ['✗', '#FF8A85', `DCS refused: ${o.error ?? 'no reason given'}`];
+    return (
+      <span title={t} style={{ color: c, marginLeft: 4 }}>
+        {ch}
+      </span>
+    );
+  };
   return (
     <section className="pnl" aria-label="CSG formation">
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
@@ -32,19 +74,51 @@ export const FormationPanel: React.FC<{ pic: Picture; ops?: OpsState; setOps: (p
           {readOnly ? 'View stations' : 'Edit stations'}
         </button>
       </div>
+      {alarms.length > 0 && (
+        <div role="alert" className="blink" style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '5px 8px', marginBottom: 6, borderRadius: 4, border: '1px solid #E7B04F', background: 'rgba(231,176,79,.12)' }}>
+          <span className="mono" style={{ flex: 1, fontSize: 11.5, fontWeight: 600, color: '#E7B04F' }}>
+            STATION · {alarms.map((a) => `${a.label} ${a.nm.toFixed(1)} NM OFF`).join(' · ')}
+          </span>
+          <button onClick={() => setAcked((a) => ({ ...a, ...Object.fromEntries(alarms.map((x) => [x.id, true])) }))} style={{ ...btn, height: 22, fontSize: 11, padding: '0 8px', borderColor: '#E7B04F', color: '#E7B04F' }}>
+            Ack
+          </button>
+        </div>
+      )}
       {escorts.map((e) => {
         const st = act[e.id];
         const s = stateOf(st, brc, e);
+        const pg = st.role === 'PG';
         return (
-          <div key={e.id} className="mono" style={{ display: 'grid', gridTemplateColumns: '58px 1fr auto', gap: 6, fontSize: 12, padding: '3px 0' }}>
+          <div key={e.id} className="mono" style={{ display: 'grid', gridTemplateColumns: '58px 1fr auto auto', alignItems: 'center', gap: 6, fontSize: 12, padding: '3px 0' }}>
             <b>{e.label}</b>
-            <span style={{ color: '#93A1B0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.kind === 'free' ? 'FREE' : `${ROLE_LABEL[st.role].toUpperCase()} · ${stationText(st)}`}</span>
-            <span style={{ color: s.c }}>{s.t}</span>
+            <span style={{ color: '#93A1B0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{st.kind === 'free' ? (pg ? 'PLANE GUARD · RELEASED' : 'FREE') : `${ROLE_LABEL[st.role].toUpperCase()} · ${stationText(st)}`}</span>
+            <span style={{ color: s.c, whiteSpace: 'nowrap' }}>
+              {pg && st.kind === 'free' ? '' : s.t}
+              {orderMark(e.id)}
+            </span>
+            {/* plane guard: released after the recovery (it opens out and steams on, parallel to the ship), then resumed */}
+            {pg && !readOnly ? (
+              <button
+                onClick={() => setStation(e.id, st.kind === 'free' ? PLANE_GUARD : { kind: 'free', role: 'PG' })}
+                title={st.kind === 'free' ? 'Resume plane guard: 170R at 4,000 yd' : 'Release the plane guard after the recovery: detached, it keeps its course and speed'}
+                style={{ ...btn, height: 22, fontSize: 11, padding: '0 8px' }}
+              >
+                {st.kind === 'free' ? 'Resume' : 'Release'}
+              </button>
+            ) : (
+              <span />
+            )}
           </div>
         );
       })}
       {!escorts.length && <div className="mono" style={{ fontSize: 11.5, color: '#6B7683' }}>No escorts with this carrier</div>}
-      {open && <FormationEditor escorts={escorts} formation={f} brc={brc} readOnly={readOnly} onClose={() => setOpen(false)} onApply={(nf) => { setOps({ formation: nf }); setOpen(false); }} />}
+      {cmds && escorts.length > 0 && (
+        <label className="mono" title="The room sends each escort a route to its station (re-sent as the carrier moves). Escorts must each be in their own DCS group." style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid #262F3A', fontSize: 11.5, color: f.drive ? '#E6EDF3' : '#93A1B0', cursor: readOnly ? 'default' : 'pointer' }}>
+          <input type="checkbox" disabled={readOnly} checked={!!f.drive} onChange={(ev) => setOps({ formation: { ...f, drive: ev.target.checked } })} />
+          Order escorts to their stations in DCS
+        </label>
+      )}
+      {open && <FormationEditor escorts={escorts} formation={f} brc={brc} readOnly={readOnly} onClose={() => setOpen(false)} onApply={(nf) => { setOps({ formation: { ...nf, ...(f.drive ? { drive: true } : {}) } }); setOpen(false); }} />}
     </section>
   );
 };

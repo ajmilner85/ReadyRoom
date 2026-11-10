@@ -1,19 +1,17 @@
 /**
- * Bridge: steering (Nimitz steering-console compass, rudder gauge, course order), engine order
- * (bells, ordered speed), wind over deck (components, gauges, best recovery) and PIM. Ported from
- * carrier-ops-handoff-2/mockup/Bridge.dc.html, laid out for the 344 px sidebar. Orders go to the
- * room's shared plan as soon as they're given.
+ * Bridge: steering (Nimitz steering-console compass, rudder gauge, course order) and engine order
+ * (bells, ordered speed, sea room). Ported from carrier-ops-handoff-2/mockup/Bridge.dc.html, laid out
+ * for the 344 px sidebar. Orders go to the room's shared plan as soon as they're given, and from there
+ * to DCS when the hook takes orders. Wind over deck and PIM are in ./Nav.tsx.
  */
 import React, { useRef } from 'react';
 import { rudderFor } from '../../../catcc/core/geometry/shipTurn.ts';
-import { distanceNm, norm360 } from '../../../catcc/core/geo.ts';
-import { nextPimTurn, pimAt } from '../../../catcc/core/env/weather.ts';
-import { bestRecovery, deckWind } from '../../../catcc/core/env/wod.ts';
-import type { RoutePoint } from '../../../catcc/core/dcs/hookProtocol.ts';
+import { norm360 } from '../../../catcc/core/geo.ts';
+import type { OrderStatus } from '../../../catcc/core/room/protocol.ts';
 import type { Carrier } from '../scopeModel.ts';
+import { OrderMark } from './Nav.tsx';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
-const KT_PER_MS = 1 / 0.514444;
 const D = Math.PI / 180;
 const f2 = (n: number) => n.toFixed(2);
 const P = (deg: number, r: number) => [r * Math.sin(deg * D), -r * Math.cos(deg * D)] as const;
@@ -37,12 +35,6 @@ const dig = (min: number, size: number): React.CSSProperties => ({
 });
 const CL2: React.CSSProperties = { fontFamily: MONO, fontSize: 9, fontWeight: 600, letterSpacing: '.1em', color: '#10151B' };
 const BTN: React.CSSProperties = { height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' };
-const kv = (k: string, v: React.ReactNode, c = '#E6EDF3') => (
-  <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: MONO, fontSize: 12.5, padding: '3px 0' }}>
-    <span style={{ color: '#93A1B0' }}>{k}</span>
-    <span style={{ color: c }}>{v}</span>
-  </div>
-);
 const title = (t: string, right?: React.ReactNode) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 8, marginBottom: 8 }}>
     <span className="lbl">{t}</span>
@@ -120,14 +112,15 @@ export const HelmPanel: React.FC<{
   ordered?: { crs: number; kt: number };
   onOrder: (h: { crs: number; kt: number }) => void;
   readOnly: boolean;
-  route?: RoutePoint[];
-  nowS: number;
-  dayStart?: number;
+  /** the last order sent to DCS for the ship (helm or route) */
+  dcsOrder?: OrderStatus;
+  /** the ship is following the plotted route: the course order belongs to it */
+  onRoute?: boolean;
   /** NM along the course to land or shoal water: null none within range, undefined no chart data */
   seaRoom?: number | null;
   /** the range sea room is searched over, NM */
   seaRoomMax?: number;
-}> = ({ carrier, ordered, onOrder, readOnly, route, nowS, dayStart, seaRoom, seaRoomMax = 100 }) => {
+}> = ({ carrier, ordered, onOrder, readOnly, dcsOrder, onRoute, seaRoom, seaRoomMax = 100 }) => {
   const t = carrier?.track;
   const crs = t?.crs ?? t?.hdg ?? 0;
   const hdg = t?.hdg ?? crs;
@@ -147,21 +140,6 @@ export const HelmPanel: React.FC<{
   const rud = ordered ? rudderFor(err) : 0;
   const bell = BELLS.reduce((a, b) => (Math.abs(b[1] - ord.kt) < Math.abs(a[1] - ord.kt) ? b : a))[0];
 
-  // wind over deck
-  const wx = t?.wx;
-  const hasWind = wx?.d0 != null && wx.s0 != null;
-  const dw = hasWind ? deckWind(crs, sog, wx!.d0!, wx!.s0!) : null;
-  const best = hasWind ? bestRecovery(wx!.d0!, wx!.s0!) : null;
-
-  // PIM
-  const pim = route && t ? pimAt(route, nowS) : null;
-  const pimNm = pim && t ? distanceNm(t.lat, t.lon, pim.lat, pim.lon) : null;
-  const turn = route ? nextPimTurn(route, nowS) : null;
-  const hhmm = (s: number) => {
-    const x = ((((dayStart ?? 0) + s) % 86400) + 86400) % 86400;
-    return `${String(Math.floor(x / 3600)).padStart(2, '0')}:${String(Math.floor(x / 60) % 60).padStart(2, '0')}`;
-  };
-
   const big = (label: string, by: number, ch: string, w: number) => (
     <button disabled={readOnly} onClick={() => order({ crs: ord.crs + by })} aria-label={label} style={{ ...BTN, width: w, height: 38, padding: 0, fontSize: 22, lineHeight: 1, cursor: readOnly ? 'default' : 'pointer', opacity: readOnly ? 0.5 : 1 }}>
       {ch}
@@ -171,7 +149,13 @@ export const HelmPanel: React.FC<{
   return (
     <>
       <section className="pnl" aria-label="Steering">
-        {title('Steering', <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{t?.hull ?? ''}</span>)}
+        {title(
+          'Steering',
+          <span style={{ display: 'flex', gap: 8, alignItems: 'baseline' }}>
+            {onRoute ? <span className="mono" style={{ fontSize: 10.5, fontWeight: 600, color: '#7FD397' }}>ON ROUTE</span> : <OrderMark o={dcsOrder?.op === "helm" ? dcsOrder : undefined} />}
+            <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{t?.hull ?? ''}</span>
+          </span>,
+        )}
         <div style={{ position: 'relative', width: '100%' }}>
           <svg viewBox="-104 -104 208 208" style={{ width: '100%', display: 'block' }} role="img" aria-label="Compass: outer card true heading, inner ring relative bearing, ordered course bug">
             <circle r="103" fill="#0A0E13" />
@@ -311,71 +295,6 @@ export const HelmPanel: React.FC<{
         </div>
       </section>
 
-      <section className="pnl" aria-label="Wind over deck">
-        {title('Wind over deck', dw && <span className="mono" style={{ fontSize: 11.5, fontWeight: 600, color: dw.inLimits ? '#7FD397' : '#E7B04F' }}>{dw.inLimits ? 'IN LIMITS' : 'OUT OF LIMITS'}</span>)}
-        {dw && hasWind ? (
-          <>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: 4, marginBottom: 8, textAlign: 'center' }}>
-              {[
-                ['TRUE WIND', `${r3(wx!.d0!)}`],
-                ['TRUE KT', `${Math.round(wx!.s0! * KT_PER_MS)}`],
-                ['DOWN ANGLE', `${Math.round(dw.along)}`],
-                ['CROSS', `${Math.abs(dw.cross) < 0.5 ? '0' : `${Math.round(Math.abs(dw.cross))} ${dw.cross > 0 ? 'R' : 'L'}`}`],
-              ].map(([k, v]) => (
-                <div key={k}>
-                  <div className="lbl" style={{ fontSize: 8.5, whiteSpace: 'nowrap' }}>{k}</div>
-                  <span style={dig(0, 13)}>{v}</span>
-                </div>
-              ))}
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, alignItems: 'end' }}>
-              {[
-                ['Down-angle wind', '0', '40', -90 + (Math.max(0, Math.min(40, dw.along)) / 40) * 180],
-                ['Cross-deck wind', '15 L', '15 R', (Math.max(-15, Math.min(15, dw.cross)) / 15) * 90],
-              ].map(([k, l, r, rot]) => (
-                <div key={k as string} style={{ textAlign: 'center' }}>
-                  <svg viewBox="-60 -56 120 66" style={{ width: '100%', maxWidth: 150 }} aria-hidden="true">
-                    <path d="M-48 0 A48 48 0 0 1 48 0" fill="none" stroke="#C9D3DD" strokeWidth="3" />
-                    <path d="M-48 0 L-40 0 M48 0 L40 0 M0 -48 L0 -40 M-34 -34 L-28.3 -28.3 M34 -34 L28.3 -28.3" stroke="#C9D3DD" strokeWidth="1.5" />
-                    <text x="-50" y="9" textAnchor="middle" style={{ fill: '#93A1B0', fontFamily: MONO, fontSize: 8 }}>{l}</text>
-                    <text x="50" y="9" textAnchor="middle" style={{ fill: '#93A1B0', fontFamily: MONO, fontSize: 8 }}>{r}</text>
-                    <path d="M-3 0 L0 -44 L3 0 Z" fill="#5FD068" transform={`rotate(${(rot as number).toFixed(1)})`} />
-                  </svg>
-                  <div className="lbl" style={{ marginTop: 4, fontSize: 10 }}>{k}</div>
-                </div>
-              ))}
-            </div>
-            {best && (
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', gap: 8, marginTop: 6 }}>
-                <span className="mono" style={{ fontSize: 12, color: '#93A1B0' }}>
-                  Best recovery{' '}
-                  <b style={{ color: '#E6EDF3' }}>
-                    {r3(best.crs)}° / {best.kt} KT
-                  </b>
-                </span>
-                <button disabled={readOnly} onClick={() => order({ crs: best.crs, kt: best.kt })} style={{ ...BTN, height: 28, cursor: readOnly ? 'default' : 'pointer' }}>
-                  Set
-                </button>
-              </div>
-            )}
-          </>
-        ) : (
-          <div className="mono" style={{ fontSize: 11.5, color: '#6B7683' }}>No wind data</div>
-        )}
-      </section>
-
-      <section className="pnl" aria-label="PIM">
-        {title('PIM')}
-        {pim ? (
-          <>
-            {kv('From PIM', pimNm != null ? `${pimNm.toFixed(1)} NM` : '—', pimNm != null && pimNm > 5 ? '#E7B04F' : '#E6EDF3')}
-            {pim.crs != null && kv('PIM course', `${r3(pim.crs)}°`)}
-            {turn && kv('Next turn', `${r3(turn.brc)}° at ${hhmm(turn.etaS)}`)}
-          </>
-        ) : (
-          <div className="mono" style={{ fontSize: 11.5, color: '#6B7683' }}>No planned route</div>
-        )}
-      </section>
     </>
   );
 };

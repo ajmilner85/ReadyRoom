@@ -3770,13 +3770,21 @@ function cleanPlan(p) {
     if (!routeIn.pts.every((q) => q && fin2(q.lat, -90, 90) && fin2(q.lon, -180, 180) && fin2(q.kt, 0, 40))) return null;
     route = { pts: routeIn.pts.map((q) => ({ lat: q.lat, lon: q.lon, kt: q.kt })), active: routeIn.active && routeIn.pts.length > 0 };
   }
+  const recIn = p.recovery;
+  let recovery;
+  if (recIn !== void 0) {
+    const ok = (n) => typeof n === "number" && Number.isFinite(n) && n >= 0 && n < 1e7;
+    if (!recIn || !ok(recIn.startMt) || !ok(recIn.endMt) || recIn.endMt < recIn.startMt || recIn.endMt - recIn.startMt > 6 * 3600) return null;
+    recovery = { startMt: recIn.startMt, endMt: recIn.endMt };
+  }
   return {
     deps: [...deps],
     stacks: out,
     ...off?.length ? { off: [...off] } : {},
     ...coord && Object.keys(coord).length ? { coord } : {},
     ...helm ? { helm } : {},
-    ...route && route.pts.length ? { route } : {}
+    ...route && route.pts.length ? { route } : {},
+    ...recovery ? { recovery } : {}
   };
 }
 function cleanAssignment(a) {

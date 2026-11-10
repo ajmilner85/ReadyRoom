@@ -103,7 +103,7 @@ const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number; rot
 import { inAltBlock, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
-import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcZoomIn, IcZoomOut } from '../icons.tsx';
+import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
 
@@ -148,6 +148,12 @@ export interface ScopeProps {
   trend?: boolean;
   /** the helm order in force for our carrier */
   helm?: { crs: number; kt: number };
+  /** the bridge's plotted route for our carrier (from the ship through each point), labelled with ETAs; active when it is being followed */
+  navRoute?: { pts: { lat: number; lon: number; label: string }[]; active: boolean };
+  /** the Plot waypoint tool: a click adds a waypoint there */
+  onPlotWaypoint?: (lat: number, lon: number) => void;
+  /** half-size of the PIM box drawn about our carrier's PIM, NM */
+  pimBoxNm?: number;
   /** with onCsg the toolbar has a switch for the CSG formation display (stations and off-station labels) */
   csgOn?: boolean;
   onCsg?: (on: boolean) => void;
@@ -1130,6 +1136,13 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       if (b != null && !props.checkRadial(b).err) props.onPlaceClick(b);
       return;
     }
+    if (tool === 'wp') {
+      if (props.onPlotWaypoint && pic.proj) {
+        const ll = pic.proj.toLatLon(q);
+        props.onPlotWaypoint(ll.lat, ll.lon);
+      }
+      return;
+    }
     if (tool === 'bra') {
       const t = nearestTrack(q);
       const end: Pt | string = t ? t.id : q;
@@ -1861,6 +1874,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             </g>
           );
         })}
+        {/* the PIM box: where the ship is to keep about its PIM */}
+        {pp && r.own && props.pimBoxNm && (
+          <rect x={f2(pp[0] - props.pimBoxNm)} y={f2(pp[1] - props.pimBoxNm)} width={f2(2 * props.pimBoxNm)} height={f2(2 * props.pimBoxNm)} fill={col} fillOpacity={0.04} stroke={col} strokeOpacity={0.6} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+        )}
         {pp && pim && (
           <g className="zs" transform={zs(pp, zkO)}>
             {!(ship && len(sub(ship, pp)) < 1.6 * zkH) && <path d={`M${f2(pp[0])} ${f2(pp[1] - 0.7)}L${f2(pp[0] + 0.7)} ${f2(pp[1])}L${f2(pp[0])} ${f2(pp[1] + 0.7)}L${f2(pp[0] - 0.7)} ${f2(pp[1])}Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
@@ -1900,6 +1917,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['marshal', 'Assign marshal level / EAT', <IcMarshal key="m" />],
     ['cpa', 'CPA probe', <IcCpa key="c" />],
     ['vec', 'Vector / heading line', <IcVec key="v" />],
+    ['wp', 'Plot waypoint: click the chart to add one to the route', <IcWp key="w" />],
   ];
   const fitDefs: [Exclude<Fit, null>, string, string][] = [
     // the widest range (the scope stops at MAX_RANGE_NM); the whole theatre only where it is smaller than that
@@ -2159,6 +2177,24 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 );
               })}
           {pic.proj && (props.pimRoutes ?? []).map((r) => pimOverlay(r))}
+          {pic.proj && pic.focus && props.navRoute && props.navRoute.pts.length > 0 && (() => {
+            // the bridge's plotted route: dashed while planned, solid while the ship follows it
+            const nr = props.navRoute!;
+            const P = [pic.focus!.track.p, ...nr.pts.map((q) => pic.proj!.toScope(q.lat, q.lon))];
+            return (
+              <g style={{ pointerEvents: 'none' }}>
+                <path d={pts(P)} fill="none" stroke="#E6EDF3" strokeOpacity={nr.active ? 0.9 : 0.7} strokeDasharray={nr.active ? undefined : '5 4'} style={{ strokeWidth: `calc(${nr.active ? 1.6 : 1.2}px * var(--lw, 1))` }} />
+                {P.slice(1).map((q, i) => (
+                  <g key={i} className="zs" transform={zs(q, zkO)}>
+                    <circle cx={f2(q[0])} cy={f2(q[1])} r="0.45" fill="#0B0E12" stroke="#E6EDF3" style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} />
+                    <text className="nr" transform={upT(q)} x={f2(q[0] + 0.8)} y={f2(q[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E6EDF3', fontSize: '0.85px', fontWeight: 500, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                      {nr.pts[i].label}
+                    </text>
+                  </g>
+                ))}
+              </g>
+            );
+          })()}
           {ov.csg && pic.focus && csgOverlay(pic.focus)}
           {pic.carriers.filter((c) => (c.focus ? ov.port : ov2.port)).map(portHold)}
           {pic.carriers.map(carrierOverlays)}
@@ -2418,7 +2454,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               width: '100%',
               height: '100%',
               pointerEvents: 'auto',
-              cursor: panning ? 'grabbing' : placement.placing || (hooked && toolActive) || tool === 'bra' || tool === 'cpa' ? 'crosshair' : 'default',
+              cursor: panning ? 'grabbing' : placement.placing || (hooked && toolActive) || tool === 'bra' || tool === 'cpa' || tool === 'wp' ? 'crosshair' : 'default',
               '--z': zkO.toFixed(4),
               '--lw': 1,
               '--tagc': TRK,

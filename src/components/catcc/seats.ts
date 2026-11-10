@@ -22,6 +22,10 @@ export interface RadarPreset {
 /** Sidebar sections a radar seat shows. */
 export type LeftTab = 'info' | 'strips';
 export type RightSection = 'dep' | 'marshal' | 'coord' | 'deck' | 'donors' | 'helm' | 'csg' | 'blights' | 'notes';
+/** panels under the info panel in the left sidebar */
+export type LeftExtra = 'wind' | 'blights';
+/** panels in the dock under the scope */
+export type BottomSection = 'wpts' | 'pim' | 'wod';
 
 /** What a radar seat's interface offers: scope tools, range presets, sidebars. */
 export interface SeatUi {
@@ -38,6 +42,8 @@ export interface SeatUi {
   conflicts: 'on' | 'toggle' | 'off';
   left: LeftTab[];
   right: RightSection[];
+  leftExtra?: LeftExtra[];
+  bottom?: BottomSection[];
 }
 
 export interface SeatDef {
@@ -85,7 +91,18 @@ const P_OOD = preset({ ...CV_TRAFFIC_OFF, csg: true, brc: true, fb: false, pim: 
 const S = (id: SeatRole, loc: LocationId, label: string, short: string, view: SeatView, radar?: RadarPreset, ui?: SeatUi): SeatDef => ({ id, loc, label, short, view, radar, ui });
 
 // ---------------------------------------------------------------- seat interfaces
-const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean; ringsFar?: boolean; conflicts?: SeatUi['conflicts'] } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp, ringsFar: !!o.ringsFar, conflicts: o.conflicts ?? 'on' });
+const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean; ringsFar?: boolean; conflicts?: SeatUi['conflicts']; leftExtra?: LeftExtra[]; bottom?: BottomSection[] } = {}): SeatUi => ({
+  tools,
+  fits,
+  left,
+  right,
+  comms: !!o.comms,
+  trackUp: !!o.trackUp,
+  ringsFar: !!o.ringsFar,
+  conflicts: o.conflicts ?? 'on',
+  ...(o.leftExtra ? { leftExtra: o.leftExtra } : {}),
+  ...(o.bottom ? { bottom: o.bottom } : {}),
+});
 /** CATCC as one seat: every control tool and panel */
 const U_CATCC = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 'dep', 'app'], ['info', 'strips'], ['dep', 'marshal', 'coord', 'deck', 'notes'], { comms: true });
 const U_DEP = ui(['select', 'bra', 'cpa', 'vec'], ['r50', 'cca', 'dep'], ['info', 'strips'], ['dep', 'coord', 'notes'], { comms: true });
@@ -95,7 +112,9 @@ const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'],
 /** CDC: the air picture across the theatre and the sensors feeding it */
 const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true, conflicts: 'toggle' });
 /** Bridge: conning the ship; no traffic control */
-const U_OOD = ui(['select', 'bra', 'cpa'], ['r5', 'csg', 'cca', 'thr'], ['info'], ['helm', 'csg', 'blights'], { trackUp: true, conflicts: 'off' });
+// the Bridge: steering and the CSG on the right; the wind and lights under the info panel; waypoints,
+// PIM and wind over deck in the dock under the chart (the sidebars had run out of room)
+const U_OOD = ui(['select', 'bra', 'cpa', 'wp'], ['r5', 'csg', 'cca', 'thr'], ['info'], ['helm', 'csg'], { trackUp: true, conflicts: 'off', leftExtra: ['wind', 'blights'], bottom: ['wpts', 'pim', 'wod'] });
 
 export const SEATS: Record<SeatRole, SeatDef> = {
   strike: S('strike', 'cdc', 'Strike', 'STRIKE', 'radar', P_STRIKE, U_CDC),

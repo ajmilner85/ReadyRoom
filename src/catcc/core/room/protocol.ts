@@ -163,6 +163,8 @@ export interface CarrierPlan {
    * Following a route and a helm order exclude each other: whichever was set last is in force.
    */
   route?: { pts: OrderPoint[]; active: boolean };
+  /** the bridge's recovery window (mission time, s): into the wind from startMt until endMt, then back to PIM */
+  recovery?: { startMt: number; endMt: number };
 }
 
 /** Marshal assignment for one track. Times are seconds of the UTC day. */
@@ -278,6 +280,13 @@ export function cleanPlan(p: unknown): CarrierPlan | null {
     if (!routeIn.pts.every((q) => q && fin(q.lat, -90, 90) && fin(q.lon, -180, 180) && fin(q.kt, 0, 40))) return null;
     route = { pts: routeIn.pts.map((q) => ({ lat: q.lat, lon: q.lon, kt: q.kt })), active: routeIn.active && routeIn.pts.length > 0 };
   }
+  const recIn = (p as CarrierPlan).recovery;
+  let recovery: CarrierPlan['recovery'];
+  if (recIn !== undefined) {
+    const ok = (n: unknown): n is number => typeof n === 'number' && Number.isFinite(n) && n >= 0 && n < 1e7;
+    if (!recIn || !ok(recIn.startMt) || !ok(recIn.endMt) || recIn.endMt < recIn.startMt || recIn.endMt - recIn.startMt > 6 * 3600) return null;
+    recovery = { startMt: recIn.startMt, endMt: recIn.endMt };
+  }
   return {
     deps: [...deps],
     stacks: out,
@@ -285,6 +294,7 @@ export function cleanPlan(p: unknown): CarrierPlan | null {
     ...(coord && Object.keys(coord).length ? { coord } : {}),
     ...(helm ? { helm } : {}),
     ...(route && route.pts.length ? { route } : {}),
+    ...(recovery ? { recovery } : {}),
   };
 }
 

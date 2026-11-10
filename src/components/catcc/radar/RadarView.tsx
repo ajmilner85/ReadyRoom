@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import FlightCard from '../../ui/flight cards/FlightCard';
 import type { Flight, FlightMember } from '../../../types/FlightData';
@@ -19,6 +19,7 @@ import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '
 import { finalPicture, patternIds } from '../final/finalModel.ts';
 import { DeckPanel, DonorsPanel } from './SidePanels.tsx';
 import { HelmPanel } from '../bridge/Helm.tsx';
+import { clockOf, PimPanel, PIM_BOX_NM, routeEtas, WaypointsPanel, WindIndicator, WodPanel, type WindMode } from '../bridge/Nav.tsx';
 import { useMarineData, useSeaRoom } from '../bridge/seaRoom.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 import { FormationPanel } from '../bridge/Formation.tsx';
@@ -177,6 +178,9 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const [tu, setTu] = useState<{ on: boolean }>(() => load(`catcc.tu.${seat.id}`, { on: false }));
   useEffect(() => save(`catcc.tu.${seat.id}`, tu), [tu, seat.id]);
   const [acked, setAcked] = useState<Record<string, true>>({});
+  // the Bridge's wind indicator: true wind, wind over deck or down the angle
+  const [wind, setWind] = useState<{ m: WindMode }>(() => load('catcc.wind', { m: 'true' as WindMode }));
+  useEffect(() => save('catcc.wind', wind), [wind]);
   const comms = useCommsPlan();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
@@ -293,7 +297,40 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
     },
     [ship, plan, placement.placing, placement.editing],
   );
-  const setPlan = (fn: (p: CarrierPlan) => CarrierPlan) => hull && sendPlan(hull, fn(plan));
+  // edits build on the plan last sent until the room's copy catches up (a quick second click would otherwise
+  // start from the room's stale copy and undo the first)
+  const sentPlan = useRef<{ hull: string; plan: CarrierPlan; at: number } | null>(null);
+  if (sentPlan.current && (sentPlan.current.hull !== hull || performance.now() - sentPlan.current.at > 3000 || JSON.stringify(state.plans[hull]) === JSON.stringify(sentPlan.current.plan))) sentPlan.current = null;
+  const setPlan = (fn: (p: CarrierPlan) => CarrierPlan) => {
+    if (!hull) return;
+    const next = fn(sentPlan.current?.plan ?? plan);
+    sentPlan.current = { hull, plan: next, at: performance.now() };
+    sendPlan(hull, next);
+  };
+  // ------------------------------------------------ bridge navigation: helm orders and the plotted route exclude each other
+  const ftrk = focus?.track;
+  const hold = () => ({ crs: Math.round(norm360(ftrk?.crs ?? ftrk?.hdg ?? 0)) % 360, kt: Math.round(ftrk?.gs ?? 0) });
+  const giveHelm = (h: { crs: number; kt: number }) => setPlan((p) => ({ ...p, helm: h, ...(p.route?.active ? { route: { ...p.route, active: false } } : {}) }));
+  const plotWaypoint = (lat: number, lon: number) =>
+    setPlan((p) => {
+      const prev = p.route?.pts ?? [];
+      const kt = prev.length ? prev[prev.length - 1].kt : Math.max(5, Math.min(30, p.helm?.kt ?? Math.round(ftrk?.gs ?? 15)));
+      return prev.length >= 20 ? p : { ...p, route: { pts: [...prev, { lat: Math.round(lat * 1e6) / 1e6, lon: Math.round(lon * 1e6) / 1e6, kt }], active: p.route?.active ?? false } };
+    });
+  const stopRoute = () => setPlan((p) => ({ ...p, helm: hold(), ...(p.route ? { route: { ...p.route, active: false } } : {}) }));
+  const clearRoute = () =>
+    setPlan((p) => {
+      const { route, ...rest } = p;
+      return route?.active ? { ...rest, helm: hold() } : rest;
+    });
+  const navRoute = (() => {
+    const r = plan.route;
+    if (!r?.pts.length || !ftrk) return undefined;
+    const clock = clockOf(state.env?.start);
+    const etas = routeEtas(ftrk, r.pts);
+    return { active: r.active, pts: r.pts.map((q, i) => ({ lat: q.lat, lon: q.lon, label: `WP${i + 1} · ${clock(state.mt + etas[i])}` })) };
+  })();
+  const cmds = !!state.sources.find((x) => x.id === state.src)?.cmds;
   const onPlaceClick = (b: number) => {
     const { placing, editing } = placement;
     if (editing?.k === 'dep') setPlan((p) => ({ ...p, deps: p.deps.map((x) => (x === editing.r ? b : x)).sort((x, y) => x - y) }));
@@ -454,7 +491,11 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         </div>
         )}
         {ltab === 'info' ? (
-          <InfoPanels focus={focus} env={state.env} utc={utc} offH={offH} mt={state.mt} deckClear={null} />
+          <>
+            <InfoPanels focus={focus} env={state.env} utc={utc} offH={offH} mt={state.mt} deckClear={null} />
+            {sui?.leftExtra?.includes('wind') && <WindIndicator carrier={focus} mode={wind.m} onMode={(m) => setWind({ m })} />}
+            {sui?.leftExtra?.includes('blights') && <LightsPanel title="Lights" items={BRIDGE_LIGHTS} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
+          </>
         ) : (
           <DndContext sensors={sensors}>
             {PHASES.filter(([p]) => strips.get(p)?.length).map(([p, t]) => (
@@ -486,7 +527,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         )}
       </aside>
 
-      {/* ---------------- scope */}
+      {/* ---------------- scope (and the Bridge's dock under it) */}
+      <div style={{ flex: '999 1 560px', minWidth: 0, display: 'flex', flexDirection: 'column' }}>
       <Scope
         theatre={state.theatre}
         tools={sui?.tools}
@@ -498,7 +540,10 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         onAltFilter={setAltF}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
         trend={rights.includes('helm')}
-        helm={rights.includes('helm') ? plan.helm : undefined}
+        helm={rights.includes('helm') && !plan.route?.active ? plan.helm : undefined}
+        navRoute={rights.includes('helm') ? navRoute : undefined}
+        onPlotWaypoint={mayEdit && sui?.tools.includes('wp') ? plotWaypoint : undefined}
+        pimBoxNm={sui?.bottom?.includes('pim') ? PIM_BOX_NM : undefined}
         csgOn={csgShow}
         onCsg={rights.includes('csg') ? (on) => setOv((o) => ({ ...o, csg: on })) : undefined}
         conflictsOn={showCf}
@@ -559,22 +604,45 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         freqPanel={<FreqPanel plan={comms.plan} source={comms.source} templates={comms.templates} picked={comms.picked} onPick={comms.pick} />}
         onOpenComms={() => setCommsOpen(true)}
       />
+      {!!sui?.bottom?.length && (
+        <div aria-label="Navigation dock" style={{ flex: 'none', display: 'flex', gap: 10, padding: 10, borderTop: '1px solid #262F3A', background: '#151A21', overflowX: 'auto', alignItems: 'stretch' }}>
+          {sui.bottom.includes('wpts') && (
+            <div style={{ flex: '1 1 380px', minWidth: 340, maxHeight: 236, display: 'flex' }}>
+              <WaypointsPanel
+                carrier={focus}
+                route={plan.route}
+                onRoute={(r) => setPlan((p) => ({ ...p, route: r }))}
+                onStop={stopRoute}
+                onClear={clearRoute}
+                readOnly={!mayEdit}
+                mt={state.mt}
+                dayStart={state.env?.start}
+                order={state.orders[hull]?.op === 'route' ? state.orders[hull] : undefined}
+                plotting={tool === 'wp'}
+                onPlot={() => setTool(tool === 'wp' ? 'select' : 'wp')}
+              />
+            </div>
+          )}
+          {sui.bottom.includes('pim') && (
+            <div style={{ flex: '0 1 340px', minWidth: 300 }}>
+              <PimPanel carrier={focus} route={pimShips.find((x) => x.own)?.pts} mt={state.mt} dayStart={state.env?.start} helm={plan.helm} recovery={plan.recovery} onRecovery={(r) => setPlan((p) => ({ ...p, recovery: r }))} readOnly={!mayEdit} />
+            </div>
+          )}
+          {sui.bottom.includes('wod') && (
+            <div style={{ flex: '0 1 330px', minWidth: 300 }}>
+              <WodPanel carrier={focus} readOnly={!mayEdit} onOrder={giveHelm} />
+            </div>
+          )}
+        </div>
+      )}
+      </div>
 
       {/* ---------------- right sidebar */}
       <aside aria-label="Right sidebar" style={{ flex: '0 0 344px', width: 344, borderLeft: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto' }}>
         {rights.includes('helm') && (
-          <HelmPanel
-            carrier={focus}
-            ordered={plan.helm}
-            onOrder={(h) => setPlan((p) => ({ ...p, helm: h }))}
-            readOnly={!mayEdit}
-            route={pimShips.find((s) => s.own)?.pts}
-            nowS={state.mt}
-            dayStart={state.env?.start}
-            seaRoom={seaRoom}
-          />
+          <HelmPanel carrier={focus} ordered={plan.helm} onOrder={giveHelm} readOnly={!mayEdit} dcsOrder={state.orders[hull]} onRoute={!!plan.route?.active} seaRoom={seaRoom} />
         )}
-        {rights.includes('csg') && <FormationPanel pic={pic} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
+        {rights.includes('csg') && <FormationPanel pic={pic} ops={ops} setOps={setOps} readOnly={!mayEditOps} cmds={cmds} orders={state.orders} />}
         {rights.includes('blights') && <LightsPanel title="Lights" items={BRIDGE_LIGHTS} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
         {rights.includes('deck') && <DeckPanel pic={pic} />}
         {rights.includes('donors') && <DonorsPanel donors={donors} alt={blind.alt} />}
