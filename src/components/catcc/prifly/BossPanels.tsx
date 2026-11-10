@@ -207,7 +207,6 @@ export const LightsPanel: React.FC<{ items: LightItem[]; ops?: OpsState; setOps:
           </div>
         );
       })}
-      <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 6 }}>Shared with the room; the DCS hook doesn't switch the ship's lights yet.</div>
     </section>
   );
 };

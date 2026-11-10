@@ -278,7 +278,6 @@ export const HelmPanel: React.FC<{
             <span style={dig(0, 16)}>{sog.toFixed(1)} KT</span>
           </div>
         </div>
-        <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 8 }}>Orders are shared with the room; the DCS hook doesn't steer the ship yet.</div>
       </section>
 
       <section className="pnl" aria-label="Wind over deck">

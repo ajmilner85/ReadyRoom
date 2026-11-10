@@ -2474,19 +2474,18 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <div role="radiogroup" aria-label="Display orientation" style={{ display: 'flex', gap: 2 }}>
                   {([
                     [false, 'North up', (
-                      // compass rose with the north arrow fixed at the top
-                      <svg key="n" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <circle cx="12" cy="13" r="8" />
-                        <path d="M12 3.5 L14.6 10.5 L12 9.2 L9.4 10.5 Z" fill="currentColor" />
-                        <path d="M12 21v-1.6M4 13h1.6M20 13h-1.6" />
+                      // shaded disc with an N and the north arrowhead on its rim
+                      <svg key="n" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                        <circle cx="12" cy="13.6" r="8.6" fill="currentColor" fillOpacity="0.2" stroke="currentColor" strokeWidth="1.3" />
+                        <path d="M12 1 L15.4 6.4 L8.6 6.4 Z" fill="currentColor" />
+                        <text x="12" y="17.6" textAnchor="middle" fill="currentColor" style={{ font: "700 11px 'IBM Plex Sans', sans-serif" }}>N</text>
                       </svg>
                     )],
                     [true, "Track up: the ship's heading at the top", (
-                      // ship pointing up with its heading line
-                      <svg key="t" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                        <path d="M12 2.5v4" strokeDasharray="1.6 1.6" />
-                        <path d="M12 7.5 L15 11 L15 20 L9 20 L9 11 Z" fill="currentColor" fillOpacity="0.25" />
-                        <path d="M5 13a7 7 0 0 1 2-4.9M19 13a7 7 0 0 0-2-4.9" />
+                      // the radar's carrier silhouette, bow up, with the heading arrow above it
+                      <svg key="t" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 0.4 L15.6 6 L8.4 6 Z" fill="currentColor" />
+                        <path d="M12.77 7.56 L11.50 7.56 L11.10 11.46 L10.17 12.67 L10.23 21.34 L11.00 21.57 L11.17 23.24 L12.93 23.24 L13.77 21.07 L13.83 13.00 L13.00 11.33 Z" fill="currentColor" stroke="currentColor" strokeWidth="0.6" strokeLinejoin="round" />
                       </svg>
                     )],
                   ] as const).map(([v, t, ic]) => {
