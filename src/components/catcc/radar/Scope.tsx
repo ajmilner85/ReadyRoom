@@ -677,7 +677,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const VH = VW * asp;
   // Track-up: the picture is turned about the carrier so its heading points up. Scope (map) coordinates
   // stay north-up; rp() takes a map point to the turned frame the SVG viewBox and screen use.
-  const ROT = props.trackUp && fTrack ? Math.round(norm360(fTrack.hdg ?? fTrack.crs ?? 0)) % 360 : 0;
+  // held until the heading is a full degree off, so a heading wobbling about x.5° doesn't turn (and rebuild) the picture
+  const rotHeld = useRef(0);
+  const hdgNow = props.trackUp && fTrack ? norm360(fTrack.hdg ?? fTrack.crs ?? 0) : null;
+  if (hdgNow == null) rotHeld.current = 0;
+  else if (Math.abs(((hdgNow - rotHeld.current + 540) % 360) - 180) >= 1 || rotHeld.current === 0) rotHeld.current = Math.round(hdgNow) % 360 || 360;
+  const ROT = rotHeld.current % 360;
   const rA = (-ROT * Math.PI) / 180;
   const rCo = Math.cos(rA);
   const rSi = Math.sin(rA);
@@ -1779,7 +1784,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       (scaleChanged && (!zooming || mSnap.w / VW > 4 || mSnap.w / VW < 0.25)) ||
       (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * box.w * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * box.h * 0.8)) ||
       mSnap.rot !== ROT ||
-      (!!ROT && !!oM && Math.hypot(mSnap.om[0] - oM[0], mSnap.om[1] - oM[1]) > 0.1));
+      // turned about the layer's origin: a moved origin misplaces the layer by |Δ|·2·sin(rot/2); rebuild past ~1 px
+      (!!ROT && !!oM && Math.hypot(mSnap.om[0] - oM[0], mSnap.om[1] - oM[1]) * 2 * Math.abs(Math.sin((ROT * Math.PI) / 360)) * KX > 1));
   // the snapshot also freezes the scale-dependent props, so the memoised layer does not re-render mid-zoom
   const snap = stale && curM && marine && oM ? { x: curM.x, y: curM.y, w: VW, h: VH, m: marine, kx: KX, k: zkO, rot: ROT, om: oM, ux: VX - oM[0], uy: VY - oM[1] } : mSnap;
   useEffect(() => {
@@ -2322,6 +2328,35 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               )}
             </g>
           ))}
+          {/* surface contacts (escorts and other ships): NTDS shapes — friend circle, hostile diamond, other square — a 6-minute course vector and the type */}
+          {(pic.ships ?? [])
+            .filter((s) => !hidden.has(s.id))
+            .map((s) => {
+              const col = s.sd === 'red' ? '#FF8A85' : s.sd === 'blue' ? BLUE_HIT : '#E7C66B';
+              const tc = s.sd === 'red' ? 'tg tgr' : s.sd === 'blue' ? 'tg tgb' : 'tg';
+              const v = (s.gs ?? 0) >= 2 ? dir(s.crs ?? s.hdg ?? 0) : null;
+              const d = v ? (s.gs! * 6) / 60 : 0;
+              const name = s.ty.replace(/^(USS|HMS|CV|CVN|LHA|DDG|CG|FFG)_/i, '').replace(/_/g, ' ');
+              return (
+                <g key={`sfc${s.id}`} style={{ pointerEvents: 'none' }}>
+                  {v && <line x1={f2(s.p[0])} y1={f2(s.p[1])} x2={f2(s.p[0] + v[0] * d)} y2={f2(s.p[1] + v[1] * d)} stroke={col} strokeOpacity="0.8" strokeLinecap="round" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
+                  <g className="zs" transform={zs(s.p, zkH)}>
+                    {s.sd === 'red' ? (
+                      <path d={`M${f2(s.p[0])} ${f2(s.p[1] - 0.6)}l0.6 0.6l-0.6 0.6l-0.6 -0.6Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} />
+                    ) : s.sd === 'blue' ? (
+                      <circle cx={f2(s.p[0])} cy={f2(s.p[1])} r="0.45" fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} />
+                    ) : (
+                      <rect x={f2(s.p[0] - 0.4)} y={f2(s.p[1] - 0.4)} width="0.8" height="0.8" fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} />
+                    )}
+                  </g>
+                  <g className="zs nr" transform={`translate(${f2(s.p[0])} ${f2(s.p[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`}>
+                    <text x="0.9" y="1.2" className={tc}>
+                      {name}
+                    </text>
+                  </g>
+                </g>
+              );
+            })}
           {/* hits */}
           {pic.air
             .filter((t) => !hidden.has(t.id))

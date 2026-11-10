@@ -60,6 +60,7 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
     P.painted.set(t.id, t);
     let h = P.hist.get(t.id);
     if (!h) P.hist.set(t.id, (h = []));
+    if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
     if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lat: t.lat, lon: t.lon, alt: t.alt });
     while (h.length > 2 && h[0].t < mt - keepS) h.shift();
     changed = true;

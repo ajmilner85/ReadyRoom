@@ -57,9 +57,18 @@ async function main() {
     const text = readAcmiFile(acmi);
     // --demo-pattern: synthetic final / bolter / inbound traffic around the first carrier
     const sink = args.includes('--demo-pattern') ? withDemoPattern(fake.apply, fake.store) : fake.apply;
-    void replayAcmi(text, sink, { speed: Number(opt('speed') ?? 1), from: opt('from') ? Number(opt('from')) : undefined }).then(() =>
-      console.log('[CATCC] replay finished'),
-    );
+    // loops: at the end the store is cleared and the recording starts again from --from (--once to stop)
+    void (async () => {
+      for (;;) {
+        await replayAcmi(text, sink, { speed: Number(opt('speed') ?? 1), from: opt('from') ? Number(opt('from')) : undefined });
+        if (args.includes('--once')) {
+          console.log('[CATCC] replay finished');
+          return;
+        }
+        console.log('[CATCC] replay finished, looping');
+        fake.store.reset();
+      }
+    })();
     extra.push({ id: 'replay', name: 'Replay', kind: 'hook', host: '127.0.0.1', port: fakePort, token });
     env.CATCC_DEV_NOAUTH = '1';
     console.log(`[CATCC] dev replay of ${acmi} via fake hook on :${fakePort}`);

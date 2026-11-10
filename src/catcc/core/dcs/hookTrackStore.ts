@@ -45,6 +45,8 @@ export class HookTrackStore {
   }
 
   applyFrame(frame: HookFrame): void {
+    // mission time ran backwards (mission restart, replay loop): start the picture afresh
+    if (frame.mt < this.t - 5) this.tracks.clear();
     this.frame = frame;
     this.t = frame.mt;
     const seen = new Set<string>();

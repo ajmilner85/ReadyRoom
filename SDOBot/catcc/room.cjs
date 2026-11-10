@@ -4116,6 +4116,7 @@ var HookTrackStore = class {
     return new Date(midnightUtc + (f.abs - off * 3600) * 1e3);
   }
   applyFrame(frame) {
+    if (frame.mt < this.t - 5) this.tracks.clear();
     this.frame = frame;
     this.t = frame.mt;
     const seen = /* @__PURE__ */ new Set();
