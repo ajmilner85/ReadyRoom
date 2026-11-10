@@ -242,7 +242,7 @@ export function cleanPlan(p: unknown): CarrierPlan | null {
   const helmIn = (p as CarrierPlan).helm;
   let helm: { crs: number; kt: number } | undefined;
   if (helmIn !== undefined) {
-    if (!helmIn || typeof helmIn !== 'object' || !okAngle(helmIn.crs) || typeof helmIn.kt !== 'number' || !Number.isFinite(helmIn.kt) || helmIn.kt < 0 || helmIn.kt > 40) return null;
+    if (!helmIn || typeof helmIn !== 'object' || !okAngle(helmIn.crs) || typeof helmIn.kt !== 'number' || !Number.isFinite(helmIn.kt) || helmIn.kt < -20 || helmIn.kt > 40) return null;
     helm = { crs: helmIn.crs, kt: helmIn.kt };
   }
   return { deps: [...deps], stacks: out, ...(off?.length ? { off: [...off] } : {}), ...(coord && Object.keys(coord).length ? { coord } : {}), ...(helm ? { helm } : {}) };
