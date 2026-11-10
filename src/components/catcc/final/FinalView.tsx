@@ -402,8 +402,8 @@ export const FinalView: React.FC<{
           <>
             <path d={eLim} stroke="rgba(231,176,79,.4)" fill="none" strokeDasharray="6 4" />
             <path d={eProf} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />
-            <path d={eTol} stroke="rgba(95,208,104,.35)" fill="none" />
-            <path d={eCl} stroke="#5FD068" strokeWidth="1.6" fill="none" />
+            <path d={eTol} stroke="rgba(201,211,221,.3)" fill="none" />
+            <path d={eCl} stroke="#C9D3DD" strokeWidth="1.6" fill="none" />
           </>,
           eLab,
           eBlips,
@@ -414,8 +414,8 @@ export const FinalView: React.FC<{
           aGrid,
           <>
             <path d={aFan} stroke="rgba(147,161,176,.28)" fill="none" strokeDasharray="4 4" />
-            <path d={aAhead} stroke="rgba(95,208,104,.4)" fill="none" strokeDasharray="4 4" />
-            <path d={aCl} stroke="#5FD068" strokeWidth="1.6" fill="none" />
+            <path d={aAhead} stroke="rgba(201,211,221,.35)" fill="none" strokeDasharray="4 4" />
+            <path d={aCl} stroke="#C9D3DD" strokeWidth="1.6" fill="none" />
             {aDw && <path d={aDw} stroke="rgba(147,161,176,.6)" fill="none" strokeDasharray="5 4" />}
             {aWin && <path d={aWin} stroke="#5FD068" strokeWidth="5" strokeOpacity=".45" fill="none" />}
             <path d={ghosts.bad} stroke="#FF8A85" strokeWidth="1.4" fill="none" strokeDasharray="5 4" />
