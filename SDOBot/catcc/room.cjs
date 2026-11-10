@@ -3715,6 +3715,7 @@ function toWire(t) {
     pi: t.pilot,
     g: t.group,
     hull: t.hull,
+    ...t.kind === "ship" ? { dn: t.displayName, un: t.unitName } : {},
     ip: t.isPlayer,
     lat: r(t.lat, 6),
     lon: r(t.lon, 6),
@@ -4157,6 +4158,7 @@ var HookTrackStore = class {
     tr.side = SIDES[u.s] ?? "neutral";
     tr.pilot = u.p ?? u.n;
     tr.unitName = u.n;
+    tr.displayName = u.dn;
     tr.isPlayer = u.p !== null;
     tr.callsign = name.callsign;
     tr.flight = name.flight;

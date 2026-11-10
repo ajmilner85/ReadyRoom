@@ -86,6 +86,11 @@ local function sampleUnit(u, side, catCode, gname, out, ships)
     ',"vs":', num(v.y, 2),
   }
   if fuel ~= nil then parts[#parts + 1] = ',"f":' .. num(fuel, 4) end
+  if catCode == 'S' then
+    -- the unit database's display name ("CG Ticonderoga"): type names are terse and inconsistent
+    local okD, desc = pcall(u.getDesc, u)
+    if okD and type(desc) == 'table' and type(desc.displayName) == 'string' then parts[#parts + 1] = ',"dn":' .. str(desc.displayName) end
+  end
   if inAir ~= nil then parts[#parts + 1] = ',"air":' .. (inAir and 'true' or 'false') end
 
   if catCode == 'S' and CARRIERS[typeName] then

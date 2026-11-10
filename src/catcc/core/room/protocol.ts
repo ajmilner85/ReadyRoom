@@ -121,6 +121,10 @@ export interface WireTrack {
   pi?: string;
   g?: string;
   hull?: string;
+  /** ships: DCS display name of the type */
+  dn?: string;
+  /** ships: the unit's name in the mission (often the ship's own name, "USS Leyte Gulf") */
+  un?: string;
   ip?: boolean;
   lat: number;
   lon: number;
@@ -216,6 +220,7 @@ export function toWire(t: Track): WireTrack {
     pi: t.pilot,
     g: t.group,
     hull: t.hull,
+    ...(t.kind === 'ship' ? { dn: t.displayName, un: t.unitName } : {}),
     ip: t.isPlayer,
     lat: r(t.lat, 6)!,
     lon: r(t.lon, 6)!,

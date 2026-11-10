@@ -46,6 +46,8 @@ export interface Track {
   updatedAt: number;
   /** --- fields only the DCS export hook provides --- */
   unitName?: string;
+  /** DCS display name of the type (ships, from the hook) */
+  displayName?: string;
   isPlayer?: boolean;
   /** fraction of internal fuel (>1 with external tanks) */
   fuelFrac?: number;

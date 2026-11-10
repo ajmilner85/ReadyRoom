@@ -29,6 +29,8 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
+import { arcPath, clipArc, unionArcs, unionLoopsPath } from './circleUnion.ts';
+import { shipClassName } from '../../../catcc/core/dcs/shipNames.ts';
 import { buildPaths, terrTopsFor, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
 import { MAX_RANGE_NM, THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 import { pimAt } from '../../../catcc/core/env/weather.ts';
@@ -851,6 +853,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const cornerH = 102;
   const vc = pic.proj?.toLatLon([VX, VY]);
   const mv = vc ? magVar(vc.lat, vc.lon, 0, props.magYear ?? new Date().getUTCFullYear() + new Date().getUTCMonth() / 12) : null;
+  // The frame is the screen rectangle (turned in track up) inset by half a grid step; parallels and
+  // meridians are cut where they cross it, with ticks there along the line and labels just inside,
+  // upright on screen. North up it is the mockup's frame: ticks on the edges, labels left/right and top/bottom.
   const frame = useMemo(() => {
     const x0 = vx + 0.5 * z;
     const x1 = vx + VW - 0.5 * z;
@@ -863,39 +868,73 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const K = Math.cos((lat0 * Math.PI) / 180);
     const majS = VW > 160 ? 30 : 10;
     const minS = VW > 160 ? 10 : VW < 40 ? 1 : 2;
+    // the frame's corners on the chart
+    const poly = ([[x0, y0], [x1, y0], [x1, y1], [x0, y1]] as Pt[]).map(rpInv);
+    const outline = `M${poly.map((q) => `${f2(q[0])} ${f2(q[1])}`).join('L')}Z`;
+    const ys = poly.map((q) => q[1]);
+    const xs = poly.map((q) => q[0]);
+    // where the line {q : q[axis] = v} crosses the frame: its two ends, ordered along the other axis
+    const cut = (axis: 0 | 1, v: number): [Pt, Pt] | null => {
+      const hits: Pt[] = [];
+      for (let i = 0; i < 4; i++) {
+        const a = poly[i];
+        const b = poly[(i + 1) % 4];
+        if ((a[axis] - v) * (b[axis] - v) > 0 || a[axis] === b[axis]) continue;
+        const t = (v - a[axis]) / (b[axis] - a[axis]);
+        hits.push([a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t]);
+      }
+      if (hits.length < 2) return null;
+      const o = axis === 0 ? 1 : 0;
+      hits.sort((p, q) => p[o] - q[o]);
+      return [hits[0], hits[hits.length - 1]];
+    };
     let ticks = '';
     let grid = '';
-    const latL: { y: number; t: string }[] = [];
-    const lonL: { x: number; t: string }[] = [];
+    type Lbl = { x: number; y: number; t: string; anchor: 'start' | 'middle' | 'end' };
+    const labels: Lbl[] = [];
     const fmt = (m: number, w: number, pos: string, neg: string) => {
       const a = Math.abs(m);
       return `${String(Math.floor(a / 60)).padStart(w, '0')}°${String(Math.round(a % 60)).padStart(2, '0')}'${m >= 0 ? pos : neg}`;
     };
-    for (let m = Math.ceil(SLAT - y1); m <= Math.floor(SLAT - y0); m++) {
+    const cornerX = x0 + (cornerW + 24) / KX;
+    const cornerY = y1 - (cornerH + 16) / KX;
+    const line = (ends: [Pt, Pt], maj: boolean, t: string) => {
+      const [a, b] = ends;
+      const d = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      if (d < 1e-9) return;
+      const u: Pt = [(b[0] - a[0]) / d, (b[1] - a[1]) / d];
+      const L = (maj ? 1.4 : 0.6) * z;
+      ticks += `M${f2(a[0])} ${f2(a[1])}l${f2(u[0] * L)} ${f2(u[1] * L)}M${f2(b[0])} ${f2(b[1])}l${f2(-u[0] * L)} ${f2(-u[1] * L)}`;
+      if (!maj) return;
+      grid += `M${f2(a[0])} ${f2(a[1])}L${f2(b[0])} ${f2(b[1])}`;
+      for (const [e, w] of [[a, u], [b, [-u[0], -u[1]] as Pt]] as [Pt, Pt][]) {
+        // the inward direction as seen on screen picks the anchor and the inset
+        const sw = rp(w);
+        const horiz = Math.abs(sw[0]) >= Math.abs(sw[1]);
+        const k = horiz ? 1.8 : sw[1] > 0 ? 2.4 : 1.7;
+        const q: Pt = [e[0] + w[0] * k * z, e[1] + w[1] * k * z];
+        const sq = rp(q);
+        // clear of the frame's corners and of the corner block
+        if (horiz ? sq[1] < y0 + 1.5 * z || sq[1] > y1 - 2.5 * z : sq[0] < x0 + 3 * z || sq[0] > x1 - 3 * z) continue;
+        if (sq[0] < cornerX && sq[1] > cornerY) continue;
+        labels.push({ x: q[0], y: q[1] + (horiz && !ROT ? 0.3 : 0), t, anchor: horiz ? (sw[0] > 0 ? 'start' : 'end') : 'middle' });
+      }
+    };
+    for (let m = Math.ceil(SLAT - Math.max(...ys)); m <= Math.floor(SLAT - Math.min(...ys)); m++) {
       const maj = m % majS === 0;
       if (m % minS && !maj) continue;
-      const y = -(m - SLAT);
-      const L = (maj ? 1.4 : 0.6) * z;
-      ticks += `M${f2(x0)} ${f2(y)}h${f2(L)}M${f2(x1)} ${f2(y)}h-${f2(L)}`;
-      if (maj) {
-        grid += `M${f2(x0)} ${f2(y)}H${f2(x1)}`;
-        // kept clear of the corner block
-        if (y > y0 + 1.5 * z && y < y1 - 2.5 * z && y < y1 - (cornerH + 16) / KX) latL.push({ y: y + 0.3, t: fmt(m, 2, 'N', 'S') });
-      }
+      const ends = cut(1, -(m - SLAT));
+      if (ends) line(ends, maj, fmt(m, 2, 'N', 'S'));
     }
-    for (let m = Math.ceil(SLON + x0 / K); m <= Math.floor(SLON + x1 / K); m++) {
+    for (let m = Math.ceil(SLON + Math.min(...xs) / K); m <= Math.floor(SLON + Math.max(...xs) / K); m++) {
       const maj = m % majS === 0;
       if (m % minS && !maj) continue;
-      const x = (m - SLON) * K;
-      const L = (maj ? 1.4 : 0.6) * z;
-      ticks += `M${f2(x)} ${f2(y0)}v${f2(L)}M${f2(x)} ${f2(y1)}v-${f2(L)}`;
-      if (maj) {
-        grid += `M${f2(x)} ${f2(y0)}V${f2(y1)}`;
-        if (x > x0 + 3 * z && x < x1 - 3 * z && x > x0 + (cornerW + 24) / KX) lonL.push({ x, t: fmt(m, 3, 'E', 'W') });
-      }
+      const ends = cut(0, (m - SLON) * K);
+      if (ends) line(ends, maj, fmt(m, 3, 'E', 'W'));
     }
-    return { x0, x1, y0, y1, ticks, grid, latL, lonL, lx: x0 + 1.8 * z, rx: x1 - 1.8 * z, ty: y0 + 2.4 * z, by: y1 - 1.7 * z };
-  }, [vx, vy, VW, VH, z, focus?.track.lat, focus?.track.lon, KX, cornerW]);
+    return { outline, ticks, grid, labels };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [vx, vy, VW, VH, z, focus?.track.lat, focus?.track.lon, KX, cornerW, ROT]);
 
   // ------------------------------------------------ hooked tools
   const hooked = hookedId ? pic.air.find((t) => t.id === hookedId) : undefined;
@@ -1618,6 +1657,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       const r = tagRows(m);
       rows = [r[0], r[1], `${m.cs ?? m.pi ?? m.id} · ${fi.sel}/${fi.f.members.length}`];
     }
+    // a radar donor (E-2) with the datalink overlay on: its radar on the tag
+    const dn = ov.dl ? props.donors?.find((d) => d.id === t.id) : undefined;
+    if (dn) rows = [...rows, dn.radar];
     tagItems.push({ t, rows, color });
   }
   const tagGeom = (rowsIn: string[]) => {
@@ -1953,22 +1995,15 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         {/* ---------------- background */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
           <g>
-          {ov.latlon && !ROT && (
+          {ov.latlon && (
             <g>
-              <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(frame.x0)} y={f2(frame.y0)} width={f2(frame.x1 - frame.x0)} height={f2(frame.y1 - frame.y0)} fill="none" stroke="rgba(147,161,176,.4)" />
+              <path style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} d={frame.outline} fill="none" stroke="rgba(147,161,176,.4)" />
               <path style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} d={frame.ticks} stroke="rgba(147,161,176,.6)" fill="none" />
               <g className="geo">
-                {frame.latL.map((l) => (
-                  <React.Fragment key={`lat${l.t}`}>
-                    <text x={f2(frame.lx)} y={f2(l.y)} className="geo">{l.t}</text>
-                    <text x={f2(frame.rx)} y={f2(l.y)} textAnchor="end" className="geo">{l.t}</text>
-                  </React.Fragment>
-                ))}
-                {frame.lonL.map((l) => (
-                  <React.Fragment key={`lon${l.t}`}>
-                    <text x={f2(l.x)} y={f2(frame.ty)} textAnchor="middle" className="geo">{l.t}</text>
-                    <text x={f2(l.x)} y={f2(frame.by)} textAnchor="middle" className="geo">{l.t}</text>
-                  </React.Fragment>
+                {frame.labels.map((l, i) => (
+                  <text key={`${l.t}${i}`} x={f2(l.x)} y={f2(l.y)} textAnchor={l.anchor} dominantBaseline={ROT ? 'central' : undefined} className="geo nr" transform={upT([l.x, l.y])}>
+                    {l.t}
+                  </text>
                 ))}
               </g>
             </g>
@@ -2132,22 +2167,21 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             (() => {
               // everything in view outside every donor's coverage circle, tinted; the union's edge drawn
               const ds = props.donors ?? [];
-              // masks and tint cover just the view (a square about its centre, so a turned view is covered
-              // too): masks are re-rasterised on every pan frame, so their size is what panning costs
+              // the tint covers just the view (a square about its centre, so a turned view is covered too).
+              // No masks: the blind area is the view square plus the outline of the union of coverage
+              // circles, filled even-odd (a mask is re-rasterised over the whole view on every pan frame)
               const hv = 0.55 * Math.hypot(VW, VH);
               const box = { x: f2(VX - hv), y: f2(VY - hv), w: f2(2 * hv), h: f2(2 * hv) };
               // only the visible part of a coverage edge is stroked: a whole dashed 200 NM circle at close
-              // zoom is tens of thousands of dashes
-              // 'full': the circle is small next to the view and drawn whole; null: no part of it is in view
-              const edge = (c: Pt, r: number): string | 'full' | null => {
+              // zoom is tens of thousands of dashes. 'full': the circle is small next to the view; null:
+              // no part of it is in view; else the angular window (SVG angles) that is
+              const win = (c: Pt, r: number): [number, number] | 'full' | null => {
                 const d = Math.hypot(VX - c[0], VY - c[1]);
                 if (d + hv < r || d - hv > r) return null;
                 const a0 = Math.atan2(VY - c[1], VX - c[0]);
                 const span = d > hv ? Math.asin(Math.min(1, hv / d)) * 1.2 : Math.PI;
                 if (span >= Math.PI / 2) return 'full';
-                const pa: Pt = [c[0] + r * Math.cos(a0 - span), c[1] + r * Math.sin(a0 - span)];
-                const pb: Pt = [c[0] + r * Math.cos(a0 + span), c[1] + r * Math.sin(a0 + span)];
-                return `M${f2(pa[0])} ${f2(pa[1])}A${f2(r)} ${f2(r)} 0 0 1 ${f2(pb[0])} ${f2(pb[1])}`;
+                return [a0 - span, a0 + span];
               };
               const alt = props.blindAlt ?? 1000;
               // one blind-spot picture: the view outside every donor's circle, tinted, the union's edge dashed
@@ -2172,58 +2206,34 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               const altTxt = (a: number) => `< ${a >= 1000 ? `${a / 1000}K` : a} FT`;
               addLabels((d) => d.cov, altTxt(alt), 0.95);
               if (alt !== BLIND_ALTS[0]) addLabels((d) => d.covLow, altTxt(BLIND_ALTS[0]), 0.6, onSelEdge);
-              // the contour lines are broken under each label so it reads cleanly
               const FS = 0.72;
-              const gapW = (t: string) => (t.length * FS * 0.62 + 0.9) * zkO;
               // `within`: only inside that coverage (the lowest altitude's band, so it isn't painted again
               // under the selected altitude's blind area, which lies inside it)
-              const layer = (id: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number, within?: (d: RadarDonor) => number) => (
-                <>
-                  <defs>
-                    <mask id={id} maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
-                      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill={within ? '#000' : '#fff'} />
-                      {within && ds.map((d) => <circle key={`w${d.id}`} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(within(d))} fill="#fff" />)}
-                      {ds.map((d) => (
-                        <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="#000" />
-                      ))}
-                    </mask>
-                  </defs>
-                  <g mask={`url(#${id})`}>
-                    <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#FF8A85" fillOpacity={fillOp} />
-                    <g mask="url(#catccBlindGaps)">
-                      {ds.map((d) => (
-                        (() => {
-                          const e = edge(d.p, r(d));
-                          const st = { strokeWidth: `calc(${sw}px * var(--lw, 1))` };
-                          return e === 'full' ? (
-                            <circle key={d.id} cx={f2(d.p[0])} cy={f2(d.p[1])} r={f2(r(d))} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={st} />
-                          ) : e ? (
-                            <path key={d.id} d={e} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={st} />
-                          ) : null;
-                        })()
-                      ))}
-                    </g>
+              const layer = (key: string, r: (d: RadarDonor) => number, fillOp: number, strokeOp: number, sw: number, within?: (d: RadarDonor) => number) => {
+                const arcs = unionArcs(ds.map((d) => ({ c: d.p, r: r(d) })));
+                const outer = within ? unionLoopsPath(unionArcs(ds.map((d) => ({ c: d.p, r: within(d) })))) : `M${box.x} ${box.y}H${f2(VX + hv)}V${f2(VY + hv)}H${box.x}Z`;
+                const edges = arcs
+                  .flatMap((a) => {
+                    const w = win(a.c, a.r);
+                    return w === null ? [] : w === 'full' ? [a] : clipArc(a, w[0], w[1]);
+                  })
+                  .map((a) => arcPath(a))
+                  .join('');
+                return (
+                  <g key={key}>
+                    <path d={outer + unionLoopsPath(arcs)} fillRule="evenodd" fill="#FF8A85" fillOpacity={fillOp} />
+                    {edges && <path d={edges} fill="none" stroke="#FF8A85" strokeOpacity={strokeOp} strokeDasharray="8 5" style={{ strokeWidth: `calc(${sw}px * var(--lw, 1))` }} />}
                   </g>
-                </>
-              );
+                );
+              };
               return (
                 <g style={{ pointerEvents: 'none' }}>
-                  <defs>
-                    <mask id="catccBlindGaps" maskUnits="userSpaceOnUse" x={box.x} y={box.y} width={box.w} height={box.h}>
-                      <rect x={box.x} y={box.y} width={box.w} height={box.h} fill="#fff" />
-                      {labs.map((l) => {
-                        const w = gapW(l.text);
-                        const h = 1.05 * zkO;
-                        return <rect key={l.key} x={f2(l.q[0] - w / 2)} y={f2(l.q[1] - h / 2)} width={f2(w)} height={f2(h)} fill="#000" transform={`rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`} />;
-                      })}
-                    </mask>
-                  </defs>
                   {/* the lowest altitude's blind spots are always shown, faintly, under the selected one */}
-                  {alt !== BLIND_ALTS[0] && layer('catccBlindLow', (d) => d.covLow, 0.03, 0.28, 1.2, (d) => d.cov + 0.05)}
-                  {layer('catccBlind', (d) => d.cov, 0.06, 0.7, 2)}
+                  {alt !== BLIND_ALTS[0] && layer('low', (d) => d.covLow, 0.03, 0.28, 1.2, (d) => d.cov + 0.05)}
+                  {layer('sel', (d) => d.cov, 0.06, 0.7, 2)}
                   {labs.map((l) => (
                     <g key={l.key} className="zs nr" transform={`${zs(l.q, zkO)} rotate(${l.ang} ${f2(l.q[0])} ${f2(l.q[1])})`}>
-                      <text x={f2(l.q[0])} y={f2(l.q[1])} textAnchor="middle" dominantBaseline="central" style={{ fill: '#FF8A85', fillOpacity: l.op, fontSize: `${FS}px`, fontWeight: 600, letterSpacing: '0.05em' }}>
+                      <text x={f2(l.q[0])} y={f2(l.q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={{ fill: '#FF8A85', fillOpacity: l.op, fontSize: `${FS}px`, fontWeight: 600, letterSpacing: '0.05em', strokeWidth: 4, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                         {l.text}
                       </text>
                     </g>
@@ -2238,8 +2248,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             })()}
           {ov.dl &&
             (props.donors ?? []).map((d) => {
-              // radiating-arcs glyph: on the ship itself, or just above a symbol the scope already draws
-              const c: Pt = d.sym ? [d.p[0], d.p[1] - 1.9 * zkO] : d.p;
+              // radiating-arcs glyph just below the symbol (below on screen, in track up too); the radar is on the
+              // track's tag (ships, AEW aircraft). Our carrier has no tag: its label stays beside the glyph
+              const below = rpInv([0, (d.sym ? 1.9 : 1.6) * zkO]);
+              const c: Pt = [d.p[0] + below[0], d.p[1] + below[1]];
+              const tagged = d.sym ? d.kind === 'aew' : true;
               const arc = (r: number, side: 1 | -1) => {
                 const x = r * Math.cos(0.7) * side;
                 const y = r * Math.sin(0.7);
@@ -2250,9 +2263,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   <title>{`${d.name} · ${d.radar}`}</title>
                   <circle cx={f2(c[0])} cy={f2(c[1])} r="0.2" fill="#E7C66B" />
                   <path d={[arc(0.55, 1), arc(0.55, -1), arc(0.95, 1), arc(0.95, -1)].join('')} fill="none" stroke="#E7C66B" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
-                  <text className="nr" transform={upT(c)} x={f2(c[0] + 1.25)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
-                    {`${d.name.toUpperCase()} · ${d.radar}`}
-                  </text>
+                  {!tagged && (
+                    <text className="nr" transform={upT(c)} x={f2(c[0] + 1.25)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                      {`${d.name.toUpperCase()} · ${d.radar}`}
+                    </text>
+                  )}
                 </g>
               );
             })}
@@ -2482,7 +2497,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               const col = s.sd === 'red' ? '#FF8A85' : s.sd === 'blue' ? BLUE_HIT : '#E7C66B';
               const tc = s.sd === 'red' ? 'tg tgr' : s.sd === 'blue' ? 'tg tgb' : 'tg';
               const h = s.crs ?? s.hdg ?? 0;
-              const name = s.ty.replace(/^(USS|HMS|CV|CVN|LHA|DDG|CG|FFG)_/i, '').replace(/_/g, ' ');
+              const name = shipClassName(s.ty, s.dn);
+              // a radar donor with the datalink overlay on: its radar on the tag's second line
+              const dn = ov.dl ? props.donors?.find((d) => d.id === s.id) : undefined;
               return (
                 <g key={`sfc${s.id}`} style={{ pointerEvents: 'none' }}>
                   {s.trail.map((q, i) => (
@@ -2495,6 +2512,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     <text x="0.9" y="1.2" className={tc}>
                       {name}
                     </text>
+                    {dn && (
+                      <text x="0.9" y="2.35" className="tg" style={{ fill: '#E7C66B' }}>
+                        {dn.radar}
+                      </text>
+                    )}
                   </g>
                 </g>
               );

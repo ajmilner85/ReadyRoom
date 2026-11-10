@@ -72,6 +72,7 @@ export class HookTrackStore {
     tr.side = SIDES[u.s] ?? 'neutral';
     tr.pilot = u.p ?? u.n;
     tr.unitName = u.n;
+    tr.displayName = u.dn;
     tr.isPlayer = u.p !== null;
     tr.callsign = name.callsign;
     tr.flight = name.flight;

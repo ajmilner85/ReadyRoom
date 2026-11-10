@@ -117,6 +117,11 @@ const SHIP_SFC_RADARS: [RegExp, { rpm: number; antFt: number }][] = [
   [/TICONDEROG|Ticonderoga/i, { rpm: SPS67_RPM, antFt: 110 }], // AN/SPS-67
   [/PERRY|Oliver/i, { rpm: 16, antFt: 90 }], // AN/SPS-55
 ];
+/** Airborne early warning: AN/APS-145 (E-2C) / APY-9 (E-2D), 6 RPM, with a maritime surface mode. */
+const AEW_RE = /^E-2/i;
+const AEW_RPM = 6;
+/** its surface search reaches the radar horizon from its altitude, capped at this, NM */
+const AEW_SFC_MAX_NM = 200;
 /** escorts count as part of a carrier group within this range of a friendly carrier */
 const CSG_RADIUS_NM = 30;
 
@@ -158,6 +163,11 @@ export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: nu
       const due = Math.floor(t1 / (spec.revisitS * 1000)) !== Math.floor(t0 / (spec.revisitS * 1000));
       out.push({ id: s.id, lat: s.lat, lon: s.lon, swept: () => due });
     }
+  }
+  // friendly E-2s in the air paint ships out to their horizon
+  for (const a of tracks) {
+    if (a.sd !== ref.sd || !AEW_RE.test(a.ty) || a.air === false || a.alt < 500) continue;
+    out.push({ ...rot(a, AEW_RPM, phaseOf(a.id)), id: `${a.id}:sfc`, air: false, sfc: { rangeNm: Math.min(AEW_SFC_MAX_NM, horizonNm(a.alt)) } });
   }
   return out;
 }

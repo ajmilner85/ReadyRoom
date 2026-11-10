@@ -45,6 +45,8 @@ export interface HookUnit {
   /** fuel as a fraction of internal capacity (>1 with external tanks); aircraft only */
   f?: number;
   air?: boolean;
+  /** ships: the DCS unit database's display name, e.g. "CG Ticonderoga" */
+  dn?: string;
   /** carriers only */
   wx?: CarrierWx;
 }

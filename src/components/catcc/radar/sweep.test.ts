@@ -44,6 +44,17 @@ describe('radar sweep', () => {
     expect(P.painted.has('near')).toBe(false);
   });
 
+  it('with datalink, an airborne E-2 paints ships out to its radar horizon', () => {
+    const e2: WireTrack = { ...at('e2', 0, 60), ty: 'E-2C', alt: 25_000 };
+    const parked: WireTrack = { ...at('e2b', 0, 0), ty: 'E-2C', alt: 60, air: false };
+    const R = radarsFor([cv, e2, parked], 'cv', 0, 100, true);
+    const sfc = R.find((r) => r.id === 'e2:sfc')!;
+    expect(sfc.air).toBe(false);
+    expect(sfc.sfc!.rangeNm).toBeCloseTo(200, 0); // horizon from 25,000 ft is ~205 NM: capped
+    expect(R.some((r) => r.id.startsWith('e2b'))).toBe(false); // on deck: not radiating
+    expect(radarsFor([cv, e2], 'cv', 0, 100, false).some((r) => r.id.startsWith('e2'))).toBe(false);
+  });
+
   it('arc test wraps through north', () => {
     expect(swept(350, 10, 5)).toBe(true);
     expect(swept(350, 10, 355)).toBe(true);
