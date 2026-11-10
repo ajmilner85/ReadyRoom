@@ -37,7 +37,7 @@ const QUADS: Pt[] = [
   [-1, -1],
 ];
 
-interface Box {
+export interface Box {
   x0: number;
   y0: number;
   x1: number;
@@ -63,7 +63,17 @@ const area = (a: Box) => (a.x1 - a.x0) * (a.y1 - a.y0);
  */
 export function layoutTags(
   tags: TagSpec[],
-  opts: { k: number; hitK: number; view: Box; prev?: Map<string, TagPlace>; obstacles?: Pt[] },
+  opts: {
+    k: number;
+    hitK: number;
+    view: Box;
+    prev?: Map<string, TagPlace>;
+    obstacles?: Pt[];
+    /** areas a tag must keep off (e.g. a datum line), same cost as another tag */
+    keepOff?: Box[];
+    /** leader lengths to try, ref units (default LEADER_LENGTHS) */
+    lengths?: number[];
+  },
 ): Map<string, TagPlace> {
   const { k, hitK, view, prev } = opts;
   const placed: Box[] = [];
@@ -78,12 +88,14 @@ export function layoutTags(
     const cands: TagPlace[] = [];
     const pv = prev?.get(t.id);
     if (pv) cands.push(pv);
-    for (const L of LEADER_LENGTHS) for (const q of QUADS) cands.push({ q, L });
+    for (const L of opts.lengths ?? LEADER_LENGTHS) for (const q of QUADS) cands.push({ q, L });
     for (const pl of cands) {
       const b = tagBox(t, pl, k);
       const a = area(b);
       let tagOv = 0;
       for (const o of placed) tagOv += overlap(b, o);
+      let keepOv = 0;
+      for (const o of opts.keepOff ?? []) keepOv += overlap(b, o);
       // other aircraft covered by this tag, each as a fraction of its own symbol: covering any
       // part of a hit costs far more than a longer leader or giving up last frame's spot
       let hitCov = 0;
@@ -93,6 +105,7 @@ export function layoutTags(
       const clear = tagOv === 0 && hitCov === 0;
       const score =
         (tagOv / a) * 1000 + // never on another tag
+        (keepOv > 0 ? 500 + (keepOv / a) * 1000 : 0) + // nor on a kept-off area
         (hitCov > 0 ? 60 + hitCov * 200 : 0) + // keep other aircraft visible
         (outside / a) * 200 + // stay on the scope
         along * 3 + // away from the velocity vector

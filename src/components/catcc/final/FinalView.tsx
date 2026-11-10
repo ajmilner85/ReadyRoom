@@ -4,7 +4,7 @@
  * sequence. Ported from carrier-ops-handoff-2/mockup/Final.dc.html; live data from the picture.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { layoutTags, type TagPlace } from '../radar/tagLayout.ts';
+import { layoutTags, type Box, type TagPlace } from '../radar/tagLayout.ts';
 import type { AclsMode, OpsState, Ownership } from '../../../catcc/core/room/ops.ts';
 import { BALL_NM } from '../../../catcc/core/geometry/slot.ts';
 import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
@@ -26,6 +26,8 @@ const TRK_TRAIL = '#3E9A4C';
 const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
 /** px per tag-layout reference unit (one tag row), as on the main radar */
 const K = 13;
+/** leaders stretch as far as needed to keep tags off the final bearing / glidepath */
+const LEADERS = [2.4, 3.8, 5.2, 6.8, 8.6, 10.6, 13, 16];
 /** the main radar's tag geometry: a climb/descent arrow sits left of the altitude row, outside the text inset */
 const tagGeom = (rowsIn: string[]) => {
   const arrow = rowsIn[1]?.[0] === '↑' || rowsIn[1]?.[0] === '↓' ? rowsIn[1][0] : '';
@@ -116,7 +118,6 @@ export const FinalView: React.FC<{
   };
 
   // ------------------------------------------------ elevation
-  const step = RG === 24 ? 2 : RG === 12 ? 1 : 0.5;
   const lblStep = RG === 24 ? 4 : RG === 12 ? 2 : 1;
   const gsInt = 1200 / GP_FT_PER_NM;
   const DM: [number, string][] = (
@@ -128,11 +129,18 @@ export const FinalView: React.FC<{
       [20, 'PLATFORM'],
     ] as [number, string][]
   ).filter((d) => d[0] <= RG);
+  // full-height lines only at the milestones; range on hash marks (small every 1 NM, wider every 2 NM)
   let eGrid = '';
-  for (let r = R0 + step; r <= RG + 1e-9; r += step) eGrid += `M${f1(X(r))} 40V370`;
-  const altStep = AMAX[RG] > 4000 ? 1000 : 500;
-  for (let al = altStep; al < AMAX[RG]; al += altStep) eGrid += `M60 ${f1(Ye(al))}H980`;
   for (const [r] of DM) eGrid += `M${f1(X(r))} 30V375`;
+  const altStep = AMAX[RG] > 4000 ? 1000 : 500;
+  let eTicks = '';
+  for (let r = Math.ceil(R0); r <= RG + 1e-9; r += 1) {
+    const h = r % 2 === 0 ? 7 : 3.5;
+    eTicks += `M${f1(X(r))} 370v${-h * 1.6}`;
+    const ga = r * GP_FT_PER_NM;
+    if (r > 0 && ga < AMAX[RG]) eTicks += `M${f1(X(r))} ${f1(Ye(ga) - h)}v${f1(2 * h)}`;
+  }
+  for (let al = altStep; al < AMAX[RG]; al += altStep) eTicks += `M60 ${f1(Ye(al))}h${al % (2 * altStep) === 0 ? 10 : 5}`;
   const gsEnd = Math.min(RG, AMAX[RG] / GP_FT_PER_NM);
   const tanFt = (deg: number) => Math.tan((deg * Math.PI) / 180) * 6076.12;
   const eCl = `M${f1(X(0))} ${f1(Ye(0))}L${f1(X(gsEnd))} ${f1(Ye(gsEnd * GP_FT_PER_NM))}`;
@@ -171,8 +179,13 @@ export const FinalView: React.FC<{
   rangeMarks(eLab);
 
   // ------------------------------------------------ azimuth
-  let aGrid = 'M60 200H980';
-  for (let r = R0 + step; r <= RG + 1e-9; r += step) aGrid += `M${f1(X(r))} 30V370`;
+  let aGrid = '';
+  for (const [r] of DM) aGrid += `M${f1(X(r))} 30V375`;
+  let aTicks = '';
+  for (let r = Math.ceil(R0); r <= RG + 1e-9; r += 1) {
+    const h = r % 2 === 0 ? 7 : 3.5;
+    aTicks += `M${f1(X(r))} ${f1(200 - h)}v${f1(2 * h)}`;
+  }
   const aFan = [1, 2, 5]
     .map((dg) => {
       const t = Math.tan((dg * Math.PI) / 180);
@@ -282,21 +295,30 @@ export const FinalView: React.FC<{
   const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
 
   /** The main radar's tag placement, held to a home quadrant (NE; SW in the bolter pattern) unless that would cover another tag or hit. */
-  const placeTags = (key: string, blips: Blip[]) => {
+  const placeTags = (key: string, blips: Blip[], datum: (x: number) => number | null) => {
+    // the datum line (display units → px) as a chain of small boxes
+    const keep: Box[] = [];
+    const sx = sz.w / 1000;
+    const sy = sz.h / 400;
+    for (let x = 60; x <= 980; x += 6) {
+      const y = datum(x);
+      if (y == null) continue;
+      keep.push({ x0: (x - 3) * sx, y0: y * sy - 2, x1: (x + 3) * sx, y1: y * sy + 2 });
+    }
     const toPx = (b: Blip): [number, number] => [(b.x / 100) * sz.w, (b.y / 100) * sz.h];
     const places = layoutTags(
       blips.map((b) => {
         const p = toPx(b);
         return { id: b.id, p, ...tagGeom(b.rows), pref: b.pref, priority: b.red ? 0 : 2 + b.x / 100 };
       }),
-      { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx) },
+      { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx), keepOff: keep, lengths: LEADERS },
     );
     prevPlaces.current[key] = places;
     return places;
   };
 
-  const disp = (title: string, grid: string, extra: React.ReactNode, labs: Lab[], blips: Blip[], ref?: React.Ref<HTMLElement>) => {
-    const places = sz.w ? placeTags(title, blips) : new Map<string, TagPlace>();
+  const disp = (title: string, grid: string, extra: React.ReactNode, labs: Lab[], blips: Blip[], datum: (x: number) => number | null, ref?: React.Ref<HTMLElement>) => {
+    const places = sz.w ? placeTags(title, blips, datum) : new Map<string, TagPlace>();
     return (
       <section ref={ref} aria-label={`${title} display`} style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden' }}>
         <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>{title}</span>
@@ -400,9 +422,15 @@ export const FinalView: React.FC<{
             <path d={eProf} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />
             <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />
             <path d={eCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
+            <path d={eTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
           </>,
           eLab,
           eBlips,
+          // the glidepath, from the ramp to where it leaves the scale
+          (x) => {
+            const r = ((x - 60) / 920) * (RG - R0) + R0;
+            return r >= 0 && r <= gsEnd ? Ye(r * GP_FT_PER_NM) : null;
+          },
           dispRef,
         )}
         {disp(
@@ -412,6 +440,7 @@ export const FinalView: React.FC<{
             <path d={aFan} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />
             <path d={aAhead} stroke="rgba(201,211,221,.21)" fill="none" strokeDasharray="4 4" />
             <path d={aCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
+            <path d={aTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
             {aDw && <path d={aDw} stroke="rgba(147,161,176,.6)" fill="none" strokeDasharray="5 4" />}
             {aWin && <path d={aWin} stroke="#5FD068" strokeWidth="5" strokeOpacity=".45" fill="none" />}
             <path d={ghosts.bad} stroke="#FF8A85" strokeWidth="1.4" fill="none" strokeDasharray="5 4" />
@@ -420,6 +449,8 @@ export const FinalView: React.FC<{
           </>,
           aLab,
           aBlips,
+          // the final bearing, carried on past the ramp
+          () => 200,
         )}
       </main>
 
