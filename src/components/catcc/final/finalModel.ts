@@ -82,6 +82,24 @@ export function finalPicture(pic: Picture): FinalPicture | null {
   return { fb, ship, vFinal, acs, arrivals, bolters, toFinal, wx: c.track.wx };
 }
 
+/**
+ * CV NATOPS (NAVAIR 00-80T-105) 3.3 separation for an aircraft under positive radar control:
+ * lateral 1-1/2 NM established on final within 5 NM, 2 NM on a designated approach or the
+ * downwind inside 12 NM, otherwise 3 NM (under 50 NM from the antenna) or 5 NM; vertical 1,000 ft,
+ * 800 ft inside 10 NM.
+ */
+export function sepStd(a: FinalAc): { nm: number; ft: number } {
+  const d = Math.hypot(a.f.along, a.f.lat);
+  const nm = a.kind === 'final' && d <= 5 ? 1.5 : d <= 12 && a.kind !== 'other' ? 2 : d < 50 ? 3 : 5;
+  return { nm, ft: d <= 10 ? 800 : 1000 };
+}
+
+/** Whether another aircraft is inside an aircraft's separation bubble: closer than both standards. */
+export function sepViolated(a: FinalAc, others: FinalAc[]): boolean {
+  const s = sepStd(a);
+  return others.some((o) => o !== a && Math.hypot(o.f.along - a.f.along, o.f.lat - a.f.lat) < s.nm && Math.abs(o.t.alt - a.t.alt) < s.ft);
+}
+
 /** Aircraft in the carrier's pattern (arrivals and bolters) are approach traffic, whatever their sortie phase says. */
 export function patternIds(fp: FinalPicture | null): Set<string> {
   return new Set((fp?.acs ?? []).filter((a) => a.kind !== 'other' && (a.kind !== 'inbound' || a.f.along <= 25)).map((a) => a.t.id));

@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { bolterSlot, finalPicture, landingWeightLb, profileAlt } from './finalModel.ts';
+import { bolterSlot, finalPicture, landingWeightLb, profileAlt, sepStd, sepViolated } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -48,6 +48,23 @@ describe('approach / final picture', () => {
     const t203 = fp.arrivals[1].tBall!;
     expect(s.tBall(s.window![0])).toBeGreaterThanOrEqual(t205 + 59.9);
     expect(s.tBall(s.window![1])).toBeLessThanOrEqual(t203 - 59.9);
+  });
+
+  it('applies the CV NATOPS separation standards', () => {
+    const a205 = fp.acs.find((a) => a.t.id === '205')!;
+    // established on final within 5 NM: 1-1/2 NM, 800 ft inside 10 NM; just outside 5 NM: 2 NM
+    expect(sepStd({ ...a205, f: { ...a205.f, along: 4.5 } })).toEqual({ nm: 1.5, ft: 800 });
+    expect(sepStd({ ...a205, f: { ...a205.f, along: 5.5 } }).nm).toBe(2);
+    // the downwind inside 12 NM: 2 NM
+    expect(sepStd(fp.acs.find((a) => a.t.id === '211')!).nm).toBe(2);
+    // 18 NM inbound: 3 NM, 1,000 ft
+    expect(sepStd(fp.acs.find((a) => a.t.id === '203')!)).toEqual({ nm: 3, ft: 1000 });
+    expect(sepViolated(a205, fp.acs)).toBe(false);
+    // a second aircraft 1 NM behind 205 at the same height is inside its bubble
+    const close = { ...a205, t: { ...a205.t, id: 'x' }, f: { ...a205.f, along: a205.f.along + 1 } };
+    expect(sepViolated(a205, [...fp.acs, close])).toBe(true);
+    // ...but not 1,000 ft above it
+    expect(sepViolated(a205, [...fp.acs, { ...close, t: { ...close.t, alt: a205.t.alt + 1000 } }])).toBe(false);
   });
 
   it('follows the Case III profile and estimates the trap weight', () => {

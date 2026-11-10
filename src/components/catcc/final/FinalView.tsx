@@ -13,7 +13,7 @@ import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
-import { bolterSlot, dmeAt, finalPicture, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
+import { bolterSlot, dmeAt, finalPicture, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
@@ -24,6 +24,10 @@ const R0 = -4;
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
 const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
+const FT_PER_NM = 6076.12;
+/** Nimitz class: overall flight deck length, and the glidepath's touchdown (target 3-wire) from the ramp, ft */
+const SHIP_FT = 1092;
+const TD_FT = 230;
 /** px per tag-layout reference unit (one tag row), as on the main radar */
 const K = 13;
 /** leaders stretch as far as needed to keep tags off the final bearing / glidepath */
@@ -88,6 +92,7 @@ export const FinalView: React.FC<{
 }> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly }) => {
   const [RG, setRG] = useState<ParRange>(defaultRange);
   const [ghost, setGhost] = useState(true);
+  const [sep, setSep] = useState(false);
   const [pick, setPick] = useState<string | null>(null);
   const fp = useMemo(() => finalPicture(pic), [pic]);
   // the displays' size in px, for tag placement (both displays are the same size)
@@ -195,6 +200,26 @@ export const FinalView: React.FC<{
   // the landing area centreline carried on past the ramp, and the ramp itself on both displays
   const aAhead = `M${f1(X(R0))} 200H${f1(X(0))}`;
   const ramp = `M${f1(X(0))} 30V375`;
+  // the ship: 1,092 ft of deck, the glidepath meeting it at the 3-wire (~230 ft from the ramp)
+  const deckX0 = X(TD_FT / FT_PER_NM);
+  const deckX1 = X(-(SHIP_FT - TD_FT) / FT_PER_NM);
+  // separation bubbles (CV NATOPS 3.3): a ring of the lateral standard in plan; in elevation a box of lateral × vertical
+  const pxNm = 920 / (RG - R0);
+  const eSep: React.ReactNode[] = [];
+  const aSep: React.ReactNode[] = [];
+  if (sep && fp) {
+    for (const a of fp.acs) {
+      if (!(a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG])) continue;
+      const s = sepStd(a);
+      const bad = sepViolated(a, fp.acs);
+      const st = { stroke: bad ? '#FF8A85' : 'rgba(201,211,221,.45)', fill: bad ? 'rgba(224,82,78,.08)' : 'none', strokeDasharray: bad ? undefined : '4 3' };
+      const cx = X(a.f.along);
+      const rx = s.nm * pxNm;
+      const ry = (s.ft / AMAX[RG]) * 330;
+      eSep.push(<rect key={a.t.id} x={f1(cx - rx)} y={f1(Ye(a.t.alt) - ry)} width={f1(2 * rx)} height={f1(2 * ry)} rx="4" {...st} />);
+      aSep.push(<ellipse key={a.t.id} cx={f1(cx)} cy={f1(Ya(a.f.lat))} rx={f1(rx)} ry={f1((s.nm / LMAX[RG]) * 170)} {...st} />);
+    }
+  }
   const aLab: Lab[] = [];
   topMarks(aLab);
   for (const [dg, t] of [
@@ -393,38 +418,60 @@ export const FinalView: React.FC<{
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
       <main aria-label="Precision approach displays" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 8, padding: 10, boxSizing: 'border-box' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-          <span className="lbl">Range</span>
-          <div style={SEG}>
+        {/* toolbar, centred as on the radar; the frame's numbers on the right */}
+        <div style={{ position: 'relative', display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 50 }}>
+          <div role="toolbar" aria-label="Approach tools" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, background: 'rgba(21,26,33,.96)', border: '1px solid #374250', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.45)' }}>
+            <button
+              className="tbtn"
+              aria-label="Bolter sequencing"
+              aria-pressed={ghost}
+              title={ghost ? 'Bolter sequencing on: turn-in points and slot window for the bolter' : 'Bolter sequencing off'}
+              onClick={() => setGhost(!ghost)}
+              style={{ background: ghost ? 'rgba(241,88,34,.18)' : 'transparent', color: ghost ? '#FFB08F' : '#E6EDF3' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                <path d="M21 6H9a5 5 0 0 0 0 10h11" />
+                <path d="M17 13l3 3-3 3" />
+              </svg>
+            </button>
+            <button
+              className="tbtn"
+              aria-label="Separation bubbles"
+              aria-pressed={sep}
+              title={sep ? 'Separation bubbles on (CV NATOPS 3.3)' : 'Separation bubbles off'}
+              onClick={() => setSep(!sep)}
+              style={{ background: sep ? 'rgba(241,88,34,.18)' : 'transparent', color: sep ? '#FFB08F' : '#E6EDF3' }}
+            >
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" aria-hidden="true">
+                <circle cx="12" cy="12" r="8" strokeDasharray="3 2.5" />
+                <rect x="10.2" y="10.2" width="3.6" height="3.6" fill="currentColor" stroke="none" />
+              </svg>
+            </button>
+            {ghost && fp && fp.bolters.length > 1 && (
+              <select aria-label="Bolter" value={bolter?.t.id ?? ''} onChange={(e) => setPick(e.target.value)} style={{ height: 32, background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 5, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5 }}>
+                {fp.bolters.map((b) => (
+                  <option key={b.t.id} value={b.t.id}>
+                    {label(b.t)}
+                  </option>
+                ))}
+              </select>
+            )}
+            <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
             {([6, 12, 24] as ParRange[]).map((r) => (
-              <button key={r} aria-pressed={RG === r} onClick={() => setRG(r)} style={segBtn(RG === r)}>
+              <button
+                key={r}
+                aria-pressed={RG === r}
+                onClick={() => setRG(r)}
+                title={`${r} NM range`}
+                style={{ height: 32, padding: '0 9px', borderRadius: 5, border: `1px solid ${RG === r ? '#F15822' : '#374250'}`, background: RG === r ? 'rgba(241,88,34,.18)' : 'transparent', color: RG === r ? '#FFB08F' : '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, cursor: 'pointer' }}
+              >
                 {r} NM
               </button>
             ))}
           </div>
-          <div style={{ width: 1, height: 24, background: '#374250' }} />
-          <button
-            aria-pressed={ghost}
-            onClick={() => setGhost(!ghost)}
-            disabled={!bolter}
-            title={bolter ? 'Ghost turns and the slot window for the bolter' : 'No aircraft on the bolter downwind'}
-            style={{ height: 30, padding: '0 12px', border: `1px solid ${ghost && bolter ? '#5FD068' : '#374250'}`, borderRadius: 5, background: ghost && bolter ? 'rgba(95,208,104,.12)' : 'transparent', color: bolter ? '#E6EDF3' : '#5E6A78', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: bolter ? 'pointer' : 'default' }}
-          >
-            Bolter slot{bolter ? ` · ${label(bolter.t)}` : ''}
-          </button>
-          {fp && fp.bolters.length > 1 && (
-            <select aria-label="Bolter" value={bolter?.t.id ?? ''} onChange={(e) => setPick(e.target.value)} style={{ height: 30, background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 5, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12 }}>
-              {fp.bolters.map((b) => (
-                <option key={b.t.id} value={b.t.id}>
-                  {label(b.t)}
-                </option>
-              ))}
-            </select>
-          )}
-          <div style={{ flex: 1 }} />
           {fp && (
-            <span className="mono" style={{ fontSize: 11.5, color: '#93A1B0' }}>
-              FB {String(Math.round(fp.fb)).padStart(3, '0')} · GS {GS_DEG}° · closure {Math.round(fp.vFinal)} KT{bolter ? ` · downwind ${Math.round(bolter.f.alongKt)} KT` : ''}
+            <span className="mono" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontSize: 11.5, color: '#93A1B0' }}>
+              FB {String(Math.round(fp.fb)).padStart(3, '0')} · GS {GS_DEG}° · closure {Math.round(fp.vFinal)} KT{ghost && bolter ? ` · downwind ${Math.round(bolter.f.alongKt)} KT` : ''}
             </span>
           )}
         </div>
@@ -435,7 +482,9 @@ export const FinalView: React.FC<{
             <path d={eLim} stroke="rgba(231,176,79,.4)" fill="none" strokeDasharray="6 4" />
             <path d={eProf} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />
             <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />
+            {eSep}
             <path d={eCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
+            <path d={`M${f1(deckX0)} 370H${f1(deckX1)}`} stroke="#C9D3DD" strokeWidth="6" strokeLinecap="butt" fill="none" />
             <path d={eTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
           </>,
           eLab,
@@ -453,7 +502,9 @@ export const FinalView: React.FC<{
           <>
             <path d={aFan} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />
             <path d={aAhead} stroke="rgba(201,211,221,.21)" fill="none" strokeDasharray="4 4" />
+            {aSep}
             <path d={aCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
+            <path d={`M${f1(deckX0)} 200H${f1(deckX1)}`} stroke="#C9D3DD" strokeWidth="6" strokeLinecap="butt" fill="none" />
             <path d={aTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
             {aDw && <path d={aDw} stroke="rgba(147,161,176,.6)" fill="none" strokeDasharray="5 4" />}
             {aWin && <path d={aWin} stroke="#5FD068" strokeWidth="5" strokeOpacity=".45" fill="none" />}
