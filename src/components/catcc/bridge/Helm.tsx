@@ -34,7 +34,7 @@ const dig = (min: number, size: number): React.CSSProperties => ({
   textAlign: 'center',
   letterSpacing: '.04em',
 });
-const CL2: React.CSSProperties = { fontFamily: MONO, fontSize: 9, fontWeight: 600, letterSpacing: '.1em', color: '#1E1B18' };
+const CL2: React.CSSProperties = { fontFamily: MONO, fontSize: 9, fontWeight: 600, letterSpacing: '.1em', color: '#10151B' };
 const BTN: React.CSSProperties = { height: 32, padding: '0 12px', border: '1px solid #374250', borderRadius: 5, background: 'transparent', color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' };
 const kv = (k: string, v: React.ReactNode, c = '#E6EDF3') => (
   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: MONO, fontSize: 12.5, padding: '3px 0' }}>
@@ -166,11 +166,11 @@ export const HelmPanel: React.FC<{
         {title('Steering', <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{t?.hull ?? ''}</span>)}
         <div style={{ position: 'relative', width: '100%' }}>
           <svg viewBox="-104 -104 208 208" style={{ width: '100%', display: 'block' }} role="img" aria-label="Compass: outer card true heading, inner ring relative bearing, ordered course bug">
-            <circle r="103" fill="#0A0B0C" />
+            <circle r="103" fill="#0A0E13" />
             <g transform={`rotate(${(-hdg).toFixed(1)})`}>
-              <circle r="92" fill="none" stroke="#8F897E" strokeWidth="16" />
-              <path d={CARD_TICKS} stroke="#24201C" strokeWidth="0.9" fill="none" />
-              <g style={{ fontFamily: MONO, fontSize: 6.4, fontWeight: 600, fill: '#1E1B18' }} textAnchor="middle">
+              <circle r="92" fill="none" stroke="#8A96A3" strokeWidth="16" />
+              <path d={CARD_TICKS} stroke="#141A21" strokeWidth="0.9" fill="none" />
+              <g style={{ fontFamily: MONO, fontSize: 6.4, fontWeight: 600, fill: '#10151B' }} textAnchor="middle">
                 {CARD_NUMS.map((n) => (
                   <text key={n.a} x={f2(n.x)} y={f2(n.y)} dy="2.3" transform={`rotate(${n.a} ${f2(n.x)} ${f2(n.y)})`}>
                     {n.t}
@@ -180,9 +180,9 @@ export const HelmPanel: React.FC<{
               {/* ordered course bug on the card's outer edge */}
               {ordered && <path d="M0 -100 L-4.5 -104 L4.5 -104 Z" fill="#6FBF68" transform={`rotate(${ordered.crs})`} />}
             </g>
-            <circle r="74" fill="#87817A" />
-            <path d={REL_TICKS} stroke="#24201C" strokeWidth="0.9" fill="none" />
-            <g style={{ fontFamily: MONO, fontSize: 6.2, fontWeight: 600, fill: '#1E1B18' }} textAnchor="middle">
+            <circle r="74" fill="#7B8794" />
+            <path d={REL_TICKS} stroke="#141A21" strokeWidth="0.9" fill="none" />
+            <g style={{ fontFamily: MONO, fontSize: 6.2, fontWeight: 600, fill: '#10151B' }} textAnchor="middle">
               {REL_NUMS.map((n) => (
                 <text key={n.a} x={f2(n.x)} y={f2(n.y)} dy="2.3" transform={`rotate(${n.a} ${f2(n.x)} ${f2(n.y)})`}>
                   {n.t}
@@ -190,7 +190,7 @@ export const HelmPanel: React.FC<{
               ))}
             </g>
             {/* lubber diamond */}
-            <path d="M0 -75.5 L-3.6 -79.5 L0 -83.5 L3.6 -79.5 Z" fill="#D8D2C6" />
+            <path d="M0 -75.5 L-3.6 -79.5 L0 -83.5 L3.6 -79.5 Z" fill="#E6EDF3" />
           </svg>
           <div style={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
             <span style={{ display: 'grid', gridTemplateColumns: 'auto auto auto', gap: '3px 4px', alignItems: 'center' }}>
@@ -209,9 +209,9 @@ export const HelmPanel: React.FC<{
 
         {/* rudder */}
         <svg viewBox="-100 -12 200 112" style={{ width: '70%', display: 'block', margin: '10px auto 0' }} role="img" aria-label={`Rudder ${RL(rud)}`}>
-          <path d={RUD_ARC} fill="none" stroke="#A39C90" strokeWidth="1" />
-          <path d={RUD_TICKS} stroke="#A39C90" strokeWidth="1" />
-          <g style={{ fontFamily: MONO, fontSize: 9, fill: '#A39C90' }} textAnchor="middle">
+          <path d={RUD_ARC} fill="none" stroke="#93A1B0" strokeWidth="1" />
+          <path d={RUD_TICKS} stroke="#93A1B0" strokeWidth="1" />
+          <g style={{ fontFamily: MONO, fontSize: 9, fill: '#93A1B0' }} textAnchor="middle">
             {RUD_NUMS.map((n, i) => (
               <text key={i} x={f2(n.x)} y={f2(n.y)} dy="3">
                 {n.t}
@@ -220,7 +220,7 @@ export const HelmPanel: React.FC<{
           </g>
           <text x="-70" y="-2" style={{ fontFamily: MONO, fill: '#93A1B0', fontSize: 8, letterSpacing: '.1em' }}>PORT</text>
           <text x="70" y="-2" textAnchor="end" style={{ fontFamily: MONO, fill: '#93A1B0', fontSize: 8, letterSpacing: '.1em' }}>STBD</text>
-          <path d="M-5 0 L0 84 L5 0 Z" fill="rgba(176,160,70,.7)" stroke="#6FBF68" strokeWidth="1.5" transform={`rotate(${(-rud * 2).toFixed(1)})`} />
+          <path d="M-5 0 L0 84 L5 0 Z" fill="rgba(95,208,104,.35)" stroke="#6FBF68" strokeWidth="1.5" transform={`rotate(${(-rud * 2).toFixed(1)})`} />
           <circle r="6" fill="#151A21" stroke="#C9D3DD" />
         </svg>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 6, textAlign: 'center', marginTop: 4 }}>
