@@ -15,7 +15,7 @@
  *    theatre box and cached in <cache-dir>
  *
  * Output: public/catcc/marine/<Theatre>.json (format v2); bbox is the data's extent (the theatre box plus
- * PAD_DEG on every side), theatreBox the theatre itself
+ * PAD_NM on every side), theatreBox the theatre itself
  *   land:  rings (even-odd fill)
  *   coast: shoreline polylines (the cut along the data box is left out)
  *   nav:   { d, fill, lines } water shallower than d (not navigable by a carrier) and its outline
@@ -46,8 +46,17 @@ const THEATRES = {
   Iraq: { bbox: [28.5, 46, 31.5, 50.5], levels: [10, 20], stride: 1 },
 };
 
-/** degrees of chart beyond the theatre box on every side */
-const PAD_DEG = 2;
+/**
+ * Chart beyond the theatre box on every side, NM: the scope's widest view is 160 NM edge to centre, whose
+ * corners reach ~200 NM from its centre. In whole ETOPO tiles (2 deg), so cached tiles stay aligned.
+ * Keep in step with theatreDataBox() in src/catcc/core/dcs/theatres.ts.
+ */
+const PAD_NM = 200;
+function dataBox([s, w, n, e]) {
+  const padLat = Math.ceil(PAD_NM / 60 / 2) * 2;
+  const padLon = Math.ceil(PAD_NM / (60 * Math.cos((Math.max(Math.abs(s), Math.abs(n)) * Math.PI) / 180)) / 2) * 2;
+  return [Math.max(-88, s - padLat), w - padLon, Math.min(88, n + padLat), e + padLon];
+}
 
 /** water shallower than this is shaded as not navigable (a CVN draws about 12 m) */
 const NAV_M = 15;
@@ -651,9 +660,9 @@ mkdirSync(outDir, { recursive: true });
 
 for (const [name, cfg] of Object.entries(THEATRES)) {
   if (only.length && !only.includes(name)) continue;
-  // the data reaches PAD_DEG past the theatre on every side, so a view at the theatre's edge (or turned,
-  // track up) never runs off the chart; a multiple of the ETOPO tile size keeps the cached tiles aligned
-  const box = [Math.max(-89, cfg.bbox[0] - PAD_DEG), cfg.bbox[1] - PAD_DEG, Math.min(89, cfg.bbox[2] + PAD_DEG), cfg.bbox[3] + PAD_DEG];
+  // the data reaches PAD_NM past the theatre on every side, so a view centred anywhere in the theatre at
+  // the scope's widest range (turned or not) never runs off the chart
+  const box = dataBox(cfg.bbox);
   const land = [];
   const coast = [];
   for (const ring of readShp(shpPath, box)) {

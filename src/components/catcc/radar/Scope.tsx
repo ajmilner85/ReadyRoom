@@ -29,7 +29,7 @@ import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
 import { buildPaths, terrTopsFor, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
-import { THEATRE_BOXES, THEATRE_PAD_DEG, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
+import { MAX_RANGE_NM, THEATRE_BOXES, theatreAt, theatreDataBox } from '../../../catcc/core/dcs/theatres.ts';
 import { pimAt } from '../../../catcc/core/env/weather.ts';
 import { distanceNm } from '../../../catcc/core/geo.ts';
 
@@ -199,7 +199,7 @@ const msS = (t: number) => {
 };
 const zs = (a: Pt, k: number) => `translate(${f2(a[0])} ${f2(a[1])}) scale(${k.toFixed(4)}) translate(${f2(-a[0])} ${f2(-a[1])})`;
 const HELO_HOLD: HoldSpec = { legNm: 2, turnNm: 0.5 };
-const clampW = (w: number) => Math.max(12, Math.min(900, w));
+const clampW = (w: number) => Math.max(12, Math.min(2 * MAX_RANGE_NM, w));
 
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
@@ -679,8 +679,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return fitBox(q, 3);
     },
   };
-  // tBounds: the theatre itself (what THEATRE frames). dBounds: the chart data's extent, THEATRE_PAD_DEG
-  // past it on every side; the view stays inside that, so it never runs off the chart. Outside a known
+  // tBounds: the theatre itself (what THEATRE frames). dBounds: the chart data's extent, 200 NM past it
+  // on every side; the view stays inside that, so it never runs off the chart. Outside a known
   // theatre the view stays within 100 NM.
   const bounds = useMemo(() => {
     const tb = tBox ?? (fTrack ? THEATRE_BOXES[theatreAt(fTrack.lat, fTrack.lon) ?? ''] : undefined);
@@ -696,7 +696,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return x1 > x0 && y1 > y0 ? { x0, x1, y0, y1 } : null;
     };
     const t = rect(tb);
-    const d = rect([Math.max(-89, tb[0] - THEATRE_PAD_DEG), tb[1] - THEATRE_PAD_DEG, Math.min(89, tb[2] + THEATRE_PAD_DEG), tb[3] + THEATRE_PAD_DEG]) ?? t;
+    const d = rect(theatreDataBox(tb)) ?? t;
     return t && d ? { t, d } : null;
     // re-derived when the carrier has moved a few NM (the projection is about it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -707,7 +707,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const fpW = Math.abs(rCo) + asp * Math.abs(rSi);
   const fpH = Math.abs(rSi) + asp * Math.abs(rCo);
   /** widest view the chart allows */
-  const maxW = (w: number) => (dBounds ? Math.min(w, (dBounds.x1 - dBounds.x0) / fpW, (dBounds.y1 - dBounds.y0) / fpH) : w);
+  const maxW = (w: number) => Math.min(2 * MAX_RANGE_NM, dBounds ? Math.min(w, (dBounds.x1 - dBounds.x0) / fpW, (dBounds.y1 - dBounds.y0) / fpH) : w);
   const clampCore = (x: number, y: number, w: number) => {
     if (!dBounds) {
       const r = Math.hypot(x, y);
@@ -1823,7 +1823,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['vec', 'Vector / heading line', <IcVec key="v" />],
   ];
   const fitDefs: [Exclude<Fit, null>, string, string][] = [
-    ['thr', 'THEATRE', 'As much of the theatre as fits'],
+    // the widest range (the scope stops at MAX_RANGE_NM); the whole theatre only where it is smaller than that
+    ['thr', `${MAX_RANGE_NM}NM`, `Widest range: ${MAX_RANGE_NM} NM`],
     ['fit', 'FIT', 'Fit all contacts, carriers and ships'],
     ['bulls', 'BULLS', 'The bullseye, 100 NM around it'],
     ['r50', '50NM', 'Default range: 50 NM around the carrier'],

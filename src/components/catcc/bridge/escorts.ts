@@ -37,6 +37,6 @@ export function escortsOf(pic: Picture): Escort[] {
 
 export function stateOf(st: Station, brc: number, e: Escort) {
   const s = stationState(st, brc, e.brg, e.rng);
-  return s.k === 'free' ? { t: 'FREE', c: '#93A1B0' } : s.k === 'on' ? { t: 'ON STA', c: '#7FD397' } : { t: `OFF ${s.nm.toFixed(1)} NM`, c: '#E7B04F' };
+  return s.k === 'free' ? { t: 'FREE', c: '#93A1B0' } : s.k === 'on' ? { t: 'ON STA', c: '#7FD397' } : { t: `OFF STA ${s.nm.toFixed(1)} NM`, c: '#E7B04F' };
 }
 
