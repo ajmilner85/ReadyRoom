@@ -61,6 +61,8 @@ interface Blip {
   y: number;
   c: string;
   red: boolean;
+  /** tag home quadrant: NE, SW for the bolter pattern (clear of the turn-back lines) */
+  pref: [number, number];
   /** trail colour; trail dots in % of the display, newest first */
   tc: string;
   rows: string[];
@@ -208,7 +210,7 @@ export const FinalView: React.FC<{
     const bulge = Math.max(0.6, 1.33 * turnRadiusNm(bolter.t.gs ?? 150, 25));
     for (const o of slot.options) {
       if (o.x > RG) continue;
-      ghosts[o.cls] += `M${f1(X(o.x))} ${f1(Ya(DW))}C${f1(X(o.x + bulge))} ${f1(Ya(DW))} ${f1(X(o.x + bulge))} 200 ${f1(X(o.x))} 200H${f1(X(BALL_NM))}`;
+      ghosts[o.cls] += `M${f1(X(o.x))} ${f1(Ya(DW))}C${f1(X(o.x + bulge))} ${f1(Ya(DW))} ${f1(X(o.x + bulge))} 200 ${f1(X(o.x))} 200`;
       const p = pc(X(o.x), Ya(DW));
       // option labels below the downwind (the bolter's own label sits above it)
       aLab.push({ x: p[0], y: p[1], tf: 'translate(-50%, 60%)', c: C[o.cls], t: o.key === 'NOW' ? 'NOW' : o.key.replace(' NM', '') });
@@ -252,9 +254,10 @@ export const FinalView: React.FC<{
       vA = [X(a.f.along), Ya(a.f.lat), X(eal), Ya(ela)];
     }
     const e = pc(X(a.f.along), Ye(t.alt));
-    eBlips.push({ id: t.id, x: e[0], y: e[1], c, red, tc, rows, tr: trE, v: vE });
+    const pref: [number, number] = a.kind === 'bolter' ? [-1, 1] : [1, -1];
+    eBlips.push({ id: t.id, x: e[0], y: e[1], c, red, pref, tc, rows, tr: trE, v: vE });
     const z = pc(X(a.f.along), Ya(a.f.lat));
-    aBlips.push({ id: t.id, x: z[0], y: z[1], c, red, tc, rows, tr: trA, v: vA });
+    aBlips.push({ id: t.id, x: z[0], y: z[1], c, red, pref, tc, rows, tr: trA, v: vA });
   }
 
   // ------------------------------------------------ panels
@@ -278,20 +281,13 @@ export const FinalView: React.FC<{
   const span = Math.max(240, ...(fp?.arrivals ?? []).map((a) => a.tBall! + 30), ...(slot?.options.map((o) => o.t + 30) ?? []));
   const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
 
-  /** Tag placement exactly as the main radar: NE by default, moved off other tags, hits and its own vector. */
+  /** The main radar's tag placement, held to a home quadrant (NE; SW in the bolter pattern) unless that would cover another tag or hit. */
   const placeTags = (key: string, blips: Blip[]) => {
     const toPx = (b: Blip): [number, number] => [(b.x / 100) * sz.w, (b.y / 100) * sz.h];
     const places = layoutTags(
       blips.map((b) => {
         const p = toPx(b);
-        let v: [number, number] | undefined;
-        if (b.v) {
-          const dx = ((b.v[2] - b.v[0]) / 1000) * sz.w;
-          const dy = ((b.v[3] - b.v[1]) / 400) * sz.h;
-          const n = Math.hypot(dx, dy);
-          if (n > 2) v = [dx / n, dy / n];
-        }
-        return { id: b.id, p, ...tagGeom(b.rows), v, priority: b.red ? 0 : 2 + b.x / 100 };
+        return { id: b.id, p, ...tagGeom(b.rows), pref: b.pref, priority: b.red ? 0 : 2 + b.x / 100 };
       }),
       { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx) },
     );
@@ -402,8 +398,8 @@ export const FinalView: React.FC<{
           <>
             <path d={eLim} stroke="rgba(231,176,79,.4)" fill="none" strokeDasharray="6 4" />
             <path d={eProf} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />
-            <path d={eTol} stroke="rgba(201,211,221,.3)" fill="none" />
-            <path d={eCl} stroke="#C9D3DD" strokeWidth="1.6" fill="none" />
+            <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />
+            <path d={eCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
           </>,
           eLab,
           eBlips,
@@ -413,9 +409,9 @@ export const FinalView: React.FC<{
           'Azimuth',
           aGrid,
           <>
-            <path d={aFan} stroke="rgba(147,161,176,.28)" fill="none" strokeDasharray="4 4" />
-            <path d={aAhead} stroke="rgba(201,211,221,.35)" fill="none" strokeDasharray="4 4" />
-            <path d={aCl} stroke="#C9D3DD" strokeWidth="1.6" fill="none" />
+            <path d={aFan} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />
+            <path d={aAhead} stroke="rgba(201,211,221,.21)" fill="none" strokeDasharray="4 4" />
+            <path d={aCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
             {aDw && <path d={aDw} stroke="rgba(147,161,176,.6)" fill="none" strokeDasharray="5 4" />}
             {aWin && <path d={aWin} stroke="#5FD068" strokeWidth="5" strokeOpacity=".45" fill="none" />}
             <path d={ghosts.bad} stroke="#FF8A85" strokeWidth="1.4" fill="none" strokeDasharray="5 4" />

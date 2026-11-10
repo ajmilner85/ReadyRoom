@@ -18,6 +18,8 @@ export interface TagSpec {
   v?: Pt;
   /** lower = placed first */
   priority: number;
+  /** a required home quadrant: any other costs more than a longer leader or the vector rule, less than covering a tag or hit */
+  pref?: Pt;
 }
 
 export interface TagPlace {
@@ -95,7 +97,8 @@ export function layoutTags(
         (outside / a) * 200 + // stay on the scope
         along * 3 + // away from the velocity vector
         (pl.L - LEADER_LENGTHS[0]) * 1.5 - // short leaders preferred
-        (pv && pl === pv && clear ? 8 : 0); // stickiness only for a previous placement that is still clear
+        (pv && pl === pv && clear ? 8 : 0) + // stickiness only for a previous placement that is still clear
+        (t.pref && (pl.q[0] !== t.pref[0] || pl.q[1] !== t.pref[1]) ? 40 : 0); // keep to the home quadrant
       if (!best || score < best.score) best = { pl, score };
     }
     out.set(t.id, best!.pl);
