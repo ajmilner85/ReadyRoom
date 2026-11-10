@@ -69,15 +69,24 @@ export interface Picture {
 
 const isAir = (t: WireTrack) => t.k === 'fixedwing' || t.k === 'rotary';
 
-/** Trail dots: positions roughly every `stepS` seconds back from now. */
-export function trailPoints(hist: Trail[] | undefined, nowT: number, proj: Projection, dots = 5, stepS = 6, alts?: (number | undefined)[]): Pt[] {
-  if (!hist?.length) return [];
+/** seconds between a ship's trail dots (5 dots: 5 minutes of track) */
+export const SHIP_TRAIL_STEP_S = 60;
+/** seconds of position history kept for ships, enough for their trail */
+export const SHIP_HISTORY_S = 5 * SHIP_TRAIL_STEP_S + 20;
+
+/**
+ * Trail dots at the contact's earlier updates (radar paints, or feed frames without the sweep):
+ * walking back from the latest update, the next update at least ~stepS older each time, so every
+ * dot is a position the contact was actually shown at. Newest first.
+ */
+export function trailPoints(hist: Trail[] | undefined, _nowT: number, proj: Projection, dots = 5, stepS = 6, alts?: (number | undefined)[]): Pt[] {
+  if (!hist || hist.length < 2) return [];
   const out: Pt[] = [];
-  let i = hist.length - 1;
-  for (let k = 1; k <= dots; k++) {
-    const want = nowT - k * stepS;
-    while (i > 0 && hist[i].t > want) i--;
-    if (hist[i].t > want) break;
+  const gap = stepS * 0.85;
+  let ref = hist[hist.length - 1].t;
+  for (let i = hist.length - 2; i >= 0 && out.length < dots; i--) {
+    if (ref - hist[i].t < gap) continue;
+    ref = hist[i].t;
     out.push(proj.toScope(hist[i].lat, hist[i].lon));
     alts?.push(hist[i].alt);
   }
@@ -103,7 +112,9 @@ export function buildPicture(
   const toScope = (t: WireTrack): ScopeTrack => {
     const p = proj.toScope(t.lat, t.lon);
     const trailAlt: (number | undefined)[] = [];
-    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, 5, opts.trailStepS, trailAlt), trailAlt, rng: len(p), brg: bearingOf(p) };
+    // ships crawl: their dots a minute apart, else they'd sit on top of each other
+    const step = t.k === 'ship' || t.k === 'carrier' ? SHIP_TRAIL_STEP_S : opts.trailStepS;
+    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, 5, step, trailAlt), trailAlt, rng: len(p), brg: bearingOf(p) };
   };
   const carriers: Carrier[] = cvs.map((c) => ({ track: toScope(c), ship: shipRefOf(c), focus: c === focusTrack }));
   const air = tracks.filter(isAir).map(toScope);

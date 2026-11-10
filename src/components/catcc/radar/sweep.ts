@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bearingDeg, distanceNm } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
-import type { Trail } from '../scopeModel.ts';
+import { SHIP_HISTORY_S, type Trail } from '../scopeModel.ts';
 
 export const SPN43_RPM = 15;
 export const SCAN_S = 60 / SPN43_RPM;
@@ -62,7 +62,7 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
     if (!h) P.hist.set(t.id, (h = []));
     if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
     if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lat: t.lat, lon: t.lon, alt: t.alt });
-    while (h.length > 2 && h[0].t < mt - keepS) h.shift();
+    while (h.length > 2 && h[0].t < mt - (t.k === 'ship' || t.k === 'carrier' ? Math.max(keepS, SHIP_HISTORY_S) : keepS)) h.shift();
     changed = true;
   }
   for (const [id, t] of P.painted) {

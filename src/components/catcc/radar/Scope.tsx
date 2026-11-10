@@ -136,6 +136,9 @@ export interface ScopeProps {
   onAltFilter?: (f: { lo: number; hi: number } | null) => void;
   /** offer the north-up / track-up switch (and its state handler) */
   onTrackUp?: (on: boolean) => void;
+  /** conflict alerts shown; with onConflicts the toolbar has a switch for them */
+  conflictsOn?: boolean;
+  onConflicts?: (on: boolean) => void;
   /** the seat's scope tools, range presets and whether it has comms scripts */
   tools?: Tool[];
   fits?: Exclude<Fit, null>[];
@@ -2328,26 +2331,24 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               )}
             </g>
           ))}
-          {/* surface contacts (escorts and other ships): NTDS shapes — friend circle, hostile diamond, other square — a 6-minute course vector and the type */}
+          {/* surface contacts (escorts and other ships): a hull (square stern, pointed bow) along the course, coloured by side; trail dots a minute apart; a 2-minute course vector from the bow; the type */}
           {(pic.ships ?? [])
             .filter((s) => !hidden.has(s.id))
             .map((s) => {
               const col = s.sd === 'red' ? '#FF8A85' : s.sd === 'blue' ? BLUE_HIT : '#E7C66B';
               const tc = s.sd === 'red' ? 'tg tgr' : s.sd === 'blue' ? 'tg tgb' : 'tg';
-              const v = (s.gs ?? 0) >= 2 ? dir(s.crs ?? s.hdg ?? 0) : null;
-              const d = v ? (s.gs! * 6) / 60 : 0;
+              const h = s.crs ?? s.hdg ?? 0;
+              const v = (s.gs ?? 0) >= 2 ? dir(h) : null;
+              const d = v ? (s.gs! * 2) / 60 : 0;
               const name = s.ty.replace(/^(USS|HMS|CV|CVN|LHA|DDG|CG|FFG)_/i, '').replace(/_/g, ' ');
               return (
                 <g key={`sfc${s.id}`} style={{ pointerEvents: 'none' }}>
-                  {v && <line x1={f2(s.p[0])} y1={f2(s.p[1])} x2={f2(s.p[0] + v[0] * d)} y2={f2(s.p[1] + v[1] * d)} stroke={col} strokeOpacity="0.8" strokeLinecap="round" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
-                  <g className="zs" transform={zs(s.p, zkH)}>
-                    {s.sd === 'red' ? (
-                      <path d={`M${f2(s.p[0])} ${f2(s.p[1] - 0.6)}l0.6 0.6l-0.6 0.6l-0.6 -0.6Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} />
-                    ) : s.sd === 'blue' ? (
-                      <circle cx={f2(s.p[0])} cy={f2(s.p[1])} r="0.45" fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} />
-                    ) : (
-                      <rect x={f2(s.p[0] - 0.4)} y={f2(s.p[1] - 0.4)} width="0.8" height="0.8" fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.4px * var(--lw, 1))' }} />
-                    )}
+                  {s.trail.map((q, i) => (
+                    <path key={i} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} fill="none" stroke={col} strokeLinecap="square" strokeWidth={trailPx} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />
+                  ))}
+                  {v && <line x1={f2(s.p[0] + v[0] * 0.8 * zkH)} y1={f2(s.p[1] + v[1] * 0.8 * zkH)} x2={f2(s.p[0] + v[0] * (0.8 * zkH + d))} y2={f2(s.p[1] + v[1] * (0.8 * zkH + d))} stroke={col} strokeOpacity="0.8" strokeLinecap="round" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
+                  <g transform={`translate(${f2(s.p[0])} ${f2(s.p[1])}) scale(${zkH.toFixed(4)}) rotate(${f2(h)})`}>
+                    <path d="M0 -0.8 Q0.3 -0.5 0.3 -0.1 L0.3 0.62 L-0.3 0.62 L-0.3 -0.1 Q-0.3 -0.5 0 -0.8 Z" fill="#0B0E12" stroke={col} strokeLinejoin="miter" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
                   </g>
                   <g className="zs nr" transform={`translate(${f2(s.p[0])} ${f2(s.p[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`}>
                     <text x="0.9" y="1.2" className={tc}>
@@ -2504,6 +2505,28 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <IcZoomIn />
             </button>
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+            {props.onConflicts && (
+              <>
+                <button
+                  className="tbtn"
+                  aria-pressed={!!props.conflictsOn}
+                  aria-label="Conflict alerts"
+                  title="Conflict alerts"
+                  onClick={() => props.onConflicts!(!props.conflictsOn)}
+                  style={{ background: props.conflictsOn ? 'rgba(241,88,34,.18)' : 'transparent', color: props.conflictsOn ? '#FFB08F' : '#E6EDF3' }}
+                >
+                  {/* two tracks converging on a point */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M3 5l7.5 6.2M21 5l-7.5 6.2" strokeDasharray="2.2 2" />
+                    <circle cx="3.5" cy="5" r="1.6" fill="currentColor" />
+                    <circle cx="20.5" cy="5" r="1.6" fill="currentColor" />
+                    <path d="M12 12.5l-5 8.5h10z" />
+                    <path d="M12 15.6v2.4" />
+                  </svg>
+                </button>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+              </>
+            )}
             {props.onTrackUp && (
               <>
                 <div role="radiogroup" aria-label="Display orientation" style={{ display: 'flex', gap: 2 }}>

@@ -109,7 +109,7 @@ export interface RadarViewProps {
   setUiOpen: (b: boolean) => void;
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic: picIn, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
   const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
   const [tool, setTool] = useState<Tool>(pre.tool);
   // layers are kept per seat; the CATCC seats fall back to the layers saved before there were seats
@@ -153,6 +153,12 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const [stripHov, setStripHov] = useState<string[] | null>(null);
   const [placement, setPlacement] = useState<Placement>({ placing: null, editing: null, hov: null });
   const sui = seat.ui;
+  // conflict alerts are traffic control's: off on the Bridge, switchable in CDC
+  const [cfOn, setCfOn] = useState<{ on: boolean }>(() => load(`catcc.cf.${seat.id}`, { on: true }));
+  useEffect(() => save(`catcc.cf.${seat.id}`, cfOn), [cfOn, seat.id]);
+  const cfMode = sui?.conflicts ?? 'on';
+  const showCf = cfMode === 'on' || (cfMode === 'toggle' && cfOn.on);
+  const pic = useMemo(() => (showCf ? picIn : { ...picIn, conflicts: [] }), [picIn, showCf]);
   const lefts = sui?.left ?? ['info', 'strips'];
   const rights = sui?.right ?? ['dep', 'marshal', 'coord', 'notes'];
   const [ltab, setLtab] = useState<'info' | 'strips'>(lefts.includes('strips') ? 'strips' : 'info');
@@ -477,6 +483,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         altFilter={altF}
         onAltFilter={setAltF}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
+        conflictsOn={showCf}
+        onConflicts={cfMode === 'toggle' ? (on) => setCfOn({ on }) : undefined}
         onOpenDisplay={() => setUiOpen(true)}
         donors={donors}
         stations={csgStations}

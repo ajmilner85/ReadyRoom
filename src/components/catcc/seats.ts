@@ -33,6 +33,8 @@ export interface SeatUi {
   trackUp: boolean;
   /** range rings out to the theatre's edge */
   ringsFar: boolean;
+  /** aircraft conflict alerts: always (traffic control), a toolbar switch, or none (not this seat's job) */
+  conflicts: 'on' | 'toggle' | 'off';
   left: LeftTab[];
   right: RightSection[];
 }
@@ -82,7 +84,7 @@ const P_OOD = preset({ ...CV_TRAFFIC_OFF, csg: true, brc: true, fb: false, pim: 
 const S = (id: SeatRole, loc: LocationId, label: string, short: string, view: SeatView, radar?: RadarPreset, ui?: SeatUi): SeatDef => ({ id, loc, label, short, view, radar, ui });
 
 // ---------------------------------------------------------------- seat interfaces
-const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean; ringsFar?: boolean } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp, ringsFar: !!o.ringsFar });
+const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean; ringsFar?: boolean; conflicts?: SeatUi['conflicts'] } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp, ringsFar: !!o.ringsFar, conflicts: o.conflicts ?? 'on' });
 /** CATCC as one seat: every control tool and panel */
 const U_CATCC = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 'dep', 'app'], ['info', 'strips'], ['dep', 'marshal', 'coord', 'deck', 'notes'], { comms: true });
 const U_DEP = ui(['select', 'bra', 'cpa', 'vec'], ['dep', 'cca', 'r50'], ['info', 'strips'], ['dep', 'coord', 'notes'], { comms: true });
@@ -90,9 +92,9 @@ const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['app', 'cca', 
 const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['app', 'cca'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
 const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'], ['deck', 'notes'], { comms: true });
 /** CDC: the air picture across the theatre and the sensors feeding it */
-const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true });
+const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true, conflicts: 'toggle' });
 /** Bridge: conning the ship; no traffic control */
-const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm', 'csg', 'blights'], { trackUp: true });
+const U_OOD = ui(['select', 'bra', 'cpa'], ['r50', 'cca', 'thr'], ['info'], ['helm', 'csg', 'blights'], { trackUp: true, conflicts: 'off' });
 
 export const SEATS: Record<SeatRole, SeatDef> = {
   strike: S('strike', 'cdc', 'Strike', 'STRIKE', 'radar', P_STRIKE, U_CDC),
