@@ -556,7 +556,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         ) : null }} />}
         freqOpen={freqOpen}
         onToggleFreq={() => setFreqOpen((o) => !o)}
-        freqPanel={<FreqPanel plan={comms.plan} source={comms.source} />}
+        freqPanel={<FreqPanel plan={comms.plan} source={comms.source} templates={comms.templates} picked={comms.picked} onPick={comms.pick} />}
         onOpenComms={() => setCommsOpen(true)}
       />
 

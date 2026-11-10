@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import type { CommsPlanEntry } from '../../../types/CommsTypes';
 import { supabase } from '../../../utils/supabaseClient';
 import { normalizeCommsEntries } from '../../../types/CommsTypes';
+import { listCommsTemplates, type CommsCardTemplate } from '../../../utils/commsTemplateService';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import { IcChevron, IcEdit, IcGoTo, IcPopOut, IcX } from '../icons.tsx';
@@ -449,8 +450,30 @@ export const LayersPanel: React.FC<{ ov: Record<string, boolean>; ov2: Record<st
 
 // ---------------------------------------------------------------- frequencies (ReadyRoom comms plan)
 
-export function useCommsPlan(): { plan: CommsPlanEntry[] | null; source: string | null } {
-  const [res, setRes] = useState<{ plan: CommsPlanEntry[] | null; source: string | null }>({ plan: null, source: null });
+export interface CommsPlanState {
+  plan: CommsPlanEntry[] | null;
+  source: string | null;
+  /** ReadyRoom comms card templates, for loading one by hand */
+  templates: { id: string; title: string }[];
+  /** the template loaded by hand, or null for the nearest event's mission plan */
+  picked: string | null;
+  pick: (id: string | null) => void;
+}
+
+/**
+ * The comms plan: the mission plan of the ReadyRoom event nearest now (±18 h), unless a comms card
+ * template has been loaded by hand (remembered in this browser). Later this follows the active mission.
+ */
+export function useCommsPlan(): CommsPlanState {
+  const [ev, setEv] = useState<{ plan: CommsPlanEntry[] | null; source: string | null }>({ plan: null, source: null });
+  const [tpls, setTpls] = useState<CommsCardTemplate[]>([]);
+  const [picked, setPicked] = useState<string | null>(() => {
+    try {
+      return localStorage.getItem('catcc.comms.template');
+    } catch {
+      return null;
+    }
+  });
   useEffect(() => {
     let off = false;
     (async () => {
@@ -467,21 +490,36 @@ export function useCommsPlan(): { plan: CommsPlanEntry[] | null; source: string 
         const m = missions?.find((x) => x.event_id === e.id);
         const plan = (m?.mission_settings as { comms_plan?: unknown } | null)?.comms_plan;
         if (Array.isArray(plan) && plan.length) {
-          if (!off) setRes({ plan: normalizeCommsEntries(plan), source: e.name });
+          if (!off) setEv({ plan: normalizeCommsEntries(plan), source: e.name });
           return;
         }
       }
     })().catch(() => undefined);
+    listCommsTemplates()
+      .then((t) => !off && setTpls(t))
+      .catch(() => undefined);
     return () => {
       off = true;
     };
   }, []);
-  return res;
+  const pick = (id: string | null) => {
+    setPicked(id);
+    try {
+      if (id) localStorage.setItem('catcc.comms.template', id);
+      else localStorage.removeItem('catcc.comms.template');
+    } catch {
+      /* not remembered */
+    }
+  };
+  const t = picked ? tpls.find((x) => x.id === picked) : undefined;
+  const templates = tpls.map((x) => ({ id: x.id, title: x.title }));
+  if (t) return { plan: normalizeCommsEntries(t.entries), source: `template · ${t.title}`, templates, picked, pick };
+  return { ...ev, templates, picked: null, pick };
 }
 
 const blank = (s: string | undefined) => !s || /^[—\-–\s]*$/.test(s);
 
-export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string | null }> = ({ plan, source }) => {
+export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string | null; templates?: { id: string; title: string }[]; picked?: string | null; onPick?: (id: string | null) => void }> = ({ plan, source, templates, picked, onPick }) => {
   const com = (plan ?? []).filter((e) => !blank(e.name) && !blank(e.freq));
   const nav = (plan ?? []).flatMap((e) => [
     ...(!blank(e.tacan) ? [{ name: `TACAN · ${e.name}`, v: e.tacan }] : []),
@@ -516,6 +554,24 @@ export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string
         </>
       )}
       {source && <div className="mono" style={{ fontSize: 10, color: '#6B7683', marginTop: 6 }}>Comms plan · {source}</div>}
+      {onPick && !!templates?.length && (
+        <label className="mono" style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 8, paddingTop: 8, borderTop: '1px solid #262F3A', fontSize: 10, color: '#93A1B0', letterSpacing: '.06em' }}>
+          LOAD
+          <select
+            aria-label="Load a comms plan"
+            value={picked ?? ''}
+            onChange={(e) => onPick(e.target.value || null)}
+            style={{ flex: 1, minWidth: 0, height: 24, background: '#0E1116', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}
+          >
+            <option value="">Nearest event's mission plan</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.title}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
     </section>
   );
 };
