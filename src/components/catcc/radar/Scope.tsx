@@ -2482,10 +2482,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                       </svg>
                     )],
                     [true, "Track up: the ship's heading at the top", (
-                      // the radar's carrier silhouette, bow up, with the heading arrow above it
+                      // the radar's carrier silhouette, bow up, full height, with the heading arrow beside it
                       <svg key="t" width="20" height="20" viewBox="0 0 24 24" aria-hidden="true">
-                        <path d="M12 0.4 L15.6 6 L8.4 6 Z" fill="currentColor" />
-                        <path d="M12.77 7.56 L11.50 7.56 L11.10 11.46 L10.17 12.67 L10.23 21.34 L11.00 21.57 L11.17 23.24 L12.93 23.24 L13.77 21.07 L13.83 13.00 L13.00 11.33 Z" fill="currentColor" stroke="currentColor" strokeWidth="0.6" strokeLinejoin="round" />
+                        <path d="M18.5 1.5 L21.7 7 L15.3 7 Z" fill="currentColor" />
+                        <path d="M18.5 6.5V17" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" />
+                        <path d="M10.57 1.08 L8.80 1.08 L8.25 6.52 L6.95 8.19 L7.04 20.27 L8.11 20.60 L8.34 22.92 L10.80 22.92 L11.96 19.90 L12.05 8.65 L10.89 6.33 Z" fill="currentColor" stroke="currentColor" strokeWidth="0.6" strokeLinejoin="round" />
                       </svg>
                     )],
                   ] as const).map(([v, t, ic]) => {
