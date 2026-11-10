@@ -80,6 +80,8 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
    (screen-aligned tags and along-line labels, .nr, are handled in their transforms) */
 [data-tu] .scope text { transform-box: fill-box; transform-origin: center; rotate: var(--tu); }
 [data-tu] .scope .nr text { rotate: none; }
+/* a label with its own transform (turned about its symbol, or along a line): that transform is in user space */
+[data-tu] .scope text.nr { rotate: none; transform-box: view-box; transform-origin: 0 0; }
 
 /* precision approach displays: strokes keep their width in the stretched viewBox */
 .par * { vector-effect: non-scaling-stroke; }

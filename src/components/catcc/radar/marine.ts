@@ -80,8 +80,6 @@ export interface MarinePaths {
   depth: { d: number; path: string; band: string }[];
   labels: { x: number; y: number; ang: number; t: string }[];
   terrLabels: { x: number; y: number; ang: number; t: string }[];
-  /** the 12 o'clock (northernmost) point of each visible territorial-limit ring, and the ring's width */
-  terrTops: { x: number; y: number; w: number }[];
   places: { x: number; y: number; n: string; r: number; island: boolean }[];
   /** rw: runways as [dx1, dy1, dx2, dy2] NM from the airport point; long: longest runway >= 8069 ft */
   airports: { x: number; y: number; id: string; n: string; r: number; mil: boolean; rw: number[][]; ext: number; long: boolean }[];
@@ -130,20 +128,48 @@ export function buildPaths(g: MarineGeom, v: { x0: number; y0: number; x1: numbe
     depth: g.depth.map((x, k) => ({ d: x.d, path: d(x.lines, false), band: fills[k] + (k > 0 ? fills[k - 1] : '') })),
     labels: g.labels,
     terrLabels: g.terrLabels,
-    terrTops: g.terr
-      .filter((q) => !(q.x1 < v.x0 || q.x0 > v.x1 || q.y0 > v.y1 || q.y0 < v.y0))
-      .map((q) => {
-        let iy = 1;
-        for (let i = 3; i < q.p.length; i += 2) if (q.p[i] < q.p[iy]) iy = i;
-        // a line cut open at the data's edge may peak at its end: no top there
-        const n = q.p.length;
-        const closed = Math.hypot(q.p[0] - q.p[n - 2], q.p[1] - q.p[n - 1]) < 0.5;
-        return closed || (iy !== 1 && iy !== n - 1) ? { x: q.p[iy - 1], y: q.p[iy], w: q.x1 - q.x0 } : null;
-      })
-      .filter((t): t is { x: number; y: number; w: number } => !!t),
     places: g.places,
     airports: g.airports,
   };
+}
+
+/**
+ * The 12 o'clock point of each territorial-limit ring in view, for its "12 NM" label: the point furthest
+ * toward the top of the screen, which is north, or bearing `rotDeg` when the picture is turned (track up).
+ * `w` is the ring's extent across the screen (rings too small to carry the label are skipped by it).
+ */
+export function terrTopsFor(g: MarineGeom, v: { x0: number; y0: number; x1: number; y1: number }, rotDeg = 0): { x: number; y: number; w: number }[] {
+  const a = (rotDeg * Math.PI) / 180;
+  const ux = Math.sin(a);
+  const uy = -Math.cos(a);
+  const out: { x: number; y: number; w: number }[] = [];
+  for (const q of g.terr) {
+    if (q.x1 < v.x0 || q.x0 > v.x1 || q.y1 < v.y0 || q.y0 > v.y1) continue;
+    const p = q.p;
+    const n = p.length;
+    let it = 0;
+    let best = -Infinity;
+    let lo = Infinity;
+    let hi = -Infinity;
+    for (let i = 0; i < n; i += 2) {
+      const up = p[i] * ux + p[i + 1] * uy;
+      if (up > best) {
+        best = up;
+        it = i;
+      }
+      // extent across the screen (along the screen's x axis)
+      const ac = -p[i] * uy + p[i + 1] * ux;
+      if (ac < lo) lo = ac;
+      if (ac > hi) hi = ac;
+    }
+    const x = p[it];
+    const y = p[it + 1];
+    if (x < v.x0 || x > v.x1 || y < v.y0 || y > v.y1) continue;
+    // a line cut open at the data's edge may peak at its end: no top there
+    const closed = Math.hypot(p[0] - p[n - 2], p[1] - p[n - 1]) < 0.5;
+    if (closed || (it !== 0 && it !== n - 2)) out.push({ x, y, w: hi - lo });
+  }
+  return out;
 }
 
 /**

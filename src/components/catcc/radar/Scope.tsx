@@ -28,7 +28,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
-import { buildPaths, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
+import { buildPaths, terrTopsFor, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
 import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 import { pimAt } from '../../../catcc/core/env/weather.ts';
 import { distanceNm } from '../../../catcc/core/geo.ts';
@@ -36,31 +36,33 @@ import { distanceNm } from '../../../catcc/core/geo.ts';
 const IS_GECKO = typeof navigator !== 'undefined' && /Gecko\/|Firefox\//.test(navigator.userAgent) && !/like Gecko/.test(navigator.userAgent);
 
 /** SPN-43 antenna bearing: one thin line, ring weight; animated without re-rendering. */
-const SweepLine: React.FC<{ x: number; y: number; w: number; len: number }> = (p) => (IS_GECKO ? <SweepLineRaf {...p} /> : <SweepLineCss {...p} />);
+const SweepLine: React.FC<{ x: number; y: number; w: number; len: number; rot: number }> = (p) => (IS_GECKO ? <SweepLineRaf {...p} /> : <SweepLineCss {...p} />);
 
 // Chrome/Safari: a CSS animation runs on the compositor, so the sweep keeps turning smoothly while
 // the main thread is busy redrawing the scope. The negative delay puts it in phase with
 // sweepAngle(), which the hit painter uses. The animated element IS the line, rotating about its
 // bottom end at the carrier.
-const SweepLineCss: React.FC<{ x: number; y: number; w: number; len: number }> = ({ x, y, w, len }) => {
+const SweepLineCss: React.FC<{ x: number; y: number; w: number; len: number; rot: number }> = ({ x, y, w, len, rot: turn }) => {
   const [delay] = useState(() => -(sweepAngle(performance.now()) / 360) * SCAN_S);
   return (
-    <div
-      aria-hidden="true"
-      style={{
-        position: 'absolute',
-        left: x - w / 2,
-        top: y - len,
-        width: w,
-        height: len,
-        background: 'rgba(64, 168, 91, .55)',
-        transformOrigin: '50% 100%',
-        pointerEvents: 'none',
-        animation: `catcc-sweep ${SCAN_S}s linear infinite`,
-        animationDelay: `${delay}s`,
-        willChange: 'transform',
-      }}
-    />
+    // the wrapper turns the whole sweep with the picture (track up), about the carrier
+    <div aria-hidden="true" style={{ position: 'absolute', left: x, top: y, width: 0, height: 0, transform: turn ? `rotate(${-turn}deg)` : undefined, pointerEvents: 'none' }}>
+      <div
+        style={{
+          position: 'absolute',
+          left: -w / 2,
+          top: -len,
+          width: w,
+          height: len,
+          background: 'rgba(64, 168, 91, .55)',
+          transformOrigin: '50% 100%',
+          pointerEvents: 'none',
+          animation: `catcc-sweep ${SCAN_S}s linear infinite`,
+          animationDelay: `${delay}s`,
+          willChange: 'transform',
+        }}
+      />
+    </div>
   );
 };
 
@@ -68,17 +70,17 @@ const SweepLineCss: React.FC<{ x: number; y: number; w: number; len: number }> =
 // sampled with a sub-pixel offset at many angles, so the line visibly breaks into offset pieces.
 // Instead an SVG line's end point is set every frame (no React render), so the geometry itself is
 // rotated and rasterised in one piece.
-const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number }> = ({ x, y, w, len }) => {
+const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number; rot: number }> = ({ x, y, w, len, rot: turn }) => {
   const ref = useRef<SVGLineElement>(null);
-  const geo = useRef({ x, y, len });
-  geo.current = { x, y, len };
+  const geo = useRef({ x, y, len, turn });
+  geo.current = { x, y, len, turn };
   useEffect(() => {
     let id = 0;
     const tick = () => {
       const el = ref.current;
       if (el) {
         const g = geo.current;
-        const a = (sweepAngle(performance.now()) * Math.PI) / 180;
+        const a = ((sweepAngle(performance.now()) - g.turn) * Math.PI) / 180;
         el.setAttribute('x1', g.x.toFixed(2));
         el.setAttribute('y1', g.y.toFixed(2));
         el.setAttribute('x2', (g.x + Math.sin(a) * g.len).toFixed(2));
@@ -329,14 +331,16 @@ const MarineLayer = React.memo(function MarineLayer(props: {
   VW: number;
   k: number;
   sL: number;
-  /** track-up: degrees the picture is turned (anticlockwise) about rc, the carrier in this layer's frame */
-  rot?: number;
-  rc?: Pt;
+  /** track-up: degrees the layer's container is turned (anticlockwise); labels are placed and turned for it */
+  rot: number;
+  /** the screen-top point of each territorial ring (terrTopsFor) */
+  tops: { x: number; y: number; w: number }[];
 }) {
-  const { marine, bathy, coast, places, airports, terr, KX, VW, k, sL } = props;
+  const { marine, bathy, coast, places, airports, terr, KX, VW, k, sL, rot: turn } = props;
+  const upT = (x: number, y: number) => (turn ? `rotate(${turn} ${f2(x)} ${f2(y)})` : undefined);
   return (
     <svg className="scope" viewBox={props.vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', '--z': k.toFixed(4), '--lw': sL } as React.CSSProperties}>
-      <g transform={props.rot && props.rc ? `rotate(${-props.rot} ${f2(props.rc[0])} ${f2(props.rc[1])})` : undefined}>
+      <g>
       {(() => {
             const n = marine.depth.length;
             // shallow → deep: lines go from light to dark blue
@@ -375,14 +379,14 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                     // rings too small to carry the label at this zoom go unlabelled
                     const hw = 1.25 * k;
                     const hh = 0.5 * k;
-                    const tops = marine.terrTops.filter((t) => t.w > 6 * hw);
+                    const tops = props.tops.filter((t) => t.w > 6 * hw);
                     return (
                       <>
                         <defs>
                           <mask id="catccTerrGap" maskUnits="userSpaceOnUse" x="-100000" y="-100000" width="200000" height="200000">
                             <rect x="-100000" y="-100000" width="200000" height="200000" fill="#fff" />
                             {tops.map((t, i) => (
-                              <rect key={i} x={f2(t.x - hw)} y={f2(t.y - hh)} width={f2(2 * hw)} height={f2(2 * hh)} fill="#000" />
+                              <rect key={i} x={f2(t.x - hw)} y={f2(t.y - hh)} width={f2(2 * hw)} height={f2(2 * hh)} fill="#000" transform={upT(t.x, t.y)} />
                             ))}
                           </mask>
                         </defs>
@@ -420,7 +424,7 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                               ) : (
                                 <g key={`p${i}`} className="zs" transform={zs([p.x, p.y], k)}>
                                   <circle cx={f2(p.x)} cy={f2(p.y)} r="0.24" fill="#8E99A6" />
-                                  <text x={f2(p.x + 0.55)} y={f2(p.y + 0.32)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '1.05px' : '0.92px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                  <text className="nr" transform={upT(p.x, p.y)} x={f2(p.x + 0.55)} y={f2(p.y + 0.32)} style={{ fill: '#A3AEBA', fontSize: p.r === 0 ? '1.05px' : '0.92px', stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                                     {p.n}
                                   </text>
                                 </g>
@@ -489,10 +493,10 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                                       <path d={`M${f2(x)} ${f2(y - 0.42)}v-0.28M${f2(x)} ${f2(y + 0.42)}v0.28M${f2(x - 0.42)} ${f2(y)}h-0.28M${f2(x + 0.42)} ${f2(y)}h0.28`} />
                                     </g>
                                   )}
-                                  <text x={f2(lx)} y={f2(y - 0.12)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.92px', fontWeight: 600, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                  <text className="nr" transform={upT(x, y)} x={f2(lx)} y={f2(y - 0.12)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.92px', fontWeight: 600, strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                                     {a.id}
                                   </text>
-                                  <text x={f2(lx)} y={f2(y + 0.85)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.8, fontSize: '0.78px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                                  <text className="nr" transform={upT(x, y)} x={f2(lx)} y={f2(y + 0.85)} stroke="#0B0E12" style={{ fill: c, fillOpacity: 0.8, fontSize: '0.78px', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                                     {a.n}
                                   </text>
                                 </g>
@@ -507,10 +511,11 @@ const MarineLayer = React.memo(function MarineLayer(props: {
                       key={i}
                       x={f2(l.x)}
                       y={f2(l.y)}
-                      className="geo"
+                      className="geo nr"
                       textAnchor="middle"
                       dominantBaseline="central"
-                      transform={`rotate(${l.ang.toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
+                      // along the contour, flipped where the turned picture would show it upside down
+                      transform={`rotate(${(Math.abs(((((l.ang - turn) % 360) + 540) % 360) - 180) > 90 ? l.ang + 180 : l.ang).toFixed(1)} ${f2(l.x)} ${f2(l.y)})`}
                       style={{ fill: '#7FA8CC', fillOpacity: 0.6, stroke: '#0B0E12', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}
                     >
                       {l.t}
@@ -600,12 +605,26 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const plan = plans[hull] ?? { deps: [], stacks: [] };
 
   // ------------------------------------------------ view and scale (mockup renderVals/frame)
+  // Track-up: the picture is turned about the carrier so its heading points up. Scope (map) coordinates
+  // stay north-up; rp() takes a map point to the turned frame the SVG viewBox and screen use.
+  // held until the heading is a full degree off, so a heading wobbling about x.5° doesn't turn (and rebuild) the picture
+  const rotHeld = useRef(0);
+  const hdgNow = props.trackUp && fTrack ? norm360(fTrack.hdg ?? fTrack.crs ?? 0) : null;
+  if (hdgNow == null) rotHeld.current = 0;
+  else if (Math.abs(((hdgNow - rotHeld.current + 540) % 360) - 180) >= 1 || rotHeld.current === 0) rotHeld.current = Math.round(hdgNow) % 360 || 360;
+  const ROT = rotHeld.current % 360;
+  const rA = (-ROT * Math.PI) / 180;
+  const rCo = Math.cos(rA);
+  const rSi = Math.sin(rA);
+  const rp = (q: Pt): Pt => (ROT ? [q[0] * rCo - q[1] * rSi, q[0] * rSi + q[1] * rCo] : q);
+  const rpInv = (q: Pt): Pt => (ROT ? [q[0] * rCo + q[1] * rSi, -q[0] * rSi + q[1] * rCo] : q);
   const fitBox = (q: Pt[], pad: number) => {
     let xa = Infinity;
     let xb = -Infinity;
     let ya = Infinity;
     let yb = -Infinity;
-    for (const [x, y] of q) {
+    // boxed as it is seen: in the turned frame in track up
+    for (const [x, y] of q.map(rp)) {
       xa = Math.min(xa, x);
       xb = Math.max(xb, x);
       ya = Math.min(ya, y);
@@ -613,7 +632,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     }
     const w = xb - xa + 2 * pad;
     const h = yb - ya + 2 * pad;
-    return { zw: clampW(Math.max(w, h / asp)), zx: (xa + xb) / 2, zy: (ya + yb) / 2 };
+    const cen = rpInv([(xa + xb) / 2, (ya + yb) / 2]);
+    return { zw: clampW(Math.max(w, h / asp)), zx: cen[0], zy: cen[1] };
   };
   const interest = (): Pt[] => [[0, 0] as Pt, ...pic.air.map((t) => t.p), ...pic.carriers.map((c) => c.track.p), ...(pic.ships ?? []).map((t) => t.p)];
   const fits: Record<Exclude<Fit, null>, () => { zw: number; zx: number; zy: number }> = {
@@ -681,20 +701,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const VX = VC.zx;
   const VY = VC.zy;
   const VH = VW * asp;
-  // Track-up: the picture is turned about the carrier so its heading points up. Scope (map) coordinates
-  // stay north-up; rp() takes a map point to the turned frame the SVG viewBox and screen use.
-  // held until the heading is a full degree off, so a heading wobbling about x.5° doesn't turn (and rebuild) the picture
-  const rotHeld = useRef(0);
-  const hdgNow = props.trackUp && fTrack ? norm360(fTrack.hdg ?? fTrack.crs ?? 0) : null;
-  if (hdgNow == null) rotHeld.current = 0;
-  else if (Math.abs(((hdgNow - rotHeld.current + 540) % 360) - 180) >= 1 || rotHeld.current === 0) rotHeld.current = Math.round(hdgNow) % 360 || 360;
-  const ROT = rotHeld.current % 360;
-  const rA = (-ROT * Math.PI) / 180;
-  const rCo = Math.cos(rA);
-  const rSi = Math.sin(rA);
-  const rp = (q: Pt): Pt => (ROT ? [q[0] * rCo - q[1] * rSi, q[0] * rSi + q[1] * rCo] : q);
-  const rpInv = (q: Pt): Pt => (ROT ? [q[0] * rCo + q[1] * rSi, -q[0] * rSi + q[1] * rCo] : q);
   const RC = rp([VX, VY]);
+  /** for a label offset from a point: turns it about the point so the offset is on screen, not on the map (with class "nr") */
+  const upT = (p: Pt) => (ROT ? `rotate(${ROT} ${f2(p[0])} ${f2(p[1])})` : undefined);
+  /** an along-line label angle (deg, map frame) flipped so it reads upright on the turned screen */
+  const upAng = (a: number) => {
+    const sa = ((((a - ROT) % 360) + 540) % 360) - 180;
+    return sa > 90 || sa < -90 ? a + 180 : a;
+  };
   const vx = RC[0] - VW / 2;
   const vy = RC[1] - VH / 2;
   const z = (VW / 97) * (860 / Math.max(300, box.w));
@@ -1195,7 +1209,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               {q && !ok && <line x1={f2(s.p[0])} y1={f2(s.p[1])} x2={f2(q[0])} y2={f2(q[1])} stroke="#E7B04F" strokeOpacity="0.8" strokeDasharray="2 3" style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />}
               {q && (
                 <g className="zs" transform={zs(q, zkO)}>
-                  <text x={f2(q[0])} y={f2(q[1] + (st.kind === 'point' ? -0.9 : 0))} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={{ fill: ok ? '#6FB6E6' : '#E7B04F', fontSize: '0.8px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                  <text className="nr" transform={upT(q)} x={f2(q[0])} y={f2(q[1] + (st.kind === 'point' ? -0.9 : 0))} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" style={{ fill: ok ? '#6FB6E6' : '#E7B04F', fontSize: '0.8px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                     {`${s.label} · ${s.state.t}`}
                   </text>
                 </g>
@@ -1213,7 +1227,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const D = c.ship.brc - MOCK_BRC;
     const T = `translate(${f2(c.track.p[0])} ${f2(c.track.p[1])}) rotate(${f2(D)})`;
     const col = (white: string, b: string) => (blue ? b : white);
-    const cr = (x: number, y: number) => `rotate(${f2(-D)} ${x} ${y})`; // keep text upright
+    const cr = (x: number, y: number) => `rotate(${f2(ROT - D)} ${x} ${y})`; // keep text upright on screen (with class "nr")
     const lw = (n: number) => ({ strokeWidth: `calc(${n}px * var(--lw, 1))` });
     const plan = plans[c.track.hull ?? ''] ?? { deps: [], stacks: [] };
     const shipAt = (q: Pt[]) => q.map((p) => add(p, c.track.p));
@@ -1274,7 +1288,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <g key={t as string} className="zs" transform={`translate(${x} ${y}) scale(${zkO.toFixed(4)}) translate(${-(x as number)} ${-(y as number)})`}>
                 <circle cx={x} cy={y} r="0.25" fill={col('#DE9A1F', '#5AAEE3')} stroke="none" />
                 {!blue && (
-                  <text x={(x as number) - 0.75} y={(y as number) + 0.28} textAnchor="end" stroke="none" transform={cr(x as number, y as number)} style={{ fill: '#E7B04F' }}>
+                  <text x={(x as number) - 0.75} y={(y as number) + 0.28} textAnchor="end" stroke="none" className="nr" transform={cr(x as number, y as number)} style={{ fill: '#E7B04F' }}>
                     {t}
                   </text>
                 )}
@@ -1300,7 +1314,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     [7.6, 0.25, '400′'],
                     [0, 7.6, '400′'],
                   ].map(([x, y, t], i) => (
-                    <text key={i} x={x} y={y} transform={`rotate(${f2(-c.ship.brc)} ${x} ${y})`} style={{ fill: '#E7B04F' }}>
+                    <text key={i} x={x} y={y} className="nr" transform={`rotate(${f2(ROT - c.ship.brc)} ${x} ${y})`} style={{ fill: '#E7B04F' }}>
                       {t}
                     </text>
                   ))}
@@ -1335,8 +1349,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             </g>
             {!blue && (
               <>
-                <text x="-6.4" y="7.4" transform={`rotate(${f2(-c.ship.fb)} -6.4 7.4)`} style={{ fill: '#C9D3DD' }}>CV-2</text>
-                <text x="2.6" y="-2.6" transform={`rotate(${f2(-c.ship.fb)} 2.6 -2.6)`} style={{ fill: '#93A1B0' }}>IAF</text>
+                <text x="-6.4" y="7.4" className="nr" transform={`rotate(${f2(ROT - c.ship.fb)} -6.4 7.4)`} style={{ fill: '#C9D3DD' }}>CV-2</text>
+                <text x="2.6" y="-2.6" className="nr" transform={`rotate(${f2(ROT - c.ship.fb)} 2.6 -2.6)`} style={{ fill: '#93A1B0' }}>IAF</text>
               </>
             )}
           </g>
@@ -1348,7 +1362,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             <g className="zs" transform={`translate(0 3) scale(${zkO.toFixed(4)}) translate(0 -3)`}>
               <path style={lw(1)} d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3" stroke={col('rgba(201,211,221,.7)', 'rgba(62,155,212,.7)')} />
             </g>
-            {!blue && <text x="6.4" y="1.7" transform={`rotate(${f2(-c.ship.fb)} 6.4 1.7)`} style={{ fill: '#C9D3DD' }}>CV-3 IAF</text>}
+            {!blue && <text x="6.4" y="1.7" className="nr" transform={`rotate(${f2(ROT - c.ship.fb)} 6.4 1.7)`} style={{ fill: '#C9D3DD' }}>CV-3 IAF</text>}
           </g>
         )}
         {o.tanker && (
@@ -1553,12 +1567,13 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const places = layoutTags(
     tagItems.map(({ t, rows, color }) => ({
       id: t.id,
-      p: t.p,
+      // the layout works in the turned frame: tags are screen-aligned, so vectors and obstacles must be too
+      p: rp(t.p),
       ...tagGeom(rows),
-      v: t.gs && t.gs > 20 ? dir(t.crs ?? t.hdg ?? 0) : undefined,
+      v: t.gs && t.gs > 20 ? rp(dir(t.crs ?? t.hdg ?? 0)) : undefined,
       priority: color === 'red' ? 0 : t.id === hookedId ? 1 : 2 + t.rng / 100,
     })),
-    { k: zkT, hitK: zkH, view: { x0: vx, y0: vy, x1: vx + VW, y1: vy + VH }, prev: prevPlaces.current, obstacles: pic.air.filter((t) => !hidden.has(t.id)).map((t) => t.p) },
+    { k: zkT, hitK: zkH, view: { x0: vx, y0: vy, x1: vx + VW, y1: vy + VH }, prev: prevPlaces.current, obstacles: pic.air.filter((t) => !hidden.has(t.id)).map((t) => rp(t.p)) },
   );
   prevPlaces.current = places;
   const renderTag = ({ t, rows: rowsIn, color }: TagItem) => {
@@ -1735,7 +1750,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             <g key={i} className="zs" transform={zs(q, zkO)} opacity={done ? 0.4 : 1}>
               <circle cx={f2(q[0])} cy={f2(q[1])} r="0.42" fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
               {!done && !(pp && len(sub(q, pp)) < 1.6 * zkO) && (
-                <text x={f2(q[0] + 0.75)} y={f2(q[1] + 0.3)} stroke="#0B0E12" style={txt()}>
+                <text className="nr" transform={upT(q)} x={f2(q[0] + 0.75)} y={f2(q[1] + 0.3)} stroke="#0B0E12" style={txt()}>
                   {`${r.own ? '' : `${r.label} `}WP${i}${hhmm(r.pts[i].eta)}${out ? ` → ${out}` : ''}`}
                 </text>
               )}
@@ -1746,7 +1761,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           <g className="zs" transform={zs(pp, zkO)}>
             {!(ship && len(sub(ship, pp)) < 1.6 * zkH) && <path d={`M${f2(pp[0])} ${f2(pp[1] - 0.7)}L${f2(pp[0] + 0.7)} ${f2(pp[1])}L${f2(pp[0])} ${f2(pp[1] + 0.7)}L${f2(pp[0] - 0.7)} ${f2(pp[1])}Z`} fill="#0B0E12" stroke={col} style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
             {!(ship && len(sub(ship, pp)) < 1.6 * zkH) && <circle cx={f2(pp[0])} cy={f2(pp[1])} r="0.14" fill={col} />}
-            <text x={f2(pp[0] + 0.95)} y={f2(pp[1] - 0.55)} stroke="#0B0E12" style={txt({ fontWeight: 600 })}>
+            <text className="nr" transform={upT(pp)} x={f2(pp[0] + 0.95)} y={f2(pp[1] - 0.55)} stroke="#0B0E12" style={txt({ fontWeight: 600 })}>
               {`${r.label} PIM${pim.crs != null ? ` ${r3(pim.crs)}` : ''}${pim.leg > 0 && pim.leg < r.pts.length && legKt(pim.leg) != null ? `/${legKt(pim.leg)} KT` : ''}${ship ? ` · ${Math.max(0, len(sub(ship, pp))).toFixed(1)} NM` : ''}`}
             </text>
           </g>
@@ -1831,6 +1846,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snap?.m, snap?.x, snap?.y, snap?.w, snap?.h, snap?.kx, snap?.rot, snap?.ux, snap?.uy],
   );
+  // territorial-limit labels sit at each ring's screen-top point: cheap, so re-found whenever the picture turns
+  const mTops = useMemo(
+    () => (snap && mPaths ? terrTopsFor(snap.m, { x0: snap.x - MO * snap.w, y0: snap.y - MO * snap.h, x1: snap.x + (1 + MO) * snap.w, y1: snap.y + (1 + MO) * snap.h }, ROT) : []),
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [mPaths, ROT],
+  );
   const mScale = snap ? snap.w / SV.w : 1;
   const mT = snap && curM ? [(snap.x - curM.x - MO * snap.w) * KX + MO * SV.bw, (snap.y - curM.y - MO * snap.h) * KX + MO * SV.bh] : [0, 0];
   const svgStyle = (lw: number, extra: React.CSSProperties = {}) =>
@@ -1842,7 +1863,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         {ov.sweep && pic.focus && (() => {
           const c = toPx([0, 0]);
           const len = Math.min(8000, Math.ceil(Math.hypot(Math.max(c[0], box.w - c[0]), Math.max(c[1], box.h - c[1]))) + 4);
-          return <SweepLine x={c[0]} y={c[1]} w={sL} len={len} />;
+          return <SweepLine x={c[0]} y={c[1]} w={sL} len={len} rot={ROT} />;
         })()}
         {rotor('rotA', <>
         {marine && snap && snap.m === marine && mPaths && (
@@ -1859,8 +1880,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               VW={snap.w}
               k={snap.k}
               sL={sL}
-              rot={snap.rot}
-              rc={[-snap.om[0], -snap.om[1]]}
+              rot={ROT}
+              tops={mTops}
             />
           </div>
         )}
@@ -2017,8 +2038,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 const mid = mul(c.track.p, 0.5);
                 const m = add(g.p0, mul(g.u, (mid[0] - g.p0[0]) * g.u[0] + (mid[1] - g.p0[1]) * g.u[1]));
                 let ang = (Math.atan2(g.u[1], g.u[0]) * 180) / Math.PI;
-                if (ang > 90) ang -= 180;
-                if (ang < -90) ang += 180;
+                ang = upAng(ang);
                 const label = `COORD · ${hull} │ ${c.track.hull}${g.auto && !pv ? ' · AUTO' : ''}`;
                 const w = label.length * 0.54 + 0.6;
                 const stroke = pv ? '#FFB08F' : 'rgba(111,182,230,.8)';
@@ -2075,7 +2095,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     if (ds.some((o) => o !== d && Math.hypot(q[0] - o.p[0], q[1] - o.p[1]) < r(o) - 0.05)) continue;
                     if (labs.some((l) => Math.hypot(q[0] - l.q[0], q[1] - l.q[1]) < 6 * zkO)) continue;
                     // along the perimeter (tangent), kept upright
-                    labs.push({ key: `${d.id}${b}${text}`, q, ang: b > 90 && b < 270 ? b - 180 : b, text, op });
+                    labs.push({ key: `${d.id}${b}${text}`, q, ang: upAng(b), text, op });
                   }
               };
               // a point of the lowest-altitude edge that is also on the selected altitude's edge (the two
@@ -2141,7 +2161,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     </g>
                   ))}
                   {ds.length === 0 && (
-                    <text x={f2(vx + VW / 2)} y={f2(vy + VH - 3 * zkO)} textAnchor="middle" style={{ fill: '#FF8A85', fontSize: `${(0.9 * zkO).toFixed(3)}px`, fontWeight: 600 }}>
+                    <text x={f2(rpInv([vx + VW / 2, vy + VH - 3 * zkO])[0])} y={f2(rpInv([vx + VW / 2, vy + VH - 3 * zkO])[1])} textAnchor="middle" style={{ fill: '#FF8A85', fontSize: `${(0.9 * zkO).toFixed(3)}px`, fontWeight: 600 }}>
                       {`NO FRIENDLY RADAR · ALL BLIND BELOW ${alt} FT`}
                     </text>
                   )}
@@ -2162,7 +2182,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                   <title>{`${d.name} · ${d.radar}`}</title>
                   <circle cx={f2(c[0])} cy={f2(c[1])} r="0.2" fill="#E7C66B" />
                   <path d={[arc(0.55, 1), arc(0.55, -1), arc(0.95, 1), arc(0.95, -1)].join('')} fill="none" stroke="#E7C66B" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
-                  <text x={f2(c[0] + 1.25)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                  <text className="nr" transform={upT(c)} x={f2(c[0] + 1.25)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                     {`${d.name.toUpperCase()} · ${d.radar}`}
                   </text>
                 </g>
@@ -2203,7 +2223,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     <circle key={r} cx={f2(p[0])} cy={f2(p[1])} r={r} strokeOpacity={r === 0.55 ? 0.95 : 0.6} />
                   ))}
                   <path d={`M${f2(p[0] - 2.3)} ${f2(p[1])}h4.6M${f2(p[0])} ${f2(p[1] - 2.3)}v4.6`} strokeOpacity="0.6" />
-                  <text x={f2(p[0] + 1.95)} y={f2(p[1] - 1.75)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                  <text className="nr" transform={upT(p)} x={f2(p[0] + 1.95)} y={f2(p[1] - 1.75)} stroke="#0B0E12" style={{ fill: c, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                     BULLSEYE
                   </text>
                 </g>
@@ -2355,7 +2375,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 />
               </g>
               {!c.focus && (
-                <text x={f2(c.track.p[0] + 1.3 * zkH)} y={f2(c.track.p[1] + 0.68 * zkH)} className="tg tgb">
+                <text x={f2(c.track.p[0] + 1.3 * zkH)} y={f2(c.track.p[1] + 0.68 * zkH)} className="tg tgb nr" transform={upT(c.track.p)}>
                   {c.track.hull}
                 </text>
               )}
