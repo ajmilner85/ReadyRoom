@@ -5,6 +5,7 @@
  * room's shared plan as soon as they're given.
  */
 import React from 'react';
+import { rudderFor } from '../../../catcc/core/geometry/shipTurn.ts';
 import { distanceNm, norm360 } from '../../../catcc/core/geo.ts';
 import { nextPimTurn, pimAt } from '../../../catcc/core/env/weather.ts';
 import { bestRecovery, deckWind } from '../../../catcc/core/env/wod.ts';
@@ -98,8 +99,6 @@ const RUD_NUMS = Array.from({ length: 9 }, (_, i) => {
   return { x, y, t: String(Math.abs(a)) };
 });
 
-/** rudder order from the heading error (the ship's autopilot, roughly) */
-const rudderFor = (err: number) => Math.max(-30, Math.min(30, err * 0.9));
 const RL = (v: number) => (Math.abs(v) < 0.05 ? '0.0' : `${v < 0 ? 'L' : 'R'} ${Math.abs(v).toFixed(1)}`);
 
 const BELLS: [string, number][] = [

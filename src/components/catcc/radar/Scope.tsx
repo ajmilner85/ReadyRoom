@@ -23,6 +23,7 @@ import {
 import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
 import { maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
 import { magVar } from '../../../catcc/core/env/magvar.ts';
+import { orderedPath, trendPath, turnTo } from '../../../catcc/core/geometry/shipTurn.ts';
 import { add, bearingOf, D2R, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
@@ -141,6 +142,10 @@ export interface ScopeProps {
   onTrackUp?: (on: boolean) => void;
   /** mission date as a decimal year, for the magnetic variation */
   magYear?: number;
+  /** the conning seat: turn trend lines ahead of our carrier (present rate of turn; the helm order's path) */
+  trend?: boolean;
+  /** the helm order in force for our carrier */
+  helm?: { crs: number; kt: number };
   /** with onCsg the toolbar has a switch for the CSG formation display (stations and off-station labels) */
   csgOn?: boolean;
   onCsg?: (on: boolean) => void;
@@ -730,6 +735,22 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const VY = VC.zy;
   const VH = VW * asp;
   const RC = rp([VX, VY]);
+  // our carrier's rate of turn (deg/s, + right), from its heading over the last ~10 s of mission time
+  const hdgLog = useRef<{ t: number; h: number }[]>([]);
+  const turnRateNow = (() => {
+    const t = props.mt;
+    const h = fTrack?.hdg ?? fTrack?.crs;
+    const L = hdgLog.current;
+    if (t == null || h == null) return 0;
+    if (L.length && t < L[L.length - 1].t) L.length = 0; // time ran backwards: a new run
+    if (!L.length || t > L[L.length - 1].t) L.push({ t, h });
+    while (L.length > 2 && L[0].t < t - 10) L.shift();
+    const a = L[0];
+    const b = L[L.length - 1];
+    if (b.t - a.t < 3) return 0;
+    const r = turnTo(a.h, b.h) / (b.t - a.t);
+    return Math.abs(r) < 0.02 ? 0 : r;
+  })();
   /** for a label offset from a point: turns it about the point so the offset is on screen, not on the map (with class "nr") */
   const upT = (p: Pt) => (ROT ? `rotate(${ROT} ${f2(p[0])} ${f2(p[1])})` : undefined);
   /** an along-line label angle (deg, map frame) flipped so it reads upright on the turned screen */
@@ -2393,6 +2414,29 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 return <line key={`v${t.id}`} x1={f2(t.p[0])} y1={f2(t.p[1])} x2={f2(e[0])} y2={f2(e[1])} stroke={c} />;
               })}
           </g>
+          {/* turn trend ahead of our carrier (the conning seat): green, where the helm order takes the ship;
+              white in three segments, where it goes holding its present rate of turn */}
+          {props.trend &&
+            fTrack &&
+            (fTrack.gs ?? 0) >= 1 &&
+            (() => {
+              const kt = fTrack.gs!;
+              const hdg = fTrack.hdg ?? fTrack.crs ?? 0;
+              // a time ahead whose run is about a fifth of the view: three equal segments of it
+              const T = [90, 180, 360, 720, 1200].reduce((best, s) => (Math.abs((kt * s) / 3600 - 0.2 * VW) < Math.abs((kt * best) / 3600 - 0.2 * VW) ? s : best), 90);
+              const dt = T / 36;
+              const pts = (q: Pt[]) => q.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('');
+              const white = trendPath(fTrack.p, hdg, kt, turnRateNow, T, dt);
+              const green = props.helm ? orderedPath(fTrack.p, hdg, kt, props.helm.crs, T, dt) : null;
+              return (
+                <g fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }}>
+                  <title>{`Turn trend: the next ${T / 60} min in three segments; green is the helm order`}</title>
+                  {green && <path d={pts(green)} stroke="#5FD068" style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} />}
+                  {/* three segments with a short gap between them (one step of twelve left out) */}
+                  <path d={[0, 12, 24].map((k) => pts(white.slice(k, k + 12))).join('')} stroke="#E6EDF3" style={{ strokeWidth: 'calc(1.8px * var(--lw, 1))' }} />
+                </g>
+              );
+            })()}
           {/* ships */}
           {pic.carriers.map((c) => (
             <g key={`ship${c.track.id}`}>

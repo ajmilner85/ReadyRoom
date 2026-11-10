@@ -485,6 +485,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         altFilter={altF}
         onAltFilter={setAltF}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
+        trend={rights.includes('helm')}
+        helm={rights.includes('helm') ? plan.helm : undefined}
         csgOn={csgShow}
         onCsg={rights.includes('csg') ? (on) => setOv((o) => ({ ...o, csg: on })) : undefined}
         conflictsOn={showCf}
