@@ -8,7 +8,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { bearingDeg, distanceNm } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
-import type { Trail } from '../scopeModel.ts';
+import { SHIP_HISTORY_S, type Trail } from '../scopeModel.ts';
 
 export const SPN43_RPM = 15;
 export const SCAN_S = 60 / SPN43_RPM;
@@ -34,7 +34,16 @@ export interface Radar {
   lon: number;
   /** electronically scanned: every bearing each revisit (swept() returns true on revisit steps) */
   swept: (bearing: number) => boolean;
+  /** paints aircraft (air search); default true */
+  air?: boolean;
+  /** paints ships out to its radar horizon (surface search) */
+  sfc?: { rangeNm: number };
 }
+
+/** Radar horizon, NM, between an antenna and a target mast top (heights ft): 1.23 (√ha + √ht). */
+export const horizonNm = (antFt: number, tgtFt = 80) => 1.23 * (Math.sqrt(antFt) + Math.sqrt(tgtFt));
+/** AN/SPS-67 surface search: 15 RPM */
+export const SPS67_RPM = 15;
 
 /**
  * One painter step. The reference carrier (the radar's own ship) is always current; other tracks
@@ -44,7 +53,12 @@ export interface Radar {
  */
 export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, radars: Radar[], mt: number, keepS = 60): boolean {
   if (!tracks.some((t) => t.id === refId) || !radars.length) return false;
-  const hit = (lat: number, lon: number) => radars.some((r) => r.swept(bearingDeg(r.lat, r.lon, lat, lon)));
+  const isShip = (t: WireTrack) => t.k === 'ship' || t.k === 'carrier';
+  // aircraft: any air-search beam passing them; ships: a surface-search beam passing them within its horizon
+  const sees = (r: Radar, t: WireTrack) => (isShip(t) ? !!r.sfc && distanceNm(r.lat, r.lon, t.lat, t.lon) <= r.sfc.rangeNm : r.air !== false);
+  const hitT = (t: WireTrack) => radars.some((r) => sees(r, t) && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon)));
+  // a ship swept by a surface radar that can no longer see it (over its horizon) is lost
+  const lostShip = (t: WireTrack) => isShip(t) && radars.some((r) => r.sfc && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon))) && !radars.some((r) => sees(r, t));
   let changed = false;
   const seen = new Set<string>();
   for (const t of tracks) {
@@ -56,17 +70,24 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
       }
       continue;
     }
-    if (!hit(t.lat, t.lon)) continue;
+    if (!hitT(t)) {
+      if (P.painted.has(t.id) && lostShip(t)) {
+        P.painted.delete(t.id);
+        P.hist.delete(t.id);
+        changed = true;
+      }
+      continue;
+    }
     P.painted.set(t.id, t);
     let h = P.hist.get(t.id);
     if (!h) P.hist.set(t.id, (h = []));
     if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
     if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lat: t.lat, lon: t.lon, alt: t.alt });
-    while (h.length > 2 && h[0].t < mt - keepS) h.shift();
+    while (h.length > 2 && h[0].t < mt - (isShip(t) ? Math.max(keepS, SHIP_HISTORY_S) : keepS)) h.shift();
     changed = true;
   }
   for (const [id, t] of P.painted) {
-    if (seen.has(id) || !hit(t.lat, t.lon)) continue;
+    if (seen.has(id) || !radars.some((r) => r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon)))) continue;
     P.painted.delete(id);
     P.hist.delete(id);
     changed = true;
@@ -78,7 +99,7 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
 export function paintStep(P: Painter, tracks: WireTrack[], refId: string, mt: number, a0: number, a1: number, keepS = 60): boolean {
   const ref = tracks.find((t) => t.id === refId);
   if (!ref) return false;
-  return paintRadars(P, tracks, refId, [{ id: refId, lat: ref.lat, lon: ref.lon, swept: (b) => swept(a0, a1, b) }], mt, keepS);
+  return paintRadars(P, tracks, refId, [{ id: refId, lat: ref.lat, lon: ref.lon, swept: (b) => swept(a0, a1, b), sfc: { rangeNm: horizonNm(CVN_SFC_ANT_FT) } }], mt, keepS);
 }
 
 // ---------------------------------------------------------------- ship datalink
@@ -87,6 +108,14 @@ export function paintStep(P: Painter, tracks: WireTrack[], refId: string, mt: nu
 const SHIP_RADARS: [RegExp, { rpm: number } | { revisitS: number }][] = [
   [/Arleigh|TICONDEROG|Ticonderoga|USS_Arleigh/i, { revisitS: 1 }], // AN/SPY-1 (Aegis)
   [/PERRY|Oliver/i, { rpm: 6 }], // AN/SPS-49
+];
+/** carrier surface-search (AN/SPS-67) antenna height, ft */
+const CVN_SFC_ANT_FT = 150;
+/** Surface-search radars by DCS ship type: RPM and antenna height (ft). */
+const SHIP_SFC_RADARS: [RegExp, { rpm: number; antFt: number }][] = [
+  [/Arleigh|USS_Arleigh/i, { rpm: SPS67_RPM, antFt: 100 }], // AN/SPS-67
+  [/TICONDEROG|Ticonderoga/i, { rpm: SPS67_RPM, antFt: 110 }], // AN/SPS-67
+  [/PERRY|Oliver/i, { rpm: 16, antFt: 90 }], // AN/SPS-55
 ];
 /** escorts count as part of a carrier group within this range of a friendly carrier */
 const CSG_RADIUS_NM = 30;
@@ -111,13 +140,17 @@ export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: nu
     const a1 = ((t1 / 1000) * rpm * 6 + phase) % 360;
     return { id: t.id, lat: t.lat, lon: t.lon, swept: (b) => swept(a0, a1, b) };
   };
-  const out: Radar[] = [rot(ref, SPN43_RPM, 0)];
+  const sfc = (t: WireTrack, rpm: number, antFt: number): Radar => ({ ...rot(t, rpm, (phaseOf(t.id) + 137) % 360), id: `${t.id}:sfc`, air: false, sfc: { rangeNm: horizonNm(antFt) } });
+  // our carrier: SPN-43 air search and SPS-67 surface search
+  const out: Radar[] = [{ ...rot(ref, SPN43_RPM, 0), sfc: undefined }, sfc(ref, SPS67_RPM, CVN_SFC_ANT_FT)];
   if (!datalink) return out;
   const carriers = tracks.filter((t) => t.k === 'carrier' && t.sd === ref.sd);
-  for (const c of carriers) if (c.id !== refId) out.push(rot(c, SPN43_RPM, phaseOf(c.id)));
+  for (const c of carriers) if (c.id !== refId) out.push(rot(c, SPN43_RPM, phaseOf(c.id)), sfc(c, SPS67_RPM, CVN_SFC_ANT_FT));
   for (const s of tracks) {
     if (s.k !== 'ship' || s.sd !== ref.sd) continue;
     if (!carriers.some((c) => distanceNm(c.lat, c.lon, s.lat, s.lon) <= CSG_RADIUS_NM)) continue;
+    const ss = SHIP_SFC_RADARS.find(([re]) => re.test(s.ty))?.[1];
+    if (ss) out.push(sfc(s, ss.rpm, ss.antFt));
     const spec = SHIP_RADARS.find(([re]) => re.test(s.ty))?.[1];
     if (!spec) continue;
     if ('rpm' in spec) out.push(rot(s, spec.rpm, phaseOf(s.id)));

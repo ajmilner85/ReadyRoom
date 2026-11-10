@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
-import { paintRadars, paintStep, radarsFor, swept, type Painter } from './sweep.ts';
+import { horizonNm, paintRadars, paintStep, radarsFor, swept, type Painter, type Radar } from './sweep.ts';
 
 const at = (id: string, brg: number, nm: number, k: WireTrack['k'] = 'fixedwing'): WireTrack => {
   const p = destination(26, 56, brg, nm);
@@ -18,12 +18,30 @@ describe('radar sweep', () => {
     // 100 ms step that crosses a 1 s revisit boundary, sweep nowhere near 200°
     const t0 = 999_950;
     const t1 = 1_000_050;
-    expect(radarsFor(tracks, 'cv', t0, t1, false)).toHaveLength(1);
+    expect(radarsFor(tracks, 'cv', t0, t1, false).map((r) => r.id)).toEqual(['cv', 'cv:sfc']);
     const R = radarsFor(tracks, 'cv', t0, t1, true);
-    expect(R.map((r) => r.id).sort()).toEqual(['cv', 'ddg']);
+    expect(R.map((r) => r.id).sort()).toEqual(['cv', 'cv:sfc', 'ddg', 'ddg:sfc']);
     const P: Painter = { painted: new Map([['cv', cv]]), hist: new Map() };
     expect(paintRadars(P, tracks, 'cv', R, 1)).toBe(true);
     expect(P.painted.has('a')).toBe(true);
+  });
+
+  it('ships are painted only by surface-search radars inside their horizon, and lost beyond it', () => {
+    expect(horizonNm(150)).toBeCloseTo(26, 0);
+    const near: WireTrack = { ...at('near', 90, 15), k: 'ship', ty: 'USS_Arleigh_Burke_IIa' };
+    const far: WireTrack = { ...at('far', 90, 40), k: 'ship', ty: 'USS_Arleigh_Burke_IIa' };
+    const all = (b: number) => b >= 0; // a beam over every bearing
+    const air: Radar = { id: 'cv', lat: 26, lon: 56, swept: all };
+    const sfc: Radar = { id: 'cv:sfc', lat: 26, lon: 56, swept: all, air: false, sfc: { rangeNm: horizonNm(150) } };
+    const P: Painter = { painted: new Map([['cv', cv]]), hist: new Map() };
+    paintRadars(P, [cv, near, far], 'cv', [air], 1);
+    expect(P.painted.has('near')).toBe(false); // the air-search beam doesn't paint ships
+    paintRadars(P, [cv, near, far], 'cv', [air, sfc], 2);
+    expect(P.painted.has('near')).toBe(true);
+    expect(P.painted.has('far')).toBe(false); // over the horizon
+    const gone: WireTrack = { ...at('near', 90, 30), k: 'ship', ty: 'USS_Arleigh_Burke_IIa' };
+    paintRadars(P, [cv, gone], 'cv', [air, sfc], 3);
+    expect(P.painted.has('near')).toBe(false);
   });
 
   it('arc test wraps through north', () => {

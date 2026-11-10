@@ -74,6 +74,12 @@ const isAir = (t: WireTrack) => t.k === 'fixedwing' || t.k === 'rotary';
  * walking back from the latest update, the next update at least ~stepS older each time, so every
  * dot is a position the contact was actually shown at. Newest first.
  */
+/** ship trail: dots at the surface radar's updates about this far apart (s), and how many */
+export const SHIP_TRAIL_STEP_S = 30;
+export const SHIP_TRAIL_DOTS = 6;
+/** seconds of position history kept for ships, enough for their trail */
+export const SHIP_HISTORY_S = SHIP_TRAIL_DOTS * SHIP_TRAIL_STEP_S + 20;
+
 export function trailPoints(hist: Trail[] | undefined, _nowT: number, proj: Projection, dots = 5, stepS = 6, alts?: (number | undefined)[]): Pt[] {
   if (!hist || hist.length < 2) return [];
   const out: Pt[] = [];
@@ -107,8 +113,9 @@ export function buildPicture(
   const toScope = (t: WireTrack): ScopeTrack => {
     const p = proj.toScope(t.lat, t.lon);
     const trailAlt: (number | undefined)[] = [];
-    // one spacing for every contact, so a trail's length reads as speed
-    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, 5, opts.trailStepS, trailAlt), trailAlt, rng: len(p), brg: bearingOf(p) };
+    // ships: wider-spaced dots over a few minutes, enough to read a turn, still far shorter than a jet's trail
+    const ship = t.k === 'ship' || t.k === 'carrier';
+    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, ship ? SHIP_TRAIL_DOTS : 5, ship ? SHIP_TRAIL_STEP_S : opts.trailStepS, trailAlt), trailAlt, rng: len(p), brg: bearingOf(p) };
   };
   const carriers: Carrier[] = cvs.map((c) => ({ track: toScope(c), ship: shipRefOf(c), focus: c === focusTrack }));
   const air = tracks.filter(isAir).map(toScope);

@@ -694,7 +694,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const rSi = Math.sin(rA);
   const rp = (q: Pt): Pt => (ROT ? [q[0] * rCo - q[1] * rSi, q[0] * rSi + q[1] * rCo] : q);
   const rpInv = (q: Pt): Pt => (ROT ? [q[0] * rCo + q[1] * rSi, -q[0] * rSi + q[1] * rCo] : q);
-  const rotT = ROT ? `rotate(${-ROT})` : undefined;
   const RC = rp([VX, VY]);
   const vx = RC[0] - VW / 2;
   const vy = RC[1] - VH / 2;
@@ -707,6 +706,20 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const zkT = z * sT;
   const zkO = z * sO;
   const KX = box.w / VW;
+  // Track up: the layers are drawn north-up in a square big enough for any turn, and the square is turned
+  // by CSS as one composited layer (turning every shape inside the SVG made each pan/zoom frame re-raster
+  // the whole turned picture). SV is the view those layers draw: unturned, about the view centre.
+  const RD = ROT ? Math.ceil(Math.hypot(box.w, box.h)) : 0;
+  const SV = ROT ? { x: VX - RD / KX / 2, y: VY - RD / KX / 2, w: RD / KX, h: RD / KX, bw: RD, bh: RD } : { x: vx, y: vy, w: VW, h: VH, bw: box.w, bh: box.h };
+  // always a div (north up: the box itself, unturned), so switching modes never remounts the layers
+  const rotorStyle: React.CSSProperties = ROT
+    ? { position: 'absolute', left: (box.w - RD) / 2, top: (box.h - RD) / 2, width: RD, height: RD, transform: `rotate(${-ROT}deg)`, transformOrigin: '50% 50%', willChange: 'transform', pointerEvents: 'none' }
+    : { position: 'absolute', inset: 0, pointerEvents: 'none' };
+  const rotor = (key: string, kids: React.ReactNode) => (
+    <div key={key} style={rotorStyle}>
+      {kids}
+    </div>
+  );
   const toPx = (q0: Pt): Pt => {
     const q = rp(q0);
     return [(q[0] - vx) * KX, (q[1] - vy) * KX];
@@ -853,14 +866,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
   // ------------------------------------------------ input
   const svgPoint = (e: { clientX: number; clientY: number }): Pt | null => {
-    const svg = svgRef.current;
-    const m = svg?.getScreenCTM();
-    if (!svg || !m) return null;
-    const q = svg.createSVGPoint();
-    q.x = e.clientX;
-    q.y = e.clientY;
-    const v = q.matrixTransform(m.inverse());
-    return rpInv([v.x, v.y]);
+    // from the view itself (toPx inverted): the SVG's screen CTM misses the track-up CSS turn in Chrome
+    const r = boxRef.current?.getBoundingClientRect();
+    if (!r) return null;
+    return rpInv([(e.clientX - r.left) / KX + vx, (e.clientY - r.top) / KX + vy]);
   };
   /** Placement bearing: 5° steps, or 1° while Ctrl is held (fine tuning). */
   const bearingAt = (q: Pt | null, fine = false) => {
@@ -939,9 +948,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
   const onDown = (e: React.MouseEvent) => {
     if (e.button !== 0) return;
-    const m = svgRef.current?.getScreenCTM();
-    if (!m) return;
-    const k = m.a;
+    const k = KX;
     const x0 = e.clientX;
     const y0 = e.clientY;
     const cx = VX;
@@ -1784,27 +1791,26 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const trailPx = (0.32 * KX * zkH).toFixed(2);
   // trail dots are square caps on a tiny segment: run it along the screen's x axis (turned back by ROT in track up)
   const dotSeg = ROT ? `l${(0.001 * Math.cos((ROT * Math.PI) / 180)).toFixed(6)} ${(0.001 * Math.sin((ROT * Math.PI) / 180)).toFixed(6)}` : 'h0.001';
-  const vb = `${f2(vx)} ${f2(vy)} ${f2(VW)} ${f2(VH)}`;
+  const vb = `${f2(SV.x)} ${f2(SV.y)} ${f2(SV.w)} ${f2(SV.h)}`;
   // marine layer snapshot (see MarineLayer): view top-left in the layer's origin frame
   const MO = 0.2;
   const oM = marine && pic.proj ? pic.proj.toScope(marine.lat, marine.lon) : null;
-  const curM = oM ? { x: vx - oM[0], y: vy - oM[1] } : null;
+  const curM = oM ? { x: SV.x - oM[0], y: SV.y - oM[1] } : null;
   const [mSnap, setMSnap] = useState<{ x: number; y: number; w: number; h: number; m: MarineGeom; kx: number; k: number; rot: number; om: Pt; ux: number; uy: number } | null>(null);
   const offOf = (sn: { x: number; y: number } | null) => (sn && curM ? [(sn.x - curM.x) * KX, (sn.y - curM.y) * KX] : [0, 0]);
   const zooming = performance.now() - zoomedAt.current < 250;
-  const scaleChanged = !!mSnap && (Math.abs(mSnap.w - VW) > 1e-9 || Math.abs(mSnap.h - VH) > 1e-9);
+  const scaleChanged = !!mSnap && (Math.abs(mSnap.w - SV.w) > 1e-9 || Math.abs(mSnap.h - SV.h) > 1e-9);
   const stale =
     !!curM &&
     !!marine &&
     (!mSnap ||
       mSnap.m !== marine ||
-      (scaleChanged && (!zooming || mSnap.w / VW > 4 || mSnap.w / VW < 0.25)) ||
-      (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * box.w * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * box.h * 0.8)) ||
-      mSnap.rot !== ROT ||
-      // turned about the layer's origin: a moved origin misplaces the layer by |Δ|·2·sin(rot/2); rebuild past ~1 px
-      (!!ROT && !!oM && Math.hypot(mSnap.om[0] - oM[0], mSnap.om[1] - oM[1]) * 2 * Math.abs(Math.sin((ROT * Math.PI) / 360)) * KX > 1));
+      (scaleChanged && (!zooming || mSnap.w / SV.w > 4 || mSnap.w / SV.w < 0.25)) ||
+      (!scaleChanged && (Math.abs(offOf(mSnap)[0]) > MO * SV.bw * 0.8 || Math.abs(offOf(mSnap)[1]) > MO * SV.bh * 0.8)) ||
+      // drawn north-up (track up turns the layer's container), so a turn never redraws it
+      mSnap.rot !== 0);
   // the snapshot also freezes the scale-dependent props, so the memoised layer does not re-render mid-zoom
-  const snap = stale && curM && marine && oM ? { x: curM.x, y: curM.y, w: VW, h: VH, m: marine, kx: KX, k: zkO, rot: ROT, om: oM, ux: VX - oM[0], uy: VY - oM[1] } : mSnap;
+  const snap = stale && curM && marine && oM ? { x: curM.x, y: curM.y, w: SV.w, h: SV.h, m: marine, kx: KX, k: zkO, rot: 0, om: oM, ux: VX - oM[0], uy: VY - oM[1] } : mSnap;
   useEffect(() => {
     if (stale && snap) setMSnap(snap);
   });
@@ -1822,8 +1828,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [snap?.m, snap?.x, snap?.y, snap?.w, snap?.h, snap?.kx, snap?.rot, snap?.ux, snap?.uy],
   );
-  const mScale = snap ? snap.w / VW : 1;
-  const mT = snap && curM ? [(snap.x - curM.x - MO * snap.w) * KX + MO * box.w, (snap.y - curM.y - MO * snap.h) * KX + MO * box.h] : [0, 0];
+  const mScale = snap ? snap.w / SV.w : 1;
+  const mT = snap && curM ? [(snap.x - curM.x - MO * snap.w) * KX + MO * SV.bw, (snap.y - curM.y - MO * snap.h) * KX + MO * SV.bh] : [0, 0];
   const svgStyle = (lw: number, extra: React.CSSProperties = {}) =>
     ({ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', '--z': zkO.toFixed(4), '--lw': lw, ...extra }) as React.CSSProperties;
 
@@ -1835,8 +1841,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           const len = Math.min(8000, Math.ceil(Math.hypot(Math.max(c[0], box.w - c[0]), Math.max(c[1], box.h - c[1]))) + 4);
           return <SweepLine x={c[0]} y={c[1]} w={sL} len={len} />;
         })()}
+        {rotor('rotA', <>
         {marine && snap && snap.m === marine && mPaths && (
-          <div style={{ position: 'absolute', left: -MO * box.w, top: -MO * box.h, width: (1 + 2 * MO) * box.w, height: (1 + 2 * MO) * box.h, transformOrigin: '0 0', transform: `translate(${mT[0].toFixed(1)}px, ${mT[1].toFixed(1)}px) scale(${mScale.toFixed(5)})`, willChange: 'transform', pointerEvents: 'none' }}>
+          <div style={{ position: 'absolute', left: -MO * SV.bw, top: -MO * SV.bh, width: (1 + 2 * MO) * SV.bw, height: (1 + 2 * MO) * SV.bh, transformOrigin: '0 0', transform: `translate(${mT[0].toFixed(1)}px, ${mT[1].toFixed(1)}px) scale(${mScale.toFixed(5)})`, willChange: 'transform', pointerEvents: 'none' }}>
             <MarineLayer
               marine={mPaths}
               vb={`${(snap.x - MO * snap.w).toFixed(4)} ${(snap.y - MO * snap.h).toFixed(4)} ${((1 + 2 * MO) * snap.w).toFixed(4)} ${((1 + 2 * MO) * snap.h).toFixed(4)}`}
@@ -1856,7 +1863,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         )}
         {/* ---------------- background */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
-          <g transform={rotT}>
+          <g>
           {ov.latlon && !ROT && (
             <g>
               <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(frame.x0)} y={f2(frame.y0)} width={f2(frame.x1 - frame.x0)} height={f2(frame.y1 - frame.y0)} fill="none" stroke="rgba(147,161,176,.4)" />
@@ -1977,7 +1984,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
 
         {/* ---------------- overlays */}
         <svg className="scope" viewBox={vb} preserveAspectRatio="xMidYMid meet" aria-hidden="true" style={svgStyle(sL)}>
-          <g transform={rotT}>
+          <g>
           {ov.coord &&
             pic.carriers
               .filter((c) => !c.focus && c.track.hull)
@@ -2246,6 +2253,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           </g>
         </g>
         </svg>
+        </>)}
 
         {/* ---------------- HTML labels: flags, edge markers, pinned CPA */}
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
@@ -2273,7 +2281,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         </div>
 
         {/* ---------------- traffic */}
-        <svg
+        {rotor('rotB', <svg
           ref={svgRef}
           className="scope"
           viewBox={vb}
@@ -2298,6 +2306,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               inset: 0,
               width: '100%',
               height: '100%',
+              pointerEvents: 'auto',
               cursor: panning ? 'grabbing' : placement.placing || (hooked && toolActive) || tool === 'bra' || tool === 'cpa' ? 'crosshair' : 'default',
               '--z': zkO.toFixed(4),
               '--lw': 1,
@@ -2305,7 +2314,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             } as React.CSSProperties
           }
         >
-          <g transform={rotT}>
+          <g>
           {/* trails */}
           <g fill="none" strokeLinecap="square" strokeWidth={trailPx}>
             {pic.air
@@ -2345,7 +2354,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               )}
             </g>
           ))}
-          {/* surface contacts (escorts and other ships): a hull (square stern, pointed bow) along the course, coloured by side; trail dots at earlier updates (same spacing as aircraft, so trail length shows speed); no vector; the type */}
+          {/* surface contacts (escorts and other ships): a hull (square stern, pointed bow) along the course, coloured by side; trail dots at earlier surface-radar updates ~30 s apart; no vector; the type */}
           {(pic.ships ?? [])
             .filter((s) => !hidden.has(s.id))
             .map((s) => {
@@ -2356,7 +2365,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               return (
                 <g key={`sfc${s.id}`} style={{ pointerEvents: 'none' }}>
                   {s.trail.map((q, i) => (
-                    <path key={i} d={`M${f2(q[0])} ${f2(q[1])}${dotSeg}`} fill="none" stroke={col} strokeLinecap="square" strokeWidth={trailPx} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />
+                    <path key={i} d={`M${f2(q[0])} ${f2(q[1])}${dotSeg}`} fill="none" stroke={col} strokeLinecap="square" strokeWidth={trailPx} opacity={[0.8, 0.65, 0.5, 0.38, 0.27, 0.18][i] ?? 0.18} />
                   ))}
                   <g transform={`translate(${f2(s.p[0])} ${f2(s.p[1])}) scale(${zkH.toFixed(4)}) rotate(${f2(h)})`}>
                     <path d="M0 -0.8 Q0.3 -0.5 0.3 -0.1 L0.3 0.62 L-0.3 0.62 L-0.3 -0.1 Q-0.3 -0.5 0 -0.8 Z" fill="#0B0E12" stroke={col} strokeLinejoin="miter" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
@@ -2456,7 +2465,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             );
           })}
         </g>
-        </svg>
+        </svg>)}
 
         {/* ---------------- HTML helper tags */}
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
