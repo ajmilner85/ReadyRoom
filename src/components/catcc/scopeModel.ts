@@ -60,7 +60,10 @@ export interface Picture {
   proj?: Projection;
   focus?: Carrier;
   carriers: Carrier[];
+  /** aircraft in the air: what the radars paint, tag and check for conflicts */
   air: ScopeTrack[];
+  /** aircraft on a deck or a runway (onSurface): the deck displays use them, the radar doesn't */
+  ground?: ScopeTrack[];
   /** surface ships other than carriers (radar donors) */
   ships?: ScopeTrack[];
   formations: Formation[];
@@ -108,7 +111,7 @@ export function buildPicture(
 ): Picture {
   const cvs = tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
   const focusTrack = cvs.find((c) => c.hull === focusHull) ?? cvs[0];
-  if (!focusTrack) return { carriers: [], air: [], formations: [], conflicts: [] };
+  if (!focusTrack) return { carriers: [], air: [], ground: [], formations: [], conflicts: [] };
   const proj = aeqd(focusTrack.lat, focusTrack.lon);
   const toScope = (t: WireTrack): ScopeTrack => {
     const p = proj.toScope(t.lat, t.lon);
@@ -118,8 +121,8 @@ export function buildPicture(
     return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, ship ? SHIP_TRAIL_DOTS : 5, ship ? SHIP_TRAIL_STEP_S : opts.trailStepS, trailAlt), trailAlt, rng: len(p), brg: bearingOf(p) };
   };
   const carriers: Carrier[] = cvs.map((c) => ({ track: toScope(c), ship: shipRefOf(c), focus: c === focusTrack }));
-  const air = tracks.filter(isAir).map(toScope);
-  for (const a of air) {
+  const all = tracks.filter(isAir).map(toScope);
+  for (const a of all) {
     let best: { hull?: string; d: number } = { d: 60 };
     for (const c of carriers) {
       const d = Math.hypot(a.p[0] - c.track.p[0], a.p[1] - c.track.p[1]);
@@ -127,11 +130,13 @@ export function buildPicture(
     }
     a.owner = best.hull;
   }
+  const ground = all.filter((a) => onSurface(a, carriers));
+  const air = all.filter((a) => !ground.includes(a));
   const formations = groupFormations(air);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
   const conflicts = findConflicts(air, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors);
   const ships = tracks.filter((t) => t.k === 'ship').map(toScope);
-  return { proj, focus: carriers.find((c) => c.focus), carriers, air, ships, formations, conflicts };
+  return { proj, focus: carriers.find((c) => c.focus), carriers, air, ground, ships, formations, conflicts };
 }
 
 /** Lead = lowest element number in the callsign (x-1), else lowest id. */
@@ -141,6 +146,17 @@ function leadOf(members: ScopeTrack[]): ScopeTrack {
     return m ? Number(m[1]) : 99;
   };
   return [...members].sort((a, b) => el(a) - el(b) || a.id.localeCompare(b.id))[0];
+}
+
+/**
+ * An aircraft on a deck or a runway rather than in the air. DCS says so itself: the hook sends
+ * Unit:inAir() as `air`, false on a deck, runway or the ground. Without that flag (a source that doesn't
+ * send it) an aircraft sitting on a carrier counts: within 250 m of it, below 150 ft, at its speed.
+ */
+export function onSurface(t: ScopeTrack, carriers: Carrier[]): boolean {
+  if (t.air !== undefined) return !t.air;
+  if (t.alt > 150) return false;
+  return carriers.some((c) => Math.hypot(t.p[0] - c.track.p[0], t.p[1] - c.track.p[1]) * 1852 < 250 && Math.abs((t.gs ?? 0) - (c.track.gs ?? 0)) < 15);
 }
 
 export function groupFormations(air: ScopeTrack[], joinNm = 3): Formation[] {

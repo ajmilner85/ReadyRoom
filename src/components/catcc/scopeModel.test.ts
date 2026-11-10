@@ -22,6 +22,17 @@ describe('buildPicture', () => {
     expect(a.p[0]).toBeCloseTo(20, 3);
   });
 
+  it('keeps aircraft on a deck or runway off the radar picture but in pic.ground', () => {
+    // DCS says it is on the deck (inAir false); one in the air; one with no flag sitting on the carrier
+    const parked = jet('parked', 0, 0.05, { alt: 65, gs: 25, air: false });
+    const flying = jet('flying', 90, 3, { alt: 1200, gs: 140, air: true });
+    const noFlag = jet('noflag', 180, 0.04, { alt: 66, gs: 25 });
+    const lowPass = jet('lowpass', 180, 0.04, { alt: 66, gs: 300 }); // over the deck at speed: airborne
+    const pic = buildPicture([carrier, parked, flying, noFlag, lowPass], 'CVN-72', new Map(), 100);
+    expect(pic.air.map((t) => t.id).sort()).toEqual(['flying', 'lowpass']);
+    expect(pic.ground?.map((t) => t.id).sort()).toEqual(['noflag', 'parked']);
+  });
+
   it('collapses close formations by DCS group and finds the low state', () => {
     const pic = buildPicture(
       [carrier, jet('1', 90, 30, { g: 'Volt 3', cs: 'VOLT 3-2', lb: 6200 }), jet('2', 90, 30.3, { g: 'Volt 3', cs: 'VOLT 3-1', lb: 5900 }), jet('3', 200, 30, { g: 'Hawk 1' })],

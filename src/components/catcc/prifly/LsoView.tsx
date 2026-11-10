@@ -69,7 +69,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
 
   // fuel burn → endurance
   useMemo(() => {
-    for (const t of pic.air) {
+    for (const t of [...pic.air, ...(pic.ground ?? [])]) {
       if (t.lb === undefined) continue;
       const h = fuelHist.current.get(t.id) ?? [];
       if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lb: t.lb });

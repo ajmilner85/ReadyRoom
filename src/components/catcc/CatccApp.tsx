@@ -137,7 +137,8 @@ const CatccApp: React.FC = () => {
   // PriFly's call wins over the picture
   const dc = deckCall(pic, ops);
   const deckClear = dc ? !dc.foul : null;
-  const { log, landedAt } = useDeckLog(pic.focus, pic.air, local);
+  const allAir = useMemo(() => [...pic.air, ...(pic.ground ?? [])], [pic.air, pic.ground]);
+  const { log, landedAt } = useDeckLog(pic.focus, allAir, local);
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
   const src = state.sources.find((s) => s.id === state.src);
   const live = state.lastFrameAt !== undefined && Date.now() - state.lastFrameAt < 5000;

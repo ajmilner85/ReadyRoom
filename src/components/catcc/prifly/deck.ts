@@ -157,7 +157,7 @@ export function onCat(jets: DeckJet[], k: string): DeckJet | undefined {
 export function deckStatus(pic: Picture) {
   const f = pic.focus;
   if (!f) return null;
-  const jets = onDeck(f, pic.air);
+  const jets = onDeck(f, [...pic.air, ...(pic.ground ?? [])]);
   const foul = jets.filter((j) => inLandingArea(j.x, j.y));
   const cats = Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(jets, k)]));
   return { jets, foul, cats };

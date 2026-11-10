@@ -45,7 +45,9 @@ export function trackToHookUnit(t: Track, numericId: number, simT: number): Hook
     // Deterministic per-aircraft burn: start 60-95 %, lose 1 % per ~100 s.
     const start = 0.6 + ((numericId * 7919) % 36) / 100;
     u.f = Math.max(0.12, start - simT / 10_000);
-    u.air = (t.gsKt ?? 0) > 60;
+    // Tacview has no in-air flag: slow and below 150 ft MSL is on a deck or a sea-level field (a carrier's
+    // deck is ~65 ft); a hovering helicopter is in the air. Real DCS sends Unit:inAir().
+    u.air = (t.gsKt ?? 0) > 50 || t.altFt > 150;
   } else if (t.kind === 'carrier') {
     u.wx = { d0: 70, s0: 9.5, d2: 75, s2: 12.4, d10: 90, s10: 18.6, tK: 299.2, qnh: 101420 };
   }
