@@ -1979,19 +1979,22 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             </g>
           )}
           {ov.rings && (() => {
-            // CATCC: 10-40 NM. Far rings (CDC): from the carrier out past the theatre's farthest corner,
-            // spaced for the zoom; the compass sits on the first ring at or beyond 30 NM
+            // CATCC: 10-40 NM. Far rings (CDC): every 10 NM from the carrier out past the theatre's farthest
+            // corner; zoomed out (range past 60 NM) the rings between the 50s go faint and unlabelled, and the
+            // compass moves out from the 30 NM ring to the 50
             const far = !!props.ringsFar;
-            const step = far ? (VW > 300 ? 50 : VW > 120 ? 25 : 10) : 10;
+            const step = 10;
+            const wide = far && VW > 120;
+            const minor = (r: number) => wide && r % 50 !== 0;
             const rMax = far ? (tBounds ? Math.max(...[[tBounds.x0, tBounds.y0], [tBounds.x1, tBounds.y0], [tBounds.x0, tBounds.y1], [tBounds.x1, tBounds.y1]].map(([x, y]) => Math.hypot(x, y))) : 500) : 40;
             const rings = Array.from({ length: Math.floor(rMax / step) + (far ? 1 : 0) }, (_, i) => (i + 1) * step);
-            const RC0 = rings.find((r) => r >= 30) ?? 30;
+            const RC0 = wide ? 50 : 30;
             return (
             <g className="rg">
               {rings.map((r) => (
-                <circle key={r} cx="0" cy="0" r={r} className="ring" />
+                <circle key={r} cx="0" cy="0" r={r} className={minor(r) ? 'ring ring-f' : 'ring'} />
               ))}
-              {rings.map((r) => {
+              {rings.filter((r) => !minor(r)).map((r) => {
                 // stacked straight up from the carrier (top of the screen), just outside each ring
                 // the compass ring's label clears the 000 tick (which spans ±1 ref unit about the ring)
                 const q: Pt = rpInv([0, -r - (r === RC0 ? 1.25 : 0.3) * zkO]);

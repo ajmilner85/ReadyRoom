@@ -40,6 +40,8 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 .fch { min-width: 20px; height: 18px; line-height: 18px; padding: 0 3px; box-sizing: border-box; text-align: center; border-radius: 3px; background: #0E1116; border: 1px solid #374250; font-size: 11px; font-weight: 600; }
 .scope .hit { stroke: rgba(0, 0, 0, .5); stroke-width: 1px; }
 .ring { fill: none; stroke: rgba(64, 168, 91, .22); stroke-width: calc(1px * var(--lw, 1)); }
+/* the 10 NM rings between the 50s when zoomed out (CDC) */
+.ring.ring-f { stroke: rgba(64, 168, 91, .09); }
 .tick line { stroke: rgba(64, 168, 91, .4); }
 .scope .rg text { fill: #5E9A6C; }
 .grid line { stroke: rgba(147, 161, 176, .14); stroke-width: calc(1px * var(--lw, 1)); }
