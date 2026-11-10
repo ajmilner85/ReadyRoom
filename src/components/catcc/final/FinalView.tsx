@@ -101,7 +101,8 @@ export const FinalView: React.FC<{
 
   const X = (r: number) => 60 + ((r - R0) / (RG - R0)) * 920;
   const Ye = (a: number) => 370 - (a / AMAX[RG]) * 330;
-  const Ya = (l: number) => 200 + (l / LMAX[RG]) * 170;
+  // plan view with the approach running right to left: left of course (lat < 0) is below the centreline
+  const Ya = (l: number) => 200 - (l / LMAX[RG]) * 170;
   const pc = (x: number, y: number) => [x / 10, y / 4] as const;
 
   const bolter: FinalAc | undefined = fp ? (fp.bolters.find((b) => b.t.id === pick) ?? fp.bolters[0]) : undefined;
@@ -193,7 +194,7 @@ export const FinalView: React.FC<{
     const p = pc(X(rr) - 4, Ya(-rr * tn));
     aLab.push({ x: p[0], y: p[1], tf: 'translate(-100%, 2px)', c: '#7D8896', t });
   }
-  aLab.push({ x: 0.8, y: 6, tf: 'none', c: '#7D8896', t: 'L' }, { x: 0.8, y: 90, tf: 'none', c: '#7D8896', t: 'R' });
+  aLab.push({ x: 0.8, y: 6, tf: 'none', c: '#7D8896', t: 'R' }, { x: 0.8, y: 90, tf: 'none', c: '#7D8896', t: 'L' });
   rangeMarks(aLab);
 
   // bolter downwind, its window and ghost turns
