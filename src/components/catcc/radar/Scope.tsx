@@ -2741,7 +2741,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <path d="M12 2.5v4M12 17.5v4M2.5 12h4M17.5 12h4" />
               </svg>
             </button>
-            {fitDefs.filter(([k]) => !props.fits || props.fits.includes(k)).map(([k, l, t]) => (
+            {/* in the seat's own order (narrowest to widest), else all of them */}
+            {(props.fits ? props.fits.map((k) => fitDefs.find((d) => d[0] === k)!).filter(Boolean) : fitDefs).map(([k, l, t]) => (
               <button
                 key={k}
                 onClick={() => {

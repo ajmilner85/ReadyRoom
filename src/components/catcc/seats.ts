@@ -26,6 +26,7 @@ export type RightSection = 'dep' | 'marshal' | 'coord' | 'deck' | 'donors' | 'he
 /** What a radar seat's interface offers: scope tools, range presets, sidebars. */
 export interface SeatUi {
   tools: Tool[];
+  /** range presets on the toolbar, in this order (narrowest to widest) */
   fits: Exclude<Fit, null>[];
   /** comms scripts (CATCC phraseology) */
   comms: boolean;
@@ -87,9 +88,9 @@ const S = (id: SeatRole, loc: LocationId, label: string, short: string, view: Se
 const ui = (tools: Tool[], fits: Exclude<Fit, null>[], left: LeftTab[], right: RightSection[], o: { comms?: boolean; trackUp?: boolean; ringsFar?: boolean; conflicts?: SeatUi['conflicts'] } = {}): SeatUi => ({ tools, fits, left, right, comms: !!o.comms, trackUp: !!o.trackUp, ringsFar: !!o.ringsFar, conflicts: o.conflicts ?? 'on' });
 /** CATCC as one seat: every control tool and panel */
 const U_CATCC = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 'dep', 'app'], ['info', 'strips'], ['dep', 'marshal', 'coord', 'deck', 'notes'], { comms: true });
-const U_DEP = ui(['select', 'bra', 'cpa', 'vec'], ['dep', 'cca', 'r50'], ['info', 'strips'], ['dep', 'coord', 'notes'], { comms: true });
-const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['app', 'cca', 'r50'], ['info', 'strips'], ['marshal', 'coord', 'notes'], { comms: true });
-const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['app', 'cca'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
+const U_DEP = ui(['select', 'bra', 'cpa', 'vec'], ['r50', 'cca', 'dep'], ['info', 'strips'], ['dep', 'coord', 'notes'], { comms: true });
+const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 'app'], ['info', 'strips'], ['marshal', 'coord', 'notes'], { comms: true });
+const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['cca', 'app'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
 const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'], ['deck', 'notes'], { comms: true });
 /** CDC: the air picture across the theatre and the sensors feeding it */
 const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true, conflicts: 'toggle' });
