@@ -3,7 +3,8 @@
  * touchdown on the left, plus deck status, ICLS / ACLS, the bolter slot tool and the arrival
  * sequence. Ported from carrier-ops-handoff-2/mockup/Final.dc.html; live data from the picture.
  */
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { layoutTags, type TagPlace } from '../radar/tagLayout.ts';
 import type { AclsMode, OpsState, Ownership } from '../../../catcc/core/room/ops.ts';
 import { BALL_NM } from '../../../catcc/core/geometry/slot.ts';
 import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
@@ -23,6 +24,15 @@ const R0 = -4;
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
 const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
+/** px per tag-layout reference unit (one tag row), as on the main radar */
+const K = 13;
+/** the main radar's tag geometry: a climb/descent arrow sits left of the altitude row, outside the text inset */
+const tagGeom = (rowsIn: string[]) => {
+  const arrow = rowsIn[1]?.[0] === '↑' || rowsIn[1]?.[0] === '↓' ? rowsIn[1][0] : '';
+  const rows = arrow ? [rowsIn[0], rowsIn[1].slice(1), ...rowsIn.slice(2)] : rowsIn;
+  const inset = arrow ? 0.85 : 0.3;
+  return { arrow, rows, inset, w: Math.max(...rows.map((r) => r.length)) * 0.54 + inset + 0.3, h: rows.length + 0.35 };
+};
 const f1 = (n: number) => n.toFixed(1);
 const ms = (t: number) => {
   const n = Math.round(Math.abs(t));
@@ -50,6 +60,7 @@ interface Blip {
   x: number;
   y: number;
   c: string;
+  red: boolean;
   /** trail colour; trail dots in % of the display, newest first */
   tc: string;
   rows: string[];
@@ -75,6 +86,17 @@ export const FinalView: React.FC<{
   const [ghost, setGhost] = useState(true);
   const [pick, setPick] = useState<string | null>(null);
   const fp = useMemo(() => finalPicture(pic), [pic]);
+  // the displays' size in px, for tag placement (both displays are the same size)
+  const dispRef = useRef<HTMLElement>(null);
+  const [sz, setSz] = useState({ w: 0, h: 0 });
+  useEffect(() => {
+    const el = dispRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setSz({ w: el.clientWidth, h: el.clientHeight }));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const prevPlaces = useRef<Record<string, Map<string, TagPlace>>>({});
   const hull = pic.focus?.track.hull ?? '';
 
   const X = (r: number) => 60 + ((r - R0) / (RG - R0)) * 920;
@@ -229,9 +251,9 @@ export const FinalView: React.FC<{
       vA = [X(a.f.along), Ya(a.f.lat), X(eal), Ya(ela)];
     }
     const e = pc(X(a.f.along), Ye(t.alt));
-    eBlips.push({ id: t.id, x: e[0], y: e[1], c, tc, rows, tr: trE, v: vE });
+    eBlips.push({ id: t.id, x: e[0], y: e[1], c, red, tc, rows, tr: trE, v: vE });
     const z = pc(X(a.f.along), Ya(a.f.lat));
-    aBlips.push({ id: t.id, x: z[0], y: z[1], c, tc, rows, tr: trA, v: vA });
+    aBlips.push({ id: t.id, x: z[0], y: z[1], c, red, tc, rows, tr: trA, v: vA });
   }
 
   // ------------------------------------------------ panels
@@ -255,40 +277,85 @@ export const FinalView: React.FC<{
   const span = Math.max(240, ...(fp?.arrivals ?? []).map((a) => a.tBall! + 30), ...(slot?.options.map((o) => o.t + 30) ?? []));
   const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
 
-  const disp = (title: string, grid: string, extra: React.ReactNode, labs: Lab[], blips: Blip[]) => (
-    <section aria-label={`${title} display`} style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden' }}>
-      <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>{title}</span>
-      <svg className="par" viewBox="0 0 1000 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
-        <path d={grid} stroke="rgba(147,161,176,.12)" fill="none" />
-        <path d={ramp} stroke="rgba(201,211,221,.4)" fill="none" />
-        {extra}
-        {blips.map((b) => b.v && <line key={`v${b.id}`} x1={f1(b.v[0])} y1={f1(b.v[1])} x2={f1(b.v[2])} y2={f1(b.v[3])} stroke={b.c} strokeWidth="1.8" strokeLinecap="round" />)}
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-        {labs.map((l, i) => (
-          <span key={i} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, fontSize: 10.5, color: l.c, whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
-            {l.t}
-          </span>
-        ))}
-        {blips.map((b) =>
-          b.tr.map((q, i) => <span key={`${b.id}t${i}`} style={{ position: 'absolute', left: `${q[0]}%`, top: `${q[1]}%`, width: 4, height: 4, margin: '-2px 0 0 -2px', background: b.tc, opacity: TRAIL_O[i] ?? 0.2 }} />),
-        )}
-        {blips.map((b) => (
-          <React.Fragment key={b.id}>
-            <span style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, width: 10, height: 10, margin: '-5px 0 0 -5px', background: b.c, border: '1px solid rgba(0,0,0,.5)', boxSizing: 'border-box' }} />
-            <span className="mono" style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, transform: 'translate(9px, -18px)', fontSize: 11, lineHeight: '13px', color: b.c, background: 'rgba(11,14,18,.72)', padding: '1px 3px', whiteSpace: 'pre' }}>
-              {b.rows.map((r, i) => (
-                <React.Fragment key={i}>
-                  {i > 0 && <br />}
-                  {r}
-                </React.Fragment>
-              ))}
+  /** Tag placement exactly as the main radar: NE by default, moved off other tags, hits and its own vector. */
+  const placeTags = (key: string, blips: Blip[]) => {
+    const toPx = (b: Blip): [number, number] => [(b.x / 100) * sz.w, (b.y / 100) * sz.h];
+    const places = layoutTags(
+      blips.map((b) => {
+        const p = toPx(b);
+        let v: [number, number] | undefined;
+        if (b.v) {
+          const dx = ((b.v[2] - b.v[0]) / 1000) * sz.w;
+          const dy = ((b.v[3] - b.v[1]) / 400) * sz.h;
+          const n = Math.hypot(dx, dy);
+          if (n > 2) v = [dx / n, dy / n];
+        }
+        return { id: b.id, p, ...tagGeom(b.rows), v, priority: b.red ? 0 : 2 + b.x / 100 };
+      }),
+      { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx) },
+    );
+    prevPlaces.current[key] = places;
+    return places;
+  };
+
+  const disp = (title: string, grid: string, extra: React.ReactNode, labs: Lab[], blips: Blip[], ref?: React.Ref<HTMLElement>) => {
+    const places = sz.w ? placeTags(title, blips) : new Map<string, TagPlace>();
+    return (
+      <section ref={ref} aria-label={`${title} display`} style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden' }}>
+        <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>{title}</span>
+        <svg className="par" viewBox="0 0 1000 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
+          <path d={grid} stroke="rgba(147,161,176,.12)" fill="none" />
+          <path d={ramp} stroke="rgba(201,211,221,.4)" fill="none" />
+          {extra}
+          {blips.map((b) => b.v && <line key={`v${b.id}`} x1={f1(b.v[0])} y1={f1(b.v[1])} x2={f1(b.v[2])} y2={f1(b.v[3])} stroke={b.c} strokeWidth="1.8" strokeLinecap="round" />)}
+        </svg>
+        <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
+          {labs.map((l, i) => (
+            <span key={i} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, fontSize: 10.5, color: l.c, whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
+              {l.t}
             </span>
-          </React.Fragment>
-        ))}
-      </div>
-    </section>
-  );
+          ))}
+          {blips.map((b) =>
+            b.tr.map((q, i) => <span key={`${b.id}t${i}`} style={{ position: 'absolute', left: `${q[0]}%`, top: `${q[1]}%`, width: 4, height: 4, margin: '-2px 0 0 -2px', background: b.tc, opacity: TRAIL_O[i] ?? 0.2 }} />),
+          )}
+          {blips.map((b) => (
+            <span key={b.id} style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, width: 10, height: 10, margin: '-5px 0 0 -5px', background: b.c, border: '1px solid rgba(0,0,0,.5)', boxSizing: 'border-box' }} />
+          ))}
+        </div>
+        {/* data tags: leader on the 45° from 0.7 to L, box starting (east) or ending (west) at the leader's end */}
+        <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'hidden' }} aria-hidden="true">
+          {sz.w > 0 &&
+            blips.map((b) => {
+              const pl = places.get(b.id) ?? { q: [1, -1] as [number, number], L: 2.4 };
+              const { arrow, rows, inset, w, h } = tagGeom(b.rows);
+              const px = (b.x / 100) * sz.w;
+              const py = (b.y / 100) * sz.h;
+              const s = Math.SQRT1_2;
+              const L0 = [pl.q[0] * 0.7 * s, pl.q[1] * 0.7 * s];
+              const L1 = [pl.q[0] * pl.L * s, pl.q[1] * pl.L * s];
+              const rx = pl.q[0] > 0 ? L1[0] + 0.05 : L1[0] - 0.05 - w;
+              const ty = L1[1] + 0.32;
+              return (
+                <g key={`tag${b.id}`} transform={`translate(${f1(px)} ${f1(py)}) scale(${K})`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
+                  <line x1={L0[0]} y1={L0[1]} x2={L1[0]} y2={L1[1]} stroke={b.c} strokeWidth={1 / K} />
+                  <rect x={rx} y={ty - 0.85} width={w} height={h} rx="0.2" fill="rgba(11,14,18,.72)" stroke={b.red ? '#E0524E' : undefined} strokeWidth={b.red ? 1.1 / K : undefined} />
+                  {rows.map((r, i) => (
+                    <text key={i} x={rx + inset} y={ty + i} fill={b.c} style={{ fontSize: 0.9 }}>
+                      {r}
+                    </text>
+                  ))}
+                  {arrow && (
+                    <text x={rx + inset - 0.15} y={ty + 1} textAnchor="end" fill={b.c} style={{ fontSize: 0.9 }}>
+                      {arrow}
+                    </text>
+                  )}
+                </g>
+              );
+            })}
+        </svg>
+      </section>
+    );
+  };
 
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -339,6 +406,7 @@ export const FinalView: React.FC<{
           </>,
           eLab,
           eBlips,
+          dispRef,
         )}
         {disp(
           'Azimuth',
