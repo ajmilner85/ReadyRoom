@@ -64,7 +64,7 @@ export interface PimShip {
 }
 
 export const LAYER_GROUPS: [string, [string, string, string][]][] = [
-  ['Ship', [['csg', 'CSG stations', '#3E9BD4'], ['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3'], ['pim', 'PIM / waypoints', '#7FD1C7'], ['sweep', 'Radar sweep', '#5E9A6C']]],
+  ['Ship', [['brc', 'BRC', '#E6EDF3'], ['fb', 'Final bearing', '#E6EDF3'], ['pim', 'PIM / waypoints', '#7FD1C7'], ['sweep', 'Radar sweep', '#5E9A6C']]],
   ['Airspace', [['cca', 'CCA 50 NM', '#40A85B'], ['coord', 'Coordination lines', '#3E9BD4'], ['sar', 'Helo restrictions', '#DE9A1F']]],
   ['Departure', [['dep', 'Departure radials', '#93A1B0']]],
   ['Approach', [['marshal', 'Marshal stacks', '#F15822'], ['arr', 'Arrival paths', '#93A1B0'], ['cv1', 'CV-1 approach', '#E6EDF3'], ['cv2', 'CV-2 approach', '#C9D3DD'], ['cv3', 'CV-3 approach (helo)', '#C9D3DD']]],

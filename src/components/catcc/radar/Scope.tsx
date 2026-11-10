@@ -141,6 +141,9 @@ export interface ScopeProps {
   onTrackUp?: (on: boolean) => void;
   /** mission date as a decimal year, for the magnetic variation */
   magYear?: number;
+  /** with onCsg the toolbar has a switch for the CSG formation display (stations and off-station labels) */
+  csgOn?: boolean;
+  onCsg?: (on: boolean) => void;
   /** conflict alerts shown; with onConflicts the toolbar has a switch for them */
   conflictsOn?: boolean;
   onConflicts?: (on: boolean) => void;
@@ -2580,6 +2583,26 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <IcZoomIn />
             </button>
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+            {props.onCsg && (
+              <>
+                <button
+                  className="tbtn"
+                  aria-pressed={!!props.csgOn}
+                  aria-label="CSG formation"
+                  title="CSG formation: stations and off-station labels"
+                  onClick={() => props.onCsg!(!props.csgOn)}
+                  style={{ background: props.csgOn ? 'rgba(241,88,34,.18)' : 'transparent', color: props.csgOn ? '#FFB08F' : '#E6EDF3' }}
+                >
+                  {/* a station sector ahead of the carrier, an escort in it */}
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                    <path d="M4.2 9.2A11 11 0 0 1 19.8 9.2L16.3 12.7A6 6 0 0 0 7.7 12.7Z" strokeDasharray="2.4 1.8" />
+                    <circle cx="12" cy="9.3" r="1.5" fill="currentColor" stroke="none" />
+                    <path d="M12 16.2 Q13.4 17.6 13.4 19.2 L13.4 22 L10.6 22 L10.6 19.2 Q10.6 17.6 12 16.2 Z" fill="currentColor" stroke="none" />
+                  </svg>
+                </button>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+              </>
+            )}
             {props.onConflicts && (
               <>
                 <button

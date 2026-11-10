@@ -203,13 +203,15 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   }, [pic.carriers, pic.ships, pic.air, focus?.track.sd, blind.alt]);
 
   // ------------------------------------------------ CSG stations (the active formation preset)
+  // the formation display belongs to the seats with the CSG panel, switched from the toolbar
+  const csgShow = rights.includes('csg') && !!ov.csg;
   const csgStations = useMemo(() => {
-    if (!ov.csg || !focus) return [];
+    if (!csgShow || !focus) return [];
     const es = escortsOf(pic);
     const f = formationFor(ops?.formation, es.map((e) => e.id));
     const act = f.presets[f.active];
     return es.map((e) => ({ label: e.label, st: act[e.id], p: e.t.p, state: stateOf(act[e.id], focus.ship.brc, e) }));
-  }, [ov.csg, pic, ops?.formation, focus]);
+  }, [csgShow, pic, ops?.formation, focus]);
 
   // ------------------------------------------------ PIM / waypoints: carrier groups with a planned route
   const routes = state.env?.routes;
@@ -483,6 +485,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         altFilter={altF}
         onAltFilter={setAltF}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
+        csgOn={csgShow}
+        onCsg={rights.includes('csg') ? (on) => setOv((o) => ({ ...o, csg: on })) : undefined}
         conflictsOn={showCf}
         magYear={state.utc ? state.utc.getUTCFullYear() + (state.utc.getTime() - Date.UTC(state.utc.getUTCFullYear(), 0, 1)) / 31_557_600_000 : undefined}
         onConflicts={cfMode === 'toggle' ? (on) => setCfOn({ on }) : undefined}
@@ -498,7 +502,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         pic={pic}
         nowS={nowS}
         ui={ui}
-        ov={{ ...ov, arr: ov.arr && ov.marshal }}
+        ov={{ ...ov, csg: csgShow, arr: ov.arr && ov.marshal }}
         ov2={{ ...ov2, arr: ov2.arr && ov2.marshal }}
         tool={tool}
         onTool={setTool}
