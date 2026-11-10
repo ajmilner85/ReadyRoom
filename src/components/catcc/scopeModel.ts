@@ -18,6 +18,8 @@ export interface Trail {
   lon: number;
   /** ft, for trails on the precision displays' elevation scale */
   alt?: number;
+  /** on a deck or runway at this update (DCS inAir false): not drawn as a trail dot */
+  gnd?: boolean;
 }
 
 export interface ScopeTrack extends WireTrack {
@@ -31,6 +33,8 @@ export interface ScopeTrack extends WireTrack {
   brg: number;
   /** hull of the nearest carrier within 60 NM (aircraft only) */
   owner?: string;
+  /** just landed: still drawn while its trail runs out (TOUCHDOWN_HOLD_S), not in conflicts or formations */
+  landing?: boolean;
 }
 
 export interface Carrier {
@@ -87,15 +91,25 @@ export function trailPoints(hist: Trail[] | undefined, _nowT: number, proj: Proj
   if (!hist || hist.length < 2) return [];
   const out: Pt[] = [];
   const gap = stepS * 0.85;
-  let ref = hist[hist.length - 1].t;
+  const latest = hist[hist.length - 1].t;
+  // a trail covers this far back; after a touchdown its airborne dots age out of it one by one
+  const oldest = latest - trailSpanS(dots, stepS);
+  let ref = latest;
   for (let i = hist.length - 2; i >= 0 && out.length < dots; i--) {
+    if (hist[i].t < oldest) break;
     if (ref - hist[i].t < gap) continue;
     ref = hist[i].t;
+    if (hist[i].gnd) continue;
     out.push(proj.toScope(hist[i].lat, hist[i].lon));
     alts?.push(hist[i].alt);
   }
   return out;
 }
+
+/** how far back a trail of `dots` dots `stepS` apart reaches, s */
+export const trailSpanS = (dots: number, stepS: number) => (dots + 0.5) * stepS;
+/** after a landed aircraft's last trail dot has aged out, its hit stays this long, s */
+export const TOUCHDOWN_HOLD_S = 1.5;
 
 export function shipRefOf(t: WireTrack): ShipRef {
   const brc = norm360(t.crs ?? t.hdg ?? 0);
@@ -130,11 +144,32 @@ export function buildPicture(
     }
     a.owner = best.hull;
   }
-  const ground = all.filter((a) => onSurface(a, carriers));
-  const air = all.filter((a) => !ground.includes(a));
-  const formations = groupFormations(air);
+  // Just landed (DCS says on the deck, but it was in the air within a trail's span): still drawn while its
+  // trail runs out, then for TOUCHDOWN_HOLD_S more, so it doesn't vanish the moment it touches down.
+  const step = opts.trailStepS ?? 6;
+  const fading = (a: ScopeTrack) => {
+    if (a.air !== false) return false;
+    const h = history.get(a.id);
+    if (!h?.length) return false;
+    let lastAir: number | undefined;
+    for (let i = h.length - 1; i >= 0; i--)
+      if (!h[i].gnd) {
+        lastAir = h[i].t;
+        break;
+      }
+    return lastAir !== undefined && lastAir >= h[h.length - 1].t - trailSpanS(5, step) - TOUCHDOWN_HOLD_S;
+  };
+  const ground: ScopeTrack[] = [];
+  const air: ScopeTrack[] = [];
+  for (const a of all) {
+    if (!onSurface(a, carriers)) air.push(a);
+    else if (fading(a)) air.push({ ...a, landing: true });
+    else ground.push(a);
+  }
+  const live = air.filter((a) => !a.landing);
+  const formations = groupFormations(live);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
-  const conflicts = findConflicts(air, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors);
+  const conflicts = findConflicts(live, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors);
   const ships = tracks.filter((t) => t.k === 'ship').map(toScope);
   return { proj, focus: carriers.find((c) => c.focus), carriers, air, ground, ships, formations, conflicts };
 }

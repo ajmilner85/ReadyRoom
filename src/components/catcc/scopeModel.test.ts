@@ -33,6 +33,30 @@ describe('buildPicture', () => {
     expect(pic.ground?.map((t) => t.id).sort()).toEqual(['noflag', 'parked']);
   });
 
+  it('a landed aircraft stays drawn while its airborne trail ages out, then for 1.5 s, then goes', () => {
+    // in the air until t = 100 coming up the final, on the deck from t = 101 (one sample a second)
+    const hist = (now: number): Trail[] =>
+      Array.from({ length: now + 1 }, (_, t) => (t <= 100 ? { t, ...at(165, 2 - t * 0.02) } : { t, ...at(165, 0.03), gnd: true })).slice(-40);
+    const landed = jet('j', 165, 0.03, { alt: 65, gs: 25, air: false });
+    const pic = (now: number) => buildPicture([carrier, landed], 'CVN-72', new Map([['j', hist(now)]]), now);
+    // just after touchdown: drawn, flagged, with its airborne trail; not a conflict or formation candidate
+    const p1 = pic(104);
+    expect(p1.air.map((t) => t.id)).toEqual(['j']);
+    expect(p1.air[0].landing).toBe(true);
+    expect(p1.air[0].trail.length).toBeGreaterThan(3);
+    // the trail shortens as the airborne dots age out (span 5.5 x 6 s = 33 s)
+    const mid = pic(120).air[0].trail.length;
+    expect(mid).toBeLessThan(p1.air[0].trail.length);
+    expect(mid).toBeGreaterThan(0);
+    // no trail left, the hit held a moment longer ...
+    const p3 = pic(134);
+    expect(p3.air[0]?.trail.length).toBe(0);
+    // ... then it's off the radar, on the deck
+    const p4 = pic(136);
+    expect(p4.air).toHaveLength(0);
+    expect(p4.ground?.map((t) => t.id)).toEqual(['j']);
+  });
+
   it('collapses close formations by DCS group and finds the low state', () => {
     const pic = buildPicture(
       [carrier, jet('1', 90, 30, { g: 'Volt 3', cs: 'VOLT 3-2', lb: 6200 }), jet('2', 90, 30.3, { g: 'Volt 3', cs: 'VOLT 3-1', lb: 5900 }), jet('3', 200, 30, { g: 'Hawk 1' })],

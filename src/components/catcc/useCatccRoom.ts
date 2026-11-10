@@ -123,7 +123,7 @@ export function useCatccRoom(preferredSrc?: string) {
               if (!arr) h.set(t.id, (arr = []));
               // mission time ran backwards (mission restart, replay loop): the old trail is from another run
               if (arr.length && arr[arr.length - 1].t > m.mt + 5) arr.length = 0;
-              if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon, alt: t.alt });
+              if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon, alt: t.alt, ...(t.air === false ? { gnd: true } : {}) });
               const keep = t.k === 'ship' || t.k === 'carrier' ? SHIP_HISTORY_S : HISTORY_S;
               while (arr.length > 2 && arr[0].t < m.mt - keep) arr.shift();
             }
