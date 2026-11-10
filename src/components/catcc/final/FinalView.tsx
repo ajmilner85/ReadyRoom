@@ -10,7 +10,7 @@ import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
 import { windOverDeck } from '../../../catcc/core/env/wod.ts';
 import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
-import { shortType, fuelK, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { shortType, fuelK, tagRows, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { bolterSlot, finalPicture, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
@@ -44,9 +44,7 @@ interface Blip {
   x: number;
   y: number;
   c: string;
-  t1: string;
-  t2: string;
-  o: number;
+  rows: string[];
 }
 
 const label = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
@@ -166,8 +164,8 @@ export const FinalView: React.FC<{
   let aDw = '';
   let aWin = '';
   const ghosts: Record<'ok' | 'marginal' | 'bad', string> = { ok: '', marginal: '', bad: '' };
-  if (ghost && bolter && slot) {
-    const DW = Math.max(-LMAX[RG], Math.min(LMAX[RG], bolter.f.lat));
+  if (ghost && bolter && slot && Math.abs(bolter.f.lat) <= LMAX[RG]) {
+    const DW = bolter.f.lat;
     aDw = `M${f1(X(Math.max(0.3, bolter.f.along)))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, 12)))}`;
     if (slot.window) aWin = `M${f1(X(Math.min(RG, slot.window[0])))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, slot.window[1])))}`;
     const bulge = Math.max(0.6, 1.33 * turnRadiusNm(bolter.t.gs ?? 150, 25));
@@ -183,31 +181,18 @@ export const FinalView: React.FC<{
   // ------------------------------------------------ blips
   const eBlips: Blip[] = [];
   const aBlips: Blip[] = [];
+  // only what is inside the displays' coverage: no contacts pinned to the edges
+  const inside = (a: FinalAc) => a.f.along >= 0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG];
   for (const a of fp?.acs ?? []) {
-    if (a.f.along < -0.5 || a.f.along > RG) continue;
+    if (!inside(a)) continue;
     const t = a.t;
-    const dim = a.kind === 'bolter' || a.kind === 'other' || (a.kind === 'inbound' && Math.abs(a.f.lat) > LMAX[RG]);
     const c = a.kind === 'bolter' ? '#93A1B0' : a.kind === 'other' ? '#5E6A78' : '#5FD068';
-    const t1 = `${label(t)} ${shortType(t.ty)} ${fuelK(t.lb)}`.trim();
-    const r = Math.max(0, a.f.along);
-    // elevation: against the glidepath inside the intercept, the Case III profile outside
-    let el = '';
-    if (a.kind === 'bolter') el = 'BOLTER · DOWNWIND';
-    else if (r <= gsInt + 0.2) {
-      const dev = t.alt - r * GP_FT_PER_NM;
-      const tol = r * (tanFt(GS_DEG + 0.5) - GP_FT_PER_NM);
-      el = Math.abs(dev) <= Math.max(40, tol) ? 'ON GP' : dev > 0 ? 'ABOVE GP' : 'BELOW GP';
-    } else {
-      const dev = t.alt - profileAlt(r);
-      el = Math.abs(dev) <= 300 ? 'ON PROFILE' : dev > 0 ? 'HIGH' : 'LOW';
-    }
-    const alt = String(Math.round(t.alt / 100)).padStart(3, '0');
-    eBlips.push({ id: t.id, x: pc(X(r), Ye(Math.min(AMAX[RG], t.alt)))[0], y: pc(X(r), Ye(Math.min(AMAX[RG], t.alt)))[1], c, t1, t2: `${alt} · ${el}`, o: dim ? 0.6 : 1 });
-    const offDeg = (Math.atan2(a.f.lat, Math.max(0.05, a.f.along)) * 180) / Math.PI;
-    const lock = lockOf(a, ops);
-    const az = a.kind === 'bolter' ? `DOWNWIND · ${Math.round(a.f.alongKt)}` : Math.abs(offDeg) < 0.5 ? `ON CL${lock === 'LOCK-ON' ? ' · ACLS' : ''}` : `${Math.abs(a.f.lat).toFixed(2)} ${a.f.lat < 0 ? 'L' : 'R'}`;
-    const lat = Math.max(-LMAX[RG], Math.min(LMAX[RG], a.f.lat));
-    aBlips.push({ id: t.id, x: pc(X(r), Ya(lat))[0], y: pc(X(r), Ya(lat))[1], c, t1, t2: az, o: dim ? 0.6 : 1 });
+    // the same data tag as the main radar
+    const rows = tagRows(t);
+    const e = pc(X(a.f.along), Ye(t.alt));
+    eBlips.push({ id: t.id, x: e[0], y: e[1], c, rows });
+    const z = pc(X(a.f.along), Ya(a.f.lat));
+    aBlips.push({ id: t.id, x: z[0], y: z[1], c, rows });
   }
 
   // ------------------------------------------------ panels
@@ -246,11 +231,14 @@ export const FinalView: React.FC<{
         ))}
         {blips.map((b) => (
           <React.Fragment key={b.id}>
-            <span style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, width: 10, height: 10, margin: '-5px 0 0 -5px', background: b.c, border: '1px solid rgba(0,0,0,.5)', boxSizing: 'border-box', opacity: b.o }} />
-            <span className="mono" style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, transform: 'translate(9px, -18px)', fontSize: 11, lineHeight: '13px', color: b.c, background: 'rgba(11,14,18,.72)', padding: '1px 3px', whiteSpace: 'nowrap', opacity: b.o }}>
-              {b.t1}
-              <br />
-              {b.t2}
+            <span style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, width: 10, height: 10, margin: '-5px 0 0 -5px', background: b.c, border: '1px solid rgba(0,0,0,.5)', boxSizing: 'border-box' }} />
+            <span className="mono" style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, transform: 'translate(9px, -18px)', fontSize: 11, lineHeight: '13px', color: '#E6EDF3', background: 'rgba(11,14,18,.72)', padding: '1px 3px', whiteSpace: 'pre' }}>
+              {b.rows.map((r, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <br />}
+                  {r}
+                </React.Fragment>
+              ))}
             </span>
           </React.Fragment>
         ))}
