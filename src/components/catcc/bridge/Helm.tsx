@@ -123,7 +123,11 @@ export const HelmPanel: React.FC<{
   route?: RoutePoint[];
   nowS: number;
   dayStart?: number;
-}> = ({ carrier, ordered, onOrder, readOnly, route, nowS, dayStart }) => {
+  /** NM along the course to land or shoal water: null none within range, undefined no chart data */
+  seaRoom?: number | null;
+  /** the range sea room is searched over, NM */
+  seaRoomMax?: number;
+}> = ({ carrier, ordered, onOrder, readOnly, route, nowS, dayStart, seaRoom, seaRoomMax = 100 }) => {
   const t = carrier?.track;
   const crs = t?.crs ?? t?.hdg ?? 0;
   const hdg = t?.hdg ?? crs;
@@ -279,13 +283,30 @@ export const HelmPanel: React.FC<{
                 +
               </button>
             </div>
-            {ordered && ordered.kt < 0 && (
-              <div className="mono" style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.12em', color: '#FF6B66', textAlign: 'center', marginTop: -2 }}>
-                ASTERN
-              </div>
-            )}
+            {/* its line is always kept, so going astern doesn't move what's below */}
+            <div className="mono" aria-hidden={!(ordered && ordered.kt < 0)} style={{ fontSize: 10.5, fontWeight: 600, letterSpacing: '.12em', color: '#FF6B66', textAlign: 'center', marginTop: -2, visibility: ordered && ordered.kt < 0 ? 'visible' : 'hidden' }}>
+              ASTERN
+            </div>
             <div className="lbl" style={{ marginTop: 6 }}>Speed over ground</div>
             <span style={dig(0, 16)}>{sog.toFixed(1)} KT</span>
+            <div className="lbl" style={{ marginTop: 6 }} title="Along the present course to land or water too shallow for the ship (under 15 m)">
+              Sea room ahead
+            </div>
+            {seaRoom === undefined ? (
+              <span style={dig(0, 14)}>--</span>
+            ) : seaRoom === null ? (
+              <span style={{ ...dig(0, 14), whiteSpace: 'nowrap' }}>&gt; {seaRoomMax} NM</span>
+            ) : (
+              <div style={{ display: 'flex', gap: 4 }}>
+                <span style={{ ...dig(0, 14), flex: 1, whiteSpace: 'nowrap', ...(seaRoom < 5 ? { color: '#E7B04F' } : {}) }}>{seaRoom.toFixed(1)} NM</span>
+                <span style={{ ...dig(0, 14), whiteSpace: 'nowrap', ...(seaRoom < 5 ? { color: '#E7B04F' } : {}) }}>
+                  {sog >= 1 ? (() => {
+                    const m = Math.round((seaRoom / sog) * 60);
+                    return `${Math.floor(m / 60)}:${String(m % 60).padStart(2, '0')}`;
+                  })() : '-:--'}
+                </span>
+              </div>
+            )}
           </div>
         </div>
       </section>

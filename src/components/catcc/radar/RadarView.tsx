@@ -19,6 +19,8 @@ import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '
 import { finalPicture, patternIds } from '../final/finalModel.ts';
 import { DeckPanel, DonorsPanel } from './SidePanels.tsx';
 import { HelmPanel } from '../bridge/Helm.tsx';
+import { useMarineData, useSeaRoom } from '../bridge/seaRoom.ts';
+import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 import { FormationPanel } from '../bridge/Formation.tsx';
 import { escortsOf, stateOf } from '../bridge/escorts.ts';
 import { formationFor } from '../../../catcc/core/geometry/formation.ts';
@@ -153,6 +155,12 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const [stripHov, setStripHov] = useState<string[] | null>(null);
   const [placement, setPlacement] = useState<Placement>({ placing: null, editing: null, hov: null });
   const sui = seat.ui;
+  // the conning seat's sea room ahead, from the theatre's chart data (as the scope picks the theatre)
+  const ftk = picIn.focus?.track;
+  const tb = state.theatre ? THEATRE_BOXES[state.theatre] : undefined;
+  const inTb = !!tb && !!ftk && ftk.lat >= tb[0] && ftk.lat <= tb[2] && ftk.lon >= tb[1] && ftk.lon <= tb[3];
+  const marineData = useMarineData(sui?.right.includes('helm') ? (inTb ? state.theatre : ftk ? theatreAt(ftk.lat, ftk.lon) : undefined) : undefined);
+  const seaRoom = useSeaRoom(marineData, ftk?.lat, ftk?.lon, ftk?.crs ?? ftk?.hdg);
   // conflict alerts are traffic control's: off on the Bridge, switchable in CDC
   const [cfOn, setCfOn] = useState<{ on: boolean }>(() => load(`catcc.cf.${seat.id}`, { on: true }));
   useEffect(() => save(`catcc.cf.${seat.id}`, cfOn), [cfOn, seat.id]);
@@ -559,6 +567,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
             route={pimShips.find((s) => s.own)?.pts}
             nowS={state.mt}
             dayStart={state.env?.start}
+            seaRoom={seaRoom}
           />
         )}
         {rights.includes('csg') && <FormationPanel pic={pic} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
