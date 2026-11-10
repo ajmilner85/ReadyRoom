@@ -1,10 +1,12 @@
 /**
  * Approach / Final picture: each aircraft working the focus carrier placed in the final frame and
- * classed as an arrival (on final or inbound to it), a bolter on the downwind, or other traffic.
+ * classed as an arrival (on final or inbound to it), a bolter on the downwind, one climbing out on the
+ * upwind (bolter or waveoff, ahead of the ship), or other traffic.
  */
-import { finalPos, timeToBall, turnWithWind, windVec, APPROACH_KT, slotWindow, type FinalPos, type SlotResult } from '../../../catcc/core/geometry/slot.ts';
+import { finalPos, timeToBall, turnWithWind, windVec, APPROACH_KT, slotWindow, upwindWindow, UPWIND_TURN_IN_NM, type FinalPos, type SlotResult } from '../../../catcc/core/geometry/slot.ts';
 import type { CarrierWx } from '../../../catcc/core/dcs/hookProtocol.ts';
 import { angDiff, type Pt } from '../../../catcc/core/geometry/vec.ts';
+import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
 import type { Picture, ScopeTrack } from '../scopeModel.ts';
 
 export const GS_DEG = 3.5;
@@ -30,7 +32,7 @@ export const profileAlt = (r: number): number => {
 export interface FinalAc {
   t: ScopeTrack;
   f: FinalPos;
-  kind: 'final' | 'inbound' | 'bolter' | 'other';
+  kind: 'final' | 'inbound' | 'bolter' | 'upwind' | 'other';
   /** s to the ¾ NM point (arrivals) */
   tBall: number | null;
 }
@@ -43,6 +45,8 @@ export interface FinalPicture {
   acs: FinalAc[];
   arrivals: FinalAc[];
   bolters: FinalAc[];
+  /** climbing out ahead of the ship (bolter, waveoff), nearest the ship first */
+  upwinds: FinalAc[];
   /** the ship's weather (winds at the deck and 2,000 ft) */
   wx?: CarrierWx;
   /** a scope point (NM) as [along final, lateral] about the carrier: astern and right of the final bearing positive */
@@ -64,7 +68,9 @@ export function finalPicture(pic: Picture): FinalPicture | null {
     const crs = t.crs ?? t.hdg ?? 0;
     const f = finalPos(rel, fb, { crs, gs: t.gs ?? 0 }, ship);
     let kind: FinalAc['kind'] = 'other';
-    if (angDiff(crs, fb + 180) < 40 && f.along > -1 && f.along < 12 && Math.abs(f.lat) > 0.5 && Math.abs(f.lat) < 5 && t.alt < 3000) kind = 'bolter';
+    // past the ship on the final bearing, low, opening ahead: the upwind leg
+    if (angDiff(crs, fb) < 40 && f.along < 0.3 && f.along > -6 && Math.abs(f.lat) < 1.5 && f.alongKt < -40 && t.alt < 3000) kind = 'upwind';
+    else if (angDiff(crs, fb + 180) < 40 && f.along > -1 && f.along < 12 && Math.abs(f.lat) > 0.5 && Math.abs(f.lat) < 5 && t.alt < 3000) kind = 'bolter';
     // arrivals fly the approach profile: an aircraft well above it (a tanker overhead) isn't one
     else if (f.along > 0.3 && f.along < 40 && angDiff(crs, fb) < 60 && f.closureKt > 40 && t.alt < profileAlt(f.along) + 2500) {
       const offDeg = Math.abs((Math.atan2(f.lat, f.along) * 180) / Math.PI);
@@ -74,12 +80,13 @@ export function finalPicture(pic: Picture): FinalPicture | null {
   }
   const arrivals = acs.filter((a) => a.tBall !== null).sort((a, b) => a.tBall! - b.tBall!);
   const bolters = acs.filter((a) => a.kind === 'bolter').sort((a, b) => a.f.along - b.f.along);
+  const upwinds = acs.filter((a) => a.kind === 'upwind').sort((a, b) => b.f.along - a.f.along);
   const cp = c.track.p;
   const toFinal = (p: Pt): [number, number] => {
     const f = finalPos([p[0] - cp[0], p[1] - cp[1]], fb, { crs: 0, gs: 0 }, { crs: 0, gs: 0 });
     return [f.along, f.lat];
   };
-  return { fb, ship, vFinal, acs, arrivals, bolters, toFinal, wx: c.track.wx };
+  return { fb, ship, vFinal, acs, arrivals, bolters, upwinds, toFinal, wx: c.track.wx };
 }
 
 /**
@@ -132,6 +139,37 @@ export function bolterSlot(fp: FinalPicture, b: FinalAc): SlotResult & { tas: nu
   );
   return { ...r, tas: turn.tas, latDrift: turn.latDrift };
 }
+
+/**
+ * When to turn an aircraft on the upwind downwind: the window of range ahead (NM) against the
+ * arrivals, assuming it turns in to final at 6 DME. Turns at true airspeed in the wind at its
+ * altitude; the downwind opening speed from that airspeed, the wind and the ship's motion.
+ */
+export function upwindSlot(fp: FinalPicture, u: FinalAc): SlotResult & { x0: number; offNm: number } {
+  const crs = u.t.crs ?? u.t.hdg ?? fp.fb;
+  const wind = windAt(fp.wx, u.t.alt);
+  const up = turnWithWind({ crs, gs: u.t.gs ?? 150 }, fp.ship, fp.fb, wind);
+  // the downwind leg, flown on the reciprocal at the same airspeed
+  const D = Math.PI / 180;
+  const w: Pt = wind ?? [0, 0];
+  const dwV: Pt = [Math.sin((fp.fb + 180) * D) * up.tas + w[0], -Math.cos((fp.fb + 180) * D) * up.tas + w[1]];
+  const dwCrs = (Math.atan2(dwV[0], -dwV[1]) / D + 360) % 360;
+  const dwGs = Math.hypot(dwV[0], dwV[1]);
+  const vDw = finalPos([0, 0], fp.fb, { crs: dwCrs, gs: dwGs }, fp.ship).alongKt;
+  const dn = turnWithWind({ crs: dwCrs, gs: dwGs }, fp.ship, fp.fb, wind);
+  // abeam on the downwind a turn's diameter out: 6 DME there is √(36 − offset²) along the final
+  const off = 2 * turnRadiusNm(Math.max(100, up.tas), 25);
+  const x0 = Math.sqrt(Math.max(1, UPWIND_TURN_IN_NM ** 2 - off * off));
+  const r = upwindWindow(
+    { u0: Math.max(0, -u.f.along), vUp: -u.f.alongKt, vDw, tTurn: up.tTurn, vFinal: fp.vFinal, d1: up.drift, d2: dn.drift, x0 },
+    fp.arrivals.map((a) => ({ id: a.t.bd ?? a.t.cs ?? a.t.id, t: a.tBall! })),
+    { options: UPWIND_DME.map((d) => ({ key: `${d} NM`, x: d })) },
+  );
+  return { ...r, x0, offNm: off };
+}
+
+/** turn-downwind ranges offered for an aircraft on the upwind, NM ahead */
+export const UPWIND_DME = [1.5, 2.5, 3.5];
 
 /** turn-in DMEs offered for a bolter */
 export const BOLTER_DME = [4, 6, 8];

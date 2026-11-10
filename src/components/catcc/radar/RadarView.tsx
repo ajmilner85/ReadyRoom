@@ -12,7 +12,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import { antennaFtOf, BLIND_ALTS, coverageNm, radarOf } from '../../../catcc/core/sensors/radar.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import type { RoomState } from '../useCatccRoom.ts';
-import { STACK_IDS, defaultStack, fuelK, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
+import { STACK_IDS, defaultStack, fuelK, groupFormations, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
 import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
@@ -86,6 +86,7 @@ const PHASES: [Phase, string][] = [
   ['marshal', 'MARSHAL'],
   ['approach', 'APPROACH'],
   ['support', 'SUPPORT'],
+  ['deck', 'ON DECK'],
 ];
 
 // ---------------------------------------------------------------- view
@@ -327,9 +328,13 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
       arr.push({ f, flight: flightOf(f) });
       by.set(ph, arr);
     }
+    // landed aircraft move to the deck slot (aboard our carrier: within 0.5 NM of it)
+    const cv = pic.focus?.track.p;
+    const aboard = cv ? (pic.ground ?? []).filter((t) => Math.hypot(t.p[0] - cv[0], t.p[1] - cv[1]) < 0.5) : [];
+    if (aboard.length) by.set('deck', groupFormations(aboard).map((f) => ({ f, flight: flightOf(f) })));
     for (const arr of by.values()) arr.sort((a, b) => a.f.lead.rng - b.f.lead.rng);
     return by;
-  }, [pic.formations, marshalled, hull]);
+  }, [pic.formations, pic.ground, pic.focus, marshalled, hull]);
   // aircraft in the pattern belong to Approach / Final (the same rule as the Approach / Final screen)
   const inPattern = useMemo(() => patternIds(finalPicture(pic)), [pic]);
   const ownPhase = (f: Formation, p: Phase): Phase => (inPattern.has(f.lead.id) ? 'approach' : p);
@@ -470,8 +475,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
                       aria-label={`${flight.callsign} ${flight.flightNumber} strip`}
                       style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
-                      <FlightCard {...flight} />
-                      <HandoffRow v={ownerOf(flightKey(f), hull, ownPhase(f, p), f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />
+                      <FlightCard {...flight} corner={p === 'deck' ? undefined : <HandoffRow compact v={ownerOf(flightKey(f), hull, ownPhase(f, p), f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />} />
                     </div>
                   );
                 })}

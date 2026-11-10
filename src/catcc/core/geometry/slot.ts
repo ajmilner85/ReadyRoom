@@ -11,6 +11,12 @@
  *     tBall(X) = (X − R0)/Vdw + Tturn + (X + D − ¾)/Vfinal,
  * which is linear in X, so the turn-in ranges keeping ≥ GAP seconds to the arrivals ahead and
  * behind are found in closed form.
+ *
+ * Upwind model (the same tool one leg earlier): an aircraft climbing out ahead of the ship at U0 NM,
+ * opening at Vup, that turns downwind at U NM ahead, flies the downwind at Vdw and turns in at a
+ * nominal X0, arrives at ¾ NM after
+ *     tBall(U) = (U − U0)/Vup + Tturn + (X0 + U − D1)/Vdw + Tturn + (X0 + D2 − ¾)/Vfinal,
+ * again linear, in U.
  */
 import { turnRadiusNm } from './maneuver.ts';
 import type { Pt } from './vec.ts';
@@ -118,23 +124,17 @@ export interface SlotResult {
  * `drift` (NM) is how far the ship opens during the turn. Options are turn-in points: a range, or a
  * key and range (e.g. a DME converted to range along the final).
  */
-export function slotWindow(
-  bolter: { r0: number; vDw: number; tTurn: number; vFinal: number; drift?: number },
-  traffic: { id: string; t: number }[],
-  opts: { gap?: number; maxX?: number; options?: (number | { key: string; x: number })[] } = {},
-): SlotResult {
-  const gap = opts.gap ?? SLOT_GAP_S;
-  const vDw = Math.max(60, bolter.vDw);
-  const maxX = Math.max(bolter.r0, opts.maxX ?? 12);
-  // tBall = a·X + b
-  const a = 3600 / vDw + 3600 / bolter.vFinal;
-  const drift = bolter.drift ?? 0;
-  const b = (-bolter.r0 / vDw) * 3600 + bolter.tTurn + ((drift - BALL_NM) / bolter.vFinal) * 3600;
+/**
+ * The window of a decision range x in [x0, maxX] (x opening at `rate` kt from x0 now) for which an
+ * arrival time tBall(x) = a·x + b keeps ≥ gap seconds to the traffic ahead and behind, and the given
+ * options (plus NOW at x0) scored against the traffic.
+ */
+function linearSlot(a: number, b: number, x0: number, maxX: number, rate: number, traffic: { id: string; t: number }[], gap: number, given: { key: string; x: number }[], drift: number): SlotResult {
   const tBall = (x: number) => a * x + b;
   const xOf = (t: number) => (t - b) / a;
   const T = [...traffic].sort((p, q) => p.t - q.t);
   // gaps in time between consecutive arrivals (open-ended before the first and after the last)
-  const tMin = tBall(bolter.r0);
+  const tMin = tBall(x0);
   const tMax = tBall(maxX);
   let window: [number, number] | null = null;
   for (let i = -1; i < T.length && !window; i++) {
@@ -151,8 +151,7 @@ export function slotWindow(
     }
     return { ahead, behind };
   };
-  const given = (opts.options ?? [4, 6, 8]).map((o) => (typeof o === 'number' ? { key: `${o} NM`, x: o } : o));
-  const options = [{ key: 'NOW', x: bolter.r0 }, ...given.filter((o) => o.x > bolter.r0 + 0.2)].map(({ key, x }) => {
+  const options = [{ key: 'NOW', x: x0 }, ...given.filter((o) => o.x > x0 + 0.2)].map(({ key, x }) => {
     const t = tBall(x);
     const { ahead, behind } = neighbours(t);
     const gapAhead = ahead ? t - ahead.t : Infinity;
@@ -162,10 +161,51 @@ export function slotWindow(
   });
   return {
     window,
-    inS: window ? [((window[0] - bolter.r0) / vDw) * 3600, ((window[1] - bolter.r0) / vDw) * 3600] : null,
+    inS: window ? [((window[0] - x0) / rate) * 3600, ((window[1] - x0) / rate) * 3600] : null,
     ballS: window ? [tBall(window[0]), tBall(window[1])] : null,
     options,
     tBall,
     drift,
   };
+}
+
+export function slotWindow(
+  bolter: { r0: number; vDw: number; tTurn: number; vFinal: number; drift?: number },
+  traffic: { id: string; t: number }[],
+  opts: { gap?: number; maxX?: number; options?: (number | { key: string; x: number })[] } = {},
+): SlotResult {
+  const vDw = Math.max(60, bolter.vDw);
+  const maxX = Math.max(bolter.r0, opts.maxX ?? 12);
+  const drift = bolter.drift ?? 0;
+  // tBall = a·X + b
+  const a = 3600 / vDw + 3600 / bolter.vFinal;
+  const b = (-bolter.r0 / vDw) * 3600 + bolter.tTurn + ((drift - BALL_NM) / bolter.vFinal) * 3600;
+  const given = (opts.options ?? [4, 6, 8]).map((o) => (typeof o === 'number' ? { key: `${o} NM`, x: o } : o));
+  return linearSlot(a, b, bolter.r0, maxX, vDw, traffic, opts.gap ?? SLOT_GAP_S, given, drift);
+}
+
+/** nominal turn-in to final (range along the final, NM) assumed by the upwind tool */
+export const UPWIND_TURN_IN_NM = 6;
+
+/**
+ * Upwind turn window: the range ahead of the ship (NM) at which to turn an aircraft climbing out on
+ * the upwind leg (a bolter or waveoff) downwind, so that turning in at `x0` (NM astern) it reaches ¾ NM
+ * with ≥ gap seconds to the arrivals. `u0` NM ahead now, opening at `vUp`; `d1` / `d2` how far the
+ * ship opens during the downwind turn and the final turn (NM astern).
+ */
+export function upwindWindow(
+  ac: { u0: number; vUp: number; vDw: number; tTurn: number; vFinal: number; d1?: number; d2?: number; x0?: number },
+  traffic: { id: string; t: number }[],
+  opts: { gap?: number; maxU?: number; options?: (number | { key: string; x: number })[] } = {},
+): SlotResult {
+  const vUp = Math.max(60, ac.vUp);
+  const vDw = Math.max(60, ac.vDw);
+  const x0 = ac.x0 ?? UPWIND_TURN_IN_NM;
+  const d1 = ac.d1 ?? 0;
+  const d2 = ac.d2 ?? 0;
+  const maxU = Math.max(ac.u0, opts.maxU ?? 6);
+  const a = 3600 / vUp + 3600 / vDw;
+  const b = (-ac.u0 / vUp) * 3600 + ac.tTurn + ((x0 - d1) / vDw) * 3600 + ac.tTurn + ((x0 + d2 - BALL_NM) / ac.vFinal) * 3600;
+  const given = (opts.options ?? [1.5, 2.5, 3.5]).map((o) => (typeof o === 'number' ? { key: `${o} NM`, x: o } : o));
+  return linearSlot(a, b, ac.u0, maxU, vUp, traffic, opts.gap ?? SLOT_GAP_S, given, d1);
 }

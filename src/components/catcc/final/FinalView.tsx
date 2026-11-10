@@ -6,14 +6,14 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { layoutTags, type Box, type TagPlace } from '../radar/tagLayout.ts';
 import type { AclsMode, OpsState, Ownership } from '../../../catcc/core/room/ops.ts';
-import { BALL_NM } from '../../../catcc/core/geometry/slot.ts';
+import { BALL_NM, UPWIND_TURN_IN_NM, type SlotResult } from '../../../catcc/core/geometry/slot.ts';
 import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
 import { windOverDeck } from '../../../catcc/core/env/wod.ts';
 import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
-import { bolterSlot, dmeAt, finalPicture, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
+import { bolterSlot, upwindSlot, dmeAt, finalPicture, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
@@ -336,12 +336,45 @@ export const FinalView: React.FC<{
     const f = fmOf(t);
     return f ? flightKey(f) : t.g || t.id;
   };
-  const seq = [...(fp?.arrivals ?? []), ...(fp?.bolters ?? [])].slice(0, 8);
+  const seq = [...(fp?.arrivals ?? []), ...(fp?.bolters ?? []), ...(fp?.upwinds ?? [])].slice(0, 8);
+  // the aircraft climbing out on the upwind nearest the ship: when to turn it downwind
+  const upw = fp?.upwinds[0];
+  const uslot = fp && upw ? upwindSlot(fp, upw) : null;
   const foul = !!deck?.foul;
 
-  // slot timeline (s from now, scaled to the latest mark)
-  const span = Math.max(240, ...(fp?.arrivals ?? []).map((a) => a.tBall! + 30), ...(slot?.options.map((o) => o.t + 30) ?? []));
-  const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
+  // slot timeline (s from now, scaled to the latest mark) and the options against the arrivals
+  const slotDetail = (sl: SlotResult) => {
+    const span = Math.max(240, ...(fp?.arrivals ?? []).map((a) => a.tBall! + 30), ...sl.options.map((o) => o.t + 30));
+    const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
+    return (
+      <>
+        <div style={{ position: 'relative', height: 34, margin: '6px 0 14px', borderTop: '1px solid #374250' }}>
+          {(fp?.arrivals ?? []).map((a) => (
+            <React.Fragment key={a.t.id}>
+              <span style={{ position: 'absolute', left: `${mx(a.tBall!)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: '#E6EDF3' }} />
+              <span className="mono" style={{ position: 'absolute', left: `${mx(a.tBall!)}%`, top: 8, transform: 'translateX(-50%)', fontSize: 10.5, color: '#E6EDF3', whiteSpace: 'nowrap' }}>{label(a.t)}</span>
+            </React.Fragment>
+          ))}
+          {sl.options.map((o) => (
+            <React.Fragment key={o.key}>
+              <span style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: C[o.cls] }} />
+              <span className="mono" style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -20, transform: 'translateX(-50%)', fontSize: 10.5, color: C[o.cls], whiteSpace: 'nowrap' }}>{o.key === 'NOW' ? 'NOW' : o.key.replace(/ (DME|NM)$/, '')}</span>
+            </React.Fragment>
+          ))}
+          {sl.ballS && <span style={{ position: 'absolute', left: `${mx(sl.ballS[0])}%`, width: `${Math.max(0.5, mx(sl.ballS[1]) - mx(sl.ballS[0]))}%`, top: -3, height: 6, background: 'rgba(95,208,104,.35)', borderRadius: 2 }} />}
+        </div>
+        {sl.options.map((o) => (
+          <div key={o.key} className="mono" style={{ display: 'grid', gridTemplateColumns: '48px 104px 1fr', gap: 6, fontSize: 12, padding: '3px 0', whiteSpace: 'nowrap' }}>
+            <span style={{ color: C[o.cls], fontWeight: 600 }}>{o.key}</span>
+            <span>3/4 {tod(o.t)}</span>
+            <span style={{ color: C[o.cls] }}>
+              {o.gapAhead < 0 ? `${ms(-o.gapAhead)} ahead of ${o.ahead}` : o.gapBehind < 0 ? `${ms(-o.gapBehind)} behind ${o.behind}` : `${Number.isFinite(o.gapAhead) ? `+${ms(o.gapAhead)}` : '—'} / ${Number.isFinite(o.gapBehind) ? `−${ms(o.gapBehind)}` : '—'}`}
+            </span>
+          </div>
+        ))}
+      </>
+    );
+  };
 
   /** The main radar's tag placement, held to a home quadrant (NE; SW in the bolter pattern) unless that would cover another tag or hit. */
   const placeTags = (key: string, blips: Blip[], datum: (x: number) => number | null) => {
@@ -626,33 +659,33 @@ export const FinalView: React.FC<{
               ) : (
                 <div style={{ fontSize: 16, fontWeight: 700, color: '#FF8A85', marginBottom: 8 }}>No slot on this downwind</div>
               )}
-              <div style={{ position: 'relative', height: 34, margin: '6px 0 14px', borderTop: '1px solid #374250' }}>
-                {(fp?.arrivals ?? []).map((a) => (
-                  <React.Fragment key={a.t.id}>
-                    <span style={{ position: 'absolute', left: `${mx(a.tBall!)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: '#E6EDF3' }} />
-                    <span className="mono" style={{ position: 'absolute', left: `${mx(a.tBall!)}%`, top: 8, transform: 'translateX(-50%)', fontSize: 10.5, color: '#E6EDF3', whiteSpace: 'nowrap' }}>{label(a.t)}</span>
-                  </React.Fragment>
-                ))}
-                {slot.options.map((o) => (
-                  <React.Fragment key={o.key}>
-                    <span style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: C[o.cls] }} />
-                    <span className="mono" style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -20, transform: 'translateX(-50%)', fontSize: 10.5, color: C[o.cls], whiteSpace: 'nowrap' }}>{o.key === 'NOW' ? 'NOW' : o.key.replace(' DME', '')}</span>
-                  </React.Fragment>
-                ))}
-                {slot.ballS && <span style={{ position: 'absolute', left: `${mx(slot.ballS[0])}%`, width: `${Math.max(0.5, mx(slot.ballS[1]) - mx(slot.ballS[0]))}%`, top: -3, height: 6, background: 'rgba(95,208,104,.35)', borderRadius: 2 }} />}
-              </div>
-              {slot.options.map((o) => (
-                <div key={o.key} className="mono" style={{ display: 'grid', gridTemplateColumns: '48px 104px 1fr', gap: 6, fontSize: 12, padding: '3px 0', whiteSpace: 'nowrap' }}>
-                  <span style={{ color: C[o.cls], fontWeight: 600 }}>{o.key}</span>
-                  <span>3/4 {tod(o.t)}</span>
-                  <span style={{ color: C[o.cls] }}>
-                    {o.gapAhead < 0 ? `${ms(-o.gapAhead)} ahead of ${o.ahead}` : o.gapBehind < 0 ? `${ms(-o.gapBehind)} behind ${o.behind}` : `${Number.isFinite(o.gapAhead) ? `+${ms(o.gapAhead)}` : '—'} / ${Number.isFinite(o.gapBehind) ? `−${ms(o.gapBehind)}` : '—'}`}
-                  </span>
-                </div>
-              ))}
+              {slotDetail(slot)}
             </>
           )}
         </section>
+
+        {upw && uslot && (
+          <section className="pnl" aria-label="Upwind turn">
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+              <span className="lbl">Upwind turn · {label(upw.t)}</span>
+              <span className="mono" style={{ fontSize: 11.5, color: (upw.t.lb ?? 99999) < 4500 ? '#E7B04F' : '#93A1B0' }}>STATE {fuelK(upw.t.lb) || '—'}</span>
+            </div>
+            {uslot.window ? (
+              <>
+                <div style={{ fontSize: 18, fontWeight: 700, color: '#7FD397' }}>
+                  Turn downwind {uslot.window[0].toFixed(1)}–{uslot.window[1].toFixed(1)} NM ahead
+                </div>
+                <div className="mono" style={{ fontSize: 12, color: '#93A1B0', marginBottom: 8 }}>
+                  in {ms(uslot.inS![0])}–{ms(uslot.inS![1])} · 3/4 {tod(uslot.ballS![0])}–{tod(uslot.ballS![1]).slice(3)}
+                </div>
+              </>
+            ) : (
+              <div style={{ fontSize: 16, fontWeight: 700, color: '#FF8A85', marginBottom: 8 }}>No slot from this upwind</div>
+            )}
+            {slotDetail(uslot)}
+            <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>Turn-in to final at {UPWIND_TURN_IN_NM} DME assumed</div>
+          </section>
+        )}
 
         <section className="pnl" aria-label="Sequence">
           <div className="lbl" style={{ marginBottom: 6 }}>Sequence</div>
@@ -660,7 +693,7 @@ export const FinalView: React.FC<{
             const t = a.t;
             // pattern traffic (arrivals, bolters) belongs to Approach / Final, whatever its sortie phase
             const v = ownerOf(keyOf(t), hull, 'approach', Math.max(0, a.f.along), handoffCtx.layout, owners);
-            const where = a.kind === 'bolter' ? 'BOLTER · DOWNWIND' : a.f.along <= 12 ? `3/4 in ${ms(a.tBall!)}` : `${a.f.along.toFixed(1)} NM · 3/4 in ${ms(a.tBall!)}`;
+            const where = a.kind === 'bolter' ? 'BOLTER · DOWNWIND' : a.kind === 'upwind' ? 'UPWIND' : a.f.along <= 12 ? `3/4 in ${ms(a.tBall!)}` : `${a.f.along.toFixed(1)} NM · 3/4 in ${ms(a.tBall!)}`;
             const low = (t.lb ?? 99999) < 4500;
             return (
               <div key={t.id} style={{ padding: '6px 8px', marginTop: 4, border: `1px solid ${v.pending ? '#E7B04F' : '#262F3A'}`, borderRadius: 5, background: '#1A212A' }}>

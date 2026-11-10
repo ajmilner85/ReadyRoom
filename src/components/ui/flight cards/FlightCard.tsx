@@ -8,6 +8,8 @@ import { legibleColor } from '../primitives/color';
 interface FlightCardProps extends Flight {
   isDragging?: boolean;
   onUpdateMemberFuel?: (dashNumber: string, newFuel: number) => void;
+  /** optional content for the strip's bottom-right corner, after the member chips (e.g. CATCC's handoff tag) */
+  corner?: React.ReactNode;
   /** Squadron insignia for the greyscale backdrop behind the callsign block. */
   insigniaUrl?: string | null;
 }
@@ -67,6 +69,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
   squadronColorPalette,
   insigniaUrl,
   onUpdateMemberFuel,
+  corner,
 }) => {
   const [isEditingFuel, setIsEditingFuel] = useState(false);
 
@@ -156,6 +159,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
               </span>
             );
           })}
+          {corner ? <span className="ml-auto">{corner}</span> : null}
         </div>
       </div>
     </div>

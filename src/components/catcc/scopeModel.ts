@@ -282,14 +282,16 @@ export function tagRows(t: ScopeTrack, formation?: Formation, collapsed = false)
 
 // ---------------------------------------------------------------- strips
 
-export type Phase = 'departure' | 'inbound' | 'marshal' | 'approach' | 'support' | 'other';
-export const PHASE_ORDER: Phase[] = ['departure', 'inbound', 'marshal', 'approach', 'support', 'other'];
+/** `deck`: landed aboard our carrier (its strip stays, in the ON DECK slot, until it launches again) */
+export type Phase = 'departure' | 'inbound' | 'marshal' | 'approach' | 'support' | 'deck' | 'other';
+export const PHASE_ORDER: Phase[] = ['departure', 'inbound', 'marshal', 'approach', 'support', 'deck', 'other'];
 export const PHASE_LABEL: Record<Phase, string> = {
   departure: 'Departure',
   inbound: 'Inbound',
   marshal: 'Marshal',
   approach: 'Approach',
   support: 'Support',
+  deck: 'On deck',
   other: 'Other',
 };
 

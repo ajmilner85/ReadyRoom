@@ -93,3 +93,18 @@ describe('bolter slot window', () => {
     expect(tight.tBall(tight.window![0])).toBeCloseTo(300, 6);
   });
 });
+
+describe('upwind turn window', () => {
+  it('turning downwind later arrives later, by both legs; the window sits between arrivals', async () => {
+    const { upwindWindow } = await import('./slot.ts');
+    const ac = { u0: 1, vUp: 120, vDw: 170, tTurn: 75, vFinal: 110, x0: 6 };
+    const r = upwindWindow(ac, [{ id: 'A', t: 300 }, { id: 'B', t: 900 }]);
+    // one NM more upwind costs an NM up and an NM back down
+    expect(r.tBall(3) - r.tBall(2)).toBeCloseTo(3600 / 120 + 3600 / 170, 6);
+    expect(r.window).not.toBeNull();
+    const [lo, hi] = r.ballS!;
+    expect(lo).toBeGreaterThanOrEqual(300 + 60 - 1e-6);
+    expect(hi).toBeLessThanOrEqual(900 - 60 + 1e-6);
+    expect(r.options[0].key).toBe('NOW');
+  });
+});
