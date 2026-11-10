@@ -10,8 +10,12 @@ const D2R = Math.PI / 180;
 /** rudder order (deg, + right) the helm puts on for a heading error (deg, + = ordered course to the right) */
 export const rudderFor = (err: number): number => Math.max(-30, Math.min(30, err * 0.9));
 
-/** turn radius at full (30 deg) rudder, NM: a Nimitz-class tactical diameter of roughly 1,200 yd */
-export const FULL_RUDDER_RADIUS_NM = 0.3;
+/**
+ * Turn radius at full (30 deg) rudder, NM: DCS's minimum turn radius for the Nimitz class, GT.R_min =
+ * 665.8 m in CoreMods/tech/USS_Nimitz/Database/USS_CVN_71.lua (a turning circle of ~1,450 yd). Its yaw-rate
+ * limit (GT.Om = 0.05 rad/s) would only bind above ~65 kt, so the radius limits the turn at any real speed.
+ */
+export const FULL_RUDDER_RADIUS_NM = 665.8 / 1852;
 
 /** rate of turn (deg/s, + right) at a speed (kt) and rudder angle (deg, + right) */
 export function turnRate(kt: number, rudder: number): number {

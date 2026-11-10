@@ -207,7 +207,9 @@ const msS = (t: number) => {
 };
 const zs = (a: Pt, k: number) => `translate(${f2(a[0])} ${f2(a[1])}) scale(${k.toFixed(4)}) translate(${f2(-a[0])} ${f2(-a[1])})`;
 const HELO_HOLD: HoldSpec = { legNm: 2, turnNm: 0.5 };
-const clampW = (w: number) => Math.max(12, Math.min(2 * MAX_RANGE_NM, w));
+/** view width, NM: 5 NM (edge to centre) at the closest, MAX_RANGE_NM at the widest */
+const clampW = (w: number) => Math.max(2 * MIN_RANGE_NM, Math.min(2 * MAX_RANGE_NM, w));
+const MIN_RANGE_NM = 5;
 
 const TRK = '#5FD068';
 const TRK_TRAIL = '#3E9A4C';
@@ -664,7 +666,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return fitRing(b ?? [0, 0], 100);
     },
     r50: () => fitRing([0, 0], 50),
-    r20: () => fitRing([0, 0], 20),
+    r5: () => fitRing([0, 0], 5),
     // our strike group: the carrier, its stationed escorts, and friendly ships within 30 NM that are nearer
     // to it than to any other friendly carrier (those are the other group's), plus a margin
     csg: () => {
@@ -1852,7 +1854,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['fit', 'FIT', 'Fit all contacts, carriers and ships'],
     ['bulls', 'BULLS', 'The bullseye, 100 NM around it'],
     ['r50', '50NM', 'Default range: 50 NM around the carrier'],
-    ['r20', '20NM', '20 NM around the carrier'],
+    ['r5', '5NM', '5 NM around the carrier'],
     ['csg', 'CSG', 'Fit the carrier and its escorts'],
     ['cca', 'CCA', 'Fit CCA + 20 NM'],
     ['dep', 'DEP', 'Fit carrier and departure radials'],

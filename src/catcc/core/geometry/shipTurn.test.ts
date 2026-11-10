@@ -2,9 +2,9 @@ import { describe, expect, it } from 'vitest';
 import { orderedPath, rudderFor, trendPath, turnRate, turnTo } from './shipTurn.ts';
 
 describe('ship turn prediction', () => {
-  it('turns faster with more rudder and speed; full rudder at 25 kt is about 1.3 deg/s', () => {
-    expect(turnRate(25, 30)).toBeCloseTo(1.33, 1);
-    expect(turnRate(25, -15)).toBeCloseTo(-0.66, 1);
+  it('turns faster with more rudder and speed; full rudder at 25 kt is about 1.1 deg/s (DCS R_min 665.8 m)', () => {
+    expect(turnRate(25, 30)).toBeCloseTo(1.107, 2);
+    expect(turnRate(25, -15)).toBeCloseTo(-0.553, 2);
     expect(rudderFor(100)).toBe(30);
     expect(turnTo(350, 10)).toBe(20);
     expect(turnTo(10, 350)).toBe(-20);
