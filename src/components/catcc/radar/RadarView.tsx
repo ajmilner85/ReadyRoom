@@ -484,6 +484,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         onAltFilter={setAltF}
         onTrackUp={sui?.trackUp ? (on) => setTu({ on }) : undefined}
         conflictsOn={showCf}
+        magYear={state.utc ? state.utc.getUTCFullYear() + (state.utc.getTime() - Date.UTC(state.utc.getUTCFullYear(), 0, 1)) / 31_557_600_000 : undefined}
         onConflicts={cfMode === 'toggle' ? (on) => setCfOn({ on }) : undefined}
         onOpenDisplay={() => setUiOpen(true)}
         donors={donors}

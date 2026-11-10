@@ -3,7 +3,7 @@ import { supabase } from '../../utils/supabaseClient';
 import type { HookEnv } from '../../catcc/core/dcs/hookProtocol.ts';
 import type { Assignment, CarrierPlan, RoomUser, SeatHolder, SeatKey, ServerMsg, SourceStatus, WireTrack } from '../../catcc/core/room/protocol.ts';
 import type { OpsState, Ownership } from '../../catcc/core/room/ops.ts';
-import { SHIP_HISTORY_S, type Trail } from './scopeModel.ts';
+import type { Trail } from './scopeModel.ts';
 
 /**
  * Room service URL: ?ws=... (dev override), else VITE_CATCC_WS_URL, else VITE_API_URL with
@@ -124,8 +124,7 @@ export function useCatccRoom(preferredSrc?: string) {
               // mission time ran backwards (mission restart, replay loop): the old trail is from another run
               if (arr.length && arr[arr.length - 1].t > m.mt + 5) arr.length = 0;
               if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon, alt: t.alt });
-              const keep = t.k === 'ship' || t.k === 'carrier' ? SHIP_HISTORY_S : HISTORY_S;
-              while (arr.length > 2 && arr[0].t < m.mt - keep) arr.shift();
+              while (arr.length > 2 && arr[0].t < m.mt - HISTORY_S) arr.shift();
             }
             for (const id of h.keys()) if (!seen.has(id)) h.delete(id);
             setState((s) => ({

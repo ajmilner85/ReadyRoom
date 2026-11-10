@@ -22,6 +22,7 @@ import {
 } from '../../../catcc/core/geometry/procedures.ts';
 import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
 import { maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
+import { magVar } from '../../../catcc/core/env/magvar.ts';
 import { add, bearingOf, D2R, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
@@ -136,6 +137,8 @@ export interface ScopeProps {
   onAltFilter?: (f: { lo: number; hi: number } | null) => void;
   /** offer the north-up / track-up switch (and its state handler) */
   onTrackUp?: (on: boolean) => void;
+  /** mission date as a decimal year, for the magnetic variation */
+  magYear?: number;
   /** conflict alerts shown; with onConflicts the toolbar has a switch for them */
   conflictsOn?: boolean;
   onConflicts?: (on: boolean) => void;
@@ -748,6 +751,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   }, [props.goTo]);
 
   // ------------------------------------------------ lat/lon frame (mockup frame(); flat local plane)
+  // bottom-left corner block (magnetic variation + range scale): a round scale length 60–150 px long
+  const SCALE_NM = [0.25, 0.5, 1, 2, 5, 10, 20, 50, 100, 200];
+  const scaleNm = SCALE_NM.find((s) => s * KX >= 60) ?? 200;
+  const cornerPx = 0.5 * z * KX + 8;
+  const cornerW = scaleNm * KX + 150;
+  const cornerH = 74;
+  const vc = pic.proj?.toLatLon([VX, VY]);
+  const mv = vc ? magVar(vc.lat, vc.lon, 0, props.magYear ?? new Date().getUTCFullYear() + new Date().getUTCMonth() / 12) : null;
   const frame = useMemo(() => {
     const x0 = vx + 0.5 * z;
     const x1 = vx + VW - 0.5 * z;
@@ -776,7 +787,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       ticks += `M${f2(x0)} ${f2(y)}h${f2(L)}M${f2(x1)} ${f2(y)}h-${f2(L)}`;
       if (maj) {
         grid += `M${f2(x0)} ${f2(y)}H${f2(x1)}`;
-        if (y > y0 + 1.5 * z && y < y1 - 2.5 * z) latL.push({ y: y + 0.3, t: fmt(m, 2, 'N', 'S') });
+        // kept clear of the corner block
+        if (y > y0 + 1.5 * z && y < y1 - 2.5 * z && y < y1 - (cornerH + 16) / KX) latL.push({ y: y + 0.3, t: fmt(m, 2, 'N', 'S') });
       }
     }
     for (let m = Math.ceil(SLON + x0 / K); m <= Math.floor(SLON + x1 / K); m++) {
@@ -787,11 +799,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       ticks += `M${f2(x)} ${f2(y0)}v${f2(L)}M${f2(x)} ${f2(y1)}v-${f2(L)}`;
       if (maj) {
         grid += `M${f2(x)} ${f2(y0)}V${f2(y1)}`;
-        if (x > x0 + 3 * z && x < x1 - 3 * z) lonL.push({ x, t: fmt(m, 3, 'E', 'W') });
+        if (x > x0 + 3 * z && x < x1 - 3 * z && x > x0 + (cornerW + 24) / KX) lonL.push({ x, t: fmt(m, 3, 'E', 'W') });
       }
     }
     return { x0, x1, y0, y1, ticks, grid, latL, lonL, lx: x0 + 1.8 * z, rx: x1 - 1.8 * z, ty: y0 + 2.4 * z, by: y1 - 1.7 * z };
-  }, [vx, vy, VW, VH, z, focus?.track.lat, focus?.track.lon]);
+  }, [vx, vy, VW, VH, z, focus?.track.lat, focus?.track.lon, KX, cornerW]);
 
   // ------------------------------------------------ hooked tools
   const hooked = hookedId ? pic.air.find((t) => t.id === hookedId) : undefined;
@@ -1770,6 +1782,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['app', 'APP', 'Fit carrier, bolter pattern and marshal stacks'],
   ];
   const trailPx = (0.32 * KX * zkH).toFixed(2);
+  // trail dots are square caps on a tiny segment: run it along the screen's x axis (turned back by ROT in track up)
+  const dotSeg = ROT ? `l${(0.001 * Math.cos((ROT * Math.PI) / 180)).toFixed(6)} ${(0.001 * Math.sin((ROT * Math.PI) / 180)).toFixed(6)}` : 'h0.001';
   const vb = `${f2(vx)} ${f2(vy)} ${f2(VW)} ${f2(VH)}`;
   // marine layer snapshot (see MarineLayer): view top-left in the layer's origin frame
   const MO = 0.2;
@@ -2298,7 +2312,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               .filter((t) => !hidden.has(t.id))
               .map((t) => {
                 const c = dimC(t.id, conflictIds.has(t.id) ? '#B8433F' : isBlue(t) ? BLUE_TRAIL : TRK_TRAIL);
-                return t.trail.map((q, i) => <path key={`${t.id}t${i}`} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} stroke={c} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />);
+                return t.trail.map((q, i) => <path key={`${t.id}t${i}`} d={`M${f2(q[0])} ${f2(q[1])}${dotSeg}`} stroke={c} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />);
               })}
           </g>
           {/* velocity vectors */}
@@ -2331,22 +2345,19 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               )}
             </g>
           ))}
-          {/* surface contacts (escorts and other ships): a hull (square stern, pointed bow) along the course, coloured by side; trail dots a minute apart; a 2-minute course vector from the bow; the type */}
+          {/* surface contacts (escorts and other ships): a hull (square stern, pointed bow) along the course, coloured by side; trail dots at earlier updates (same spacing as aircraft, so trail length shows speed); no vector; the type */}
           {(pic.ships ?? [])
             .filter((s) => !hidden.has(s.id))
             .map((s) => {
               const col = s.sd === 'red' ? '#FF8A85' : s.sd === 'blue' ? BLUE_HIT : '#E7C66B';
               const tc = s.sd === 'red' ? 'tg tgr' : s.sd === 'blue' ? 'tg tgb' : 'tg';
               const h = s.crs ?? s.hdg ?? 0;
-              const v = (s.gs ?? 0) >= 2 ? dir(h) : null;
-              const d = v ? (s.gs! * 2) / 60 : 0;
               const name = s.ty.replace(/^(USS|HMS|CV|CVN|LHA|DDG|CG|FFG)_/i, '').replace(/_/g, ' ');
               return (
                 <g key={`sfc${s.id}`} style={{ pointerEvents: 'none' }}>
                   {s.trail.map((q, i) => (
-                    <path key={i} d={`M${f2(q[0])} ${f2(q[1])}h0.001`} fill="none" stroke={col} strokeLinecap="square" strokeWidth={trailPx} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />
+                    <path key={i} d={`M${f2(q[0])} ${f2(q[1])}${dotSeg}`} fill="none" stroke={col} strokeLinecap="square" strokeWidth={trailPx} opacity={[0.8, 0.6, 0.45, 0.3, 0.2][i] ?? 0.2} />
                   ))}
-                  {v && <line x1={f2(s.p[0] + v[0] * 0.8 * zkH)} y1={f2(s.p[1] + v[1] * 0.8 * zkH)} x2={f2(s.p[0] + v[0] * (0.8 * zkH + d))} y2={f2(s.p[1] + v[1] * (0.8 * zkH + d))} stroke={col} strokeOpacity="0.8" strokeLinecap="round" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />}
                   <g transform={`translate(${f2(s.p[0])} ${f2(s.p[1])}) scale(${zkH.toFixed(4)}) rotate(${f2(h)})`}>
                     <path d="M0 -0.8 Q0.3 -0.5 0.3 -0.1 L0.3 0.62 L-0.3 0.62 L-0.3 -0.1 Q-0.3 -0.5 0 -0.8 Z" fill="#0B0E12" stroke={col} strokeLinejoin="miter" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
                   </g>
@@ -2373,7 +2384,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <rect x="-0.4" y="-0.4" width="0.8" height="0.8" fill={col} className="hit" />
               );
               return (
-                <g key={`h${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkH.toFixed(4)})`} opacity={isBlue(t) ? 0.85 : 1}>
+                <g key={`h${t.id}`} className="zs" transform={`translate(${f2(t.p[0])} ${f2(t.p[1])}) scale(${zkH.toFixed(4)})${ROT ? ` rotate(${ROT})` : ''}`} opacity={isBlue(t) ? 0.85 : 1}>
                   {fi && !fi.sel ? (
                     <>
                       {shape}
@@ -2395,7 +2406,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               f.members
                 .filter((m) => m !== f.lead && f.members[sel - 1] === m)
                 .map((m) => (
-                  <g key={`fs${m.id}`} className="zs" transform={`translate(${f2(m.p[0])} ${f2(m.p[1])}) scale(${zkH.toFixed(4)})`}>
+                  <g key={`fs${m.id}`} className="zs" transform={`translate(${f2(m.p[0])} ${f2(m.p[1])}) scale(${zkH.toFixed(4)})${ROT ? ` rotate(${ROT})` : ''}`}>
                     <rect style={{ strokeWidth: 'calc(1.2px * var(--lw, 1))' }} x="-0.7" y="-0.7" width="1.4" height="1.4" fill="none" stroke="#E6EDF3" />
                   </g>
                 )),
@@ -2633,9 +2644,41 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           {props.layersOpen && <div style={{ maxHeight: 'calc(100vh - 170px)', overflowY: 'auto' }}>{props.layersPanel}</div>}
         </div>
 
-        <div className="mono" style={{ position: 'absolute', left: 12, bottom: 12, fontSize: 11, color: '#93A1B0', display: 'flex', alignItems: 'center', gap: 8, pointerEvents: 'none' }}>
-          <span style={{ display: 'inline-block', width: Math.round(10 * KX), height: 6, border: '1px solid #93A1B0', borderTop: 0 }} />
-          10 NM
+        {/* bottom-left: magnetic variation at the view centre and the range scale, inside the lat/lon frame (its labels keep clear) */}
+        <div className="mono" style={{ position: 'absolute', left: cornerPx, bottom: cornerPx, height: cornerH, boxSizing: 'border-box', fontSize: 11, color: '#93A1B0', display: 'flex', alignItems: 'flex-end', gap: 14, padding: '6px 10px 8px', background: 'rgba(11,14,18,.88)', border: '1px solid #262F3A', borderRadius: 4, pointerEvents: 'none' }}>
+          {mv != null && (() => {
+            // true north (full arrowhead) and magnetic north (half arrowhead) from one foot, turned with the picture
+            const up = -ROT;
+            const L = 46;
+            // drawn north-up about the arrows' middle, then turned with the picture, so any heading fits the box
+            const tip = (a: number, l: number): Pt => [l * Math.sin(a * D2R), L / 2 - l * Math.cos(a * D2R)];
+            const tn = tip(0, L);
+            const mn = tip(mv, L * 0.86);
+            const txtA = ((((up + mv) % 360) + 360) % 360);
+            const flip = txtA > 180;
+            const lab = `VAR ${Math.abs(mv).toFixed(1)}°${mv >= 0 ? 'E' : 'W'}`;
+            const mid = tip(mv, L * 0.43);
+            const off: Pt = [7 * Math.cos(mv * D2R), 7 * Math.sin(mv * D2R)];
+            return (
+              <svg width="58" height="58" viewBox="-29 -29 58 58" aria-label={`Magnetic variation ${lab}`} style={{ overflow: 'visible' }}>
+                <g transform={`rotate(${f2(up)})`}>
+                  <g stroke="#C9D3DD" strokeWidth="1.2" fill="#C9D3DD" strokeLinejoin="round">
+                    <line x1="0" y1={f2(L / 2)} x2={f2(tn[0])} y2={f2(tn[1])} />
+                    <path d="M0 0 L-3 8 L0 6 L3 8 Z" transform={`translate(${f2(tn[0])} ${f2(tn[1])})`} />
+                    <line x1="0" y1={f2(L / 2)} x2={f2(mn[0])} y2={f2(mn[1])} />
+                    <path d="M0 0 L3.2 8 L0 6.5 Z" transform={`translate(${f2(mn[0])} ${f2(mn[1])}) rotate(${f2(mv)})`} />
+                  </g>
+                  <text x="0" y="0" textAnchor="middle" dominantBaseline="central" transform={`translate(${f2(mid[0] + off[0])} ${f2(mid[1] + off[1])}) rotate(${f2(mv - 90 + (flip ? 180 : 0))})`} style={{ fill: '#C9D3DD', fontSize: 8.5, letterSpacing: '.04em' }}>
+                    {lab}
+                  </text>
+                </g>
+              </svg>
+            );
+          })()}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+            <span style={{ display: 'inline-block', width: Math.round(scaleNm * KX), height: 6, border: '1px solid #93A1B0', borderTop: 0 }} />
+            {scaleNm} NM
+          </div>
         </div>
         {cursorReadout && (
           <div className="mono" style={{ position: 'absolute', right: 12, bottom: 12, fontSize: 11.5, color: '#E6EDF3', background: 'rgba(21,26,33,.94)', border: '1px solid #262F3A', borderRadius: 4, padding: '4px 8px', pointerEvents: 'none' }}>
