@@ -218,7 +218,7 @@ export const FinalView: React.FC<{
     const DW = bolter.f.lat;
     aDw = `M${f1(X(Math.max(R0, bolter.f.along)))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, 12)))}`;
     if (slot.window) aWin = `M${f1(X(Math.min(RG, slot.window[0])))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, slot.window[1])))}`;
-    const bulge = Math.max(0.6, 1.33 * turnRadiusNm(bolter.t.gs ?? 150, 25));
+    const bulge = Math.max(0.6, 1.33 * turnRadiusNm(slot.tas, 25));
     for (const o of slot.options) {
       if (o.x > RG) continue;
       // turn in at the DME, roll out on the final bearing as far astern as the ship has opened
@@ -309,7 +309,21 @@ export const FinalView: React.FC<{
     const places = layoutTags(
       blips.map((b) => {
         const p = toPx(b);
-        return { id: b.id, p, ...tagGeom(b.rows), pref: b.pref, priority: b.red ? 0 : 2 + b.x / 100 };
+        // its own velocity vector, as a chain of small boxes the tag must keep off
+        const own: Box[] = [];
+        if (b.v) {
+          const x0 = b.v[0] * sx;
+          const y0 = b.v[1] * sy;
+          const x1 = b.v[2] * sx;
+          const y1 = b.v[3] * sy;
+          const n = Math.max(1, Math.ceil(Math.hypot(x1 - x0, y1 - y0) / 5));
+          for (let i = 0; i <= n; i++) {
+            const x = x0 + ((x1 - x0) * i) / n;
+            const y = y0 + ((y1 - y0) * i) / n;
+            own.push({ x0: x - 3, y0: y - 3, x1: x + 3, y1: y + 3 });
+          }
+        }
+        return { id: b.id, p, ...tagGeom(b.rows), pref: b.pref, keepOff: own, priority: b.red ? 0 : 2 + b.x / 100 };
       }),
       { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx), keepOff: keep, lengths: LEADERS },
     );

@@ -62,6 +62,29 @@ export function timeToBall(along: number, closureKt: number, finalKt: number): n
 /** The 180° turn from downwind to final, s, at the aircraft's speed and a 25° bank. */
 export const turnS = (tasKt: number) => (Math.PI * turnRadiusNm(Math.max(100, tasKt), 25)) / (Math.max(100, tasKt) / 3600);
 
+/** Wind as a velocity (the way it blows), kt, scope coords, from a FROM direction and speed in kt. */
+export const windVec = (fromDeg: number, kt: number): Pt => {
+  const u = unit(fromDeg + 180);
+  return [u[0] * kt, u[1] * kt];
+};
+
+/**
+ * The 180° turn from the downwind to final with the wind: the aircraft flies a circle in the air
+ * mass at its true airspeed (ground velocity less the wind), while the air mass drifts with the
+ * wind and the ship steams on. `drift` is how much further astern than the turn-in point the roll-out
+ * lands relative to the ship, NM; `latDrift` the same sideways (right of the inbound course).
+ */
+export function turnWithWind(ac: { crs: number; gs: number }, ship: { crs: number; gs: number }, fb: number, wind: Pt | null) {
+  const w: Pt = wind ?? [0, 0];
+  const va = unit(ac.crs);
+  const tasV: Pt = [va[0] * ac.gs - w[0], va[1] * ac.gs - w[1]];
+  const tas = Math.hypot(tasV[0], tasV[1]);
+  const tTurn = turnS(tas);
+  const vs = unit(ship.crs);
+  const rel: Pt = [w[0] - vs[0] * ship.gs, w[1] - vs[1] * ship.gs];
+  return { tas, tTurn, drift: (dot(rel, unit(fb + 180)) * tTurn) / 3600, latDrift: (dot(rel, unit(fb + 90)) * tTurn) / 3600 };
+}
+
 export interface SlotOption {
   key: string;
   /** turn-in range, NM */

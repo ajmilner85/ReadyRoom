@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { finalPos, slotWindow, timeToBall, turnS } from './slot.ts';
+import { finalPos, slotWindow, timeToBall, turnS, turnWithWind, windVec } from './slot.ts';
 
 describe('final frame', () => {
   it('measures along (astern) and lateral (right of course) from the ship', () => {
@@ -18,6 +18,21 @@ describe('final frame', () => {
     // beyond dirty-up: own closure to 10 NM, then approach speed
     expect(timeToBall(17.5, 235, 125)).toBeCloseTo((7.5 / 235) * 3600 + (9.25 / 125) * 3600, 6);
     expect(timeToBall(0.5, 125, 125)).toBe(0);
+  });
+
+  it('the turn drifts with the wind and the ship', () => {
+    // FB 000, ship 000 at 20 kt, downwind heading 180 at 150 kt over the ground
+    const calm = turnWithWind({ crs: 180, gs: 150 }, { crs: 0, gs: 20 }, 0, null);
+    expect(calm.tas).toBeCloseTo(150, 6);
+    expect(calm.drift).toBeCloseTo((20 * calm.tTurn) / 3600, 6);
+    // 20 kt down the final (from 000, so blowing astern): a 130 kt TAS turn, quicker, and the wind
+    // carries it astern as much as the ship opens
+    const w = turnWithWind({ crs: 180, gs: 150 }, { crs: 0, gs: 20 }, 0, windVec(0, 20));
+    expect(w.tas).toBeCloseTo(130, 6);
+    expect(w.tTurn).toBeLessThan(calm.tTurn);
+    expect(w.drift).toBeCloseTo((40 * w.tTurn) / 3600, 6);
+    // a crosswind from the right moves the roll-out left of the course
+    expect(turnWithWind({ crs: 180, gs: 150 }, { crs: 0, gs: 20 }, 0, windVec(90, 15)).latDrift).toBeLessThan(0);
   });
 
   it('turns 180° in under about a minute and a half at approach speeds', () => {

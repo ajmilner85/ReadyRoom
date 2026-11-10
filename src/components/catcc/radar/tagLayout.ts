@@ -20,6 +20,8 @@ export interface TagSpec {
   priority: number;
   /** a required home quadrant: any other costs more than a longer leader or the vector rule, less than covering a tag or hit */
   pref?: Pt;
+  /** areas this tag alone must keep off (e.g. its own velocity vector) */
+  keepOff?: Box[];
 }
 
 export interface TagPlace {
@@ -96,6 +98,7 @@ export function layoutTags(
       for (const o of placed) tagOv += overlap(b, o);
       let keepOv = 0;
       for (const o of opts.keepOff ?? []) keepOv += overlap(b, o);
+      for (const o of t.keepOff ?? []) keepOv += overlap(b, o);
       // other aircraft covered by this tag, each as a fraction of its own symbol: covering any
       // part of a hit costs far more than a longer leader or giving up last frame's spot
       let hitCov = 0;
