@@ -712,8 +712,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const RD = ROT ? Math.ceil(Math.hypot(box.w, box.h)) : 0;
   const SV = ROT ? { x: VX - RD / KX / 2, y: VY - RD / KX / 2, w: RD / KX, h: RD / KX, bw: RD, bh: RD } : { x: vx, y: vy, w: VW, h: VH, bw: box.w, bh: box.h };
   // always a div (north up: the box itself, unturned), so switching modes never remounts the layers
+  // preserve-3d matters in Firefox: with a plain 2D rotate it repaints the turned SVG on the main thread every
+  // frame (measured ~40 ms a pan frame at 2500 px wide); as a 3D-context layer it paints unturned and the
+  // compositor turns it (~3 ms). Chromium is fast either way.
   const rotorStyle: React.CSSProperties = ROT
-    ? { position: 'absolute', left: (box.w - RD) / 2, top: (box.h - RD) / 2, width: RD, height: RD, transform: `rotate(${-ROT}deg)`, transformOrigin: '50% 50%', willChange: 'transform', pointerEvents: 'none' }
+    ? { position: 'absolute', left: (box.w - RD) / 2, top: (box.h - RD) / 2, width: RD, height: RD, transform: `rotate(${-ROT}deg)`, transformOrigin: '50% 50%', willChange: 'transform', transformStyle: 'preserve-3d', pointerEvents: 'none' }
     : { position: 'absolute', inset: 0, pointerEvents: 'none' };
   const rotor = (key: string, kids: React.ReactNode) => (
     <div key={key} style={rotorStyle}>
@@ -1940,12 +1943,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             // "CVN-71 CCA 50NM" on the circle at 12 o'clock, the circle broken under it
             const ccaText = `${c.track.hull ? `${c.track.hull} ` : ''}CCA 50NM`;
             const ccaGap = Math.min(0.5, ((ccaText.length * 0.6 + 1.2) * 0.9 * zkO) / 2 / 50);
+            // 12 o'clock on screen: north, or the ship's heading in track up
+            const ccaTop = ROT * D2R;
+            const ccaAt = (o: Pt, a: number): Pt => [o[0] + 50 * Math.sin(a), o[1] - 50 * Math.cos(a)];
             const ccaArc = (o: Pt) => {
-              const a: Pt = [o[0] + 50 * Math.sin(ccaGap), o[1] - 50 * Math.cos(ccaGap)];
-              return `M${f2(a[0])} ${f2(a[1])}A50 50 0 1 1 ${f2(2 * o[0] - a[0])} ${f2(a[1])}`;
+              const a = ccaAt(o, ccaTop + ccaGap);
+              const b = ccaAt(o, ccaTop - ccaGap);
+              return `M${f2(a[0])} ${f2(a[1])}A50 50 0 1 1 ${f2(b[0])} ${f2(b[1])}`;
             };
             const ccaLabel = (o: Pt, color: string) => {
-              const q: Pt = [o[0], o[1] - 50];
+              const q = ccaAt(o, ccaTop);
               return (
                 <g className="zs" transform={zs(q, zkO)} style={{ pointerEvents: 'none' }}>
                   <text x={f2(q[0])} y={f2(q[1])} textAnchor="middle" dominantBaseline="central" stroke="#0B0E12" strokeDasharray="none" style={{ fill: color, fontSize: '0.9px', fontWeight: 600, letterSpacing: '0.06em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
