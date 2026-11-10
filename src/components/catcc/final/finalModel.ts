@@ -86,11 +86,23 @@ export function patternIds(fp: FinalPicture | null): Set<string> {
 
 /** The slot window for a bolter against the arrivals. */
 export function bolterSlot(fp: FinalPicture, b: FinalAc): SlotResult {
+  const tTurn = turnS(b.t.gs ?? 150);
+  // turn-in points are DME (distance from the ship), abeam on the downwind: range along the final = √(DME² − offset²)
+  const off = Math.abs(b.f.lat);
+  const options = BOLTER_DME.filter((d) => d > off).map((d) => ({ key: `${d} DME`, x: Math.sqrt(d * d - off * off) }));
   return slotWindow(
-    { r0: Math.max(0, b.f.along), vDw: Math.max(60, b.f.alongKt), tTurn: turnS(b.t.gs ?? 150), vFinal: fp.vFinal },
+    // the ship steams away from the turn while it's flown
+    { r0: Math.max(0, b.f.along), vDw: Math.max(60, b.f.alongKt), tTurn, vFinal: fp.vFinal, drift: (fp.ship.gs * tTurn) / 3600 },
     fp.arrivals.map((a) => ({ id: a.t.bd ?? a.t.cs ?? a.t.id, t: a.tBall! })),
+    { options },
   );
 }
+
+/** turn-in DMEs offered for a bolter */
+export const BOLTER_DME = [4, 6, 8];
+
+/** DME (distance from the ship) at a range along the final, for an aircraft offset `lat` NM. */
+export const dmeAt = (x: number, lat: number) => Math.hypot(x, lat);
 
 /** Empty weight (lb) by DCS type, for the arresting-gear setting (empty + fuel + ~2,000 lb of stores). */
 const EMPTY_LB: [RegExp, number][] = [

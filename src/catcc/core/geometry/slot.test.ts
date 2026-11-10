@@ -59,6 +59,14 @@ describe('bolter slot window', () => {
     expect(free.options[0].cls).toBe('ok');
   });
 
+  it('the roll-out is later by the ship opening during the turn; options can be keyed turn-in points', () => {
+    const still = slotWindow({ r0: 2.5, vDw: 165, tTurn: 75, vFinal: 125 }, []);
+    const moving = slotWindow({ r0: 2.5, vDw: 165, tTurn: 75, vFinal: 125, drift: 0.5 }, [], { options: [{ key: '4 DME', x: 3.8 }] });
+    expect(moving.tBall(4) - still.tBall(4)).toBeCloseTo((0.5 / 125) * 3600, 6);
+    expect(moving.options.map((o) => o.key)).toEqual(['NOW', '4 DME']);
+    expect(moving.options[1].x).toBe(3.8);
+  });
+
   it('a gap too small to fit is skipped for the next one', () => {
     // the earliest the bolter can be at ¾ NM is ~125 s: too soon behind A (150 s); A and B are
     // 90 s apart (a slot needs 120 s), so the window opens 60 s behind B

@@ -6,8 +6,9 @@
  * the ship, so ship motion and (through ground speeds) wind are included.
  *
  * Slot model (HANDOFF-2 §5): an aircraft on the bolter downwind at range R0, opening at Vdw, that
- * turns in at range X arrives at the ¾ NM point after
- *     tBall(X) = (X − R0)/Vdw + Tturn + (X − ¾)/Vfinal,
+ * turns in at range X rolls out on final D further astern (the ship steams away during the turn)
+ * and arrives at the ¾ NM point after
+ *     tBall(X) = (X − R0)/Vdw + Tturn + (X + D − ¾)/Vfinal,
  * which is linear in X, so the turn-in ranges keeping ≥ GAP seconds to the arrivals ahead and
  * behind are found in closed form.
  */
@@ -84,23 +85,28 @@ export interface SlotResult {
   ballS: [number, number] | null;
   options: SlotOption[];
   tBall: (x: number) => number;
+  /** how much further astern the roll-out is than the turn-in, NM */
+  drift: number;
 }
 
 /**
  * Slot window for a bolter on the downwind at range r0 (NM astern), opening at vDw (kt), turning
  * in to fly final at vFinal (kt) after a tTurn (s) turn, against arrivals' ¾ NM times (s from now).
+ * `drift` (NM) is how far the ship opens during the turn. Options are turn-in points: a range, or a
+ * key and range (e.g. a DME converted to range along the final).
  */
 export function slotWindow(
-  bolter: { r0: number; vDw: number; tTurn: number; vFinal: number },
+  bolter: { r0: number; vDw: number; tTurn: number; vFinal: number; drift?: number },
   traffic: { id: string; t: number }[],
-  opts: { gap?: number; maxX?: number; options?: number[] } = {},
+  opts: { gap?: number; maxX?: number; options?: (number | { key: string; x: number })[] } = {},
 ): SlotResult {
   const gap = opts.gap ?? SLOT_GAP_S;
   const vDw = Math.max(60, bolter.vDw);
   const maxX = Math.max(bolter.r0, opts.maxX ?? 12);
   // tBall = a·X + b
   const a = 3600 / vDw + 3600 / bolter.vFinal;
-  const b = (-bolter.r0 / vDw) * 3600 + bolter.tTurn - (BALL_NM / bolter.vFinal) * 3600;
+  const drift = bolter.drift ?? 0;
+  const b = (-bolter.r0 / vDw) * 3600 + bolter.tTurn + ((drift - BALL_NM) / bolter.vFinal) * 3600;
   const tBall = (x: number) => a * x + b;
   const xOf = (t: number) => (t - b) / a;
   const T = [...traffic].sort((p, q) => p.t - q.t);
@@ -122,7 +128,8 @@ export function slotWindow(
     }
     return { ahead, behind };
   };
-  const options = [['NOW', bolter.r0] as const, ...(opts.options ?? [4, 6, 8]).filter((x) => x > bolter.r0 + 0.2).map((x) => [`${x} NM`, x] as const)].map(([key, x]) => {
+  const given = (opts.options ?? [4, 6, 8]).map((o) => (typeof o === 'number' ? { key: `${o} NM`, x: o } : o));
+  const options = [{ key: 'NOW', x: bolter.r0 }, ...given.filter((o) => o.x > bolter.r0 + 0.2)].map(({ key, x }) => {
     const t = tBall(x);
     const { ahead, behind } = neighbours(t);
     const gapAhead = ahead ? t - ahead.t : Infinity;
@@ -136,5 +143,6 @@ export function slotWindow(
     ballS: window ? [tBall(window[0]), tBall(window[1])] : null,
     options,
     tBall,
+    drift,
   };
 }

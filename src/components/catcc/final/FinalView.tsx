@@ -13,7 +13,7 @@ import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
-import { bolterSlot, finalPicture, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
+import { bolterSlot, dmeAt, finalPicture, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
@@ -132,7 +132,6 @@ export const FinalView: React.FC<{
   // full-height lines only at the milestones; range on hash marks (small every 1 NM, wider every 2 NM)
   let eGrid = '';
   for (const [r] of DM) eGrid += `M${f1(X(r))} 30V375`;
-  const altStep = AMAX[RG] > 4000 ? 1000 : 500;
   let eTicks = '';
   for (let r = Math.ceil(R0); r <= RG + 1e-9; r += 1) {
     const h = r % 2 === 0 ? 7 : 3.5;
@@ -140,7 +139,6 @@ export const FinalView: React.FC<{
     const ga = r * GP_FT_PER_NM;
     if (r > 0 && ga < AMAX[RG]) eTicks += `M${f1(X(r))} ${f1(Ye(ga) - h)}v${f1(2 * h)}`;
   }
-  for (let al = altStep; al < AMAX[RG]; al += altStep) eTicks += `M60 ${f1(Ye(al))}h${al % (2 * altStep) === 0 ? 10 : 5}`;
   const gsEnd = Math.min(RG, AMAX[RG] / GP_FT_PER_NM);
   const tanFt = (deg: number) => Math.tan((deg * Math.PI) / 180) * 6076.12;
   const eCl = `M${f1(X(0))} ${f1(Ye(0))}L${f1(X(gsEnd))} ${f1(Ye(gsEnd * GP_FT_PER_NM))}`;
@@ -223,10 +221,12 @@ export const FinalView: React.FC<{
     const bulge = Math.max(0.6, 1.33 * turnRadiusNm(bolter.t.gs ?? 150, 25));
     for (const o of slot.options) {
       if (o.x > RG) continue;
-      ghosts[o.cls] += `M${f1(X(o.x))} ${f1(Ya(DW))}C${f1(X(o.x + bulge))} ${f1(Ya(DW))} ${f1(X(o.x + bulge))} 200 ${f1(X(o.x))} 200`;
+      // turn in at the DME, roll out on the final bearing as far astern as the ship has opened
+      const xr = o.x + slot.drift;
+      ghosts[o.cls] += `M${f1(X(o.x))} ${f1(Ya(DW))}C${f1(X(o.x + bulge))} ${f1(Ya(DW))} ${f1(X(xr + bulge))} 200 ${f1(X(xr))} 200`;
       const p = pc(X(o.x), Ya(DW));
       // option labels below the downwind (the bolter's own label sits above it)
-      aLab.push({ x: p[0], y: p[1], tf: 'translate(-50%, 60%)', c: C[o.cls], t: o.key === 'NOW' ? 'NOW' : o.key.replace(' NM', '') });
+      aLab.push({ x: p[0], y: p[1], tf: 'translate(-50%, 60%)', c: C[o.cls], t: o.key === 'NOW' ? 'NOW' : o.key.replace(' DME', '') });
     }
   }
 
@@ -528,7 +528,7 @@ export const FinalView: React.FC<{
               {slot.window ? (
                 <>
                   <div style={{ fontSize: 18, fontWeight: 700, color: '#7FD397' }}>
-                    Turn between {slot.window[0].toFixed(1)}–{slot.window[1].toFixed(1)} NM
+                    Turn between {dmeAt(slot.window[0], bolter!.f.lat).toFixed(1)}–{dmeAt(slot.window[1], bolter!.f.lat).toFixed(1)} DME
                   </div>
                   <div className="mono" style={{ fontSize: 12, color: '#93A1B0', marginBottom: 8 }}>
                     in {ms(slot.inS![0])}–{ms(slot.inS![1])} · 3/4 {tod(slot.ballS![0])}–{tod(slot.ballS![1]).slice(3)}
@@ -547,7 +547,7 @@ export const FinalView: React.FC<{
                 {slot.options.map((o) => (
                   <React.Fragment key={o.key}>
                     <span style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: C[o.cls] }} />
-                    <span className="mono" style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -20, transform: 'translateX(-50%)', fontSize: 10.5, color: C[o.cls], whiteSpace: 'nowrap' }}>{o.key === 'NOW' ? 'NOW' : o.key.replace(' NM', '')}</span>
+                    <span className="mono" style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -20, transform: 'translateX(-50%)', fontSize: 10.5, color: C[o.cls], whiteSpace: 'nowrap' }}>{o.key === 'NOW' ? 'NOW' : o.key.replace(' DME', '')}</span>
                   </React.Fragment>
                 ))}
                 {slot.ballS && <span style={{ position: 'absolute', left: `${mx(slot.ballS[0])}%`, width: `${Math.max(0.5, mx(slot.ballS[1]) - mx(slot.ballS[0]))}%`, top: -3, height: 6, background: 'rgba(95,208,104,.35)', borderRadius: 2 }} />}
