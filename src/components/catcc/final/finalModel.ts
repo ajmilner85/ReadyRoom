@@ -42,6 +42,8 @@ export interface FinalPicture {
   acs: FinalAc[];
   arrivals: FinalAc[];
   bolters: FinalAc[];
+  /** a scope point (NM) as [along final, lateral] about the carrier: astern and right of the final bearing positive */
+  toFinal: (p: Pt) => [number, number];
 }
 
 export function finalPicture(pic: Picture): FinalPicture | null {
@@ -69,7 +71,12 @@ export function finalPicture(pic: Picture): FinalPicture | null {
   }
   const arrivals = acs.filter((a) => a.tBall !== null).sort((a, b) => a.tBall! - b.tBall!);
   const bolters = acs.filter((a) => a.kind === 'bolter').sort((a, b) => a.f.along - b.f.along);
-  return { fb, ship, vFinal, acs, arrivals, bolters };
+  const cp = c.track.p;
+  const toFinal = (p: Pt): [number, number] => {
+    const f = finalPos([p[0] - cp[0], p[1] - cp[1]], fb, { crs: 0, gs: 0 }, { crs: 0, gs: 0 });
+    return [f.along, f.lat];
+  };
+  return { fb, ship, vFinal, acs, arrivals, bolters, toFinal };
 }
 
 /** Aircraft in the carrier's pattern (arrivals and bolters) are approach traffic, whatever their sortie phase says. */

@@ -121,7 +121,7 @@ export function useCatccRoom(preferredSrc?: string) {
               seen.add(t.id);
               let arr = h.get(t.id);
               if (!arr) h.set(t.id, (arr = []));
-              if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon });
+              if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon, alt: t.alt });
               while (arr.length > 2 && arr[0].t < m.mt - HISTORY_S) arr.shift();
             }
             for (const id of h.keys()) if (!seen.has(id)) h.delete(id);

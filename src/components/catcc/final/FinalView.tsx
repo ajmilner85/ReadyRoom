@@ -10,13 +10,19 @@ import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
 import { windOverDeck } from '../../../catcc/core/env/wod.ts';
 import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
-import { shortType, fuelK, tagRows, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { bolterSlot, finalPicture, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
 const LMAX: Record<ParRange, number> = { 6: 1.2, 12: 2.6, 24: 4 };
+/** the displays run from 4 NM ahead of the ramp (negative) out to the selected range */
+const R0 = -4;
+/** the main radar's own-track colours */
+const TRK = '#5FD068';
+const TRK_TRAIL = '#3E9A4C';
+const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
 const f1 = (n: number) => n.toFixed(1);
 const ms = (t: number) => {
   const n = Math.round(Math.abs(t));
@@ -44,7 +50,12 @@ interface Blip {
   x: number;
   y: number;
   c: string;
+  /** trail colour; trail dots in % of the display, newest first */
+  tc: string;
   rows: string[];
+  tr: [number, number][];
+  /** velocity vector in display units: x1 y1 x2 y2 */
+  v?: number[];
 }
 
 const label = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
@@ -66,7 +77,7 @@ export const FinalView: React.FC<{
   const fp = useMemo(() => finalPicture(pic), [pic]);
   const hull = pic.focus?.track.hull ?? '';
 
-  const X = (r: number) => 60 + (r / RG) * 920;
+  const X = (r: number) => 60 + ((r - R0) / (RG - R0)) * 920;
   const Ye = (a: number) => 370 - (a / AMAX[RG]) * 330;
   const Ya = (l: number) => 200 + (l / LMAX[RG]) * 170;
   const pc = (x: number, y: number) => [x / 10, y / 4] as const;
@@ -93,7 +104,7 @@ export const FinalView: React.FC<{
     ] as [number, string][]
   ).filter((d) => d[0] <= RG);
   let eGrid = '';
-  for (let r = step; r <= RG + 1e-9; r += step) eGrid += `M${f1(X(r))} 40V370`;
+  for (let r = R0 + step; r <= RG + 1e-9; r += step) eGrid += `M${f1(X(r))} 40V370`;
   const altStep = AMAX[RG] > 4000 ? 1000 : 500;
   for (let al = altStep; al < AMAX[RG]; al += altStep) eGrid += `M60 ${f1(Ye(al))}H980`;
   for (const [r] of DM) eGrid += `M${f1(X(r))} 30V375`;
@@ -126,9 +137,9 @@ export const FinalView: React.FC<{
       into.push({ x: p[0], y: p[1], tf: 'translate(-50%, 0)', c: '#C9D3DD', t });
     });
   const rangeMarks = (into: Lab[]) => {
-    for (let r = 0; r <= RG; r += lblStep) {
+    for (let r = R0; r <= RG; r += lblStep) {
       const p = pc(X(r), 392);
-      into.push({ x: p[0], y: p[1], tf: 'translate(-50%, -100%)', c: '#7D8896', t: `${r}${r ? '' : ' NM'}` });
+      into.push({ x: p[0], y: p[1], tf: r === R0 ? 'translate(0, -100%)' : 'translate(-50%, -100%)', c: r ? '#7D8896' : '#C9D3DD', t: r < 0 ? `−${-r}` : `${r}${r ? '' : ' NM'}` });
     }
   };
   topMarks(eLab);
@@ -136,7 +147,7 @@ export const FinalView: React.FC<{
 
   // ------------------------------------------------ azimuth
   let aGrid = 'M60 200H980';
-  for (let r = step; r <= RG + 1e-9; r += step) aGrid += `M${f1(X(r))} 30V370`;
+  for (let r = R0 + step; r <= RG + 1e-9; r += step) aGrid += `M${f1(X(r))} 30V370`;
   const aFan = [1, 2, 5]
     .map((dg) => {
       const t = Math.tan((dg * Math.PI) / 180);
@@ -145,6 +156,9 @@ export const FinalView: React.FC<{
     })
     .join('');
   const aCl = `M${f1(X(0))} 200H${f1(X(RG))}`;
+  // the landing area centreline carried on past the ramp, and the ramp itself on both displays
+  const aAhead = `M${f1(X(R0))} 200H${f1(X(0))}`;
+  const ramp = `M${f1(X(0))} 30V375`;
   const aLab: Lab[] = [];
   topMarks(aLab);
   for (const [dg, t] of [
@@ -166,7 +180,7 @@ export const FinalView: React.FC<{
   const ghosts: Record<'ok' | 'marginal' | 'bad', string> = { ok: '', marginal: '', bad: '' };
   if (ghost && bolter && slot && Math.abs(bolter.f.lat) <= LMAX[RG]) {
     const DW = bolter.f.lat;
-    aDw = `M${f1(X(Math.max(0.3, bolter.f.along)))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, 12)))}`;
+    aDw = `M${f1(X(Math.max(R0, bolter.f.along)))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, 12)))}`;
     if (slot.window) aWin = `M${f1(X(Math.min(RG, slot.window[0])))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, slot.window[1])))}`;
     const bulge = Math.max(0.6, 1.33 * turnRadiusNm(bolter.t.gs ?? 150, 25));
     for (const o of slot.options) {
@@ -182,17 +196,42 @@ export const FinalView: React.FC<{
   const eBlips: Blip[] = [];
   const aBlips: Blip[] = [];
   // only what is inside the displays' coverage: no contacts pinned to the edges
-  const inside = (a: FinalAc) => a.f.along >= 0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG];
+  const inside = (a: FinalAc) => a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG];
+  const conflictIds = new Set(pic.conflicts.flatMap((k) => [k.a.id, k.b.id]));
   for (const a of fp?.acs ?? []) {
-    if (!inside(a)) continue;
+    if (!fp || !inside(a)) continue;
     const t = a.t;
-    const c = a.kind === 'bolter' ? '#93A1B0' : a.kind === 'other' ? '#5E6A78' : '#5FD068';
-    // the same data tag as the main radar
+    // the main radar's colours, data tag, trail and 30 s vector
+    const red = conflictIds.has(t.id);
+    const c = red ? '#FF8A85' : TRK;
+    const tc = red ? '#B8433F' : TRK_TRAIL;
     const rows = tagRows(t);
+    const trE: [number, number][] = [];
+    const trA: [number, number][] = [];
+    t.trail.forEach((q, i) => {
+      const [al, la] = fp.toFinal(q);
+      const pa = pc(X(al), Ya(la));
+      trA.push([pa[0], pa[1]]);
+      const qa = t.trailAlt?.[i];
+      if (qa !== undefined) {
+        const pe = pc(X(al), Ye(qa));
+        trE.push([pe[0], pe[1]]);
+      }
+    });
+    let vE: number[] | undefined;
+    let vA: number[] | undefined;
+    const ve = velocityEnd(t);
+    if (ve && t.gs) {
+      const [eal, ela] = fp.toFinal(ve);
+      const s30 = (Math.hypot(ve[0] - t.p[0], ve[1] - t.p[1]) / t.gs) * 3600;
+      const altEnd = t.alt + ((t.vs ?? 0) * s30) / 60;
+      vE = [X(a.f.along), Ye(t.alt), X(eal), Ye(altEnd)];
+      vA = [X(a.f.along), Ya(a.f.lat), X(eal), Ya(ela)];
+    }
     const e = pc(X(a.f.along), Ye(t.alt));
-    eBlips.push({ id: t.id, x: e[0], y: e[1], c, rows });
+    eBlips.push({ id: t.id, x: e[0], y: e[1], c, tc, rows, tr: trE, v: vE });
     const z = pc(X(a.f.along), Ya(a.f.lat));
-    aBlips.push({ id: t.id, x: z[0], y: z[1], c, rows });
+    aBlips.push({ id: t.id, x: z[0], y: z[1], c, tc, rows, tr: trA, v: vA });
   }
 
   // ------------------------------------------------ panels
@@ -221,7 +260,9 @@ export const FinalView: React.FC<{
       <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>{title}</span>
       <svg className="par" viewBox="0 0 1000 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
         <path d={grid} stroke="rgba(147,161,176,.12)" fill="none" />
+        <path d={ramp} stroke="rgba(201,211,221,.4)" fill="none" />
         {extra}
+        {blips.map((b) => b.v && <line key={`v${b.id}`} x1={f1(b.v[0])} y1={f1(b.v[1])} x2={f1(b.v[2])} y2={f1(b.v[3])} stroke={b.c} strokeWidth="1.8" strokeLinecap="round" />)}
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {labs.map((l, i) => (
@@ -229,10 +270,13 @@ export const FinalView: React.FC<{
             {l.t}
           </span>
         ))}
+        {blips.map((b) =>
+          b.tr.map((q, i) => <span key={`${b.id}t${i}`} style={{ position: 'absolute', left: `${q[0]}%`, top: `${q[1]}%`, width: 4, height: 4, margin: '-2px 0 0 -2px', background: b.tc, opacity: TRAIL_O[i] ?? 0.2 }} />),
+        )}
         {blips.map((b) => (
           <React.Fragment key={b.id}>
             <span style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, width: 10, height: 10, margin: '-5px 0 0 -5px', background: b.c, border: '1px solid rgba(0,0,0,.5)', boxSizing: 'border-box' }} />
-            <span className="mono" style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, transform: 'translate(9px, -18px)', fontSize: 11, lineHeight: '13px', color: '#E6EDF3', background: 'rgba(11,14,18,.72)', padding: '1px 3px', whiteSpace: 'pre' }}>
+            <span className="mono" style={{ position: 'absolute', left: `${b.x}%`, top: `${b.y}%`, transform: 'translate(9px, -18px)', fontSize: 11, lineHeight: '13px', color: b.c, background: 'rgba(11,14,18,.72)', padding: '1px 3px', whiteSpace: 'pre' }}>
               {b.rows.map((r, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <br />}
@@ -301,6 +345,7 @@ export const FinalView: React.FC<{
           aGrid,
           <>
             <path d={aFan} stroke="rgba(147,161,176,.28)" fill="none" strokeDasharray="4 4" />
+            <path d={aAhead} stroke="rgba(95,208,104,.4)" fill="none" strokeDasharray="4 4" />
             <path d={aCl} stroke="#5FD068" strokeWidth="1.6" fill="none" />
             {aDw && <path d={aDw} stroke="rgba(147,161,176,.6)" fill="none" strokeDasharray="5 4" />}
             {aWin && <path d={aWin} stroke="#5FD068" strokeWidth="5" strokeOpacity=".45" fill="none" />}

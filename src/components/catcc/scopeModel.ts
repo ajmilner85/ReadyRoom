@@ -16,12 +16,16 @@ export interface Trail {
   t: number;
   lat: number;
   lon: number;
+  /** ft, for trails on the precision displays' elevation scale */
+  alt?: number;
 }
 
 export interface ScopeTrack extends WireTrack {
   p: Pt;
   /** older positions for trail dots, newest first */
   trail: Pt[];
+  /** the altitude at each trail dot, where known */
+  trailAlt?: (number | undefined)[];
   /** range (NM) and bearing from the focus carrier */
   rng: number;
   brg: number;
@@ -66,7 +70,7 @@ export interface Picture {
 const isAir = (t: WireTrack) => t.k === 'fixedwing' || t.k === 'rotary';
 
 /** Trail dots: positions roughly every `stepS` seconds back from now. */
-export function trailPoints(hist: Trail[] | undefined, nowT: number, proj: Projection, dots = 5, stepS = 6): Pt[] {
+export function trailPoints(hist: Trail[] | undefined, nowT: number, proj: Projection, dots = 5, stepS = 6, alts?: (number | undefined)[]): Pt[] {
   if (!hist?.length) return [];
   const out: Pt[] = [];
   let i = hist.length - 1;
@@ -75,6 +79,7 @@ export function trailPoints(hist: Trail[] | undefined, nowT: number, proj: Proje
     while (i > 0 && hist[i].t > want) i--;
     if (hist[i].t > want) break;
     out.push(proj.toScope(hist[i].lat, hist[i].lon));
+    alts?.push(hist[i].alt);
   }
   return out;
 }
@@ -97,7 +102,8 @@ export function buildPicture(
   const proj = aeqd(focusTrack.lat, focusTrack.lon);
   const toScope = (t: WireTrack): ScopeTrack => {
     const p = proj.toScope(t.lat, t.lon);
-    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, 5, opts.trailStepS), rng: len(p), brg: bearingOf(p) };
+    const trailAlt: (number | undefined)[] = [];
+    return { ...t, p, trail: trailPoints(history.get(t.id), nowT, proj, 5, opts.trailStepS, trailAlt), trailAlt, rng: len(p), brg: bearingOf(p) };
   };
   const carriers: Carrier[] = cvs.map((c) => ({ track: toScope(c), ship: shipRefOf(c), focus: c === focusTrack }));
   const air = tracks.filter(isAir).map(toScope);
