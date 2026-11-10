@@ -18,6 +18,12 @@ export const THEATRE_BOXES: Record<string, [number, number, number, number]> = {
   Afghanistan: [29, 60, 38.5, 72],
 };
 
+/**
+ * The marine layer data reaches this many degrees past the theatre box on every side
+ * (PAD_DEG in scripts/catcc-marine.mjs), so the view may go that far too.
+ */
+export const THEATRE_PAD_DEG = 2;
+
 export function theatreAt(lat: number, lon: number): string | undefined {
   for (const [k, [s, w, n, e]] of Object.entries(THEATRE_BOXES)) if (lat >= s && lat <= n && lon >= w && lon <= e) return k;
   return undefined;

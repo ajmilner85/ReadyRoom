@@ -14,7 +14,8 @@
  *    (public domain, https://ourairports.com/data/); island names from Wikidata (CC0), queried per
  *    theatre box and cached in <cache-dir>
  *
- * Output: public/catcc/marine/<Theatre>.json (format v2)
+ * Output: public/catcc/marine/<Theatre>.json (format v2); bbox is the data's extent (the theatre box plus
+ * PAD_DEG on every side), theatreBox the theatre itself
  *   land:  rings (even-odd fill)
  *   coast: shoreline polylines (the cut along the data box is left out)
  *   nav:   { d, fill, lines } water shallower than d (not navigable by a carrier) and its outline
@@ -44,6 +45,9 @@ const THEATRES = {
   TheChannel: { bbox: [49.5, -1.5, 52.5, 3.5], levels: [20, 30, 50], stride: 1 },
   Iraq: { bbox: [28.5, 46, 31.5, 50.5], levels: [10, 20], stride: 1 },
 };
+
+/** degrees of chart beyond the theatre box on every side */
+const PAD_DEG = 2;
 
 /** water shallower than this is shaded as not navigable (a CVN draws about 12 m) */
 const NAV_M = 15;
@@ -628,7 +632,7 @@ async function wikidataIslands([s, w, n, e], depth = 0) {
 
 /** island names in a box from Wikidata (CC0); rank by sitelinks */
 async function islandsIn(name, box, cacheDir) {
-  const file = join(cacheDir, `${name}-islands.json`);
+  const file = join(cacheDir, `${name}-islands-${box.join('_')}.json`);
   let rows;
   if (existsSync(file)) rows = JSON.parse(readFileSync(file, 'utf8'));
   else {
@@ -647,7 +651,9 @@ mkdirSync(outDir, { recursive: true });
 
 for (const [name, cfg] of Object.entries(THEATRES)) {
   if (only.length && !only.includes(name)) continue;
-  const box = cfg.bbox;
+  // the data reaches PAD_DEG past the theatre on every side, so a view at the theatre's edge (or turned,
+  // track up) never runs off the chart; a multiple of the ETOPO tile size keeps the cached tiles aligned
+  const box = [Math.max(-89, cfg.bbox[0] - PAD_DEG), cfg.bbox[1] - PAD_DEG, Math.min(89, cfg.bbox[2] + PAD_DEG), cfg.bbox[3] + PAD_DEG];
   const land = [];
   const coast = [];
   for (const ring of readShp(shpPath, box)) {
@@ -709,9 +715,10 @@ for (const [name, cfg] of Object.entries(THEATRES)) {
   const nav = level(NAV_M, MIN_LINE_NM);
   const terr = territorialLines(land, box);
   const out = {
-    v: 6,
+    v: 7,
     theatre: name,
     bbox: box,
+    theatreBox: cfg.bbox,
     src: 'GSHHG 2.3.7 full-resolution shoreline (LGPL, Wessel & Smith); NOAA ETOPO 2022 15 arc-second relief; Natural Earth populated places; OurAirports',
     land,
     coast,

@@ -29,7 +29,7 @@ import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
 import { buildPaths, terrTopsFor, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
-import { THEATRE_BOXES, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
+import { THEATRE_BOXES, THEATRE_PAD_DEG, theatreAt } from '../../../catcc/core/dcs/theatres.ts';
 import { pimAt } from '../../../catcc/core/env/weather.ts';
 import { distanceNm } from '../../../catcc/core/geo.ts';
 
@@ -635,14 +635,17 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const cen = rpInv([(xa + xb) / 2, (ya + yb) / 2]);
     return { zw: clampW(Math.max(w, h / asp)), zx: cen[0], zy: cen[1] };
   };
+  /** a range about a point: the same view however the picture is turned */
+  const fitRing = (c: Pt, r: number) => ({ zw: clampW(Math.max(2 * r, (2 * r) / asp)), zx: c[0], zy: c[1] });
   const interest = (): Pt[] => [[0, 0] as Pt, ...pic.air.map((t) => t.p), ...pic.carriers.map((c) => c.track.p), ...(pic.ships ?? []).map((t) => t.p)];
   const fits: Record<Exclude<Fit, null>, () => { zw: number; zx: number; zy: number }> = {
     // as much of the theatre as the view can show, centred on what's of interest (the theatre clamp
     // then slides it only as far as it must to stay inside)
     thr: () => {
-      const z = tBounds ? fitBox([[tBounds.x0, tBounds.y0], [tBounds.x1, tBounds.y1]], 0) : fitBox([[-200, -200], [200, 200]], 0);
+      // the largest view whose footprint (turned, in track up) stays inside the theatre box
+      const zw = tBounds ? clampW(Math.min((tBounds.x1 - tBounds.x0) / fpW, (tBounds.y1 - tBounds.y0) / fpH)) : fitBox([[-200, -200], [200, 200]], 0).zw;
       const c = fitBox(interest(), 0);
-      return { zw: z.zw, zx: c.zx, zy: c.zy };
+      return { zw, zx: c.zx, zy: c.zy };
     },
     // everything of interest: aircraft, carriers and other ships
     fit: () => fitBox(interest(), 8),
@@ -650,10 +653,21 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     bulls: () => {
       const be = props.bulls?.[0];
       const b = be && pic.proj ? pic.proj.toScope(be.lat, be.lon) : null;
-      return b ? fitBox([[b[0] - 100, b[1] - 100], [b[0] + 100, b[1] + 100]], 0) : fitBox([[-100, -100], [100, 100]], 0);
+      return fitRing(b ?? [0, 0], 100);
     },
-    r50: () => fitBox([[-50, -50], [50, 50]], 0),
-    cca: () => fitBox([[-70, -70], [70, 70]], 0),
+    r50: () => fitRing([0, 0], 50),
+    r20: () => fitRing([0, 0], 20),
+    // our strike group: the carrier, its stationed escorts, and friendly ships within 30 NM that are nearer
+    // to it than to any other friendly carrier (those are the other group's), plus a margin
+    csg: () => {
+      const sd = fTrack?.sd;
+      const others = pic.carriers.filter((c) => !c.focus && c.track.sd === sd).map((c) => c.track.p);
+      const ours = (s: ScopeTrack) => s.sd === sd && s.rng <= 30 && !others.some((o) => Math.hypot(s.p[0] - o[0], s.p[1] - o[1]) < s.rng);
+      const q: Pt[] = [[0, 0], ...(props.stations ?? []).map((s) => s.p), ...(pic.ships ?? []).filter(ours).map((s) => s.p)];
+      const b = fitBox(q, 4);
+      return { ...b, zw: Math.max(b.zw, 16) };
+    },
+    cca: () => fitRing([0, 0], 70),
     dep: () => fitBox([[0, 0] as Pt, ...plan.deps.map((r) => P(r, 50)), P(ship?.brc ?? 0, 10)], 3),
     app: () => {
       const q: Pt[] = [[0, 0], [-4, -5], [4, 9]];
@@ -665,34 +679,45 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       return fitBox(q, 3);
     },
   };
-  // the view stays inside the theatre (its map data's extent); outside a known theatre, within 100 NM
-  const tBounds = useMemo(() => {
+  // tBounds: the theatre itself (what THEATRE frames). dBounds: the chart data's extent, THEATRE_PAD_DEG
+  // past it on every side; the view stays inside that, so it never runs off the chart. Outside a known
+  // theatre the view stays within 100 NM.
+  const bounds = useMemo(() => {
     const tb = tBox ?? (fTrack ? THEATRE_BOXES[theatreAt(fTrack.lat, fTrack.lon) ?? ''] : undefined);
     if (!tb || !pic.proj) return null;
-    const [s, w, n, e] = tb;
-    // the box's edges are curved in the carrier-centred projection: take the largest rectangle inside
+    // a box's edges are curved in the carrier-centred projection: take the largest rectangle inside
     const at = (la: number, lo: number) => pic.proj!.toScope(la, lo);
     const k = Array.from({ length: 9 }, (_, i) => i / 8);
-    const x0 = Math.max(...k.map((f) => at(s + (n - s) * f, w)[0]));
-    const x1 = Math.min(...k.map((f) => at(s + (n - s) * f, e)[0]));
-    const y0 = Math.max(...k.map((f) => at(n, w + (e - w) * f)[1]));
-    const y1 = Math.min(...k.map((f) => at(s, w + (e - w) * f)[1]));
-    return x1 > x0 && y1 > y0 ? { x0, x1, y0, y1 } : null;
+    const rect = ([s, w, n, e]: number[]) => {
+      const x0 = Math.max(...k.map((f) => at(s + (n - s) * f, w)[0]));
+      const x1 = Math.min(...k.map((f) => at(s + (n - s) * f, e)[0]));
+      const y0 = Math.max(...k.map((f) => at(n, w + (e - w) * f)[1]));
+      const y1 = Math.min(...k.map((f) => at(s, w + (e - w) * f)[1]));
+      return x1 > x0 && y1 > y0 ? { x0, x1, y0, y1 } : null;
+    };
+    const t = rect(tb);
+    const d = rect([Math.max(-89, tb[0] - THEATRE_PAD_DEG), tb[1] - THEATRE_PAD_DEG, Math.min(89, tb[2] + THEATRE_PAD_DEG), tb[3] + THEATRE_PAD_DEG]) ?? t;
+    return t && d ? { t, d } : null;
     // re-derived when the carrier has moved a few NM (the projection is about it)
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tBox, Math.round((fTrack?.lat ?? 0) * 20), Math.round((fTrack?.lon ?? 0) * 20), !!pic.proj]);
-  /** widest view the theatre allows */
-  const maxW = (w: number) => (tBounds ? Math.min(w, tBounds.x1 - tBounds.x0, (tBounds.y1 - tBounds.y0) / asp) : w);
+  const tBounds = bounds?.t ?? null;
+  const dBounds = bounds?.d ?? null;
+  // the view's footprint on the map: its bounding box once turned (track up), per NM of view width
+  const fpW = Math.abs(rCo) + asp * Math.abs(rSi);
+  const fpH = Math.abs(rSi) + asp * Math.abs(rCo);
+  /** widest view the chart allows */
+  const maxW = (w: number) => (dBounds ? Math.min(w, (dBounds.x1 - dBounds.x0) / fpW, (dBounds.y1 - dBounds.y0) / fpH) : w);
   const clampCore = (x: number, y: number, w: number) => {
-    if (!tBounds) {
+    if (!dBounds) {
       const r = Math.hypot(x, y);
       const k = r > 100 ? 100 / r : 1;
       return { zx: x * k, zy: y * k };
     }
-    const hw = w / 2;
-    const hh = (w * asp) / 2;
+    const hw = (w * fpW) / 2;
+    const hh = (w * fpH) / 2;
     const cl = (v: number, a: number, b: number) => (a > b ? (a + b) / 2 : Math.max(a, Math.min(b, v)));
-    return { zx: cl(x, tBounds.x0 + hw, tBounds.x1 - hw), zy: cl(y, tBounds.y0 + hh, tBounds.y1 - hh) };
+    return { zx: cl(x, dBounds.x0 + hw, dBounds.x1 - hw), zy: cl(y, dBounds.y0 + hh, dBounds.y1 - hh) };
   };
   const FIT = fit ? fits[fit]() : null;
   // presets and the carrier lock can ask for a view past the theatre's edge: held inside it here too
@@ -1802,6 +1827,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['fit', 'FIT', 'Fit all contacts, carriers and ships'],
     ['bulls', 'BULLS', 'The bullseye, 100 NM around it'],
     ['r50', '50NM', 'Default range: 50 NM around the carrier'],
+    ['r20', '20NM', '20 NM around the carrier'],
+    ['csg', 'CSG', 'Fit the carrier and its escorts'],
     ['cca', 'CCA', 'Fit CCA + 20 NM'],
     ['dep', 'DEP', 'Fit carrier and departure radials'],
     ['app', 'APP', 'Fit carrier, bolter pattern and marshal stacks'],
