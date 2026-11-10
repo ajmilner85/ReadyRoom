@@ -28,6 +28,18 @@ const FT_PER_NM = 6076.12;
 /** Nimitz class: overall flight deck length, and the glidepath's touchdown (target 3-wire) from the ramp, ft */
 const SHIP_FT = 1092;
 const TD_FT = 230;
+/** flight deck height above the water, ft */
+const FREEBOARD_FT = 60;
+/**
+ * The main radar's carrier symbol (bow up, starboard +x, 2.8 units stem to stern) and, in the same
+ * units, the touchdown point: TD_FT up the angled deck (9° to port) from the ramp.
+ */
+const CV_PATH: [number, number][] = [
+  [0.287, -1.4], [0.06, -1.4], [-0.011, -0.703], [-0.178, -0.488], [-0.166, 1.06], [-0.029, 1.102], [0.001, 1.4], [0.316, 1.4], [0.465, 1.013], [0.477, -0.429], [0.328, -0.727],
+];
+const CV_UNIT_FT = SHIP_FT / 2.8;
+const CV_RAMP: [number, number] = [0.06, 1.4];
+const CV_TD: [number, number] = [CV_RAMP[0] - (TD_FT / CV_UNIT_FT) * Math.sin((9 * Math.PI) / 180), CV_RAMP[1] - (TD_FT / CV_UNIT_FT) * Math.cos((9 * Math.PI) / 180)];
 /** px per tag-layout reference unit (one tag row), as on the main radar */
 const K = 13;
 /** leaders stretch as far as needed to keep tags off the final bearing / glidepath */
@@ -201,8 +213,20 @@ export const FinalView: React.FC<{
   const aAhead = `M${f1(X(R0))} 200H${f1(X(0))}`;
   const ramp = `M${f1(X(0))} 30V375`;
   // the ship: 1,092 ft of deck, the glidepath meeting it at the 3-wire (~230 ft from the ramp)
-  const deckX0 = X(TD_FT / FT_PER_NM);
-  const deckX1 = X(-(SHIP_FT - TD_FT) / FT_PER_NM);
+  // the symbol in the final frame (NM): about the touchdown point, the ship's axis d° right of the inbound course
+  const dAx = (((pic.focus?.ship.brc ?? 0) - (fp?.fb ?? 0) + 540) % 360) - 180;
+  const cd = Math.cos((dAx * Math.PI) / 180);
+  const sd = Math.sin((dAx * Math.PI) / 180);
+  const cvPts = CV_PATH.map(([x, y]) => {
+    const fw = (-(y - CV_TD[1]) * CV_UNIT_FT) / FT_PER_NM;
+    const rt = ((x - CV_TD[0]) * CV_UNIT_FT) / FT_PER_NM;
+    return [-fw * cd + rt * sd, fw * sd + rt * cd] as const;
+  });
+  const cvAz = 'M' + cvPts.map(([al, la]) => `${f1(X(al))} ${f1(Ya(la))}`).join('L') + 'Z';
+  // elevation: the deck from stern to bow, top at the glidepath's touchdown height, as deep as the freeboard
+  const deckX0 = X(Math.max(...cvPts.map((p) => p[0])));
+  const deckX1 = X(Math.min(...cvPts.map((p) => p[0])));
+  const deckH = (FREEBOARD_FT / AMAX[RG]) * 330;
   // separation bubbles (CV NATOPS 3.3): a ring of the lateral standard in plan; in elevation a box of lateral × vertical
   const pxNm = 920 / (RG - R0);
   const eSep: React.ReactNode[] = [];
@@ -484,7 +508,7 @@ export const FinalView: React.FC<{
             <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />
             {eSep}
             <path d={eCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
-            <path d={`M${f1(deckX0)} 370H${f1(deckX1)}`} stroke="#C9D3DD" strokeWidth="6" strokeLinecap="butt" fill="none" />
+            <rect x={f1(deckX1)} y="370" width={f1(deckX0 - deckX1)} height={f1(Math.max(1.5, deckH))} fill="#C9D3DD" />
             <path d={eTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
           </>,
           eLab,
@@ -504,7 +528,7 @@ export const FinalView: React.FC<{
             <path d={aAhead} stroke="rgba(201,211,221,.21)" fill="none" strokeDasharray="4 4" />
             {aSep}
             <path d={aCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
-            <path d={`M${f1(deckX0)} 200H${f1(deckX1)}`} stroke="#C9D3DD" strokeWidth="6" strokeLinecap="butt" fill="none" />
+            <path d={cvAz} fill="#0B0E12" stroke="#E6EDF3" strokeWidth="1.3" strokeLinejoin="miter" />
             <path d={aTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
             {aDw && <path d={aDw} stroke="rgba(147,161,176,.6)" fill="none" strokeDasharray="5 4" />}
             {aWin && <path d={aWin} stroke="#5FD068" strokeWidth="5" strokeOpacity=".45" fill="none" />}
