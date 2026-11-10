@@ -28,8 +28,6 @@ const FT_PER_NM = 6076.12;
 /** Nimitz class: overall flight deck length, and the glidepath's touchdown (target 3-wire) from the ramp, ft */
 const SHIP_FT = 1092;
 const TD_FT = 230;
-/** flight deck height above the water, ft */
-const FREEBOARD_FT = 60;
 /**
  * The main radar's carrier symbol (bow up, starboard +x, 2.8 units stem to stern) and, in the same
  * units, the touchdown point: TD_FT up the angled deck (9° to port) from the ramp.
@@ -38,7 +36,8 @@ const CV_PATH: [number, number][] = [
   [0.287, -1.4], [0.06, -1.4], [-0.011, -0.703], [-0.178, -0.488], [-0.166, 1.06], [-0.029, 1.102], [0.001, 1.4], [0.316, 1.4], [0.465, 1.013], [0.477, -0.429], [0.328, -0.727],
 ];
 const CV_UNIT_FT = SHIP_FT / 2.8;
-const CV_RAMP: [number, number] = [0.06, 1.4];
+// the landing area centreline crosses the ramp starboard of the stern's middle and leaves the hull through the middle of the angled deck's forward edge
+const CV_RAMP: [number, number] = [0.22, 1.4];
 const CV_TD: [number, number] = [CV_RAMP[0] - (TD_FT / CV_UNIT_FT) * Math.sin((9 * Math.PI) / 180), CV_RAMP[1] - (TD_FT / CV_UNIT_FT) * Math.cos((9 * Math.PI) / 180)];
 /** px per tag-layout reference unit (one tag row), as on the main radar */
 const K = 13;
@@ -226,7 +225,8 @@ export const FinalView: React.FC<{
   // elevation: the deck from stern to bow, top at the glidepath's touchdown height, as deep as the freeboard
   const deckX0 = X(Math.max(...cvPts.map((p) => p[0])));
   const deckX1 = X(Math.min(...cvPts.map((p) => p[0])));
-  const deckH = (FREEBOARD_FT / AMAX[RG]) * 330;
+  // a constant-thickness deck line (px), its top on the touchdown height
+  const DECK_PX = 4;
   // separation bubbles (CV NATOPS 3.3): a ring of the lateral standard in plan; in elevation a box of lateral × vertical
   const pxNm = 920 / (RG - R0);
   const eSep: React.ReactNode[] = [];
@@ -236,7 +236,7 @@ export const FinalView: React.FC<{
       if (!(a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG])) continue;
       const s = sepStd(a);
       const bad = sepViolated(a, fp.acs);
-      const st = { stroke: bad ? '#FF8A85' : 'rgba(201,211,221,.45)', fill: bad ? 'rgba(224,82,78,.08)' : 'none', strokeDasharray: bad ? undefined : '4 3' };
+      const st = { stroke: bad ? 'rgba(255,138,133,.75)' : 'rgba(201,211,221,.4)', fill: bad ? 'rgba(224,82,78,.1)' : 'rgba(201,211,221,.05)', strokeDasharray: '4 3' };
       const cx = X(a.f.along);
       const rx = s.nm * pxNm;
       const ry = (s.ft / AMAX[RG]) * 330;
@@ -462,7 +462,7 @@ export const FinalView: React.FC<{
               className="tbtn"
               aria-label="Separation bubbles"
               aria-pressed={sep}
-              title={sep ? 'Separation bubbles on (CV NATOPS 3.3)' : 'Separation bubbles off'}
+              title="Separation bubbles"
               onClick={() => setSep(!sep)}
               style={{ background: sep ? 'rgba(241,88,34,.18)' : 'transparent', color: sep ? '#FFB08F' : '#E6EDF3' }}
             >
@@ -508,7 +508,7 @@ export const FinalView: React.FC<{
             <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />
             {eSep}
             <path d={eCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
-            <rect x={f1(deckX1)} y="370" width={f1(deckX0 - deckX1)} height={f1(Math.max(1.5, deckH))} fill="#C9D3DD" />
+            {sz.h > 0 && <path d={`M${f1(deckX1)} ${(370 + ((DECK_PX / 2) * 400) / sz.h).toFixed(2)}H${f1(deckX0)}`} stroke="#C9D3DD" strokeWidth={DECK_PX} strokeLinecap="butt" fill="none" />}
             <path d={eTicks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
           </>,
           eLab,
