@@ -11,6 +11,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { OrderStatus } from '../../../catcc/core/room/protocol.ts';
 import type { Carrier } from '../scopeModel.ts';
 import { OrderMark } from './Nav.tsx';
+import { IcSteady, IcTurnHard, IcTurnSmall } from '../icons.tsx';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
 const D = Math.PI / 180;
@@ -132,8 +133,8 @@ export const HelmPanel: React.FC<{
   const rud = ordered ? rudderFor(err) : 0;
   const bell = BELLS.reduce((a, b) => (Math.abs(b[1] - ord.kt) < Math.abs(a[1] - ord.kt) ? b : a))[0];
 
-  const big = (label: string, by: number, ch: string, w: number) => (
-    <button disabled={readOnly} onClick={() => order({ crs: ord.crs + by })} aria-label={label} style={{ ...BTN, width: w, height: 38, padding: 0, fontSize: 22, lineHeight: 1, cursor: readOnly ? 'default' : 'pointer', opacity: readOnly ? 0.5 : 1 }}>
+  const big = (label: string, by: number, ch: React.ReactNode, w: number) => (
+    <button disabled={readOnly} onClick={() => order({ crs: by === 0 ? Math.round(norm360(hdg)) : ord.crs + by })} aria-label={label} title={label} style={{ ...BTN, width: w, height: 38, padding: 0, display: 'grid', placeItems: 'center', lineHeight: 1, cursor: readOnly ? 'default' : 'pointer', opacity: readOnly ? 0.5 : 1 }}>
       {ch}
     </button>
   );
@@ -218,20 +219,12 @@ export const HelmPanel: React.FC<{
           </div>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 }}>
-          {big('Order 10° left', -10, '«', 50)}
-          {big('Order 1° left', -1, '−', 46)}
+          {big('Order 10° left', -10, <IcTurnHard />, 50)}
+          {big('Order 1° left', -1, <IcTurnSmall />, 50)}
           {/* rudder amidships: steady on the present heading, so the heading error and the rudder go to zero */}
-          <button
-            disabled={readOnly}
-            onClick={() => order({ crs: Math.round(norm360(hdg)) })}
-            aria-label="Rudder amidships"
-            title="Rudder amidships: order the present heading"
-            style={{ ...BTN, width: 58, height: 38, padding: 0, fontFamily: MONO, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', cursor: readOnly ? 'default' : 'pointer', opacity: readOnly ? 0.5 : 1 }}
-          >
-            AMID
-          </button>
-          {big('Order 1° right', 1, '+', 46)}
-          {big('Order 10° right', 10, '»', 50)}
+          {big('Rudder amidships: steady on the present heading', 0, <IcSteady />, 50)}
+          {big('Order 1° right', 1, <IcTurnSmall right />, 50)}
+          {big('Order 10° right', 10, <IcTurnHard right />, 50)}
         </div>
         <div className="lbl" style={{ textAlign: 'center', marginTop: 4 }}>Order</div>
       </section>

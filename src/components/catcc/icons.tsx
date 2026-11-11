@@ -42,4 +42,10 @@ export const IcX = ({ size = 10, sw = 3 }: { size?: number; sw?: number }) => S(
 export const IcChevron = ({ rot = 0 }: { rot?: number }) => S(12, 2.2, <path d="M6 9l6 6 6-6" />, { style: { transform: `rotate(${rot}deg)` } });
 export const IcGoTo = () => S(15, 1.8, <><circle cx="12" cy="12" r="7" /><circle cx="12" cy="12" r="2" fill="currentColor" /><path d="M12 2v3M12 19v3M2 12h3M19 12h3" /></>);
 export const IcReset = ({ size = 14 }: P) => S(size, 2, <><path d="M4 12a8 8 0 1 0 2.3-5.6" /><path d="M4 4v4h4" /></>);
+/** helm orders: the ship's track. A gentle bend is 1°, a hard turn 10°, straight is rudder amidships; right is the mirror of left */
+type Turn = { size?: number; right?: boolean };
+const flip = (right?: boolean) => (right ? { style: { transform: 'scaleX(-1)' } } : {});
+export const IcTurnSmall = ({ size = 22, right }: Turn) => S(size, 2.2, <><path d="M13 21C13 13 12 9 8 5" /><path d="M13 5.4L8 5l.4 5" /></>, flip(right));
+export const IcTurnHard = ({ size = 22, right }: Turn) => S(size, 2.2, <><path d="M16 21C16 11 13 8 5 8" /><path d="M9 4L5 8l4 4" /></>, flip(right));
+export const IcSteady = ({ size = 22 }: P) => S(size, 2.2, <><path d="M12 21V4" /><path d="M8 8l4-4 4 4" /><path d="M8 21h8" /></>);
 export const IcPopOut = () => S(14, 2, <path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6" />);
