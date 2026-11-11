@@ -536,7 +536,7 @@ export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string
         const ch = (
           // the box stays centred under PRI/AUX; the fill hangs off its right edge, centred on the box's height
           <span style={{ position: 'relative', display: 'inline-block' }} title={fill ? `Encrypted · fill ${fill}` : undefined}>
-            <span className="fch" style={{ display: 'block' }}>{e.chan}</span>
+            <span className="fch" style={{ display: 'block', ...(fill ? { borderColor: '#40A85B' } : {}) }}>{e.chan}</span>
             {fill && (
               <span style={{ position: 'absolute', left: '100%', top: 0, height: 18, lineHeight: '18px', marginLeft: 3, color: '#40A85B', fontWeight: 600, fontSize: 11 }}>
                 {fill}
