@@ -307,7 +307,33 @@ def main():
     bow = {'seven': poly(feat(trace, 'CVN-71 - 7 Numeral')[0]), 'one': poly(feat(trace, 'CVN-71 - 1 Numeral')[0]), 'stroke': 1.865 * A}
     struct = {nm.split('/')[-1]: poly(s[0]) for nm, s in feats(trace, 'Other Structures/') if 'Ordnance' not in nm}
     ordnance = [poly(s[0]) for nm, s in feats(trace, 'Other Structures/Ordnance Elevator')]
-    barricade = [poly(feat(trace, '%s Barricade Stanchion' % k)[0]) for k in ('Left', 'Right')]
+    # barricade stanchions: the trace is a rough quad; draw the painted shape (a reference close-up of the
+    # port stanchion, image px, bow right / port up) fitted onto each traced quad by an affine map from its
+    # four corners (wide-outer, wide-inner, narrow-outer, narrow-inner). The starboard one is the mirror image:
+    # its outer edge (away from the landing area) is to starboard.
+    ST_OUT = [(463, 395), (565, 385), (575, 393), (1150, 325), (1150, 395), (1118, 395), (1105, 375), (490, 510)]
+    ST_IN = [(471, 402), (563, 392), (573, 400), (1140, 334), (1140, 386), (1122, 386), (1108, 367), (495, 500)]
+    ST_DETAIL = [[(472, 435), (497, 435), (497, 466), (474, 466)]]
+    ST_CORNERS = [(463, 395), (490, 510), (1150, 325), (1150, 395)]  # wide-outer, wide-inner, narrow-outer, narrow-inner
+
+    def affine(src, dst):
+        rows, rhs = [], []
+        for (u, v), (x, y) in zip(src, dst):
+            rows.append([u, v, 1, 0, 0, 0]); rhs.append(x)
+            rows.append([0, 0, 0, u, v, 1]); rhs.append(y)
+        a = lstsq(rows, rhs)
+        return lambda p: (a[0]*p[0] + a[1]*p[1] + a[2], a[3]*p[0] + a[4]*p[1] + a[5])
+
+    barricade = []
+    for k in ('Left', 'Right'):
+        q = poly(feat(trace, '%s Barricade Stanchion' % k)[0])[:4]
+        wide = sorted(q, key=lambda p: p[0])[:2]
+        narrow = sorted(q, key=lambda p: p[0])[2:]
+        # outer = away from the landing area: to port (+y) for the left one, to starboard (-y) for the right
+        sel = (lambda pts: sorted(pts, key=lambda p: -p[1])) if k == 'Left' else (lambda pts: sorted(pts, key=lambda p: p[1]))
+        w, n = sel(wide), sel(narrow)
+        m = affine(ST_CORNERS, [w[0], w[1], n[0], n[1]])
+        barricade.append({'out': [m(p) for p in ST_OUT], 'in': [m(p) for p in ST_IN], 'detail': [[m(p) for p in d] for d in ST_DETAIL]})
     outline = poly(feat(trace, 'Deck Outline')[0])
 
     # taxi routes (F/A-18 recordings; the F-14 ones follow the same lanes)
@@ -344,7 +370,7 @@ def main():
   outline: V[];
   la: { c: V[]; li: V[]; ri: V[]; outer: V[]; hash: V[][]; yellow: V[][]; rdMark: V[]; sternRd: V[]; launchRd: V[] };
   wires: V[][];
-  barricade: V[][];
+  barricade: { out: V[]; in: V[]; detail: V[][] }[];
   cats: Record<string, V[]>;
   jbd: Record<string, V[]>;
   elev: Record<string, { poly: V[]; safety: V[] }>;

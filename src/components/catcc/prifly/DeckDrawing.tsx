@@ -156,9 +156,6 @@ export const DeckDrawing: React.FC<{
   return (
     <g>
       <defs>
-        <filter id="catTrackShadow" filterUnits="userSpaceOnUse" x={-200} y={-60} width={400} height={120}>
-          <feDropShadow dx={0} dy={0} stdDeviation={0.45} floodColor="#000" floodOpacity={0.5} />
-        </filter>
         {/* the flight deck over the sea: a deep shadow all round */}
         <filter id="deckShadow" filterUnits="userSpaceOnUse" x={-200} y={-70} width={400} height={140}>
           <feDropShadow dx={0} dy={0} stdDeviation={2.5} floodColor="#000" floodOpacity={0.75} />
@@ -212,11 +209,12 @@ export const DeckDrawing: React.FC<{
       {/* catapults: track with lighter end blocks, jet blast deflector behind it */}
       {Object.entries(CATS).map(([k, [a, b]]) => (
         <g key={k}>
-          {/* track and end blocks over a soft shadow so they stand off the deck */}
-          <g filter="url(#catTrackShadow)">
+          <g>
             <path d={line([a, b])} stroke={C.catTrack} strokeWidth={1.56} strokeLinecap="butt" />
             {/* both ends of the track are lighter grey blocks on the model, ~3 m long, track width */}
             <path d={line([a, onCatTrack(k, 3, 0)]) + line([onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]) - 3, 0), b])} stroke={C.catStart} strokeWidth={1.56} strokeLinecap="butt" />
+            {/* the shuttle slot: a dark line down the middle of the track */}
+            <path d={line([a, b])} stroke="#14181D" strokeWidth={0.22} strokeLinecap="butt" />
           </g>
           {/* a thin edge round the whole track: black at 60%, so it darkens whatever is under it 60% toward black */}
           <path d={ring([onCatTrack(k, 0, 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), -0.78), onCatTrack(k, 0, -0.78)])} fill="none" stroke="#000000" strokeOpacity={0.6} strokeWidth={0.22} strokeLinejoin="miter" />
@@ -241,7 +239,9 @@ export const DeckDrawing: React.FC<{
           <path d={ORD_FRAME} stroke={C.elevLine} strokeWidth={0.28} />
           <path d={ORD_FRAME} stroke={C.red} strokeWidth={0.28} strokeDasharray="0.33 0.33" />
           <path d={ORD_INNER} stroke={C.paint} strokeWidth={0.12} />
-          <path d={G.barricade.map(ring).join('')} />
+          {/* barricade stanchions: tapered wedge, yellow outline, thin white line inset inside it */}
+          <path d={G.barricade.map((b) => ring(b.out)).join('')} stroke={C.yellow} strokeWidth={0.2} strokeLinejoin="miter" />
+          <path d={G.barricade.map((b) => ring(b.in) + b.detail.map(line).join('')).join('')} stroke={C.paintDim} strokeWidth={0.1} strokeLinejoin="miter" />
         </g>
       )}
       {layers.has('areas') && <path d={G.parking.map((a) => ring(a.poly)).join('')} fill="rgba(111,182,230,.05)" stroke="#6FB6E6" strokeOpacity={0.45} strokeWidth={0.35} strokeDasharray="2 1.2" />}
