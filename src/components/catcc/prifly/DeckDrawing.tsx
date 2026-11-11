@@ -133,12 +133,12 @@ export const DeckDrawing: React.FC<{
       {/* arresting gear */}
       <path d={G.wires.map(line).join('')} fill="none" stroke="#6E7882" strokeWidth={0.4} strokeDasharray="0.8 0.6" />
 
-      {/* catapults: track, its lighter start block, jet blast deflector behind it */}
+      {/* catapults: track with lighter end blocks, jet blast deflector behind it */}
       {Object.entries(CATS).map(([k, [a, b]]) => (
         <g key={k}>
           <path d={line([a, b])} stroke={C.catTrack} strokeWidth={1.56} strokeLinecap="butt" />
-          {/* the start of the track (the shuttle's battery position) is a lighter grey block on the model */}
-          <path d={line([onCatTrack(k, -1, 0), onCatTrack(k, 9, 0)])} stroke={C.catStart} strokeWidth={1.9} strokeLinecap="butt" />
+          {/* both ends of the track are lighter grey blocks on the model, ~3 m long, track width */}
+          <path d={line([a, onCatTrack(k, 3, 0)]) + line([onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]) - 3, 0), b])} stroke={C.catStart} strokeWidth={1.56} strokeLinecap="butt" />
           <path d={ring(G.jbd[k])} fill={jbdUp[k] ? 'rgba(222,154,31,.4)' : C.jbdFill} stroke={jbdUp[k] ? '#E7B04F' : C.jbdEdge} strokeWidth={jbdUp[k] ? 0.6 : 0.35} />
         </g>
       ))}
