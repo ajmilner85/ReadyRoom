@@ -6,7 +6,7 @@
  * layers the boss turns on.
  */
 import React from 'react';
-import { CATS, NIMITZ as G, TAXI_ROUTES, areaCentroid, centroid, line, openAt, ring, roundLine, roundRing, type DeckLayer, type V } from './deck.ts';
+import { CATS, NIMITZ as G, TAXI_ROUTES, areaCentroid, centroid, line, nearestOn, openAt, ring, roundLine, roundRing, type DeckLayer, type V } from './deck.ts';
 
 const C = {
   deck: '#1D2228',
@@ -77,7 +77,10 @@ const ELEV_LINES = Object.entries(G.elev)
     const ys = [...e.poly, ...e.safety].map((q) => q[1]);
     const out = k === '4' ? Math.max(...ys) : Math.min(...ys); // EL 4 is to port, 1-3 to starboard
     const onEdge = (v: V) => Math.abs(v[1] - out) < 1.5;
-    return roundLine(openAt(e.poly, onEdge), 1.0, onEdge) + line(openAt(e.safety, onEdge));
+    // ends on the deck edge sit on it (the trace leaves some hanging over): snap to the outline, then in by half the line width
+    const inward = k === '4' ? -1 : 1;
+    const snap = (q: V[]) => q.map((v): V => (onEdge(v) ? [v[0], nearestOn(G.outline, v).at[1] + inward * 0.18] : v));
+    return roundLine(snap(openAt(e.poly, onEdge)), 1.0, onEdge) + line(snap(openAt(e.safety, onEdge)));
   })
   .join('');
 
