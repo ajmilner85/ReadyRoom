@@ -107,13 +107,18 @@ const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number; rot
  */
 const DonorBeam: React.FC<{ x: number; y: number; r: number; scanS: number; phase: number }> = ({ x, y, r, scanS, phase }) => {
   const [delay] = useState(() => -((((performance.now() / 1000) * 360) / scanS + phase) % 360) / 360 * scanS);
-  const W = (50 * Math.PI) / 180; // wedge width
+  const W = (60 * Math.PI) / 180; // afterglow width
   const lead = `M0 0L0 ${f2(-r)}`;
-  const wedge = `M0 0L0 ${f2(-r)}A${r} ${r} 0 0 0 ${f2(-r * Math.sin(W))} ${f2(-r * Math.cos(W))}Z`;
+  // the afterglow fades with angle behind the sweep line: nested wedges from the line back, each a
+  // little wider, so the shade is darkest at the line and falls off smoothly to nothing (no seams)
+  const N = 12;
+  const wedge = (a: number) => `M0 0L0 ${f2(-r)}A${r} ${r} 0 0 0 ${f2(-r * Math.sin(a))} ${f2(-r * Math.cos(a))}Z`;
   return (
     <g transform={`translate(${f2(x)} ${f2(y)})`}>
       <g style={{ transformOrigin: '0 0', animation: `catcc-sweep ${scanS}s linear infinite`, animationDelay: `${delay}s` }}>
-        <path d={wedge} fill="#E7C66B" fillOpacity={0.18} />
+        {Array.from({ length: N }, (_, i) => (
+          <path key={i} d={wedge((W * (i + 1)) / N)} fill="#E7C66B" fillOpacity={0.026} />
+        ))}
         <path d={lead} stroke="#E7C66B" strokeOpacity={0.5} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
       </g>
     </g>
