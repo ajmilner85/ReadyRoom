@@ -213,11 +213,11 @@ export const DeckDrawing: React.FC<{
       <path d={line(L.li) + line(L.ri)} fill="none" stroke={C.paintDim} strokeWidth={0.93} />
       <path d={L.hash.map(ring).join('')} fill={C.paintDim} />
       <path d={line(L.c)} fill="none" stroke={C.paintDim} strokeWidth={0.9} />
-      <path d={L.yellow.map(line).join('')} fill="none" stroke={C.yellow} strokeWidth={0.8} /* thinner than the grey 0.9 to cancel the bright yellow reading wider */ />
+      <path d={L.yellow.map(line).join('')} fill="none" stroke={C.yellow} strokeWidth={0.7} /* thinner than the grey 0.9 to cancel the bright yellow reading wider */ />
       <path d={line(L.rdMark)} fill="none" stroke={C.yellow} strokeWidth={1.1} />
       {/* foul lines (landing area and catapults): alternating white and red, ~1.7 m each */}
       <path d={G.safety.map(line).join('')} fill="none" stroke={C.foulWhite} strokeWidth={0.3} />
-      <path d={G.safety.map(line).join('')} fill="none" stroke={C.red} strokeWidth={0.26} strokeDasharray="1.7 1.7" /* thinner than the white 0.3: the red reads wider */ />
+      <path d={G.safety.map(line).join('')} fill="none" stroke={C.red} strokeWidth={0.22} strokeDasharray="1.7 1.7" /* thinner than the white 0.3: the red reads wider */ />
       {/* arresting gear */}
       <path d={G.wires.map(line).join('')} fill="none" stroke="#6E7882" strokeWidth={0.4} strokeDasharray="0.8 0.6" />
 
