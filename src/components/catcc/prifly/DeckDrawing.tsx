@@ -134,13 +134,17 @@ export const DeckDrawing: React.FC<{
         <filter id="catTrackShadow" filterUnits="userSpaceOnUse" x={-200} y={-60} width={400} height={120}>
           <feDropShadow dx={0} dy={0} stdDeviation={0.45} floodColor="#000" floodOpacity={0.5} />
         </filter>
+        {/* the flight deck over the sea: a deep shadow all round */}
+        <filter id="deckShadow" filterUnits="userSpaceOnUse" x={-200} y={-70} width={400} height={140}>
+          <feDropShadow dx={0} dy={0} stdDeviation={2.5} floodColor="#000" floodOpacity={0.75} />
+        </filter>
         {/* the island and mast stand up off the deck: a larger, softer shadow */}
         <filter id="islandShadow" filterUnits="userSpaceOnUse" x={-200} y={-60} width={400} height={120}>
           <feDropShadow dx={0} dy={0} stdDeviation={1.4} floodColor="#000" floodOpacity={0.65} />
         </filter>
       </defs>
       {/* hull, elevators, island */}
-      <path d={ring(G.outline)} fill={C.deck} stroke={C.edge} strokeWidth={0.5} strokeLinejoin="round" />
+      <path d={ring(G.outline)} fill={C.deck} stroke={C.edge} strokeWidth={0.5} strokeLinejoin="round" filter="url(#deckShadow)" />
       {/* elevator edge and safety line: alternating amber and red, ~0.4 m each on the model (drawn 0.5 m to stay legible) */}
       <path d={ELEV_LINES} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="miter" />
       <path d={ELEV_LINES} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="miter" strokeDasharray="0.5 0.5" />
