@@ -35,7 +35,7 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 .lcb { width: 30px; height: 26px; display: flex; align-items: center; justify-content: center; background: transparent; border: 0; border-radius: 4px; cursor: pointer; padding: 0; }
 .lcb:hover { background: #1A212A; }
 .lcb > span { width: 14px; height: 14px; border-radius: 3px; border: 1.5px solid; box-sizing: border-box; }
-.frow { display: grid; grid-template-columns: minmax(0, 1fr) 62px 30px 30px; gap: 6px; align-items: center; padding: 3px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #E6EDF3; }
+.frow { display: grid; grid-template-columns: minmax(0, 1fr) 62px 38px 38px; gap: 6px; align-items: center; padding: 3px 0; font-family: 'IBM Plex Mono', monospace; font-size: 12px; color: #E6EDF3; }
 .frow > span:nth-child(n+3) { justify-self: center; }
 .fch { min-width: 20px; height: 18px; line-height: 18px; padding: 0 3px; box-sizing: border-box; text-align: center; border-radius: 3px; background: #0E1116; border: 1px solid #374250; font-size: 11px; font-weight: 600; }
 .scope .hit { stroke: rgba(0, 0, 0, .5); stroke-width: 1px; }

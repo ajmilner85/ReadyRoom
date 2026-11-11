@@ -526,18 +526,29 @@ export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string
     ...(!blank(e.ils) ? [{ name: `ICLS · ${e.name}`, v: e.ils }] : []),
   ]);
   return (
-    <section aria-label="Frequencies" style={{ width: 270, background: 'rgba(21,26,33,.97)', border: '1px solid #374250', borderRadius: 8, padding: '8px 10px', boxShadow: '0 10px 30px rgba(0,0,0,.5)', maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
+    <section aria-label="Frequencies" style={{ width: 286, background: 'rgba(21,26,33,.97)', border: '1px solid #374250', borderRadius: 8, padding: '8px 10px', boxShadow: '0 10px 30px rgba(0,0,0,.5)', maxHeight: 'calc(100vh - 160px)', overflowY: 'auto' }}>
       <div className="frow" style={{ color: '#6B7683', fontSize: 9.5, letterSpacing: '.1em' }}>
         <span>COM</span><span /><span style={{ textAlign: 'center' }}>PRI</span><span style={{ textAlign: 'center' }}>AUX</span>
       </div>
-      {com.map((e, i) => (
-        <div key={i} className="frow">
-          <span style={{ color: '#93A1B0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</span>
-          <span style={{ textAlign: 'right' }}>{e.freq}</span>
-          {e.radio !== 'AUX' && e.chan ? <span className="fch">{e.chan}</span> : <span style={{ color: '#4A5562' }}>—</span>}
-          {e.radio === 'AUX' && e.chan ? <span className="fch">{e.chan}</span> : <span style={{ color: '#4A5562' }}>—</span>}
-        </div>
-      ))}
+      {com.map((e, i) => {
+        // an encrypted channel: its KY fill number in green beside the channel number (as mission prep shows it)
+        const fill = blank(e.kyFill) ? null : e.kyFill;
+        const ch = (
+          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }} title={fill ? `Encrypted · fill ${fill}` : undefined}>
+            <span className="fch">{e.chan}</span>
+            {/* the slot is kept on every row, so the channel boxes line up */}
+            <span style={{ minWidth: 7, color: '#40A85B', fontWeight: 600, fontSize: 11 }}>{fill}</span>
+          </span>
+        );
+        return (
+          <div key={i} className="frow">
+            <span style={{ color: '#93A1B0', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{e.name}</span>
+            <span style={{ textAlign: 'right' }}>{e.freq}</span>
+            {e.radio !== 'AUX' && e.chan ? ch : <span style={{ color: '#4A5562' }}>—</span>}
+            {e.radio === 'AUX' && e.chan ? ch : <span style={{ color: '#4A5562' }}>—</span>}
+          </div>
+        );
+      })}
       {!plan && <div className="mono" style={{ fontSize: 11.5, color: '#6B7683', padding: '4px 0' }}>No comms plan for a nearby event</div>}
       {nav.length > 0 && (
         <>
