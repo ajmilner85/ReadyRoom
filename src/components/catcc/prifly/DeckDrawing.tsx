@@ -275,8 +275,9 @@ export const DeckDrawing: React.FC<{
       <g style={{ pointerEvents: 'none' }}>
         {Object.keys(CATS).map((k) => (
           <g key={k} transform={`rotate(${CAT_LABEL[k].rot} ${CAT_LABEL[k].p[0]} ${-CAT_LABEL[k].p[1]})`}>
-            <rect x={CAT_LABEL[k].p[0] - 0.9} y={-CAT_LABEL[k].p[1] - 1.85} width={10.8} height={3.7} rx={0.5} fill="#0B0E12" stroke="#7D8896" strokeWidth={0.3} />
-            <T p={CAT_LABEL[k].p} anchor="start" size={2.6} fill="#C9D3DD">{`CAT ${k}`}</T>
+            <rect x={CAT_LABEL[k].p[0] - 0.9} y={-CAT_LABEL[k].p[1] - 1.85} width={10} height={3.7} rx={0.5} fill="#0B0E12" stroke="#7D8896" strokeWidth={0.3} />
+            {/* centred in the box (middle anchor, nudged by half the trailing letter-spacing) so the padding is even both sides */}
+            <T p={[CAT_LABEL[k].p[0] - 0.9 + 5 + 0.05, CAT_LABEL[k].p[1]]} size={2.6} fill="#C9D3DD">{`CAT ${k}`}</T>
           </g>
         ))}
         {Object.keys(G.elev).map((k) => (

@@ -16,6 +16,7 @@ import type { HookEnv } from '../../../catcc/core/dcs/hookProtocol.ts';
 import type { Assignment } from '../../../catcc/core/room/protocol.ts';
 import type { DeckCall } from '../deck.ts';
 import { DeckBar, LaunchTab, LightsPanel } from './BossPanels.tsx';
+import type { LaunchState } from '../../../catcc/core/room/launch.ts';
 import { catEntry, withQueued } from './launch.ts';
 import { PRIFLY_LIGHTS } from './lights.ts';
 import { InfoPanels } from '../radar/InfoPanels.tsx';
@@ -107,6 +108,10 @@ export const BossView: React.FC<{
   setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void;
   deck: DeckCall | null;
   readOnly: boolean;
+  /** launch clearance on this carrier, whether this user clears shots, and how */
+  launch?: LaunchState;
+  mayClear?: boolean;
+  onClear?: (trackId: string, clear: boolean) => void;
   env?: HookEnv;
   utc?: Date;
   offH?: number;
@@ -114,7 +119,7 @@ export const BossView: React.FC<{
   assignments: Map<string, Assignment>;
   /** Mini Boss opens on the air plan, the Air Boss on launch */
   defaultTab?: 'launch' | 'lights' | 'plan';
-}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, env, utc, offH, mt, assignments, defaultTab }) => {
+}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, env, utc, offH, mt, assignments, defaultTab, launch, mayClear, onClear }) => {
   const [tab, setTab] = useState<'launch' | 'lights' | 'plan'>(defaultTab ?? 'launch');
   const st = deckStatus(pic);
   const plan = useAirPlan();
@@ -441,7 +446,7 @@ export const BossView: React.FC<{
             </button>
           ))}
         </div>
-        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={setOps} readOnly={readOnly} />}
+        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={setOps} readOnly={readOnly} launch={launch} mayClear={!!mayClear} onClear={onClear} />}
         {tab === 'lights' && <LightsPanel items={PRIFLY_LIGHTS} ops={ops} setOps={setOps} readOnly={readOnly} />}
         {tab === 'plan' && (
           <>

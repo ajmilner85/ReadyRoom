@@ -11,6 +11,7 @@ import type { DeckCall } from '../deck.ts';
 import { finalPicture, landingWeightLb } from '../final/finalModel.ts';
 import { deckStatus, onCat } from './deck.ts';
 import { catEntry } from './launch.ts';
+import type { LaunchState } from '../../../catcc/core/room/launch.ts';
 
 const SEG: React.CSSProperties = { display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 };
 const ms = (t: number) => {
@@ -70,7 +71,46 @@ const CAT_STATUS: { k: CatStatus; l: string; fg: string; bg: string }[] = [
   { k: 'down', l: 'DOWN', fg: '#93A1B0', bg: '#222C37' },
 ];
 
-export const LaunchTab: React.FC<{ pic: Picture; ops?: OpsState; setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void; readOnly: boolean }> = ({ pic, ops, setOps, readOnly }) => {
+/** One spotted jet's clearance: who's held, who saluted, who's cleared; the clearing seat's LAUNCH / CANCEL. */
+const Clearance: React.FC<{ t: ScopeTrack; launch?: LaunchState; mayClear: boolean; onClear?: (trackId: string, clear: boolean) => void }> = ({ t, launch, mayClear, onClear }) => {
+  if (!launch || !t.ip) return null;
+  const cleared = !!launch.cleared[t.id];
+  const held = launch.hold.includes(t.id);
+  const saluted = !!launch.saluted[t.id];
+  const [label, fg, bg] = !launch.auth
+    ? ['GOES ON SALUTE', '#93A1B0', '#222C37']
+    : cleared
+      ? ['CLEARED', '#7FD397', 'rgba(127,211,151,.14)']
+      : held
+        ? [saluted ? 'SALUTED · HOLDING' : 'HOLDING', '#E7B04F', 'rgba(231,176,79,.16)']
+        : [null, '', ''];
+  if (!label) return null;
+  const btn = (text: string, on: boolean, clear: boolean) => (
+    <button onClick={() => onClear?.(t.id, clear)} aria-label={`${text} ${id(t)}`} style={{ height: 26, padding: '0 12px', borderRadius: 4, border: `1px solid ${on ? '#5FD068' : '#374250'}`, background: on ? '#40A85B' : 'transparent', color: on ? '#0E1116' : '#C9D3DD', fontFamily: "'Saira', sans-serif", fontSize: 12.5, fontWeight: 700, letterSpacing: '.06em', cursor: 'pointer' }}>
+      {text}
+    </button>
+  );
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0 0' }}>
+      <span className="mono" style={{ fontSize: 12 }}>{id(t)}</span>
+      <span className={saluted && held ? 'cc-feed-alert-text' : undefined} style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '2px 7px', borderRadius: 3, background: bg, color: fg }}>
+        {label}
+      </span>
+      <span style={{ flex: 1 }} />
+      {mayClear && launch.auth && (cleared ? btn('CANCEL', false, false) : held ? btn('LAUNCH', true, true) : null)}
+    </div>
+  );
+};
+
+export const LaunchTab: React.FC<{
+  pic: Picture;
+  ops?: OpsState;
+  setOps: (p: Partial<Record<keyof OpsState, unknown>>) => void;
+  readOnly: boolean;
+  launch?: LaunchState;
+  mayClear: boolean;
+  onClear?: (trackId: string, clear: boolean) => void;
+}> = ({ pic, ops, setOps, readOnly, launch, mayClear, onClear }) => {
   const st = deckStatus(pic);
   const jets = st?.jets ?? [];
   const keyOf = (t: ScopeTrack) => t.g || t.id;
@@ -96,8 +136,16 @@ export const LaunchTab: React.FC<{ pic: Picture; ops?: OpsState; setOps: (p: Par
     return t ? `${id(t)} ${shortType(t.ty)}` : k;
   };
   const laInUse = !!st?.foul.length;
+  const auth = launch?.auth;
   return (
     <>
+      <section className="pnl" aria-label="Launch clearance" style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="lbl">Clearance</span>
+        <span className="mono" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '2px 7px', borderRadius: 3, background: auth ? 'rgba(231,176,79,.16)' : '#222C37', color: auth ? '#E7B04F' : '#93A1B0' }}>
+          {auth ? (auth.role === 'shooter' ? 'SHOOTER' : 'AIR BOSS') : 'AUTO'}
+        </span>
+        <span style={{ fontSize: 12, color: '#93A1B0' }}>{auth ? (mayClear ? 'You clear each shot' : `Shots cleared by ${auth.name}`) : 'No Shooter or Air Boss seated: launches go on the salute'}</span>
+      </section>
       <section className="pnl" aria-label="Launch sequence" style={{ padding: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <span className="lbl">Launch sequence</span>
@@ -157,6 +205,7 @@ export const LaunchTab: React.FC<{ pic: Picture; ops?: OpsState; setOps: (p: Par
               )}
               {!q.length && (readOnly || !free.length) && <span style={{ color: '#6B7683' }}>Empty</span>}
             </div>
+            {spotted && <Clearance t={spotted.t} launch={launch} mayClear={mayClear} onClear={onClear} />}
             <div style={{ display: 'flex', justifyContent: 'space-between', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, padding: '6px 0 0' }}>
               <span style={{ color: '#93A1B0' }}>Weight board · JBD</span>
               <span>{spotted ? `${wt ? wt.toLocaleString('en-US') : '—'} · ${c.status === 'ready' ? 'UP' : 'DOWN'}` : '— · DOWN'}</span>

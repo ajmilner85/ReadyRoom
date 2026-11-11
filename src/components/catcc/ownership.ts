@@ -86,6 +86,7 @@ export const OWNER_LABEL: Record<SeatRole, string> = {
   final: 'FINAL',
   boss: 'BOSS',
   miniboss: 'TWR',
+  shooter: 'SHOOTER',
   ood: 'OOD',
   lso: 'LSO',
   clso: 'LSO',

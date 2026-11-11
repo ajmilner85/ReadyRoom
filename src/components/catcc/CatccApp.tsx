@@ -20,6 +20,7 @@ import { SCAN_S, useSweep } from './radar/sweep.ts';
 import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
 import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
+import { launchAuthority } from '../../catcc/core/room/launch.ts';
 import { LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
 import { OptionsDialog } from './OptionsDialog.tsx';
 import { Reference } from './radar/Panels.tsx';
@@ -43,7 +44,7 @@ const CatccApp: React.FC = () => {
   const seatDef = resolveSeat(layout, seatWant);
   const mod = seatDef.view;
   const [optsOpen, setOptsOpen] = useState(false);
-  const { state, history, selectSource, claim, release, setPlan, assign, handoff, accept, setOps } = useCatccRoom(params.get('src') ?? undefined);
+  const { state, history, selectSource, claim, release, setPlan, assign, handoff, accept, setOps, clearLaunch } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
   const [uiOpen, setUiOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
@@ -150,6 +151,10 @@ const CatccApp: React.FC = () => {
   // ops state (deck call, lights, launch, aids, formation): anyone with a seat on this carrier, or anyone while none are held
   const anyCarrierSeat = state.seats.filter((s) => s.carrier === hull || s.carrier === '*');
   const mayEditOps = anyCarrierSeat.length === 0 || anyCarrierSeat.some((s) => s.userId === user?.userId);
+  // launch clearance: the Shooter, else the Air Boss, clears each shot (nobody seated: launches go on the salute)
+  const launchAuth = hull ? launchAuthority(state.seats, hull) : null;
+  const launch = hull ? state.launch[hull] : undefined;
+  const mayClear = !!launchAuth && launchAuth.userId === user?.userId;
   const handoffCtx: HandoffCtx = { layout, me: { carrier: hull ?? '', role: seatDef.id }, seats: state.seats, userId: user?.userId, onHandoff: handoff, onAccept: accept };
 
   const seatPill = (key: SeatKey, label: string) => {
@@ -370,7 +375,7 @@ const CatccApp: React.FC = () => {
         />
       )}
       {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
-      {mod === 'boss' && <BossView key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} />}
+      {mod === 'boss' && <BossView key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} launch={launch} mayClear={mayClear} onClear={(id, c) => hull && clearLaunch(hull, id, c)} />}
       {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
       {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull: hull ?? '', ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }} />}
     </div>
