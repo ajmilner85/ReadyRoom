@@ -22,6 +22,7 @@ const C = {
   catTrack: '#4C545D',
   catStart: '#6A737C',
   struct: '#3E4854',
+  platform: '#13171C', // LSO and IFLOLS platforms: darker than the flight deck
   structEdge: '#6E7A88',
   label: '#93A1B0',
 };
@@ -114,14 +115,20 @@ export const DeckDrawing: React.FC<{
         <filter id="catTrackShadow" filterUnits="userSpaceOnUse" x={-200} y={-60} width={400} height={120}>
           <feDropShadow dx={0} dy={0} stdDeviation={0.45} floodColor="#000" floodOpacity={0.5} />
         </filter>
+        {/* the island and mast stand up off the deck: a larger, softer shadow */}
+        <filter id="islandShadow" filterUnits="userSpaceOnUse" x={-200} y={-60} width={400} height={120}>
+          <feDropShadow dx={0} dy={0} stdDeviation={1.4} floodColor="#000" floodOpacity={0.65} />
+        </filter>
       </defs>
       {/* hull, elevators, island */}
       <path d={ring(G.outline)} fill={C.deck} stroke={C.edge} strokeWidth={0.5} strokeLinejoin="round" />
       {/* elevator edge and safety line: alternating amber and red, ~0.4 m each on the model (drawn 0.5 m to stay legible) */}
       <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="round" />
       <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="round" strokeDasharray="0.5 0.5" />
-      <path d={roundRing(G.struct['Island'], 1.6)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.35} />
-      <path d={roundRing(G.struct['Radar Mast'], 0.8)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.3} />
+      <g filter="url(#islandShadow)">
+        <path d={roundRing(G.struct['Island'], 1.6)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.35} />
+        <path d={roundRing(G.struct['Radar Mast'], 0.8)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.3} />
+      </g>
 
       {/* helo spots (optional): painted under the landing-area markings and the catapult tracks, as on the model */}
       {layers.has('helo') && (
@@ -180,8 +187,7 @@ export const DeckDrawing: React.FC<{
       {/* optional layers */}
       {layers.has('gear') && (
         <g fill="none" stroke={C.structEdge} strokeWidth={0.3}>
-          <path d={ring(G.struct['LSO Platform'])} />
-          <path d={ring(G.struct['IFLOLS Platform'])} />
+          <path d={ring(G.struct['LSO Platform']) + ring(G.struct['IFLOLS Platform'])} fill={C.platform} />
           <path d={line(G.struct['IFLOLS Datum Lights'])} stroke={C.red} strokeWidth={0.5} />
           <path d={ring(G.struct['Cats 1 & 2 Shooter Bubble'])} stroke={C.elevLine} />
           <path d={G.ordnance.map(ring).join('')} stroke={C.elevLine} />
