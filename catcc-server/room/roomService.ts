@@ -31,6 +31,7 @@ import { TrackStore, type Track } from '../../src/catcc/core/tracks/trackStore.t
 import { HookClient } from '../dcs/hookClient.ts';
 import { TacviewRealtimeClient } from '../tacview/realtimeClient.ts';
 import type { VerifyToken } from './auth.ts';
+import type { PersistedState, RoomStore } from './persist.ts';
 
 export type SourceConfig =
   | { id: string; name: string; kind: 'hook'; host: string; port?: number; token: string }
@@ -42,7 +43,19 @@ export interface RoomOptions {
   path?: string;
   seatGraceMs?: number;
   authTimeoutMs?: number;
+  /** keeps plans, ops, assignments, ownership and seats across restarts, per source and mission */
+  store?: RoomStore;
   log?: (msg: string) => void;
+}
+
+/** what a source needs from the room around it */
+interface SourceCtx {
+  store?: RoomStore;
+  graceMs: number;
+  /** the user has a live connection */
+  connected: (userId: string) => boolean;
+  onStatus: () => void;
+  log: (m: string) => void;
 }
 
 interface Conn {
@@ -76,12 +89,90 @@ class Source {
   readonly cfg: SourceConfig;
   private readonly onStatus: () => void;
   private readonly log: (m: string) => void;
+  private readonly ctx: SourceCtx;
+  /** the mission whose state is loaded (persistence key); saves wait until its state has been read */
+  private mission?: string;
+  private loaded = false;
+  private saveTimer?: NodeJS.Timeout;
+  private restoreTimer?: NodeJS.Timeout;
 
-  constructor(cfg: SourceConfig, onStatus: () => void, log: (m: string) => void) {
+  constructor(cfg: SourceConfig, ctx: SourceCtx) {
     this.cfg = cfg;
-    this.onStatus = onStatus;
-    this.log = log;
+    this.ctx = ctx;
+    this.onStatus = ctx.onStatus;
+    this.log = ctx.log;
     this.status = { id: cfg.id, name: cfg.name, kind: cfg.kind, connected: false };
+  }
+
+  // ---------------------------------------------------------------- persistence
+
+  private snapshot(): PersistedState {
+    return { plans: this.plans, ops: this.ops, assignments: this.assignments, owners: this.owners, seats: [...this.seats.values()].map((x) => ({ ...x, away: undefined })) };
+  }
+
+  /** something shared changed: save it shortly (debounced) */
+  private dirty(): void {
+    if (!this.ctx.store || !this.mission || !this.loaded) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => void this.flush(), 2000);
+  }
+
+  async flush(): Promise<void> {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = undefined;
+    if (!this.ctx.store || !this.mission || !this.loaded) return;
+    await this.ctx.store.save(this.cfg.id, this.mission, this.snapshot());
+  }
+
+  /**
+   * The source reports a mission: a new one (or the first since a restart) saves the old mission's
+   * state, clears it and loads the new one's. What was edited while it loaded wins over what's stored.
+   */
+  async missionSeen(name: string | undefined): Promise<void> {
+    if (!name || name === this.mission) return;
+    if (this.mission) {
+      await this.flush();
+      for (const o of [this.plans, this.ops, this.assignments, this.owners]) for (const k of Object.keys(o)) delete (o as Record<string, unknown>)[k];
+      this.broadcastPlans();
+      this.broadcastOps();
+      this.broadcastAssignments();
+      this.broadcastOwners();
+    }
+    this.mission = name;
+    this.loaded = false;
+    const st = this.ctx.store ? await this.ctx.store.load(this.cfg.id, name) : null;
+    if (this.mission !== name) return; // another mission came in meanwhile
+    this.loaded = true;
+    if (!st) return;
+    const fill = <T,>(into: Record<string, T>, from?: Record<string, T>) => {
+      for (const [k, v] of Object.entries(from ?? {})) if (!(k in into)) into[k] = v;
+    };
+    fill(this.plans, st.plans);
+    fill(this.ops, st.ops);
+    fill(this.assignments, st.assignments);
+    fill(this.owners, st.owners);
+    // seats come back held for their users, marked away until they reconnect; unclaimed after the grace period
+    for (const h of st.seats ?? []) {
+      const k = seatId(h);
+      if (!this.seats.has(k)) this.seats.set(k, { ...h, away: !this.ctx.connected(h.userId) });
+    }
+    clearTimeout(this.restoreTimer);
+    this.restoreTimer = setTimeout(() => {
+      let removed = false;
+      for (const [k, h] of this.seats) {
+        if (h.away && !this.ctx.connected(h.userId)) {
+          this.seats.delete(k);
+          removed = true;
+        }
+      }
+      if (removed) this.broadcastSeats();
+    }, Math.max(this.ctx.graceMs, 120_000));
+    this.log(`[${this.cfg.id}] restored state for mission "${name}"`);
+    this.broadcastPlans();
+    this.broadcastOps();
+    this.broadcastAssignments();
+    this.broadcastOwners();
+    this.broadcastSeats();
   }
 
   start(): void {
@@ -108,6 +199,7 @@ class Source {
           Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab });
           if (s.mission?.state === 'stopped') store.reset();
           if (JSON.stringify(this.status) !== was) this.onStatus();
+          void this.missionSeen(s.mission?.name);
         },
       });
       client.start();
@@ -126,6 +218,8 @@ class Source {
           this.status.connected = true;
           this.status.lastError = undefined;
           this.onStatus();
+          // a Tacview feed doesn't name the mission: one state per feed
+          void this.missionSeen('tacview');
         },
         onText: (text) => parser.push(text),
         onDisconnect: (why) => {
@@ -145,6 +239,8 @@ class Source {
   stop(): void {
     clearInterval(this.timer);
     clearInterval(this.orderTimer);
+    clearTimeout(this.restoreTimer);
+    void this.flush();
     this.stopFn?.();
   }
 
@@ -300,11 +396,13 @@ class Source {
   }
 
   broadcastOwners(): void {
+    this.dirty();
     const m = this.ownersMsg();
     for (const c of this.subscribers) send(c, m);
   }
 
   broadcastOps(): void {
+    this.dirty();
     const m = this.opsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -334,11 +432,13 @@ class Source {
   }
 
   broadcastPlans(): void {
+    this.dirty();
     const m = this.plansMsg();
     for (const c of this.subscribers) send(c, m);
   }
 
   broadcastAssignments(): void {
+    this.dirty();
     const m = this.assignmentsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -350,6 +450,7 @@ class Source {
   }
 
   broadcastSeats(): void {
+    this.dirty();
     const m = this.seatsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -376,7 +477,7 @@ export class RoomService {
   private readonly conns = new Set<Conn>();
   private readonly graceTimers = new Map<string, NodeJS.Timeout>();
   private heartbeat?: NodeJS.Timeout;
-  private readonly opts: Required<Omit<RoomOptions, 'log'>> & { log: (m: string) => void };
+  private readonly opts: Required<Omit<RoomOptions, 'log' | 'store'>> & { log: (m: string) => void; store?: RoomStore };
 
   constructor(opts: RoomOptions) {
     this.opts = {
@@ -385,10 +486,14 @@ export class RoomService {
       path: opts.path ?? '/catcc/ws',
       seatGraceMs: opts.seatGraceMs ?? 60_000,
       authTimeoutMs: opts.authTimeoutMs ?? 10_000,
+      store: opts.store,
       log: opts.log ?? ((m) => console.log(`[CATCC] ${m}`)),
     };
     for (const cfg of opts.sources) {
-      this.sources.set(cfg.id, new Source(cfg, () => this.broadcastStatus(), this.opts.log));
+      this.sources.set(
+        cfg.id,
+        new Source(cfg, { store: opts.store, graceMs: this.opts.seatGraceMs, connected: (u) => this.userConnected(u), onStatus: () => this.broadcastStatus(), log: this.opts.log }),
+      );
     }
   }
 
@@ -409,6 +514,11 @@ export class RoomService {
       }
     }, 30_000);
     this.opts.log(`room started with sources: ${[...this.sources.keys()].join(', ') || '(none)'}`);
+  }
+
+  /** write every source's pending state now */
+  async flush(): Promise<void> {
+    await Promise.all([...this.sources.values()].map((s) => s.flush()));
   }
 
   stop(): void {

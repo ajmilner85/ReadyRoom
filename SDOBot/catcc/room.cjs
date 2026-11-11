@@ -3698,6 +3698,41 @@ var devVerifier = async (token) => {
   return { userId: `dev:${token}`, name: token.slice(0, 24) || "dev" };
 };
 
+// catcc-server/room/persist.ts
+function supabaseStore(url, serviceKey, log = () => void 0) {
+  const headers = { apikey: serviceKey, Authorization: `Bearer ${serviceKey}`, "content-type": "application/json" };
+  const base = `${url}/rest/v1/catcc_room_state`;
+  return {
+    async load(source, mission) {
+      try {
+        const q = `?source_id=eq.${encodeURIComponent(source)}&mission=eq.${encodeURIComponent(mission)}&select=state&limit=1`;
+        const res = await fetch(base + q, { headers });
+        if (!res.ok) {
+          log(`state load failed: HTTP ${res.status}`);
+          return null;
+        }
+        const [row] = await res.json();
+        return row?.state ?? null;
+      } catch (e) {
+        log(`state load failed: ${e.message}`);
+        return null;
+      }
+    },
+    async save(source, mission, state) {
+      try {
+        const res = await fetch(base, {
+          method: "POST",
+          headers: { ...headers, Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify([{ source_id: source, mission, state, updated_at: (/* @__PURE__ */ new Date()).toISOString() }])
+        });
+        if (!res.ok) log(`state save failed: HTTP ${res.status}`);
+      } catch (e) {
+        log(`state save failed: ${e.message}`);
+      }
+    }
+  };
+}
+
 // src/catcc/core/room/protocol.ts
 var ROOM_PROTO = 1;
 var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
@@ -4742,11 +4777,83 @@ var Source = class {
   cfg;
   onStatus;
   log;
-  constructor(cfg, onStatus, log) {
+  ctx;
+  /** the mission whose state is loaded (persistence key); saves wait until its state has been read */
+  mission;
+  loaded = false;
+  saveTimer;
+  restoreTimer;
+  constructor(cfg, ctx) {
     this.cfg = cfg;
-    this.onStatus = onStatus;
-    this.log = log;
+    this.ctx = ctx;
+    this.onStatus = ctx.onStatus;
+    this.log = ctx.log;
     this.status = { id: cfg.id, name: cfg.name, kind: cfg.kind, connected: false };
+  }
+  // ---------------------------------------------------------------- persistence
+  snapshot() {
+    return { plans: this.plans, ops: this.ops, assignments: this.assignments, owners: this.owners, seats: [...this.seats.values()].map((x) => ({ ...x, away: void 0 })) };
+  }
+  /** something shared changed: save it shortly (debounced) */
+  dirty() {
+    if (!this.ctx.store || !this.mission || !this.loaded) return;
+    clearTimeout(this.saveTimer);
+    this.saveTimer = setTimeout(() => void this.flush(), 2e3);
+  }
+  async flush() {
+    clearTimeout(this.saveTimer);
+    this.saveTimer = void 0;
+    if (!this.ctx.store || !this.mission || !this.loaded) return;
+    await this.ctx.store.save(this.cfg.id, this.mission, this.snapshot());
+  }
+  /**
+   * The source reports a mission: a new one (or the first since a restart) saves the old mission's
+   * state, clears it and loads the new one's. What was edited while it loaded wins over what's stored.
+   */
+  async missionSeen(name) {
+    if (!name || name === this.mission) return;
+    if (this.mission) {
+      await this.flush();
+      for (const o of [this.plans, this.ops, this.assignments, this.owners]) for (const k of Object.keys(o)) delete o[k];
+      this.broadcastPlans();
+      this.broadcastOps();
+      this.broadcastAssignments();
+      this.broadcastOwners();
+    }
+    this.mission = name;
+    this.loaded = false;
+    const st = this.ctx.store ? await this.ctx.store.load(this.cfg.id, name) : null;
+    if (this.mission !== name) return;
+    this.loaded = true;
+    if (!st) return;
+    const fill = (into, from) => {
+      for (const [k, v] of Object.entries(from ?? {})) if (!(k in into)) into[k] = v;
+    };
+    fill(this.plans, st.plans);
+    fill(this.ops, st.ops);
+    fill(this.assignments, st.assignments);
+    fill(this.owners, st.owners);
+    for (const h of st.seats ?? []) {
+      const k = seatId(h);
+      if (!this.seats.has(k)) this.seats.set(k, { ...h, away: !this.ctx.connected(h.userId) });
+    }
+    clearTimeout(this.restoreTimer);
+    this.restoreTimer = setTimeout(() => {
+      let removed = false;
+      for (const [k, h] of this.seats) {
+        if (h.away && !this.ctx.connected(h.userId)) {
+          this.seats.delete(k);
+          removed = true;
+        }
+      }
+      if (removed) this.broadcastSeats();
+    }, Math.max(this.ctx.graceMs, 12e4));
+    this.log(`[${this.cfg.id}] restored state for mission "${name}"`);
+    this.broadcastPlans();
+    this.broadcastOps();
+    this.broadcastAssignments();
+    this.broadcastOwners();
+    this.broadcastSeats();
   }
   start() {
     const cfg = this.cfg;
@@ -4772,6 +4879,7 @@ var Source = class {
           Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab });
           if (s.mission?.state === "stopped") store.reset();
           if (JSON.stringify(this.status) !== was) this.onStatus();
+          void this.missionSeen(s.mission?.name);
         }
       });
       client.start();
@@ -4790,6 +4898,7 @@ var Source = class {
           this.status.connected = true;
           this.status.lastError = void 0;
           this.onStatus();
+          void this.missionSeen("tacview");
         },
         onText: (text) => parser.push(text),
         onDisconnect: (why) => {
@@ -4808,6 +4917,8 @@ var Source = class {
   stop() {
     clearInterval(this.timer);
     clearInterval(this.orderTimer);
+    clearTimeout(this.restoreTimer);
+    void this.flush();
     this.stopFn?.();
   }
   publish(mt, utc, theatre, tracks) {
@@ -4946,10 +5057,12 @@ var Source = class {
     return JSON.stringify({ t: "ops", src: this.cfg.id, ops: this.ops });
   }
   broadcastOwners() {
+    this.dirty();
     const m = this.ownersMsg();
     for (const c of this.subscribers) send(c, m);
   }
   broadcastOps() {
+    this.dirty();
     const m = this.opsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -4973,10 +5086,12 @@ var Source = class {
     return JSON.stringify({ t: "assignments", src: this.cfg.id, assignments: this.assignments });
   }
   broadcastPlans() {
+    this.dirty();
     const m = this.plansMsg();
     for (const c of this.subscribers) send(c, m);
   }
   broadcastAssignments() {
+    this.dirty();
     const m = this.assignmentsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -4986,6 +5101,7 @@ var Source = class {
     return relevant.length === 0 || relevant.some((s) => s.userId === userId);
   }
   broadcastSeats() {
+    this.dirty();
     const m = this.seatsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -5016,10 +5132,14 @@ var RoomService = class {
       path: opts.path ?? "/catcc/ws",
       seatGraceMs: opts.seatGraceMs ?? 6e4,
       authTimeoutMs: opts.authTimeoutMs ?? 1e4,
+      store: opts.store,
       log: opts.log ?? ((m) => console.log(`[CATCC] ${m}`))
     };
     for (const cfg of opts.sources) {
-      this.sources.set(cfg.id, new Source(cfg, () => this.broadcastStatus(), this.opts.log));
+      this.sources.set(
+        cfg.id,
+        new Source(cfg, { store: opts.store, graceMs: this.opts.seatGraceMs, connected: (u) => this.userConnected(u), onStatus: () => this.broadcastStatus(), log: this.opts.log })
+      );
     }
   }
   get path() {
@@ -5038,6 +5158,10 @@ var RoomService = class {
       }
     }, 3e4);
     this.opts.log(`room started with sources: ${[...this.sources.keys()].join(", ") || "(none)"}`);
+  }
+  /** write every source's pending state now */
+  async flush() {
+    await Promise.all([...this.sources.values()].map((s) => s.flush()));
   }
   stop() {
     clearInterval(this.heartbeat);
@@ -5282,10 +5406,17 @@ function attachCatccRoom(server, env = process.env, extraSources = []) {
     if (!env.SUPABASE_URL || !env.SUPABASE_SERVICE_KEY) throw new Error("CATCC needs SUPABASE_URL and SUPABASE_SERVICE_KEY");
     verify = supabaseVerifier(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
   }
-  const room = new RoomService({ sources, verify, path: env.CATCC_WS_PATH || void 0 });
+  const persist = !devAuth && env.CATCC_PERSIST !== "0" && !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_KEY;
+  const store = persist ? supabaseStore(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY, (m) => console.log(`[CATCC] ${m}`)) : void 0;
+  const room = new RoomService({ sources, verify, store, path: env.CATCC_WS_PATH || void 0 });
   room.attach(server);
   room.start();
-  console.log(`[CATCC] room attached at ${room.path}${devAuth ? " (DEV: no auth)" : ""}`);
+  if (store) {
+    const onExit = () => void room.flush();
+    process.once("SIGTERM", onExit);
+    process.once("SIGINT", onExit);
+  }
+  console.log(`[CATCC] room attached at ${room.path}${devAuth ? " (DEV: no auth)" : ""}${store ? ", state kept in Supabase" : ""}`);
   return room;
 }
 // Annotate the CommonJS export names for ESM import in node:

@@ -1,5 +1,6 @@
 import type http from 'node:http';
 import { devVerifier, supabaseVerifier } from './auth.ts';
+import { supabaseStore } from './persist.ts';
 import { RoomService, type SourceConfig } from './roomService.ts';
 
 /**
@@ -12,6 +13,8 @@ import { RoomService, type SourceConfig } from './roomService.ts';
  *   SUPABASE_URL, SUPABASE_SERVICE_KEY   verify ReadyRoom users' access tokens
  *   CATCC_DEV_NOAUTH=1   accept any token (local development only; refused when NODE_ENV=production)
  *   CATCC_WS_PATH        default /catcc/ws
+ *   CATCC_PERSIST=0      don't keep room state in Supabase (public.catcc_room_state); it is kept
+ *                        whenever SUPABASE_URL/SUPABASE_SERVICE_KEY are set and auth is real
  *
  * This is the module SDOBot loads (bundled to SDOBot/catcc/room.mjs) when CATCC_ENABLED=true.
  */
@@ -43,9 +46,19 @@ export function attachCatccRoom(server: http.Server, env: NodeJS.ProcessEnv = pr
     verify = supabaseVerifier(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
   }
 
-  const room = new RoomService({ sources, verify, path: env.CATCC_WS_PATH || undefined });
+  // plans, ops, assignments, ownership and seats survive a restart (deploy); not in dev mode
+  const persist = !devAuth && env.CATCC_PERSIST !== '0' && !!env.SUPABASE_URL && !!env.SUPABASE_SERVICE_KEY;
+  const store = persist ? supabaseStore(env.SUPABASE_URL!, env.SUPABASE_SERVICE_KEY!, (m) => console.log(`[CATCC] ${m}`)) : undefined;
+
+  const room = new RoomService({ sources, verify, store, path: env.CATCC_WS_PATH || undefined });
   room.attach(server);
   room.start();
-  console.log(`[CATCC] room attached at ${room.path}${devAuth ? ' (DEV: no auth)' : ''}`);
+  if (store) {
+    // best effort: write pending changes when the app is stopped (a deploy sends SIGTERM)
+    const onExit = () => void room.flush();
+    process.once('SIGTERM', onExit);
+    process.once('SIGINT', onExit);
+  }
+  console.log(`[CATCC] room attached at ${room.path}${devAuth ? ' (DEV: no auth)' : ''}${store ? ', state kept in Supabase' : ''}`);
   return room;
 }
