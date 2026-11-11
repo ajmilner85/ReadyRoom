@@ -24,12 +24,11 @@ export const centroid = (q: V[]): V => {
 
 // ---------------------------------------------------------------- drawing layers
 
-export type DeckLayer = 'areas' | 'helo' | 'wires' | 'spots' | 'routes' | 'gear';
+export type DeckLayer = 'areas' | 'helo' | 'spots' | 'routes' | 'gear';
 export const DECK_LAYERS: { k: DeckLayer; label: string; title: string }[] = [
   { k: 'areas', label: 'Areas', title: 'Deck parking areas: Crotch, Point, Corral, Junk Yard, Patio, Finger, Box, Street, Six-pack' },
   { k: 'spots', label: 'DCS spots', title: 'The 16 parking spots DCS taxis recovered aircraft to' },
   { k: 'routes', label: 'DCS routes', title: 'Every Supercarrier deck-crew taxi route: launch (to the catapults) and recovery (to the parking spots)' },
-  { k: 'wires', label: 'Wires', title: 'Arresting wire numbers' },
   { k: 'helo', label: 'Helo spots', title: 'Helicopter landing spots' },
   { k: 'gear', label: 'Equipment', title: 'LSO platform, IFLOLS, shooter bubble, weapons elevators, barricade stanchions' },
 ];

@@ -271,8 +271,8 @@ export const DeckDrawing: React.FC<{
               {NAMES[a.name] ?? a.name.toUpperCase()}
             </T>
           ))}
-        {layers.has('wires') &&
-          G.wires.flatMap((w, i) => {
+        {/* wire numbers: always shown */}
+        {G.wires.flatMap((w, i) => {
             // a numbered disc just beyond each end of the wire, along its line; the number squared to the landing area
             const [a, b] = w;
             const L = Math.hypot(b[0] - a[0], b[1] - a[1]);

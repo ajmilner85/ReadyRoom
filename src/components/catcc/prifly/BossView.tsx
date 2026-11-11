@@ -121,7 +121,7 @@ export const BossView: React.FC<{
   const [curPath, setCurPath] = useState<V[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [layerList, setLayerList] = useState<DeckLayer[]>(() => load('catcc.deck.layers', { l: ['wires'] as DeckLayer[] }).l);
+  const [layerList, setLayerList] = useState<DeckLayer[]>(() => load('catcc.deck.layers', { l: [] as DeckLayer[] }).l.filter((k) => DECK_LAYERS.some((x) => x.k === k)));
   const layers = useMemo(() => new Set(layerList), [layerList]);
   const [wind, setWind] = useState<{ m: WindMode }>(() => load('catcc.wind', { m: 'true' as WindMode }));
   const svgRef = useRef<SVGSVGElement>(null);
