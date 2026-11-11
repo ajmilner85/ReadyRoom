@@ -9,6 +9,7 @@ import { useEffect, useRef, useState } from 'react';
 import { bearingDeg, distanceNm } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { SHIP_HISTORY_S, type Trail } from '../scopeModel.ts';
+import { antennaFtOf, coverageNm, radarOf, type RadarSpec } from '../../../catcc/core/sensors/radar.ts';
 
 export const SPN43_RPM = 15;
 export const SCAN_S = 60 / SPN43_RPM;
@@ -36,6 +37,8 @@ export interface Radar {
   swept: (bearing: number) => boolean;
   /** paints aircraft (air search); default true */
   air?: boolean;
+  /** air search coverage against a target at this altitude (ft), NM: range capped by the horizon; unlimited when absent */
+  airNm?: (targetFt: number) => number;
   /** paints ships out to its radar horizon (surface search) */
   sfc?: { rangeNm: number };
 }
@@ -54,11 +57,17 @@ export const SPS67_RPM = 15;
 export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, radars: Radar[], mt: number, keepS = 60): boolean {
   if (!tracks.some((t) => t.id === refId) || !radars.length) return false;
   const isShip = (t: WireTrack) => t.k === 'ship' || t.k === 'carrier';
-  // aircraft: any air-search beam passing them; ships: a surface-search beam passing them within its horizon
-  const sees = (r: Radar, t: WireTrack) => (isShip(t) ? !!r.sfc && distanceNm(r.lat, r.lon, t.lat, t.lon) <= r.sfc.rangeNm : r.air !== false);
+  // aircraft: an air-search beam passing them inside its coverage for their altitude;
+  // ships: a surface-search beam passing them within its horizon
+  const sees = (r: Radar, t: WireTrack) => {
+    if (isShip(t)) return !!r.sfc && distanceNm(r.lat, r.lon, t.lat, t.lon) <= r.sfc.rangeNm;
+    if (r.air === false) return false;
+    return !r.airNm || distanceNm(r.lat, r.lon, t.lat, t.lon) <= r.airNm(t.alt);
+  };
   const hitT = (t: WireTrack) => radars.some((r) => sees(r, t) && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon)));
-  // a ship swept by a surface radar that can no longer see it (over its horizon) is lost
-  const lostShip = (t: WireTrack) => isShip(t) && radars.some((r) => r.sfc && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon))) && !radars.some((r) => sees(r, t));
+  // a contact swept by a radar of its kind that no radar can see any more (out of range, below the horizon) is lost
+  const ofKind = (r: Radar, t: WireTrack) => (isShip(t) ? !!r.sfc : r.air !== false);
+  const lost = (t: WireTrack) => radars.some((r) => ofKind(r, t) && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon))) && !radars.some((r) => sees(r, t));
   let changed = false;
   const seen = new Set<string>();
   for (const t of tracks) {
@@ -71,17 +80,17 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
       continue;
     }
     if (!hitT(t)) {
-      if (P.painted.has(t.id) && lostShip(t)) {
+      if (P.painted.has(t.id) && lost(t)) {
         P.painted.delete(t.id);
         P.hist.delete(t.id);
         changed = true;
       }
       continue;
     }
-    P.painted.set(t.id, t);
     let h = P.hist.get(t.id);
     if (!h) P.hist.set(t.id, (h = []));
     if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
+    P.painted.set(t.id, trackerVelocity(t, h, mt));
     if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lat: t.lat, lon: t.lon, alt: t.alt, ...(t.air === false ? { gnd: true } : {}) });
     while (h.length > 2 && h[0].t < mt - (isShip(t) ? Math.max(keepS, SHIP_HISTORY_S) : keepS)) h.shift();
     changed = true;
@@ -93,6 +102,27 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
     changed = true;
   }
   return changed;
+}
+
+/** paints closer together than this (s) are too noisy to difference: use an older one */
+export const TRACKER_MIN_DT_S = 3;
+
+/**
+ * The radar tracker's velocity: course and ground speed differenced from the newest earlier paint
+ * at least TRACKER_MIN_DT_S old, instead of DCS's instantaneous velocity. It lags in turns by about
+ * half the paint interval, as a real tracker does. With no usable earlier paint, DCS's is kept.
+ */
+export function trackerVelocity(t: WireTrack, h: Trail[], mt: number): WireTrack {
+  for (let i = h.length - 1; i >= 0; i--) {
+    const p = h[i];
+    const dt = mt - p.t;
+    if (dt < TRACKER_MIN_DT_S) continue;
+    if (dt > 30) break; // a stale paint says nothing about the present
+    const nm = distanceNm(p.lat, p.lon, t.lat, t.lon);
+    const gs = (nm / dt) * 3600;
+    return { ...t, gs, crs: gs > 1 ? bearingDeg(p.lat, p.lon, t.lat, t.lon) : t.crs };
+  }
+  return t;
 }
 
 /** Single-radar step from antenna bearing a0 to a1 (own carrier only). */
@@ -117,25 +147,37 @@ const SHIP_SFC_RADARS: [RegExp, { rpm: number; antFt: number }][] = [
   [/TICONDEROG|Ticonderoga/i, { rpm: SPS67_RPM, antFt: 110 }], // AN/SPS-67
   [/PERRY|Oliver/i, { rpm: 16, antFt: 90 }], // AN/SPS-55
 ];
-/** Airborne early warning: AN/APS-145 (E-2C) / APY-9 (E-2D), 6 RPM, with a maritime surface mode. */
-const AEW_RE = /^E-2/i;
+/** Airborne early warning: AN/APS-145 (E-2C) / APY-9 (E-2D) rotodome, 6 RPM, with a maritime surface mode. */
 const AEW_RPM = 6;
 /** its surface search reaches the radar horizon from its altitude, capped at this, NM */
 const AEW_SFC_MAX_NM = 200;
 /** escorts count as part of a carrier group within this range of a friendly carrier */
 const CSG_RADIUS_NM = 30;
+/** a carrier whose type isn't in the radar table: AN/SPS-48E */
+const CVN_AIR = radarOf('CVN_71')!;
 
-const phaseOf = (id: string) => {
+/** a radar's antenna bearing offset (deg) from the shared clock; our carrier's is 0 */
+export const phaseOf = (id: string) => {
   let h = 0;
   for (const c of id) h = (h * 31 + c.charCodeAt(0)) >>> 0;
   return h % 360;
 };
 
+/** air coverage for a radar on track t (range capped by the horizon to the target's altitude) */
+const airCov = (spec: RadarSpec, t: WireTrack) => {
+  const ant = antennaFtOf(spec, t.alt);
+  return (tgtFt: number) => coverageNm(spec, ant, tgtFt);
+};
+
+/** An AEW aircraft radiating: airborne and above 500 ft. */
+export const isAewUp = (t: WireTrack) => radarOf(t.ty)?.kind === 'aew' && t.air !== false && t.alt >= 500;
+
 /**
  * The radars contributing paints between wall-clock times t0 and t1 (ms). Without datalink only
- * our carrier's SPN-43. With datalink (Link 16 / CEC style track sharing): every friendly carrier's
- * SPN-43 (own phase each) plus escorts with a known air-search radar within CSG_RADIUS_NM of a
- * friendly carrier.
+ * our carrier's own radars. With datalink (Link 16 / CEC style track sharing): every friendly
+ * carrier's, escorts with a known radar within CSG_RADIUS_NM of a friendly carrier, and friendly
+ * AEW aircraft in the air. Air search is limited by each radar's range and its horizon to the
+ * target's altitude, so low flyers beyond the ships' horizon are seen only by AEW.
  */
 export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: number, datalink: boolean): Radar[] {
   const ref = tracks.find((t) => t.id === refId);
@@ -146,32 +188,46 @@ export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: nu
     return { id: t.id, lat: t.lat, lon: t.lon, swept: (b) => swept(a0, a1, b) };
   };
   const sfc = (t: WireTrack, rpm: number, antFt: number): Radar => ({ ...rot(t, rpm, (phaseOf(t.id) + 137) % 360), id: `${t.id}:sfc`, air: false, sfc: { rangeNm: horizonNm(antFt) } });
-  // our carrier: SPN-43 air search and SPS-67 surface search
-  const out: Radar[] = [{ ...rot(ref, SPN43_RPM, 0), sfc: undefined }, sfc(ref, SPS67_RPM, CVN_SFC_ANT_FT)];
+  const carrierAir = (c: WireTrack, phase: number): Radar => ({ ...rot(c, SPN43_RPM, phase), airNm: airCov(radarOf(c.ty) ?? CVN_AIR, c) });
+  // our carrier: air search (SPN-43 timing, SPS-48E coverage) and SPS-67 surface search
+  const out: Radar[] = [carrierAir(ref, 0), sfc(ref, SPS67_RPM, CVN_SFC_ANT_FT)];
   if (!datalink) return out;
   const carriers = tracks.filter((t) => t.k === 'carrier' && t.sd === ref.sd);
-  for (const c of carriers) if (c.id !== refId) out.push(rot(c, SPN43_RPM, phaseOf(c.id)), sfc(c, SPS67_RPM, CVN_SFC_ANT_FT));
+  for (const c of carriers) if (c.id !== refId) out.push(carrierAir(c, phaseOf(c.id)), sfc(c, SPS67_RPM, CVN_SFC_ANT_FT));
   for (const s of tracks) {
     if (s.k !== 'ship' || s.sd !== ref.sd) continue;
     if (!carriers.some((c) => distanceNm(c.lat, c.lon, s.lat, s.lon) <= CSG_RADIUS_NM)) continue;
     const ss = SHIP_SFC_RADARS.find(([re]) => re.test(s.ty))?.[1];
     if (ss) out.push(sfc(s, ss.rpm, ss.antFt));
     const spec = SHIP_RADARS.find(([re]) => re.test(s.ty))?.[1];
+    const cov = radarOf(s.ty);
     if (!spec) continue;
-    if ('rpm' in spec) out.push(rot(s, spec.rpm, phaseOf(s.id)));
+    const airNm = cov ? airCov(cov, s) : undefined;
+    if ('rpm' in spec) out.push({ ...rot(s, spec.rpm, phaseOf(s.id)), airNm });
     else {
       const due = Math.floor(t1 / (spec.revisitS * 1000)) !== Math.floor(t0 / (spec.revisitS * 1000));
-      out.push({ id: s.id, lat: s.lat, lon: s.lon, swept: () => due });
+      out.push({ id: s.id, lat: s.lat, lon: s.lon, swept: () => due, airNm });
     }
   }
-  // friendly E-2s in the air paint ships out to their horizon
+  // friendly AEW in the air: air search to its range/horizon, and ships out to its horizon
   for (const a of tracks) {
-    if (a.sd !== ref.sd || !AEW_RE.test(a.ty) || a.air === false || a.alt < 500) continue;
+    if (a.sd !== ref.sd || !isAewUp(a)) continue;
+    const spec = radarOf(a.ty)!;
+    out.push({ ...rot(a, AEW_RPM, phaseOf(a.id)), airNm: airCov(spec, a) });
     out.push({ ...rot(a, AEW_RPM, phaseOf(a.id)), id: `${a.id}:sfc`, air: false, sfc: { rangeNm: Math.min(AEW_SFC_MAX_NM, horizonNm(a.alt)) } });
   }
   return out;
 }
 
+/** Scan period (s) of a donor's radar, for the scope's rotating donor marker. */
+export function scanPeriodS(ty: string): number {
+  const r = radarOf(ty);
+  if (r?.kind === 'aew') return 60 / AEW_RPM;
+  if (r?.kind === 'ship' && /^(CVN_7[1-5]|Stennis|VINSON|CV_59|Forrestal|LHA_Tarawa)/i.test(ty)) return SCAN_S;
+  const spec = SHIP_RADARS.find(([re]) => re.test(ty))?.[1];
+  if (spec) return 'rpm' in spec ? 60 / spec.rpm : spec.revisitS;
+  return SCAN_S;
+}
 /** Paints `tracks` on the sweep(s) while enabled; null when disabled (use the live picture). */
 export function useSweep(tracks: WireTrack[], mt: number, refId: string | undefined, enabled: boolean, datalink = false): { tracks: WireTrack[]; hist: Map<string, Trail[]> } | null {
   const latest = useRef({ tracks, mt, refId, datalink });

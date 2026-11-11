@@ -92,11 +92,14 @@ Each order is logged in `dcs.log` as `CATCC: order helm for <group> from <ip>`.
 
 ## Room service (SDOBot on Fly)
 
-The room service runs inside SDOBot until it gets its own Fly app. Set these secrets, then deploy:
+The room service runs inside SDOBot until it gets its own Fly app. Use a token of letters and digits only (no quoting needed), then from `SDOBot\`:
 
 ```
-fly secrets set CATCC_ENABLED=true CATCC_SOURCES='[{"id":"fox3","name":"Fox3","kind":"hook","host":"dcs.fightingstingrays.com","port":10310,"token":"<token>"},{"id":"fox3-tv","name":"Fox3 (Tacview)","kind":"tacview","host":"dcs.fightingstingrays.com"}]'
+fly secrets set CATCC_TOKEN=<token> -a readyroom
+fly deploy
 ```
+
+Setting the token turns the room on and points it at the hook on `dcs.fightingstingrays.com:10310` (`CATCC_HOOK=host:port` overrides; `CATCC_ENABLED=false` turns it off). For several sources, `CATCC_SOURCES` (a JSON array of sources) still takes precedence.
 
 The browser endpoint is `wss://readyroom.fly.dev/catcc/ws`. It uses the existing `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` to verify ReadyRoom sign-ins.
 

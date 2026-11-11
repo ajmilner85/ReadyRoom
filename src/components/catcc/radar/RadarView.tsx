@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import FlightCard from '../../ui/flight cards/FlightCard';
 import type { Flight, FlightMember } from '../../../types/FlightData';
-import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
+import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, stackConflict, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
 import { add, dir, len, mul, P, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { isCarrierCapable } from '../../../catcc/core/dcs/aircraft.ts';
 import { autoCoordLine, coordGeom, reframe, sideOf, type CoordArea, type CoordGeom, type CoordSetting } from '../../../catcc/core/geometry/coordination.ts';
@@ -18,6 +18,7 @@ import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { finalPicture, patternIds } from '../final/finalModel.ts';
 import { DeckPanel, DonorsPanel } from './SidePanels.tsx';
+import { phaseOf as radarPhase, scanPeriodS } from './sweep.ts';
 import { HelmPanel } from '../bridge/Helm.tsx';
 import { clockOf, PimPanel, PIM_BOX_NM, routeEtas, WaypointsPanel, WindIndicator, WodPanel, type WindMode } from '../bridge/Nav.tsx';
 import { useMarineData, useSeaRoom } from '../bridge/seaRoom.ts';
@@ -210,10 +211,10 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
       if (!spec) continue;
       // an AEW aircraft on deck or on the ground isn't radiating
       if (spec.kind === 'aew' && (t.air === false || t.alt < 500)) continue;
-      out.push({ id: t.id, p: t.p, name: t.hull ?? (spec.kind === 'aew' ? (t.cs ?? t.ty) : (spec.cls ?? t.ty.replace(/_/g, ' '))), radar: spec.radar, kind: spec.kind, sym: t.k !== 'ship', cov: coverageNm(spec, antennaFtOf(spec, t.alt), blind.alt), covLow: coverageNm(spec, antennaFtOf(spec, t.alt), BLIND_ALTS[0]) });
+      out.push({ id: t.id, p: t.p, name: t.hull ?? (spec.kind === 'aew' ? (t.cs ?? t.ty) : (spec.cls ?? t.ty.replace(/_/g, ' '))), radar: spec.radar, kind: spec.kind, sym: t.k !== 'ship', scanS: scanPeriodS(t.ty), phase: t.id === focus?.track.id ? 0 : radarPhase(t.id), cov: coverageNm(spec, antennaFtOf(spec, t.alt), blind.alt), covLow: coverageNm(spec, antennaFtOf(spec, t.alt), BLIND_ALTS[0]) });
     }
     return out;
-  }, [pic.carriers, pic.ships, pic.air, focus?.track.sd, blind.alt]);
+  }, [pic.carriers, pic.ships, pic.air, focus?.track.sd, focus?.track.id, blind.alt]);
 
   // ------------------------------------------------ CSG stations (the active formation preset)
   // the formation display belongs to the seats with the CSG panel, switched from the toolbar
@@ -283,6 +284,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const nowS = utc ? utc.getUTCHours() * 3600 + utc.getUTCMinutes() * 60 + utc.getUTCSeconds() + utc.getUTCMilliseconds() / 1000 : undefined;
   const localNow = utc && offH !== undefined ? new Date(utc.getTime() + offH * 3_600_000) : undefined;
 
+  const [refusal, setRefusal] = useState<{ id: string; text: string } | null>(null);
+
   // ------------------------------------------------ radials placement
   const checkRadial = useCallback(
     (b: number): RadialCheck => {
@@ -293,9 +296,14 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         const stacks = plan.stacks.filter((m) => !(ed?.k === 'm' && ed.id === m.id)).map((m) => ({ r: m.r, name: `stack ${stackLabel(hull, m.id)}` }));
         return checkDepartureRadial(b, ship, others, stacks);
       }
-      return checkStackRadial(b, ship, plan.deps, plan.stacks.filter((m) => !(ed?.k === 'm' && ed.id === m.id)));
+      // other stacks, the emergency marshal included while it's in use; the edited stack keeps its base
+      const others = [...plan.stacks, ...(plan.off?.includes('E') ? [] : [{ id: 'E', r: emergencyMarshalRadial(ship), base: 6 }])]
+        .filter((m) => !(ed?.k === 'm' && ed.id === m.id))
+        .map((m) => ({ ...m, id: m.id === 'E' ? 'EMER' : stackLabel(hull, m.id) }));
+      const base = ed?.k === 'm' ? (plan.stacks.find((m) => m.id === ed.id)?.base ?? 6) : 6;
+      return checkStackRadial(b, ship, plan.deps, others, base);
     },
-    [ship, plan, placement.placing, placement.editing],
+    [ship, plan, placement.placing, placement.editing, hull],
   );
   // edits build on the plan last sent until the room's copy catches up (a quick second click would otherwise
   // start from the room's stale copy and undo the first)
@@ -383,6 +391,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const label = (t: { bd?: string; cs?: string; pi?: string; id: string }) => t.bd ?? t.cs ?? t.pi ?? t.id;
   const tLocal = localNow ? hhmm(localNow) : '';
   const notes: Note[] = [];
+  // a refused stack change (loss of separation), until acknowledged
+  if (refusal) notes.push({ id: refusal.id, k: 'warn', kind: 'STACK', t: tLocal, title: refusal.text });
   // handoffs offered to this seat
   for (const f of pic.formations) {
     if (f.lead.owner && f.lead.owner !== hull) continue;
@@ -678,7 +688,19 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
               setPlacement({ placing: 'coord', editing: { k: 'coord', hull: other }, hov: null, coord: { hull: other, brg: g?.brg ?? 0, off: g?.off ?? 10 } });
             }}
             onToggleStack={(id) => setPlan((p) => ({ ...p, off: p.off?.includes(id) ? p.off.filter((x) => x !== id) : [...(p.off ?? []), id] }))}
-            onBase={(id, d) => setPlan((p) => ({ ...p, stacks: p.stacks.map((x) => (x.id === id ? { ...x, base: Math.max(6, Math.min(20, x.base + d)) } : x)) }))}
+            onBase={(id, d) => {
+              const me = plan.stacks.find((x) => x.id === id);
+              if (!me || !ship) return;
+              const base = Math.max(6, Math.min(20, me.base + d));
+              // a base change that would put this stack's band beside another stack's without separation is refused
+              const others = [...plan.stacks.filter((x) => x.id !== id), ...(plan.off?.includes('E') ? [] : [{ id: 'E', r: emergencyMarshalRadial(ship), base: 6 }])];
+              const clash = stackConflict(me.r, base, others.map((m) => ({ ...m, id: m.id === 'E' ? 'EMER' : stackLabel(hull, m.id) })));
+              if (clash) {
+                setRefusal({ id: `rf:${Date.now()}`, text: `Stack ${stackLabel(hull, id)} to A${base} refused · ${clash}` });
+                return;
+              }
+              setPlan((p) => ({ ...p, stacks: p.stacks.map((x) => (x.id === id ? { ...x, base } : x)) }));
+            }}
             assignments={assignments}
             hull={hull}
             air={pic.air}

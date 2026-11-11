@@ -113,7 +113,7 @@ export const FormationPanel: React.FC<{
       })}
       {!escorts.length && <div className="mono" style={{ fontSize: 11.5, color: '#6B7683' }}>No escorts with this carrier</div>}
       {cmds && escorts.length > 0 && (
-        <label className="mono" title="The room sends each escort a route to its station (re-sent as the carrier moves). Escorts must each be in their own DCS group." style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid #262F3A', fontSize: 11.5, color: f.drive ? '#E6EDF3' : '#93A1B0', cursor: readOnly ? 'default' : 'pointer' }}>
+        <label className="mono" title="The room sends each escort a route to its station (re-sent as the carrier moves). An escort in the carrier's own DCS group is first respawned in place in a group of its own (damage isn't kept)." style={{ display: 'flex', alignItems: 'center', gap: 8, marginTop: 8, paddingTop: 8, borderTop: '1px solid #262F3A', fontSize: 11.5, color: f.drive ? '#E6EDF3' : '#93A1B0', cursor: readOnly ? 'default' : 'pointer' }}>
           <input type="checkbox" disabled={readOnly} checked={!!f.drive} onChange={(ev) => setOps({ formation: { ...f, drive: ev.target.checked } })} />
           Order escorts to their stations in DCS
         </label>

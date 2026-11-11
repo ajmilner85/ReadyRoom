@@ -100,6 +100,25 @@ const SweepLineRaf: React.FC<{ x: number; y: number; w: number; len: number; rot
     </svg>
   );
 };
+/**
+ * A radar donor's beam: a translucent wedge trailing the antenna bearing, turning once per scan about
+ * (x, y). A CSS animation on a group translated to the donor, so it turns without re-rendering; the
+ * negative delay puts it in phase with the hit painter (bearing = now·360/scan + phase).
+ */
+const DonorBeam: React.FC<{ x: number; y: number; r: number; scanS: number; phase: number }> = ({ x, y, r, scanS, phase }) => {
+  const [delay] = useState(() => -((((performance.now() / 1000) * 360) / scanS + phase) % 360) / 360 * scanS);
+  const W = (50 * Math.PI) / 180; // wedge width
+  const lead = `M0 0L0 ${f2(-r)}`;
+  const wedge = `M0 0L0 ${f2(-r)}A${r} ${r} 0 0 0 ${f2(-r * Math.sin(W))} ${f2(-r * Math.cos(W))}Z`;
+  return (
+    <g transform={`translate(${f2(x)} ${f2(y)})`}>
+      <g style={{ transformOrigin: '0 0', animation: `catcc-sweep ${scanS}s linear infinite`, animationDelay: `${delay}s` }}>
+        <path d={wedge} fill="#E7C66B" fillOpacity={0.28} />
+        <path d={lead} stroke="#E7C66B" strokeOpacity={0.75} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+      </g>
+    </g>
+  );
+};
 import { inAltBlock, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
@@ -2284,23 +2303,19 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             })()}
           {ov.dl &&
             (props.donors ?? []).map((d) => {
-              // radiating-arcs glyph just below the symbol (below on screen, in track up too); the radar is on the
-              // track's tag (ships, AEW aircraft). Our carrier has no tag: its label stays beside the glyph
-              const below = rpInv([0, (d.sym ? 1.9 : 1.6) * zkO]);
-              const c: Pt = [d.p[0] + below[0], d.p[1] + below[1]];
+              // a yellow ring round the donor's hit, with its beam turning at the radar's scan rate (in phase with the
+              // hit painter). The radar is on the track's tag (ships, AEW aircraft); our carrier has no tag, so its
+              // label sits beside the ring
+              const c = d.p;
+              const r = d.sym ? 1.55 : 1.3;
               const tagged = d.sym ? d.kind === 'aew' : true;
-              const arc = (r: number, side: 1 | -1) => {
-                const x = r * Math.cos(0.7) * side;
-                const y = r * Math.sin(0.7);
-                return side > 0 ? `M${f2(c[0] + x)} ${f2(c[1] - y)}A${r} ${r} 0 0 1 ${f2(c[0] + x)} ${f2(c[1] + y)}` : `M${f2(c[0] + x)} ${f2(c[1] + y)}A${r} ${r} 0 0 1 ${f2(c[0] + x)} ${f2(c[1] - y)}`;
-              };
               return (
                 <g key={`dl${d.id}`} className="zs" transform={zs(c, zkO)} style={{ pointerEvents: 'none' }}>
                   <title>{`${d.name} · ${d.radar}`}</title>
-                  <circle cx={f2(c[0])} cy={f2(c[1])} r="0.2" fill="#E7C66B" />
-                  <path d={[arc(0.55, 1), arc(0.55, -1), arc(0.95, 1), arc(0.95, -1)].join('')} fill="none" stroke="#E7C66B" style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} />
+                  <DonorBeam x={c[0]} y={c[1]} r={r} scanS={d.scanS} phase={d.phase} />
+                  <circle cx={f2(c[0])} cy={f2(c[1])} r={r} fill="none" stroke="#E7C66B" strokeOpacity={0.85} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
                   {!tagged && (
-                    <text className="nr" transform={upT(c)} x={f2(c[0] + 1.25)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
+                    <text className="nr" transform={upT(c)} x={f2(c[0] + r + 0.4)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                       {`${d.name.toUpperCase()} · ${d.radar}`}
                     </text>
                   )}
@@ -2663,7 +2678,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         </div>
 
         {/* ---------------- frequencies */}
-        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6 }}>
+        {/* above the altitude filter, which it overlaps when open */}
+        <div style={{ position: 'absolute', top: 12, left: 12, display: 'flex', flexDirection: 'column', alignItems: 'flex-start', gap: 6, zIndex: props.freqOpen ? 5 : undefined }}>
           <button className="tbtn" onClick={props.onToggleFreq} aria-expanded={props.freqOpen} aria-label="Frequencies" title="Frequencies" style={{ background: props.freqOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: props.freqOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
             <IcRadio />
           </button>

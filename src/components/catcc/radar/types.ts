@@ -47,8 +47,12 @@ export interface RadarDonor {
   cov: number;
   /** coverage radius against the lowest blind-spot altitude (always shown, faintly), NM */
   covLow: number;
-  /** the scope already draws a symbol here (carrier, aircraft): the datalink icon sits above it */
+  /** the scope already draws a symbol here (carrier, aircraft) */
   sym: boolean;
+  /** the radar's scan period (rotation or revisit), s: the marker's beam turns at this rate */
+  scanS: number;
+  /** antenna bearing at performance.now() = 0, deg (the hit painter's phase) */
+  phase: number;
 }
 
 export interface PimShip {

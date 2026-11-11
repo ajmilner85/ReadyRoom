@@ -23,6 +23,8 @@ export interface HookClientStatus {
   server?: string;
   /** the hook accepts ship orders */
   cmds?: boolean;
+  /** the hook can use the Supercarrier's Air Boss ship control (heading orders, bells, astern) */
+  ab?: boolean;
   mission?: { state: 'running' | 'stopped'; name: string };
   lastError?: string;
   bytesIn: number;
@@ -142,6 +144,7 @@ export class HookClient {
       case 'hello':
         this.status.server = msg.server;
         this.status.cmds = msg.cmds === true;
+        this.status.ab = msg.ab === true;
         if (msg.proto !== 1) {
           sock.destroy(new Error(`unsupported hook protocol ${msg.proto}`));
           return;

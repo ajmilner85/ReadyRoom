@@ -5,6 +5,7 @@ import { WebSocketServer, type WebSocket } from 'ws';
 import { AcmiLineParser } from '../../src/catcc/core/acmi/parser.ts';
 import { HookTrackStore } from '../../src/catcc/core/dcs/hookTrackStore.ts';
 import type { OrderPoint, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import { bellFor, hasAirBoss } from '../../src/catcc/core/dcs/bells.ts';
 import { formationFor } from '../../src/catcc/core/geometry/formation.ts';
 import { orderChanged, stationOrder } from '../../src/catcc/core/geometry/stationKeeping.ts';
 import {
@@ -65,7 +66,9 @@ class Source {
   private tracks: WireTrack[] = [];
   private hook?: HookClient;
   /** what was last sent per ship, to refresh helm orders and skip unchanged station orders */
-  private readonly sent = new Map<string, { at: number; pts?: OrderPoint[] }>();
+  private readonly sent = new Map<string, { at: number; pts?: OrderPoint[]; bridge?: boolean }>();
+  /** escorts being split out of the carrier's group: track id -> unit name and old group, until the unit shows up in a group of its own */
+  private readonly detaching = new Map<string, { un: string; g: string }>();
   private orderTimer?: NodeJS.Timeout;
   private seq = 0;
   private stopFn?: () => void;
@@ -104,7 +107,7 @@ class Source {
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
-          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds });
+          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab });
           if (s.mission?.state === 'stopped') store.reset();
           if (JSON.stringify(this.status) !== was) this.onStatus();
         },
@@ -192,8 +195,20 @@ class Source {
     for (const c of this.subscribers) send(c, m);
   }
 
-  /** Send one ship order to DCS and publish what became of it. */
-  private order(key: string, op: OrderStatus['op'], cmd: ShipCmd | { error: string }): void {
+  /**
+   * A carrier's helm order: through the Air Boss ship control where the hook has it and the ship
+   * has the station (a heading order and the nearest bell; astern works), else as a route 60 NM
+   * ahead. An Air Boss order DCS refuses falls back to the route.
+   */
+  private helmOrder(hull: string, g: string, helm: { crs: number; kt: number }): void {
+    const route: ShipCmd = { op: 'helm', g, crs: helm.crs, kt: helm.kt };
+    if (this.status.ab && hasAirBoss(this.carrierTrack(hull)?.ty)) {
+      this.order(hull, 'helm', { op: 'bridge', g, crs: helm.crs, bell: bellFor(helm.kt).id }, route);
+    } else this.order(hull, 'helm', route);
+  }
+
+  /** Send one ship order to DCS and publish what became of it; a refused Air Boss order is retried as `fallback`. */
+  private order(key: string, op: OrderStatus['op'], cmd: ShipCmd | { error: string }, fallback?: ShipCmd): void {
     const at = Date.now();
     if ('error' in cmd) {
       this.orders[key] = { op, at, ok: false, error: cmd.error };
@@ -205,11 +220,16 @@ class Source {
       this.broadcastOrders();
       return;
     }
-    this.sent.set(key, { at, ...(cmd.op === 'route' ? { pts: cmd.pts } : {}) });
+    this.sent.set(key, { at, ...(cmd.op === 'route' ? { pts: cmd.pts } : {}), ...(cmd.op === 'bridge' ? { bridge: true } : {}) });
     this.orders[key] = { op, at };
     this.broadcastOrders();
     void this.hook.command(cmd).then((r) => {
       if (this.orders[key]?.at !== at) return; // superseded
+      if (!r.ok && fallback) {
+        this.log(`[${this.cfg.id}] Air Boss order for ${key} refused (${r.error}); sending it as a route`);
+        this.order(key, op, fallback);
+        return;
+      }
       this.orders[key] = { op, at, ok: r.ok, ...(r.error ? { error: r.error } : {}) };
       this.log(`[${this.cfg.id}] ${op} order for ${key}: ${r.ok ? 'ok' : r.error}`);
       this.broadcastOrders();
@@ -227,7 +247,8 @@ class Source {
     if (next.route?.active && !same(prev?.route, next.route)) {
       this.order(carrier, 'route', g ? { op: 'route', g, pts: next.route.pts } : { error: `no DCS group found for ${carrier}` });
     } else if (next.helm && (!same(prev?.helm, next.helm) || (prev?.route?.active && !next.route?.active))) {
-      this.order(carrier, 'helm', g ? { op: 'helm', g, crs: next.helm.crs, kt: next.helm.kt } : { error: `no DCS group found for ${carrier}` });
+      if (g) this.helmOrder(carrier, g, next.helm);
+      else this.order(carrier, 'helm', { error: `no DCS group found for ${carrier}` });
     }
   }
 
@@ -241,10 +262,12 @@ class Source {
     for (const [hull, plan] of Object.entries(this.plans)) {
       const last = this.sent.get(hull);
       const g = this.carrierTrack(hull)?.g;
-      if (plan.helm && !plan.route?.active && g && last && this.orders[hull]?.ok && now - last.at > 10 * 60_000) {
+      // (an Air Boss heading order holds by itself: nothing to re-send)
+      if (plan.helm && !plan.route?.active && g && last && !last.bridge && this.orders[hull]?.ok && now - last.at > 10 * 60_000) {
         this.order(hull, 'helm', { op: 'helm', g, crs: plan.helm.crs, kt: plan.helm.kt });
       }
     }
+    this.rekeyDetached();
     for (const [hull, ops] of Object.entries(this.ops)) {
       if (!ops.formation?.drive) continue;
       const cv = this.carrierTrack(hull);
@@ -256,7 +279,14 @@ class Source {
         const t = this.tracks.find((x) => x.id === id);
         if (!t?.g) continue;
         if (t.g === cv.g) {
-          if (!this.orders[id]) this.order(id, 'station', { error: `${t.g} is the carrier's DCS group: it keeps DCS's own formation` });
+          // in the carrier's own DCS group it keeps DCS's formation: split it out (once), then order it
+          if (this.detaching.has(id)) continue;
+          if (!t.un) {
+            if (!this.orders[id]) this.order(id, 'station', { error: `${t.g}: no unit name to detach it by` });
+            continue;
+          }
+          this.detaching.set(id, { un: t.un, g: t.g });
+          this.order(id, 'station', { op: 'detach', g: t.g, u: t.un });
           continue;
         }
         const pts = stationOrder(st, axis, { lat: cv.lat, lon: cv.lon, crs, kt: cv.gs ?? 0 }, t);
@@ -265,6 +295,36 @@ class Source {
         if (!orderChanged(prev?.pts, pts, prev ? (now - prev.at) / 1000 : Infinity)) continue;
         this.order(id, 'station', { op: 'route', g: t.g, pts });
       }
+    }
+  }
+
+  /**
+   * A detached escort comes back as a new DCS unit: if DCS gave it a new unit id, its formation
+   * stations (keyed by track id) and order status move to the new track, found by unit name.
+   */
+  private rekeyDetached(): void {
+    for (const [oldId, { un, g }] of this.detaching) {
+      // (a refused detach leaves the unit in its old group: it stays here, and isn't retried)
+      const now = this.tracks.find((t) => t.un === un && t.g !== g && (t.k === 'ship' || t.k === 'carrier'));
+      if (!now) continue;
+      this.detaching.delete(oldId);
+      if (now.id === oldId) continue;
+      let changed = false;
+      for (const ops of Object.values(this.ops)) {
+        for (const preset of Object.values(ops.formation?.presets ?? {})) {
+          if (!(oldId in preset)) continue;
+          preset[now.id] = preset[oldId];
+          delete preset[oldId];
+          changed = true;
+        }
+      }
+      if (this.orders[oldId]) {
+        this.orders[now.id] = this.orders[oldId];
+        delete this.orders[oldId];
+      }
+      this.sent.delete(oldId);
+      if (changed) this.broadcastOps();
+      this.broadcastOrders();
     }
   }
 

@@ -16,6 +16,8 @@ export interface FakeHookOptions {
   token: string;
   rateHz?: number;
   name?: string;
+  /** announce Air Boss ship control (the hello's "ab") */
+  ab?: boolean;
 }
 
 const KIND_CODE: Record<string, HookUnit['c'] | undefined> = { fixedwing: 'A', rotary: 'H', carrier: 'S', ship: 'S' };
@@ -64,7 +66,7 @@ export class FakeHookServer {
   private readonly opts: Required<FakeHookOptions>;
 
   constructor(opts: FakeHookOptions) {
-    this.opts = { rateHz: 1, name: 'CATCC-fake-hook', ...opts };
+    this.opts = { rateHz: 1, name: 'CATCC-fake-hook', ab: false, ...opts };
   }
 
   private ref = { lat: 0, lon: 0 };
@@ -178,13 +180,17 @@ export class FakeHookServer {
   }
 
   private envAt = -1e9;
+  /** ops of the orders received, in order (tests) */
+  readonly ops: string[] = [];
+  /** refuse Air Boss orders as a server without the API would (tests) */
+  refuseBridge = false;
 
   private accept(sock: net.Socket): void {
     const c = { sock, authed: false };
     this.clients.add(c);
     sock.on('close', () => this.clients.delete(c));
     sock.on('error', () => this.clients.delete(c));
-    sock.write(JSON.stringify({ type: 'hello', proto: 1, version: 'fake', server: this.opts.name, cmds: true }) + '\n');
+    sock.write(JSON.stringify({ type: 'hello', proto: 1, version: 'fake', server: this.opts.name, cmds: true, ab: this.opts.ab }) + '\n');
     let buf = '';
     sock.on('data', (d) => {
       buf += d.toString('utf8');
@@ -205,14 +211,17 @@ export class FakeHookServer {
         } else if (line.startsWith('CMD ')) {
           // a replay can't be steered: orders are acknowledged (so the UI path can be tested) and logged
           let id: number | null = null;
+          let refused: string | null = null;
           try {
             const m = JSON.parse(line.slice(4)) as { id?: number; op?: string; g?: string };
             id = typeof m.id === 'number' ? m.id : null;
+            this.ops.push(String(m.op));
+            if (m.op === 'bridge' && this.refuseBridge) refused = 'Air Boss ship control is not available on this server';
             console.log(`[fake hook] order ${m.op} for ${m.g} (not applied: replay) ${line.slice(4, 300)}`);
           } catch {
             /* reply below */
           }
-          sock.write(JSON.stringify({ type: 'cmd', id, ok: id !== null, ...(id === null ? { error: 'bad JSON' } : {}) }) + '\n');
+          sock.write(JSON.stringify({ type: 'cmd', id, ok: id !== null && !refused, ...(id === null ? { error: 'bad JSON' } : refused ? { error: refused } : {}) }) + '\n');
         }
         nl = buf.indexOf('\n');
       }

@@ -4,6 +4,8 @@ import {
   arrivalPath,
   checkDepartureRadial,
   checkStackRadial,
+  sharedAngels,
+  stackSepDeg,
   departurePath,
   emergencyMarshalRadial,
   fixDme,
@@ -127,8 +129,19 @@ describe('radial rules', () => {
   it('warns on bow-on stacks and blocks stacks near departure radials', () => {
     expect(checkStackRadial(10, SHIP, [], []).warn).toBe('Bow-on recovery');
     expect(checkStackRadial(156, SHIP, [150], []).err).toMatch(/DEP/);
-    expect(checkStackRadial(156, SHIP, [], [{ r: 160, id: 'B' }]).err).toMatch(/stack B/);
-    expect(checkStackRadial(156, SHIP, [285], [{ r: 200, id: 'B' }])).toEqual({});
+    expect(checkStackRadial(156, SHIP, [], [{ r: 160, id: 'B', base: 6 }]).err).toMatch(/stack B/);
+    expect(checkStackRadial(156, SHIP, [285], [{ r: 200, id: 'B', base: 6 }])).toEqual({});
+  });
+
+  it('stacks sharing altitudes need radar separation between their holds; separate bands may sit close', () => {
+    // 3 NM between the nearest points of two angels-6 holds (fixes at 21 DME) needs about 24°
+    expect(stackSepDeg(6)).toBeGreaterThanOrEqual(22);
+    expect(stackSepDeg(6)).toBeLessThanOrEqual(27);
+    expect(stackSepDeg(30)).toBeLessThan(stackSepDeg(6)); // the radials diverge further out
+    expect(checkStackRadial(156, SHIP, [], [{ r: 176, id: 'B', base: 6 }]).err).toMatch(/needs/);
+    expect(sharedAngels(6, 12)).toBeNull(); // 6–11 and 12–17
+    expect(checkStackRadial(156, SHIP, [], [{ r: 160, id: 'B', base: 12 }])).toEqual({});
+    expect(sharedAngels(6, 10)).toBe(10);
   });
 });
 

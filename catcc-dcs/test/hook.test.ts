@@ -37,7 +37,7 @@ describe('CATCC DCS hook', () => {
 
   it('authenticates and sends nothing but status before the mission runs', () => {
     expect(msgs('pre')).toEqual([
-      { type: 'hello', proto: 1, version: '0.1.0', server: 'Test', cmds: true },
+      { type: 'hello', proto: 1, version: '0.1.0', server: 'Test', cmds: true, ab: false },
       { type: 'auth', ok: true },
       { type: 'mission', state: 'stopped', name: 'Cruise Wk6' },
     ]);
@@ -119,6 +119,29 @@ describe('CATCC DCS hook', () => {
     expect(replies[4].error).toMatch(/astern/);
     expect(t.filter((x) => x.label === 'task')[4].payload).not.toBe('null');
     expect(replies[5]).toMatchObject({ id: 6, ok: false, error: 'too many commands' });
+  });
+
+  it('drives Air Boss ship control (heading, bell, back to automatic) when the sim provides it', () => {
+    const replies = msgs('ab').filter((m) => m.type === 'cmd');
+    expect(replies[0]).toMatchObject({ id: 7, ok: false, error: 'Air Boss ship control is not available on this server' });
+    expect(replies[1]).toEqual({ type: 'cmd', id: 8, ok: true });
+    expect(replies[2]).toMatchObject({ id: 9, ok: false, error: 'bad bell' });
+    expect(replies[3]).toEqual({ type: 'cmd', id: 10, ok: true });
+    // heading 120 then BACK 2/3 on the carrier's object id; the route first hands it back to automatic
+    expect(msgs('abcall')).toEqual([
+      { f: 'dir', id: 16777472, v: 120 },
+      { f: 'speed', id: 16777472, v: 2 },
+      { f: 'auto', id: 16777472 },
+    ]);
+  });
+
+  it('detaches an escort from the carrier group by respawning it in a group of its own', () => {
+    const replies = msgs('detach').filter((m) => m.type === 'cmd');
+    expect(replies[0]).toEqual({ type: 'cmd', id: 11, ok: true });
+    expect(replies[1]).toMatchObject({ id: 12, ok: false, error: 'CSG-1-1 leads CSG-1 and stays in it' });
+    const [added] = msgs('added');
+    expect(added).toMatchObject({ destroyed: 'CSG-1-2', country: 2, cat: 3, group: 'CSG-1 / CSG-1-2', unit: 'CSG-1-2', type: 'USS_Arleigh_Burke_IIa', unitId: 1002, pts: 2 });
+    expect(added.spd).toBeCloseTo(20, 1); // under way at its speed
   });
 
   it('reinstalls the sampler after the mission environment resets', () => {

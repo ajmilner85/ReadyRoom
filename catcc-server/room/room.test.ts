@@ -58,7 +58,7 @@ describe('room service with fake DCS hook', () => {
   let tick: NodeJS.Timeout;
 
   beforeAll(async () => {
-    fake = new FakeHookServer({ port: 0, token: 'test-token-test-token', rateHz: 10 });
+    fake = new FakeHookServer({ port: 0, token: 'test-token-test-token', rateHz: 10, ab: true });
     const hookPort = await fake.listen();
     let t = 0;
     feed(fake, t);
@@ -238,6 +238,16 @@ describe('room service with fake DCS hook', () => {
     const base = { deps: [], stacks: [] };
     a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { ...base, helm: { crs: 120, kt: 18 } } });
     await a.waitFor('orders', (m) => m.orders['CVN-72']?.op === 'helm' && m.orders['CVN-72'].ok === true);
+    // the hook has Air Boss ship control and the carrier its station: the helm order went that way
+    expect(st.sources[0].ab).toBe(true);
+    expect(fake.ops.at(-1)).toBe('bridge');
+    // where DCS refuses it, the same order goes again as a route
+    fake.refuseBridge = true;
+    a.msgs.length = 0;
+    a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { ...base, helm: { crs: 200, kt: -6 } } });
+    await a.waitFor('orders', (m) => m.orders['CVN-72']?.op === 'helm' && m.orders['CVN-72'].ok === true);
+    expect(fake.ops.slice(-2)).toEqual(['bridge', 'helm']);
+    fake.refuseBridge = false;
     // following plotted waypoints replaces the helm order
     const pts = [{ lat: 26.3, lon: 57, kt: 20 }];
     a.send({ t: 'plan', src: 'fox3', carrier: 'CVN-72', plan: { ...base, helm: { crs: 120, kt: 18 }, route: { pts, active: true } } });

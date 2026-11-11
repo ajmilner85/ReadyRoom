@@ -120,10 +120,16 @@ export interface OrderPoint {
  * Ship orders the hook accepts when its config sets commands = true. DCS AI ships take routes only (no
  * rudder or engine orders): a helm order becomes a waypoint 60 NM ahead on the course.
  */
-export type ShipCmd = { op: 'helm'; g: string; crs: number; kt: number } | { op: 'route'; g: string; pts: OrderPoint[] };
+export type ShipCmd =
+  | { op: 'helm'; g: string; crs: number; kt: number }
+  | { op: 'route'; g: string; pts: OrderPoint[] }
+  /** Air Boss ship control (Supercarrier ships): heading order and engine bell (1..9), or back to automatic */
+  | { op: 'bridge'; g: string; crs?: number; bell?: number; auto?: true }
+  /** respawn escort unit `u` of group `g` in a group of its own, so it can take station orders */
+  | { op: 'detach'; g: string; u: string };
 
 export type HookMessage =
-  | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean }
+  | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean; ab?: boolean }
   | { type: 'cmd'; id: number | null; ok: boolean; error?: string }
   | { type: 'auth'; ok: true }
   | { type: 'mission'; state: 'running' | 'stopped'; name: string }

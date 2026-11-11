@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
-import { horizonNm, paintRadars, paintStep, radarsFor, swept, type Painter, type Radar } from './sweep.ts';
+import { horizonNm, paintRadars, paintStep, radarsFor, swept, trackerVelocity, type Painter, type Radar } from './sweep.ts';
 
 const at = (id: string, brg: number, nm: number, k: WireTrack['k'] = 'fixedwing'): WireTrack => {
   const p = destination(26, 56, brg, nm);
@@ -53,6 +53,32 @@ describe('radar sweep', () => {
     expect(sfc.sfc!.rangeNm).toBeCloseTo(200, 0); // horizon from 25,000 ft is ~205 NM: capped
     expect(R.some((r) => r.id.startsWith('e2b'))).toBe(false); // on deck: not radiating
     expect(radarsFor([cv, e2], 'cv', 0, 100, false).some((r) => r.id.startsWith('e2'))).toBe(false);
+  });
+
+  it('a low flyer beyond the carrier horizon is painted only by an airborne E-2 (datalink)', () => {
+    const e2: WireTrack = { ...at('e2', 0, 60), ty: 'E-2C', alt: 25_000 };
+    const low: WireTrack = { ...at('low', 0, 80), alt: 200 }; // carrier horizon to 200 ft is ~32 NM
+    const high: WireTrack = { ...at('high', 180, 80), alt: 25_000 };
+    const everywhere = (rs: Radar[]) => rs.map((r) => ({ ...r, swept: () => true }));
+    const own = everywhere(radarsFor([cv, e2, low, high], 'cv', 0, 100, false));
+    const P: Painter = { painted: new Map([['cv', cv]]), hist: new Map() };
+    paintRadars(P, [cv, e2, low, high], 'cv', own, 1);
+    expect(P.painted.has('low')).toBe(false);
+    expect(P.painted.has('high')).toBe(true);
+    const air = radarsFor([cv, e2, low, high], 'cv', 0, 100, true).find((r) => r.id === 'e2')!;
+    expect(air.air).not.toBe(false);
+    paintRadars(P, [cv, e2, low, high], 'cv', everywhere(radarsFor([cv, e2, low, high], 'cv', 0, 100, true)), 2);
+    expect(P.painted.has('low')).toBe(true);
+  });
+
+  it('the tracker differences course and speed from an earlier paint at least 3 s old', () => {
+    const a0 = { ...at('a', 0, 20), crs: 0, gs: 300 };
+    const p1 = destination(a0.lat, a0.lon, 90, 1); // 1 NM east in 10 s: 360 kt on 090
+    const a1 = { ...a0, lat: p1.lat, lon: p1.lon };
+    const v = trackerVelocity(a1, [{ t: 0, lat: a0.lat, lon: a0.lon, alt: 5000 }, { t: 8.5, lat: a0.lat, lon: a0.lon, alt: 5000 }], 10);
+    expect(v.gs).toBeCloseTo(360, 0); // the 8.5 s paint is too recent: the 0 s one is used
+    expect(v.crs).toBeCloseTo(90, 0);
+    expect(trackerVelocity(a1, [], 10)).toBe(a1); // nothing to difference: DCS's velocity
   });
 
   it('arc test wraps through north', () => {

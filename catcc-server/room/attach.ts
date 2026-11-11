@@ -8,12 +8,16 @@ import { RoomService, type SourceConfig } from './roomService.ts';
  *   CATCC_SOURCES        JSON array of SourceConfig, e.g.
  *                        [{"id":"fox3","name":"Fox3","kind":"hook","host":"dcs.example.com","port":10310,"token":"..."},
  *                         {"id":"fox3-tv","name":"Fox3 (Tacview)","kind":"tacview","host":"dcs.example.com"}]
+ *   CATCC_TOKEN          or just this: the hook token, with the source at CATCC_HOOK (default DEFAULT_HOOK)
  *   SUPABASE_URL, SUPABASE_SERVICE_KEY   verify ReadyRoom users' access tokens
  *   CATCC_DEV_NOAUTH=1   accept any token (local development only; refused when NODE_ENV=production)
  *   CATCC_WS_PATH        default /catcc/ws
  *
  * This is the module SDOBot loads (bundled to SDOBot/catcc/room.mjs) when CATCC_ENABLED=true.
  */
+/** the squadron's DCS server (Fox3), LotATC's port */
+export const DEFAULT_HOOK = 'dcs.fightingstingrays.com:10310';
+
 export function attachCatccRoom(server: http.Server, env: NodeJS.ProcessEnv = process.env, extraSources: SourceConfig[] = []): RoomService {
   let sources: SourceConfig[] = [];
   if (env.CATCC_SOURCES) {
@@ -22,6 +26,12 @@ export function attachCatccRoom(server: http.Server, env: NodeJS.ProcessEnv = pr
     } catch (e) {
       console.error('[CATCC] CATCC_SOURCES is not valid JSON; starting with no sources', e);
     }
+  }
+  // the simple setup: only the hook's token is set (one plain `fly secrets set CATCC_TOKEN=...`), and the
+  // squadron's DCS server hook is the source; CATCC_HOOK (host[:port]) overrides where it is
+  if (!sources.length && env.CATCC_TOKEN) {
+    const [host, port] = (env.CATCC_HOOK || DEFAULT_HOOK).split(':');
+    sources = [{ id: 'fox3', name: 'Fox3', kind: 'hook', host, port: Number(port) || 10310, token: env.CATCC_TOKEN }];
   }
   sources = [...sources, ...extraSources];
 

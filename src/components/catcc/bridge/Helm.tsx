@@ -4,6 +4,7 @@
  * for the 344 px sidebar. Orders go to the room's shared plan as soon as they're given, and from there
  * to DCS when the hook takes orders. Wind over deck and PIM are in ./Nav.tsx.
  */
+import { BELLS as DCS_BELLS, MAX_ASTERN_KT } from '../../../catcc/core/dcs/bells.ts';
 import React, { useRef } from 'react';
 import { rudderFor } from '../../../catcc/core/geometry/shipTurn.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
@@ -93,17 +94,8 @@ const RUD_NUMS = Array.from({ length: 9 }, (_, i) => {
 
 const RL = (v: number) => (Math.abs(v) < 0.05 ? '0.0' : `${v < 0 ? 'L' : 'R'} ${Math.abs(v).toFixed(1)}`);
 
-const BELLS: [string, number][] = [
-  ['AHEAD FLANK', 30],
-  ['AHEAD FULL', 22],
-  ['AHEAD STANDARD', 15],
-  ['AHEAD 2/3', 10],
-  ['AHEAD 1/3', 5],
-  ['STOP', 0],
-  ['BACK 1/3', -5],
-  ['BACK 2/3', -10],
-  ['BACK FULL', -15],
-];
+// DCS's Air Boss bells (astern speeds measured in DCS), shared with the room's ship orders
+const BELLS: [string, number][] = DCS_BELLS.map((b) => [b.name, b.kt]);
 
 // ---------------------------------------------------------------- panels
 
@@ -132,7 +124,7 @@ export const HelmPanel: React.FC<{
   const order = (p: Partial<{ crs: number; kt: number }>) => {
     if (readOnly) return;
     const n = { ...ord, ...p };
-    const h = { crs: Math.round(norm360(n.crs)) % 360, kt: Math.max(-15, Math.min(32, Math.round(n.kt))) };
+    const h = { crs: Math.round(norm360(n.crs)) % 360, kt: Math.max(MAX_ASTERN_KT, Math.min(32, Math.round(n.kt))) };
     sent.current = { ...h, at: performance.now() };
     onOrder(h);
   };

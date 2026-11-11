@@ -160,10 +160,10 @@ const httpServer = app.listen(PORT, '0.0.0.0', () => {
   startProcessorOrchestrator();
 });
 
-// CATCC room service (WebSocket at /catcc/ws). Off unless CATCC_ENABLED=true.
-// Built from catcc-server/ by `npm run catcc:bundle`; see catcc-handoff/DECISIONS.md.
+// CATCC room service (WebSocket at /catcc/ws). Off unless CATCC_ENABLED=true or the hook token
+// (CATCC_TOKEN) is set. Built from catcc-server/ by `npm run catcc:bundle`; see catcc-handoff/DECISIONS.md.
 // A failure here is logged and never takes down the rest of the server.
-if (process.env.CATCC_ENABLED === 'true') {
+if (process.env.CATCC_ENABLED === 'true' || (process.env.CATCC_TOKEN && process.env.CATCC_ENABLED !== 'false')) {
   try {
     require('./catcc/room.cjs').attachCatccRoom(httpServer);
   } catch (err) {

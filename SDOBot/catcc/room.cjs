@@ -3642,6 +3642,7 @@ var require_websocket_server = __commonJS({
 // catcc-server/room/attach.ts
 var attach_exports = {};
 __export(attach_exports, {
+  DEFAULT_HOOK: () => DEFAULT_HOOK,
   attachCatccRoom: () => attachCatccRoom
 });
 module.exports = __toCommonJS(attach_exports);
@@ -4195,6 +4196,22 @@ var HookTrackStore = class {
   }
 };
 
+// src/catcc/core/dcs/bells.ts
+var BELLS = [
+  { name: "AHEAD FLANK", id: 9, kt: 30 },
+  { name: "AHEAD FULL", id: 8, kt: 22 },
+  { name: "AHEAD STANDARD", id: 7, kt: 15 },
+  { name: "AHEAD 2/3", id: 6, kt: 10 },
+  { name: "AHEAD 1/3", id: 5, kt: 5 },
+  { name: "STOP", id: 4, kt: 0 },
+  { name: "BACK 1/3", id: 3, kt: -3 },
+  { name: "BACK 2/3", id: 2, kt: -6 },
+  { name: "BACK FULL", id: 1, kt: -9 }
+];
+var bellFor = (kt) => BELLS.reduce((a, b) => Math.abs(b.kt - kt) < Math.abs(a.kt - kt) ? b : a);
+var AIR_BOSS_RE = /^(CVN_7[1-5]|Stennis|CV_1143_5|USS_Arleigh_Burke_IIa)$/;
+var hasAirBoss = (type) => !!type && AIR_BOSS_RE.test(type);
+
 // src/catcc/core/geometry/formation.ts
 var PLANE_GUARD = { kind: "point", role: "PG", b: 170, r: 2 };
 var n360 = (b) => (b % 360 + 360) % 360;
@@ -4588,6 +4605,7 @@ var HookClient = class {
       case "hello":
         this.status.server = msg.server;
         this.status.cmds = msg.cmds === true;
+        this.status.ab = msg.ab === true;
         if (msg.proto !== 1) {
           sock.destroy(new Error(`unsupported hook protocol ${msg.proto}`));
           return;
@@ -4715,6 +4733,8 @@ var Source = class {
   hook;
   /** what was last sent per ship, to refresh helm orders and skip unchanged station orders */
   sent = /* @__PURE__ */ new Map();
+  /** escorts being split out of the carrier's group: track id -> unit name and old group, until the unit shows up in a group of its own */
+  detaching = /* @__PURE__ */ new Map();
   orderTimer;
   seq = 0;
   stopFn;
@@ -4751,7 +4771,7 @@ var Source = class {
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
-          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds });
+          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab });
           if (s.mission?.state === "stopped") store.reset();
           if (JSON.stringify(this.status) !== was) this.onStatus();
         }
@@ -4832,8 +4852,19 @@ var Source = class {
     const m = this.ordersMsg();
     for (const c of this.subscribers) send(c, m);
   }
-  /** Send one ship order to DCS and publish what became of it. */
-  order(key, op, cmd) {
+  /**
+   * A carrier's helm order: through the Air Boss ship control where the hook has it and the ship
+   * has the station (a heading order and the nearest bell; astern works), else as a route 60 NM
+   * ahead. An Air Boss order DCS refuses falls back to the route.
+   */
+  helmOrder(hull, g, helm) {
+    const route = { op: "helm", g, crs: helm.crs, kt: helm.kt };
+    if (this.status.ab && hasAirBoss(this.carrierTrack(hull)?.ty)) {
+      this.order(hull, "helm", { op: "bridge", g, crs: helm.crs, bell: bellFor(helm.kt).id }, route);
+    } else this.order(hull, "helm", route);
+  }
+  /** Send one ship order to DCS and publish what became of it; a refused Air Boss order is retried as `fallback`. */
+  order(key, op, cmd, fallback) {
     const at = Date.now();
     if ("error" in cmd) {
       this.orders[key] = { op, at, ok: false, error: cmd.error };
@@ -4845,11 +4876,16 @@ var Source = class {
       this.broadcastOrders();
       return;
     }
-    this.sent.set(key, { at, ...cmd.op === "route" ? { pts: cmd.pts } : {} });
+    this.sent.set(key, { at, ...cmd.op === "route" ? { pts: cmd.pts } : {}, ...cmd.op === "bridge" ? { bridge: true } : {} });
     this.orders[key] = { op, at };
     this.broadcastOrders();
     void this.hook.command(cmd).then((r2) => {
       if (this.orders[key]?.at !== at) return;
+      if (!r2.ok && fallback) {
+        this.log(`[${this.cfg.id}] Air Boss order for ${key} refused (${r2.error}); sending it as a route`);
+        this.order(key, op, fallback);
+        return;
+      }
       this.orders[key] = { op, at, ok: r2.ok, ...r2.error ? { error: r2.error } : {} };
       this.log(`[${this.cfg.id}] ${op} order for ${key}: ${r2.ok ? "ok" : r2.error}`);
       this.broadcastOrders();
@@ -4865,7 +4901,8 @@ var Source = class {
     if (next.route?.active && !same(prev?.route, next.route)) {
       this.order(carrier, "route", g ? { op: "route", g, pts: next.route.pts } : { error: `no DCS group found for ${carrier}` });
     } else if (next.helm && (!same(prev?.helm, next.helm) || prev?.route?.active && !next.route?.active)) {
-      this.order(carrier, "helm", g ? { op: "helm", g, crs: next.helm.crs, kt: next.helm.kt } : { error: `no DCS group found for ${carrier}` });
+      if (g) this.helmOrder(carrier, g, next.helm);
+      else this.order(carrier, "helm", { error: `no DCS group found for ${carrier}` });
     }
   }
   /**
@@ -4878,10 +4915,11 @@ var Source = class {
     for (const [hull, plan] of Object.entries(this.plans)) {
       const last = this.sent.get(hull);
       const g = this.carrierTrack(hull)?.g;
-      if (plan.helm && !plan.route?.active && g && last && this.orders[hull]?.ok && now - last.at > 10 * 6e4) {
+      if (plan.helm && !plan.route?.active && g && last && !last.bridge && this.orders[hull]?.ok && now - last.at > 10 * 6e4) {
         this.order(hull, "helm", { op: "helm", g, crs: plan.helm.crs, kt: plan.helm.kt });
       }
     }
+    this.rekeyDetached();
     for (const [hull, ops] of Object.entries(this.ops)) {
       if (!ops.formation?.drive) continue;
       const cv = this.carrierTrack(hull);
@@ -4893,7 +4931,13 @@ var Source = class {
         const t = this.tracks.find((x) => x.id === id);
         if (!t?.g) continue;
         if (t.g === cv.g) {
-          if (!this.orders[id]) this.order(id, "station", { error: `${t.g} is the carrier's DCS group: it keeps DCS's own formation` });
+          if (this.detaching.has(id)) continue;
+          if (!t.un) {
+            if (!this.orders[id]) this.order(id, "station", { error: `${t.g}: no unit name to detach it by` });
+            continue;
+          }
+          this.detaching.set(id, { un: t.un, g: t.g });
+          this.order(id, "station", { op: "detach", g: t.g, u: t.un });
           continue;
         }
         const pts = stationOrder(st, axis, { lat: cv.lat, lon: cv.lon, crs, kt: cv.gs ?? 0 }, t);
@@ -4902,6 +4946,34 @@ var Source = class {
         if (!orderChanged(prev?.pts, pts, prev ? (now - prev.at) / 1e3 : Infinity)) continue;
         this.order(id, "station", { op: "route", g: t.g, pts });
       }
+    }
+  }
+  /**
+   * A detached escort comes back as a new DCS unit: if DCS gave it a new unit id, its formation
+   * stations (keyed by track id) and order status move to the new track, found by unit name.
+   */
+  rekeyDetached() {
+    for (const [oldId, { un, g }] of this.detaching) {
+      const now = this.tracks.find((t) => t.un === un && t.g !== g && (t.k === "ship" || t.k === "carrier"));
+      if (!now) continue;
+      this.detaching.delete(oldId);
+      if (now.id === oldId) continue;
+      let changed = false;
+      for (const ops of Object.values(this.ops)) {
+        for (const preset of Object.values(ops.formation?.presets ?? {})) {
+          if (!(oldId in preset)) continue;
+          preset[now.id] = preset[oldId];
+          delete preset[oldId];
+          changed = true;
+        }
+      }
+      if (this.orders[oldId]) {
+        this.orders[now.id] = this.orders[oldId];
+        delete this.orders[oldId];
+      }
+      this.sent.delete(oldId);
+      if (changed) this.broadcastOps();
+      this.broadcastOrders();
     }
   }
   ownersMsg() {
@@ -5225,6 +5297,7 @@ var RoomService = class {
 };
 
 // catcc-server/room/attach.ts
+var DEFAULT_HOOK = "dcs.fightingstingrays.com:10310";
 function attachCatccRoom(server, env = process.env, extraSources = []) {
   let sources = [];
   if (env.CATCC_SOURCES) {
@@ -5233,6 +5306,10 @@ function attachCatccRoom(server, env = process.env, extraSources = []) {
     } catch (e) {
       console.error("[CATCC] CATCC_SOURCES is not valid JSON; starting with no sources", e);
     }
+  }
+  if (!sources.length && env.CATCC_TOKEN) {
+    const [host, port] = (env.CATCC_HOOK || DEFAULT_HOOK).split(":");
+    sources = [{ id: "fox3", name: "Fox3", kind: "hook", host, port: Number(port) || 10310, token: env.CATCC_TOKEN }];
   }
   sources = [...sources, ...extraSources];
   const devAuth = env.CATCC_DEV_NOAUTH === "1" || env.CATCC_DEV_NOAUTH === "true";
@@ -5250,5 +5327,6 @@ function attachCatccRoom(server, env = process.env, extraSources = []) {
 }
 // Annotate the CommonJS export names for ESM import in node:
 0 && (module.exports = {
+  DEFAULT_HOOK,
   attachCatccRoom
 });

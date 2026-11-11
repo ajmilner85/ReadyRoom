@@ -94,6 +94,8 @@ export interface SourceStatus {
   lastFrameAt?: number;
   /** hook: it accepts ship orders (its config sets commands = true) */
   cmds?: boolean;
+  /** hook: Air Boss ship control is available (helm orders steer to a heading and ring bells, astern too) */
+  ab?: boolean;
 }
 
 /**

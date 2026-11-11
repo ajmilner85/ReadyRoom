@@ -248,14 +248,78 @@ export function checkDepartureRadial(b: number, ship: ShipRef, others: number[],
   return {};
 }
 
+// ---------------------------------------------------------------- stack separation
+
+/** Levels a stack is taken to occupy from its base (the marshal panel's default band: base..base+5). */
+export const STACK_BAND = 6;
+/** CV NATOPS radar separation: 3 NM within 50 NM of the antenna (radar > 7 RPM), 5 NM beyond. */
+export const sepNmAt = (dme: number): number => (dme > 50 ? 5 : 3);
+
+const segDist = (p: Pt, a: Pt, b: Pt): number => {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const L = dx * dx + dy * dy;
+  const t = L ? Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L)) : 0;
+  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
+};
+const loopDist = (A: Pt[], B: Pt[]): number => {
+  let m = Infinity;
+  for (const [P, Q] of [[A, B], [B, A]] as const) for (const p of P) for (let i = 0; i < Q.length; i++) m = Math.min(m, segDist(p, Q[i], Q[(i + 1) % Q.length]));
+  return m;
+};
+
+const sepDegMemo = new Map<number, number>();
 /**
- * Marshal stack placement as in the mockup. NOTE (handoff §6.4): the 10° stack-to-stack rule is
- * invented and angle-only checks are known to be inadequate; the footprint + altitude-band
- * replacement is backlog item 1. Kept for parity until then.
+ * Smallest radial offset (deg, 0.5° steps) at which two left-hand marshal holds at the same
+ * altitude keep radar separation: fixes at angels + 15 DME, 250 KIAS holds sized for TAS at that
+ * altitude (1-minute legs, 2-minute turns), nearest points of the racetracks at least sepNmAt(DME)
+ * apart, whichever side the other stack is on. About 24° at angels 6, 15° at angels 30.
  */
-export function checkStackRadial(b: number, ship: ShipRef, depRadials: number[], otherStacks: { r: number; id: string }[]): RadialCheck {
+export function stackSepDeg(angels: number): number {
+  const hit = sepDegMemo.get(angels);
+  if (hit !== undefined) return hit;
+  const dme = angels + 15;
+  const spec = holdSpecForTas(tasFromIas(250, angels * 1000));
+  const sep = sepNmAt(dme);
+  const A = holdPattern(180, dme, 'left', spec, 24);
+  let need = 120;
+  for (let d = 1; d <= 120; d += 0.5) {
+    if (loopDist(A, holdPattern(180 + d, dme, 'left', spec, 24)) >= sep && loopDist(A, holdPattern(180 - d, dme, 'left', spec, 24)) >= sep) {
+      need = d;
+      break;
+    }
+  }
+  sepDegMemo.set(angels, need);
+  return need;
+}
+
+/** Lowest altitude (angels) two stacks' bands share, or null when they are vertically separated. */
+export function sharedAngels(baseA: number, baseB: number, band = STACK_BAND): number | null {
+  const lo = Math.max(baseA, baseB);
+  const hi = Math.min(baseA, baseB) + band - 1;
+  return lo <= hi ? lo : null;
+}
+
+/** The stack-to-stack separation problem for a stack at radial b with base `base`, if any. */
+export function stackConflict(b: number, base: number, otherStacks: { r: number; id: string; base: number }[]): string | null {
+  for (const m of otherStacks) {
+    const at = sharedAngels(base, m.base);
+    if (at === null) continue;
+    const need = stackSepDeg(at);
+    if (angDiff(b, m.r) < need) return `${Math.round(angDiff(b, m.r))}° from stack ${m.id} (A${at}: needs ${Math.ceil(need)}°)`;
+  }
+  return null;
+}
+
+/**
+ * Marshal stack placement: 20° clear of departure radials, and radar separation from every other
+ * stack whose altitude band it shares (see stackSepDeg); stacks in separate bands may share a radial
+ * sector. `base` is the stack's base angels (a new stack starts at 6).
+ */
+export function checkStackRadial(b: number, ship: ShipRef, depRadials: number[], otherStacks: { r: number; id: string; base: number }[], base = 6): RadialCheck {
   for (const r of depRadials) if (angDiff(b, r) < 20) return { err: `${Math.round(angDiff(b, r))}° from DEP ${r3(r)}R` };
-  for (const m of otherStacks) if (angDiff(b, m.r) < 10) return { err: `Too close to stack ${m.id}` };
+  const c = stackConflict(b, base, otherStacks);
+  if (c) return { err: c };
   if (angDiff(b, ship.brc) < 90) return { warn: 'Bow-on recovery' };
   return {};
 }

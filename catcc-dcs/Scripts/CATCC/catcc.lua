@@ -16,8 +16,12 @@
 --     Ship orders, only when Config/CATCC.lua sets commands = true (the hello says "cmds":true):
 --       {"id":n,"op":"helm","g":"<ship group>","crs":<deg true>,"kt":<kt>}   steer a course at a speed
 --       {"id":n,"op":"route","g":"<ship group>","pts":[{"lat":..,"lon":..,"kt":..},...]}   follow waypoints
---     DCS has no rudder or engine-order API for AI ships: both become a route (Mission task) the AI
---     steers at its own full-rudder radius. A helm order is a waypoint 60 NM ahead on the course.
+--       {"id":n,"op":"detach","g":"<ship group>","u":"<unit>"}  respawn an escort in a group of its own
+--       {"id":n,"op":"bridge","g":"<ship group>","crs":<deg>,"bell":1..9}  or  {...,"auto":true}
+--         Air Boss ship control (Supercarrier ships): heading order and engine bell (astern too);
+--         auto hands the ship back to its route. The hello says "ab":true when it is available.
+--     Otherwise DCS has no rudder or engine-order API for AI ships: helm and route become a route
+--     (Mission task) steered at full rudder. A helm order is a waypoint 60 NM ahead on the course.
 --
 -- Everything runs inside pcall: an error here must never affect the server.
 
@@ -301,8 +305,66 @@ local function cmdCode(m)
       pts[#pts + 1] = string.format('{%.7f,%.7f,%.2f}', p.lat, p.lon, p.kt)
     end
     return string.format('return CATCC_cmd_route(%q, {%s})', m.g, table.concat(pts, ','))
+  elseif m.op == 'detach' then
+    if type(m.u) ~= 'string' or #m.u < 1 or #m.u > 64 then return nil, 'bad unit' end
+    return string.format('return CATCC_cmd_detach(%q, %q)', m.g, m.u)
   end
   return nil, 'unknown op'
+end
+
+-- ---------------------------------------------------------------- Air Boss ship control
+-- The Supercarrier's Air Boss station (Mods/tech/Supercarrier/AirBossScreensUI/ShipNavigation.lua)
+-- steers through globals the sim registers in this (GUI) Lua state: orderShipDir(shipId, deg),
+-- orderShipSpeed(shipId, bell 1..9: BACK FULL, BACK 2/3, BACK 1/3, STOP, AHEAD 1/3, AHEAD 2/3,
+-- AHEAD STANDARD, AHEAD FULL, AHEAD FLANK), automaticShipSpeedDir(shipId) (back to the route) and
+-- getShipSpeedDir(shipId). shipId is the unit's runtime object id (Unit.id_ in the mission
+-- environment). Unlike a route, these turn the ship to a heading and can go astern. Whether a
+-- dedicated server exposes them is checked at run time; the room falls back to routes when not.
+
+local function airBoss()
+  local G = _G
+  if type(G.orderShipDir) == 'function' and type(G.orderShipSpeed) == 'function' and type(G.getShipSpeedDir) == 'function' then return G end
+  return nil
+end
+
+-- the runtime object id of a ship group's lead unit, or nil and why
+local function shipObjectId(g)
+  local res = dostring(string.format('local gr = Group.getByName(%q); local u = gr and gr:getUnit(1); return (u and u.id_) and tostring(u.id_) or %q', g, 'ERR:no group ' .. g))
+  local id = tonumber(res)
+  if not id then return nil, type(res) == 'string' and res:gsub('^ERR:', '') or 'no reply' end
+  return id
+end
+
+-- m: {g, crs?, bell?, auto?}; "OK" or "ERR:<reason>"
+local function bridgeOrder(m)
+  local ab = airBoss()
+  if not ab then return 'ERR:Air Boss ship control is not available on this server' end
+  local oid, why = shipObjectId(m.g)
+  if not oid then return 'ERR:' .. why end
+  local okS, spd = pcall(ab.getShipSpeedDir, oid)
+  if not okS or type(spd) ~= 'number' then return 'ERR:' .. m.g .. ' has no Air Boss station' end
+  if m.auto then
+    if type(ab.automaticShipSpeedDir) ~= 'function' then return 'ERR:no automatic mode' end
+    local ok, err = pcall(ab.automaticShipSpeedDir, oid)
+    return ok and 'OK' or ('ERR:' .. tostring(err))
+  end
+  if m.crs then
+    local ok, err = pcall(ab.orderShipDir, oid, m.crs)
+    if not ok then return 'ERR:heading order: ' .. tostring(err) end
+  end
+  if m.bell then
+    local ok, err = pcall(ab.orderShipSpeed, oid, m.bell)
+    if not ok then return 'ERR:speed order: ' .. tostring(err) end
+  end
+  return 'OK'
+end
+
+-- a route given to a ship under Air Boss orders: hand it back to automatic first, or the route is ignored
+local function releaseBridge(g)
+  local ab = airBoss()
+  if not ab or type(ab.automaticShipSpeedDir) ~= 'function' then return end
+  local oid = shipObjectId(g)
+  if oid then pcall(ab.automaticShipSpeedDir, oid) end
 end
 
 local function handleCmd(c, body)
@@ -319,9 +381,19 @@ local function handleCmd(c, body)
   if c.cmdCount > cfg.max_cmds_per_s then return reply('too many commands') end
   if not missionRunning then return reply('no mission running') end
   if not samplerInstalled and not installSampler() then return reply('sampler not installed') end
-  local code, err = cmdCode(m)
-  if not code then return reply(err) end
-  local res = dostring(code)
+  local res
+  if type(m) == 'table' and m.op == 'bridge' then
+    if type(m.g) ~= 'string' or #m.g < 1 or #m.g > 64 then return reply('bad group') end
+    if m.crs ~= nil and not finite(m.crs, 0, 360) then return reply('bad heading') end
+    if m.bell ~= nil and not (finite(m.bell, 1, 9) and m.bell % 1 == 0) then return reply('bad bell') end
+    if m.crs == nil and m.bell == nil and m.auto ~= true then return reply('empty order') end
+    res = bridgeOrder(m)
+  else
+    local code, err = cmdCode(m)
+    if not code then return reply(err) end
+    if m.op ~= 'detach' then releaseBridge(m.g) end
+    res = dostring(code)
+  end
   if res == 'OK' then
     info('order ' .. tostring(m.op) .. ' for ' .. m.g .. ' from ' .. c.peer)
     return reply(nil)
@@ -400,7 +472,8 @@ local function acceptClients()
       c.closeAfterFlush = true
     else
       send(c, '{"type":"hello","proto":' .. CATCC.proto .. ',"version":' .. jstr(CATCC.version) ..
-        ',"server":' .. jstr(cfg.name) .. ',"cmds":' .. (cfg.commands and 'true' or 'false') .. '}')
+        ',"server":' .. jstr(cfg.name) .. ',"cmds":' .. (cfg.commands and 'true' or 'false') ..
+        ',"ab":' .. ((cfg.commands and airBoss()) and 'true' or 'false') .. '}')
     end
   end
 end
