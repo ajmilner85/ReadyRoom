@@ -220,10 +220,20 @@ export const HelmPanel: React.FC<{
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6, marginTop: 10 }}>
           {big('Order 10° left', -10, '«', 50)}
           {big('Order 1° left', -1, '−', 46)}
-          <span className="lbl">Order</span>
+          {/* rudder amidships: steady on the present heading, so the heading error and the rudder go to zero */}
+          <button
+            disabled={readOnly}
+            onClick={() => order({ crs: Math.round(norm360(hdg)) })}
+            aria-label="Rudder amidships"
+            title="Rudder amidships: order the present heading"
+            style={{ ...BTN, width: 58, height: 38, padding: 0, fontFamily: MONO, fontSize: 11, fontWeight: 600, letterSpacing: '.06em', cursor: readOnly ? 'default' : 'pointer', opacity: readOnly ? 0.5 : 1 }}
+          >
+            AMID
+          </button>
           {big('Order 1° right', 1, '+', 46)}
           {big('Order 10° right', 10, '»', 50)}
         </div>
+        <div className="lbl" style={{ textAlign: 'center', marginTop: 4 }}>Order</div>
       </section>
 
       <section className="pnl" aria-label="Engine order">
