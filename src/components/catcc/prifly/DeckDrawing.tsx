@@ -118,6 +118,22 @@ export const DeckDrawing: React.FC<{
       <path d={roundRing(G.struct['Island'], 1.6)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.35} />
       <path d={roundRing(G.struct['Radar Mast'], 0.8)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.3} />
 
+      {/* helo spots (optional): painted under the landing-area markings and the catapult tracks, as on the model */}
+      {layers.has('helo') && (
+        <g>
+          <path d={G.helo.map((h) => ring(h.t) + h.sq.map(ring).join('') + (h.ext ? ring(h.ext) : '')).join('')} fill="none" stroke={C.paint} strokeWidth={0.22} strokeLinejoin="miter" />
+          {G.helo
+            .filter((h) => h.num)
+            .map((h) => {
+              const n = heloNum(h.num!);
+              return (
+                <T key={h.n} p={n.c} size={n.h * 1.38} rot={n.rot} fill={C.paint} weight={700} font="Arial, Helvetica, sans-serif">
+                  {h.n}
+                </T>
+              );
+            })}
+        </g>
+      )}
       {/* landing area: thin outer and wide inner borders joined by blocks, centreline with yellow dashes */}
       <path d={ring(L.sternRd)} fill={C.paintDim} opacity={0.5} />
       <path d={ring(L.launchRd)} fill={C.paintDim} opacity={0.7} />
@@ -152,21 +168,6 @@ export const DeckDrawing: React.FC<{
       )}
 
       {/* optional layers */}
-      {layers.has('helo') && (
-        <g>
-          <path d={G.helo.map((h) => ring(h.t) + h.sq.map(ring).join('') + (h.ext ? ring(h.ext) : '')).join('')} fill="none" stroke={C.paint} strokeWidth={0.22} strokeLinejoin="miter" />
-          {G.helo
-            .filter((h) => h.num)
-            .map((h) => {
-              const n = heloNum(h.num!);
-              return (
-                <T key={h.n} p={n.c} size={n.h * 1.38} rot={n.rot} fill={C.paint} weight={700} font="Arial, Helvetica, sans-serif">
-                  {h.n}
-                </T>
-              );
-            })}
-        </g>
-      )}
       {layers.has('gear') && (
         <g fill="none" stroke={C.structEdge} strokeWidth={0.3}>
           <path d={ring(G.struct['LSO Platform'])} />
