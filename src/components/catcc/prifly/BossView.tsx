@@ -9,6 +9,7 @@ import FlightCard from '../../ui/flight cards/FlightCard';
 import { fuelK, groupFormations, phaseOf, shortType, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { DECK_LAYERS, DECK_VIEWBOX, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, line, onCat, routeAhead, taxiToCat, type DeckJet, type DeckLayer, type V } from './deck.ts';
 import { DeckDrawing } from './DeckDrawing.tsx';
+import { IcReset } from '../icons.tsx';
 import type { DeckEvent } from './useDeckLog.ts';
 import type { OpsState } from '../../../catcc/core/room/ops.ts';
 import type { HookEnv } from '../../../catcc/core/dcs/hookProtocol.ts';
@@ -24,6 +25,7 @@ import { finalPicture } from '../final/finalModel.ts';
 
 type Mode = 'live' | 'sand';
 
+const DEFAULT_LAYERS: DeckLayer[] = ['areas', 'gear'];
 const load = <T,>(k: string, d: T): T => {
   try {
     const v = localStorage.getItem(k);
@@ -121,7 +123,7 @@ export const BossView: React.FC<{
   const [curPath, setCurPath] = useState<V[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
-  const [layerList, setLayerList] = useState<DeckLayer[]>(() => load('catcc.deck.layers', { l: [] as DeckLayer[] }).l.filter((k) => DECK_LAYERS.some((x) => x.k === k)));
+  const [layerList, setLayerList] = useState<DeckLayer[]>(() => load('catcc.deck.layers', { l: DEFAULT_LAYERS }).l.filter((k) => DECK_LAYERS.some((x) => x.k === k)));
   const layers = useMemo(() => new Set(layerList), [layerList]);
   const [wind, setWind] = useState<{ m: WindMode }>(() => load('catcc.wind', { m: 'true' as WindMode }));
   const svgRef = useRef<SVGSVGElement>(null);
@@ -198,6 +200,10 @@ export const BossView: React.FC<{
     const next = layers.has(k) ? layerList.filter((x) => x !== k) : [...layerList, k];
     setLayerList(next);
     save('catcc.deck.layers', { l: next });
+  };
+  const resetLayers = () => {
+    setLayerList(DEFAULT_LAYERS);
+    save('catcc.deck.layers', { l: DEFAULT_LAYERS });
   };
 
   // ------------------------------------------------ arrivals and departures boards
@@ -287,6 +293,9 @@ export const BossView: React.FC<{
                   {l.label}
                 </button>
               ))}
+              <button aria-label="Reset deck layers" title="Reset layers to default (Areas, Equipment)" onClick={resetLayers} style={{ border: 0, height: 26, width: 26, display: 'grid', placeItems: 'center', borderRadius: 4, cursor: 'pointer', background: 'transparent', color: '#93A1B0' }}>
+                <IcReset />
+              </button>
             </div>
             <button
               onClick={() => {
