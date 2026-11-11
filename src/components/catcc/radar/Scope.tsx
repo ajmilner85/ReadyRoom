@@ -23,7 +23,7 @@ import {
 import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
 import { maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
 import { magVar } from '../../../catcc/core/env/magvar.ts';
-import { orderedPath, trendPath, turnTo } from '../../../catcc/core/geometry/shipTurn.ts';
+import { orderedPath, trendPath, trendTurnLimit, turnTo } from '../../../catcc/core/geometry/shipTurn.ts';
 import { add, bearingOf, D2R, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
@@ -2510,7 +2510,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               const T = [90, 180, 360, 720, 1200].reduce((best, s) => (Math.abs((kt * s) / 3600 - 0.2 * VW) < Math.abs((kt * best) / 3600 - 0.2 * VW) ? s : best), 90);
               const dt = T / 36;
               const pts = (q: Pt[]) => q.map((p, i) => `${i ? 'L' : 'M'}${f2(p[0])} ${f2(p[1])}`).join('');
-              const white = kt >= 1 ? trendPath(fTrack.p, hdg, kt, turnRateNow, T, dt) : null;
+              // the present turn, stopped where the ship would steady (the ordered course, else 90° on)
+              const white = kt >= 1 ? trendPath(fTrack.p, hdg, kt, turnRateNow, T, dt, trendTurnLimit(hdg, turnRateNow, props.helm?.crs)) : null;
               const green = props.helm ? orderedPath(fTrack.p, hdg, kt, props.helm.crs, T, dt, props.helm.kt) : null;
               return (
                 <g fill="none" strokeLinecap="round" strokeLinejoin="round" style={{ pointerEvents: 'none' }}>

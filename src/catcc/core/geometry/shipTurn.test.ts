@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { orderedPath, rudderFor, SPEEDUP_KT_S, trendPath, turnRate, turnTo } from './shipTurn.ts';
+import { orderedPath, rudderFor, SPEEDUP_KT_S, trendPath, trendTurnLimit, turnRate, turnTo } from './shipTurn.ts';
 
 describe('ship turn prediction', () => {
   it('turns faster with more rudder and speed; full rudder at 25 kt is about 1.1 deg/s (DCS R_min 665.8 m)', () => {
@@ -17,6 +17,20 @@ describe('ship turn prediction', () => {
     expect(end[1]).toBeCloseTo(-1, 3); // 30 kt for 2 min: 1 NM north (y is south)
     const r = trendPath([0, 0], 0, 30, 0.5, 120);
     expect(r[r.length - 1][0]).toBeGreaterThan(0.3);
+  });
+
+  it('the present-turn trend stops turning at the ordered course (no full circles for a 10° change)', () => {
+    // 10° left ordered, turning left at full rudder for 6 min: the path ends heading 350, not round in a circle
+    const lim = trendTurnLimit(0, -1.1, 350);
+    expect(lim).toBe(10);
+    const p = trendPath([0, 0], 0, 25, -1.1, 360, 10, lim);
+    const a = p[p.length - 2];
+    const b = p[p.length - 1];
+    expect((Math.atan2(b[0] - a[0], -(b[1] - a[1])) * 180) / Math.PI).toBeCloseTo(-10, 3);
+    expect(b[1]).toBeLessThan(-2); // well up the track, not back near the start
+    // turning away from the order, or no order: at most 90° more
+    expect(trendTurnLimit(0, 1.1, 350)).toBe(90);
+    expect(trendTurnLimit(0, 1.1)).toBe(90);
   });
 
   it('the ordered path turns onto the ordered course and steadies there', () => {
