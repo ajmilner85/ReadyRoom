@@ -104,3 +104,23 @@ Setting the token turns the room on and points it at the hook on `dcs.fightingst
 The browser endpoint is `wss://readyroom.fly.dev/catcc/ws`. It uses the existing `SUPABASE_URL` and `SUPABASE_SERVICE_KEY` to verify ReadyRoom sign-ins.
 
 Rebuild `SDOBot/catcc/room.cjs` with `npm run catcc:bundle` whenever `catcc-server/` or `src/catcc/core/` changes.
+
+The room keeps plans, ops (deck call, launch queues, lights, formation), marshal assignments, flight ownership and seat claims in Supabase (`public.catcc_room_state`, per source and mission), so a deploy doesn't wipe them. Seats come back held for their users until they reconnect. `CATCC_PERSIST=0` turns this off.
+
+## Pilot mod (PriFly launch clearance)
+
+Lets PriFly hold each catapult shot until it clears it. Every pilot installs it on their own PC (one command, one UAC prompt):
+
+```
+powershell -ExecutionPolicy Bypass -File catcc-dcs\pilot\install.ps1
+```
+
+`-Server <host>` points it somewhere other than the squadron server (`-Server localhost` for local testing), `-Uninstall` removes it and puts the stock launch sequence back. DCS updates replace the patched `common.xml`: run it again after an update.
+
+How it works:
+- The Shooter seat (expanded layout), else the Air Boss, clears launches in PriFly. While someone holds either seat, every player jet on that carrier's deck is held until cleared: the pilot salutes, the shooter holds ("Shooter holding: awaiting PriFly clearance"), PriFly presses LAUNCH, the shot goes. With neither seat held nothing is held: launches go on the salute, as in stock DCS.
+- The room sends the hook the names of the players held. The hook passes them to pilots' mods, which connect to the same port without a token (`PILOT`) and receive nothing else.
+- The mod's cockpit device sets a spare model draw argument (997) that the patched launch sequence waits on after the salute.
+- It fails open at every step: no seat, no room, no hook, no word for 12–15 s, or no mod means no hold.
+
+Not verified in DCS yet: that draw argument 997 is free and settable on the Hornet (the hook logs what it reads back while held: `CATCC-PILOT ... gate argument 997 reads ...` in `dcs.log`), that `LoSetCommand` from the GUI hook reaches the cockpit device, and which PC runs the launch sequence in multiplayer.
