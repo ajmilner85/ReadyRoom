@@ -16,7 +16,6 @@
 --     Ship orders, only when Config/CATCC.lua sets commands = true (the hello says "cmds":true):
 --       {"id":n,"op":"helm","g":"<ship group>","crs":<deg true>,"kt":<kt>}   steer a course at a speed
 --       {"id":n,"op":"route","g":"<ship group>","pts":[{"lat":..,"lon":..,"kt":..},...]}   follow waypoints
---       {"id":n,"op":"detach","g":"<ship group>","u":"<unit>"}  respawn an escort in a group of its own
 --       {"id":n,"op":"bridge","g":"<ship group>","crs":<deg>,"bell":1..9}  or  {...,"auto":true}
 --         Air Boss ship control (Supercarrier ships): heading order and engine bell (astern too);
 --         auto hands the ship back to its route. The hello says "ab":true when it is available.
@@ -305,9 +304,6 @@ local function cmdCode(m)
       pts[#pts + 1] = string.format('{%.7f,%.7f,%.2f}', p.lat, p.lon, p.kt)
     end
     return string.format('return CATCC_cmd_route(%q, {%s})', m.g, table.concat(pts, ','))
-  elseif m.op == 'detach' then
-    if type(m.u) ~= 'string' or #m.u < 1 or #m.u > 64 then return nil, 'bad unit' end
-    return string.format('return CATCC_cmd_detach(%q, %q)', m.g, m.u)
   end
   return nil, 'unknown op'
 end
@@ -391,7 +387,7 @@ local function handleCmd(c, body)
   else
     local code, err = cmdCode(m)
     if not code then return reply(err) end
-    if m.op ~= 'detach' then releaseBridge(m.g) end
+    releaseBridge(m.g)
     res = dostring(code)
   end
   if res == 'OK' then

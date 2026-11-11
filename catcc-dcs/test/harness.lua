@@ -110,21 +110,7 @@ local function newMissionEnv()
           getController = function() return { setTask = function(_, task) M.lastTask = task end } end,
         }
       end },
-    -- an escort in the carrier's group (only reachable by name: kept out of the frames)
-    Unit = { getByName = function(n)
-      if n == 'CSG-1-1' then
-        local lead = setmetatable({ getGroup = function() return { getName = function() return 'CSG-1' end } end }, { __index = CV })
-        return lead
-      end
-      if n ~= 'CSG-1-2' then return nil end
-      local u = mkUnit({ id = 1002, name = 'CSG-1-2', type = 'USS_Arleigh_Burke_IIa', p = { x = -1000, y = 0, z = 1000 }, hdg = 70, crs = 70, gsKt = 20 })
-      function u:getGroup() return { getName = function() return 'CSG-1' end } end
-      function u:getCountry() return 2 end
-      function u:destroy() M.destroyed = 'CSG-1-2' end
-      return u
-    end },
     coalition = {
-      addGroup = function(country, cat, data) M.added = { country = country, cat = cat, data = data }; return {} end,
       side = { NEUTRAL = 0, RED = 1, BLUE = 2 },
       getGroups = function(side, cat) return (GROUPS[side] or {})[cat] or {} end,
       getMainRefPoint = function(side) return side == 2 and { x = 1000, y = 0, z = 2000 } or nil end,
@@ -256,14 +242,6 @@ cmd('CMD {"id":9,"op":"bridge","g":"CSG-1","bell":12}')
 cmd('CMD {"id":10,"op":"route","g":"CSG-1","pts":[{"lat":26.1,"lon":56.2,"kt":15}]}')
 drain(good, 'ab')
 
--- 3d. detach an escort from the carrier's group (respawned in a group of its own); the lead can't be
-tick(1.0)
-cmd('CMD {"id":11,"op":"detach","g":"CSG-1","u":"CSG-1-2"}')
-cmd('CMD {"id":12,"op":"detach","g":"CSG-1","u":"CSG-1-1"}')
-drain(good, 'detach')
-local a = M.added
-rec('added', string.format('{"destroyed":"%s","country":%d,"cat":%d,"group":"%s","unit":"%s","type":"%s","unitId":%d,"pts":%d,"spd":%.2f}',
-  tostring(M.destroyed), a.country, a.cat, a.data.name, a.data.units[1].name, a.data.units[1].type, a.data.units[1].unitId, #a.data.route.points, a.data.route.points[1].speed / KT))
 for _, c in ipairs(abCalls) do rec('abcall', c) end
 orderShipDir, orderShipSpeed, automaticShipSpeedDir, getShipSpeedDir = nil, nil, nil, nil
 

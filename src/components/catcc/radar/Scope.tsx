@@ -113,8 +113,8 @@ const DonorBeam: React.FC<{ x: number; y: number; r: number; scanS: number; phas
   return (
     <g transform={`translate(${f2(x)} ${f2(y)})`}>
       <g style={{ transformOrigin: '0 0', animation: `catcc-sweep ${scanS}s linear infinite`, animationDelay: `${delay}s` }}>
-        <path d={wedge} fill="#E7C66B" fillOpacity={0.28} />
-        <path d={lead} stroke="#E7C66B" strokeOpacity={0.75} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
+        <path d={wedge} fill="#E7C66B" fillOpacity={0.18} />
+        <path d={lead} stroke="#E7C66B" strokeOpacity={0.5} style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} />
       </g>
     </g>
   );
@@ -1674,7 +1674,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const dimC = (id: string, c: string) => (dim.has(id) ? mixHex(c, '#0B0E12', 0.55) : c);
 
   // ------------------------------------------------ tags
-  type TagItem = { t: ScopeTrack; rows: string[]; color: 'own' | 'red' | 'blue' };
+  type TagItem = { t: ScopeTrack; rows: string[]; color: 'own' | 'red' | 'blue'; radar?: boolean };
   const tagItems: TagItem[] = [];
   for (const t of pic.air) {
     if (hidden.has(t.id)) continue;
@@ -1692,7 +1692,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     // a radar donor (E-2) with the datalink overlay on: its radar on the tag
     const dn = ov.dl ? props.donors?.find((d) => d.id === t.id) : undefined;
     if (dn) rows = [...rows, dn.radar];
-    tagItems.push({ t, rows, color });
+    tagItems.push({ t, rows, color, radar: !!dn });
   }
   const tagGeom = (rowsIn: string[]) => {
     const arrow = rowsIn[1]?.[0] === '↑' || rowsIn[1]?.[0] === '↓' ? rowsIn[1][0] : '';
@@ -1712,7 +1712,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     { k: zkT, hitK: zkH, view: { x0: vx, y0: vy, x1: vx + VW, y1: vy + VH }, prev: prevPlaces.current, obstacles: pic.air.filter((t) => !hidden.has(t.id)).map((t) => rp(t.p)) },
   );
   prevPlaces.current = places;
-  const renderTag = ({ t, rows: rowsIn, color }: TagItem) => {
+  const renderTag = ({ t, rows: rowsIn, color, radar }: TagItem) => {
     const pl = places.get(t.id) ?? { q: [1, -1] as Pt, L: 2.4 };
     const q = pl.q;
     const s = Math.SQRT1_2;
@@ -1737,7 +1737,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           stroke={color === 'red' ? '#E0524E' : undefined}
         />
         {rows.map((r, i) => (
-          <text key={i} x={f2(rx + inset)} y={f2(ty + i)} className={cls}>
+          // a donor's radar (last row) in the donor yellow, whatever the track's colour
+          <text key={i} x={f2(rx + inset)} y={f2(ty + i)} className={cls} style={radar && i === rows.length - 1 ? { fill: '#E7C66B' } : undefined}>
             {r}
           </text>
         ))}
@@ -2313,7 +2314,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <g key={`dl${d.id}`} className="zs" transform={zs(c, zkO)} style={{ pointerEvents: 'none' }}>
                   <title>{`${d.name} · ${d.radar}`}</title>
                   <DonorBeam x={c[0]} y={c[1]} r={r} scanS={d.scanS} phase={d.phase} />
-                  <circle cx={f2(c[0])} cy={f2(c[1])} r={r} fill="none" stroke="#E7C66B" strokeOpacity={0.85} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
+                  <circle cx={f2(c[0])} cy={f2(c[1])} r={r} fill="none" stroke="#E7C66B" strokeOpacity={0.6} style={{ strokeWidth: 'calc(1.1px * var(--lw, 1))' }} />
                   {!tagged && (
                     <text className="nr" transform={upT(c)} x={f2(c[0] + r + 0.4)} y={f2(c[1] + 0.3)} stroke="#0B0E12" style={{ fill: '#E7C66B', fontSize: '0.78px', fontWeight: 600, letterSpacing: '0.04em', strokeWidth: 3, paintOrder: 'stroke', strokeLinejoin: 'round' }}>
                       {`${d.name.toUpperCase()} · ${d.radar}`}

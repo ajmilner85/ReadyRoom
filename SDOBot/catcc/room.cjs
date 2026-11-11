@@ -4733,8 +4733,6 @@ var Source = class {
   hook;
   /** what was last sent per ship, to refresh helm orders and skip unchanged station orders */
   sent = /* @__PURE__ */ new Map();
-  /** escorts being split out of the carrier's group: track id -> unit name and old group, until the unit shows up in a group of its own */
-  detaching = /* @__PURE__ */ new Map();
   orderTimer;
   seq = 0;
   stopFn;
@@ -4919,7 +4917,6 @@ var Source = class {
         this.order(hull, "helm", { op: "helm", g, crs: plan.helm.crs, kt: plan.helm.kt });
       }
     }
-    this.rekeyDetached();
     for (const [hull, ops] of Object.entries(this.ops)) {
       if (!ops.formation?.drive) continue;
       const cv = this.carrierTrack(hull);
@@ -4931,13 +4928,7 @@ var Source = class {
         const t = this.tracks.find((x) => x.id === id);
         if (!t?.g) continue;
         if (t.g === cv.g) {
-          if (this.detaching.has(id)) continue;
-          if (!t.un) {
-            if (!this.orders[id]) this.order(id, "station", { error: `${t.g}: no unit name to detach it by` });
-            continue;
-          }
-          this.detaching.set(id, { un: t.un, g: t.g });
-          this.order(id, "station", { op: "detach", g: t.g, u: t.un });
+          if (!this.orders[id]) this.order(id, "station", { error: `${t.g} is the carrier's DCS group: it keeps DCS's own formation` });
           continue;
         }
         const pts = stationOrder(st, axis, { lat: cv.lat, lon: cv.lon, crs, kt: cv.gs ?? 0 }, t);
@@ -4946,34 +4937,6 @@ var Source = class {
         if (!orderChanged(prev?.pts, pts, prev ? (now - prev.at) / 1e3 : Infinity)) continue;
         this.order(id, "station", { op: "route", g: t.g, pts });
       }
-    }
-  }
-  /**
-   * A detached escort comes back as a new DCS unit: if DCS gave it a new unit id, its formation
-   * stations (keyed by track id) and order status move to the new track, found by unit name.
-   */
-  rekeyDetached() {
-    for (const [oldId, { un, g }] of this.detaching) {
-      const now = this.tracks.find((t) => t.un === un && t.g !== g && (t.k === "ship" || t.k === "carrier"));
-      if (!now) continue;
-      this.detaching.delete(oldId);
-      if (now.id === oldId) continue;
-      let changed = false;
-      for (const ops of Object.values(this.ops)) {
-        for (const preset of Object.values(ops.formation?.presets ?? {})) {
-          if (!(oldId in preset)) continue;
-          preset[now.id] = preset[oldId];
-          delete preset[oldId];
-          changed = true;
-        }
-      }
-      if (this.orders[oldId]) {
-        this.orders[now.id] = this.orders[oldId];
-        delete this.orders[oldId];
-      }
-      this.sent.delete(oldId);
-      if (changed) this.broadcastOps();
-      this.broadcastOrders();
     }
   }
   ownersMsg() {

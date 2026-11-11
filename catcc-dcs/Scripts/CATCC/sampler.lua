@@ -265,39 +265,6 @@ CATCC_cmd_route = guarded(function(name, pts)
   return 'OK'
 end)
 
--- Split an escort out of its group into a group of its own, so it can be ordered to a station.
--- DCS keeps a group's ships at their mission-start offsets from the lead and has no call to change
--- them, so the escort is respawned in place: same type, name, unit id (when DCS allows it), position,
--- heading and speed, steaming ahead until it is given a station. Damage and loadout aren't kept.
-CATCC_cmd_detach = guarded(function(gname, uname)
-  local g, lead, err = shipGroup(gname)
-  if not g then return 'ERR:' .. err end
-  local u = Unit.getByName(uname)
-  if not u or not u:isExist() then return 'ERR:no unit ' .. uname end
-  local ug = u:getGroup()
-  if not ug or ug:getName() ~= gname then return 'ERR:' .. uname .. ' is not in ' .. gname end
-  if lead:getName() == uname then return 'ERR:' .. uname .. ' leads ' .. gname .. ' and stays in it' end
-  local p = u:getPoint()
-  local pos = u:getPosition()
-  local hdg = atan2(pos.x.z, pos.x.x) -- grid radians, as the mission editor stores it
-  local v = u:getVelocity() or { x = 0, z = 0 }
-  local mps = sqrt(v.x * v.x + v.z * v.z)
-  local country = u:getCountry()
-  local uid = tonumber(u:getID())
-  local typ = u:getTypeName()
-  local ahead = { x = p.x + math.cos(hdg) * 18520, z = p.z + math.sin(hdg) * 18520 }
-  local data = {
-    name = gname .. ' / ' .. uname,
-    task = {},
-    units = { { type = typ, name = uname, unitId = uid, x = p.x, y = p.z, heading = hdg, skill = 'Excellent' } },
-    route = { points = { routePoint(p.x, p.z, mps), routePoint(ahead.x, ahead.z, mps) } },
-  }
-  u:destroy()
-  local ng = coalition.addGroup(country, Group.Category.SHIP, data)
-  if not ng then return 'ERR:respawning ' .. uname .. ' failed' end
-  return 'OK'
-end)
-
 CATCC_env = function()
   local ok, res = pcall(envBody)
   if ok then return res end

@@ -135,15 +135,6 @@ describe('CATCC DCS hook', () => {
     ]);
   });
 
-  it('detaches an escort from the carrier group by respawning it in a group of its own', () => {
-    const replies = msgs('detach').filter((m) => m.type === 'cmd');
-    expect(replies[0]).toEqual({ type: 'cmd', id: 11, ok: true });
-    expect(replies[1]).toMatchObject({ id: 12, ok: false, error: 'CSG-1-1 leads CSG-1 and stays in it' });
-    const [added] = msgs('added');
-    expect(added).toMatchObject({ destroyed: 'CSG-1-2', country: 2, cat: 3, group: 'CSG-1 / CSG-1-2', unit: 'CSG-1-2', type: 'USS_Arleigh_Burke_IIa', unitId: 1002, pts: 2 });
-    expect(added.spd).toBeCloseTo(20, 1); // under way at its speed
-  });
-
   it('reinstalls the sampler after the mission environment resets', () => {
     expect(msgs('reset').filter((m) => m.type === 'frame').length).toBeGreaterThanOrEqual(1);
   });
