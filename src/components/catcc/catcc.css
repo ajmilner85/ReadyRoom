@@ -90,3 +90,9 @@ svg.scope { stroke-width: calc(1px * var(--lw, 1)); }
 
 /* CSG formation plot: strokes keep their width in the 44 NM viewBox */
 .fm * { vector-effect: non-scaling-stroke; }
+
+/* header feed state: anything short of live pulses to draw the eye (the ring colour follows the dot) */
+@keyframes catcc-feed-alert { 0% { box-shadow: 0 0 0 0 currentColor; opacity: 1; } 50% { opacity: .35; } 70% { box-shadow: 0 0 0 6px transparent; } 100% { box-shadow: 0 0 0 0 transparent; opacity: 1; } }
+.cc-feed-alert { animation: catcc-feed-alert 1.4s ease-out infinite; }
+.cc-feed-alert-text { animation: blink 1.4s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) { .cc-feed-alert, .cc-feed-alert-text { animation-duration: 3s; } }

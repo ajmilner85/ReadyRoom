@@ -226,9 +226,12 @@ const CatccApp: React.FC = () => {
       Options
     </button>
   );
+  // live green; a feed that's up but idle amber; refused / offline / no sources red; connecting grey. Not live = animated.
+  const feedColour = live ? '#40A85B' : state.conn === 'denied' || (state.conn === 'open' && (!src || !src.connected)) ? '#FF8A85' : state.conn === 'open' ? '#DE9A1F' : '#93A1B0';
   const feed = (
     <div style={{ display: 'flex', alignItems: 'center', gap: 6, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, color: '#93A1B0' }} title={src?.lastError ?? ''}>
-      <span style={{ width: 8, height: 8, borderRadius: '50%', background: live ? '#40A85B' : state.conn === 'open' ? '#DE9A1F' : '#5E6A78' }} />
+      <span className={live ? undefined : 'cc-feed-alert'} style={{ width: 8, height: 8, borderRadius: '50%', background: feedColour, color: feedColour, flex: 'none' }} />
+      <span className={live ? undefined : 'cc-feed-alert-text'} style={{ color: live ? undefined : feedColour }}>
       {state.conn !== 'open'
         ? state.conn === 'denied'
           ? 'Room · sign-in refused'
@@ -236,6 +239,7 @@ const CatccApp: React.FC = () => {
         : !src
           ? 'No sources'
           : `${src.name} feed · ${live ? 'live' : src.mission?.state === 'stopped' ? 'no mission' : src.connected ? 'waiting' : 'offline'}`}
+      </span>
     </div>
   );
   const sourceSelect =
