@@ -534,10 +534,14 @@ export const FreqPanel: React.FC<{ plan: CommsPlanEntry[] | null; source: string
         // an encrypted channel: its KY fill number in green beside the channel number (as mission prep shows it)
         const fill = blank(e.kyFill) ? null : e.kyFill;
         const ch = (
-          <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }} title={fill ? `Encrypted · fill ${fill}` : undefined}>
-            <span className="fch">{e.chan}</span>
-            {/* the slot is kept on every row, so the channel boxes line up */}
-            <span style={{ minWidth: 7, color: '#40A85B', fontWeight: 600, fontSize: 11 }}>{fill}</span>
+          // the box stays centred under PRI/AUX; the fill hangs off its right edge, centred on the box's height
+          <span style={{ position: 'relative', display: 'inline-block' }} title={fill ? `Encrypted · fill ${fill}` : undefined}>
+            <span className="fch" style={{ display: 'block' }}>{e.chan}</span>
+            {fill && (
+              <span style={{ position: 'absolute', left: '100%', top: 0, height: 18, lineHeight: '18px', marginLeft: 3, color: '#40A85B', fontWeight: 600, fontSize: 11 }}>
+                {fill}
+              </span>
+            )}
           </span>
         );
         return (
