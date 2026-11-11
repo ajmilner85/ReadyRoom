@@ -84,6 +84,31 @@ const ELEV_LINES = Object.entries(G.elev)
   })
   .join('');
 
+// ---------------------------------------------------------------- weapons elevators and the shooter bubble
+
+/** a convex polygon moved in by d metres all round (each corner along its bisector) */
+const insetRing = (q: V[], d: number): V[] => {
+  const r = q.length > 2 && q[0][0] === q[q.length - 1][0] && q[0][1] === q[q.length - 1][1] ? q.slice(0, -1) : q;
+  const n = r.length;
+  const c = centroid(r);
+  return r.map((b, i) => {
+    const a = r[(i - 1 + n) % n];
+    const e = r[(i + 1) % n];
+    const ua: V = [(a[0] - b[0]) / Math.hypot(a[0] - b[0], a[1] - b[1]), (a[1] - b[1]) / Math.hypot(a[0] - b[0], a[1] - b[1])];
+    const ue: V = [(e[0] - b[0]) / Math.hypot(e[0] - b[0], e[1] - b[1]), (e[1] - b[1]) / Math.hypot(e[0] - b[0], e[1] - b[1])];
+    let bis: V = [ua[0] + ue[0], ua[1] + ue[1]];
+    const L = Math.hypot(bis[0], bis[1]) || 1;
+    bis = [bis[0] / L, bis[1] / L];
+    if (bis[0] * (c[0] - b[0]) + bis[1] * (c[1] - b[1]) < 0) bis = [-bis[0], -bis[1]];
+    const half = Math.acos(Math.max(-1, Math.min(1, ua[0] * ue[0] + ua[1] * ue[1]))) / 2;
+    const k = d / Math.max(0.2, Math.sin(half));
+    return [b[0] + bis[0] * k, b[1] + bis[1] * k];
+  });
+};
+const FRAMED = [...G.ordnance, G.struct['Cats 1 & 2 Shooter Bubble']];
+const ORD_FRAME = FRAMED.map((q) => roundRing(q, 0.55)).join('');
+const ORD_INNER = FRAMED.map((q) => roundRing(insetRing(q, 0.4), 0.3)).join('');
+
 // ---------------------------------------------------------------- hull number: hollow block glyphs, tops to the bow
 
 /**
@@ -212,8 +237,10 @@ export const DeckDrawing: React.FC<{
         <g fill="none" stroke={C.structEdge} strokeWidth={0.3}>
           <path d={ring(G.struct['LSO Platform']) + ring(G.struct['IFLOLS Platform'])} fill={C.platform} />
           <path d={line(G.struct['IFLOLS Datum Lights'])} stroke={C.red} strokeWidth={0.5} />
-          <path d={ring(G.struct['Cats 1 & 2 Shooter Bubble'])} stroke={C.elevLine} />
-          <path d={G.ordnance.map(ring).join('')} stroke={C.elevLine} />
+          {/* weapons elevators and the shooter bubble: rounded frame of amber and red dashes, a thin white line inset inside it */}
+          <path d={ORD_FRAME} stroke={C.elevLine} strokeWidth={0.28} />
+          <path d={ORD_FRAME} stroke={C.red} strokeWidth={0.28} strokeDasharray="0.33 0.33" />
+          <path d={ORD_INNER} stroke={C.paint} strokeWidth={0.12} />
           <path d={G.barricade.map(ring).join('')} />
         </g>
       )}
