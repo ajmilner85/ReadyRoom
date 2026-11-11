@@ -51,18 +51,18 @@ const catDeg = (k: string) => {
 const CAT_SIDE: Record<string, number> = { '1': -1, '2': 1, '3': -1, '4': -1 };
 const CAT_LABEL = Object.fromEntries(Object.keys(CATS).map((k) => [k, { p: onCatTrack(k, 5, CAT_SIDE[k] * 3.1), rot: -catDeg(k) }]));
 
-// ---------------------------------------------------------------- elevator and island labels: area centres, on one line
+// ---------------------------------------------------------------- elevator labels: off the deck edge, outboard of each elevator
 
+// starboard elevators (1-3) share one line just outboard of the furthest-out of them; EL 4 sits outboard to port
 const STBD = ['1', '2', '3'];
-const islandC = areaCentroid(G.struct['Island']);
-const stbdY = (STBD.reduce((s, k) => s + areaCentroid(G.elev[k].poly)[1], 0) + islandC[1]) / (STBD.length + 1);
+const stbdOut = Math.min(...STBD.flatMap((k) => G.elev[k].poly.map((q) => q[1]))) - 2.4;
 const EL_LABEL: Record<string, V> = Object.fromEntries(
   Object.entries(G.elev).map(([k, e]) => {
     const c = areaCentroid(e.poly);
-    return [k, STBD.includes(k) ? [c[0], stbdY] : c];
+    return [k, STBD.includes(k) ? [c[0], stbdOut] : [c[0], Math.max(...e.poly.map((q) => q[1])) + 2.4]];
   }),
 );
-const ISLAND_LABEL: V = [islandC[0], stbdY];
+const ISLAND_LABEL: V = areaCentroid(G.struct['Island']);
 
 // ---------------------------------------------------------------- hull number: hollow block glyphs, tops to the bow
 
