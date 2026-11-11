@@ -226,8 +226,9 @@ export const DeckDrawing: React.FC<{
           })}
         {layers.has('gear') && (
           <>
-            <T p={[centroid(G.struct['LSO Platform'])[0], centroid(G.struct['LSO Platform'])[1] + 4]} size={2.4}>LSO</T>
-            <T p={[centroid(G.struct['IFLOLS Platform'])[0], centroid(G.struct['IFLOLS Platform'])[1] - 6]} size={2.4}>LENS</T>
+            {/* both off the port deck edge, clear of their platforms: LSO outboard of its platform, IFLOLS aft of the lens */}
+            <T p={[centroid(G.struct['LSO Platform'])[0], Math.max(...G.struct['LSO Platform'].map((q) => q[1])) + 2.2]} size={2.4}>LSO</T>
+            <T p={[Math.min(...G.struct['IFLOLS Platform'].map((q) => q[0])) - 1.5, centroid(G.struct['IFLOLS Platform'])[1] + 1]} size={2.4} anchor="end">IFLOLS</T>
           </>
         )}
         {layers.has('spots') &&

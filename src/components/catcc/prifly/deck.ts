@@ -31,7 +31,7 @@ export const DECK_LAYERS: { k: DeckLayer; label: string; title: string }[] = [
   { k: 'routes', label: 'DCS routes', title: 'Every Supercarrier deck-crew taxi route: launch (to the catapults) and recovery (to the parking spots)' },
   { k: 'wires', label: 'Wires', title: 'Arresting wire numbers' },
   { k: 'helo', label: 'Helo spots', title: 'Helicopter landing spots' },
-  { k: 'gear', label: 'Equipment', title: 'LSO platform, lens, shooter bubble, weapons elevators, barricade stanchions' },
+  { k: 'gear', label: 'Equipment', title: 'LSO platform, IFLOLS, shooter bubble, weapons elevators, barricade stanchions' },
 ];
 
 /** the drawing's frame: stern to bow plus label room; port edge to starboard edge plus the scale bar */
