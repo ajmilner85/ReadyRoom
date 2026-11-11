@@ -27,6 +27,9 @@ const C = {
   label: '#93A1B0',
 };
 
+/** AI routes: launch (to the catapults) green, recovery (to parking) blue */
+const ROUTE_COL = { to: '#5FD068', park: '#6FB6E6' } as const;
+
 const NAMES: Record<string, string> = { Crotch: 'CROTCH', Point: 'POINT', Corral: 'CORRAL', 'Junk Yard': 'JUNK YARD', Patio: 'PATIO', Finger: 'FINGER', Box: 'BOX', Street: 'STREET', Sixpack: 'SIX-PACK' };
 
 const T: React.FC<{ p: V; children: React.ReactNode; size?: number; fill?: string; anchor?: 'start' | 'middle' | 'end'; rot?: number; weight?: number; opacity?: number; font?: string }> = ({ p, children, size = 3.4, fill = C.label, anchor = 'middle', rot, weight, opacity, font }) => (
@@ -245,12 +248,15 @@ export const DeckDrawing: React.FC<{
         </g>
       )}
       {layers.has('areas') && <path d={G.parking.map((a) => ring(a.poly)).join('')} fill="rgba(111,182,230,.05)" stroke="#6FB6E6" strokeOpacity={0.45} strokeWidth={0.35} strokeDasharray="2 1.2" />}
-      {layers.has('routes') && (
-        <g fill="none" strokeWidth={0.35} strokeLinejoin="round">
-          {TAXI_ROUTES.map((r) => (
-            <path key={`${r.kind}${r.spot}`} d={line(r.pts)} stroke={r.kind === 'to' ? '#5FD068' : '#6FB6E6'} strokeOpacity={0.45} />
-          ))}
-        </g>
+      {(['catRoutes', 'parkRoutes'] as const).map(
+        (k) =>
+          layers.has(k) && (
+            <g key={k} fill="none" strokeWidth={0.35} strokeLinejoin="round">
+              {TAXI_ROUTES.filter((r) => r.kind === (k === 'catRoutes' ? 'to' : 'park')).map((r) => (
+                <path key={r.spot} d={line(r.pts)} stroke={ROUTE_COL[r.kind]} strokeOpacity={0.5} />
+              ))}
+            </g>
+          ),
       )}
 
       {/* labels */}
@@ -297,18 +303,18 @@ export const DeckDrawing: React.FC<{
             <T p={[Math.min(...G.struct['IFLOLS Platform'].map((q) => q[0])) - 1.5, centroid(G.struct['IFLOLS Platform'])[1] + 1]} size={2.4} anchor="end">IFLOLS</T>
           </>
         )}
-        {layers.has('spots') &&
-          TAXI_ROUTES.filter((r) => r.kind === 'park').map((r) => {
-            const p = r.pts[r.pts.length - 1];
-            return (
-              <g key={r.spot}>
-                <circle cx={p[0]} cy={-p[1]} r={1.9} fill="#0B0E12" stroke="#6FB6E6" strokeWidth={0.3} />
-                <T p={p} size={2} fill="#6FB6E6" weight={600}>
-                  {r.spot}
-                </T>
-              </g>
-            );
-          })}
+        {/* each route's spot, shown with its routes: launch routes start at their spawn spot, recovery routes end at their parking spot */}
+        {TAXI_ROUTES.filter((r) => layers.has(r.kind === 'to' ? 'catRoutes' : 'parkRoutes')).map((r) => {
+          const p = r.kind === 'to' ? r.pts[0] : r.pts[r.pts.length - 1];
+          return (
+            <g key={`${r.kind}${r.spot}`}>
+              <circle cx={p[0]} cy={-p[1]} r={1.9} fill="#0B0E12" stroke={ROUTE_COL[r.kind]} strokeWidth={0.3} />
+              <T p={p} size={2} fill={ROUTE_COL[r.kind]} weight={600}>
+                {r.spot}
+              </T>
+            </g>
+          );
+        })}
       </g>
 
       {/* scale and orientation */}
