@@ -123,7 +123,8 @@ describe('CATCC DCS hook', () => {
 
   it('drives Air Boss ship control (heading, bell, back to automatic) when the sim provides it', () => {
     const replies = msgs('ab').filter((m) => m.type === 'cmd');
-    expect(replies[0]).toMatchObject({ id: 7, ok: false, error: 'Air Boss ship control is not available on this server' });
+    expect(replies[0]).toMatchObject({ id: 7, ok: false });
+    expect(replies[0].error).toMatch(/^Air Boss ship control is not available on this server \(orderShipDir=nil, /);
     expect(replies[1]).toEqual({ type: 'cmd', id: 8, ok: true });
     expect(replies[2]).toMatchObject({ id: 9, ok: false, error: 'bad bell' });
     expect(replies[3]).toEqual({ type: 'cmd', id: 10, ok: true });

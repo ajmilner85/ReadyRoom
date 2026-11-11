@@ -4857,7 +4857,7 @@ var Source = class {
    */
   helmOrder(hull, g, helm) {
     const route = { op: "helm", g, crs: helm.crs, kt: helm.kt };
-    if (this.status.ab && hasAirBoss(this.carrierTrack(hull)?.ty)) {
+    if (hasAirBoss(this.carrierTrack(hull)?.ty)) {
       this.order(hull, "helm", { op: "bridge", g, crs: helm.crs, bell: bellFor(helm.kt).id }, route);
     } else this.order(hull, "helm", route);
   }

@@ -200,7 +200,9 @@ class Source {
    */
   private helmOrder(hull: string, g: string, helm: { crs: number; kt: number }): void {
     const route: ShipCmd = { op: 'helm', g, crs: helm.crs, kt: helm.kt };
-    if (this.status.ab && hasAirBoss(this.carrierTrack(hull)?.ty)) {
+    // tried for every ship with the station: the hook's hello only says whether the API existed when the
+    // room connected (it may appear later, e.g. once the mission or the Air Boss seat is loaded)
+    if (hasAirBoss(this.carrierTrack(hull)?.ty)) {
       this.order(hull, 'helm', { op: 'bridge', g, crs: helm.crs, bell: bellFor(helm.kt).id }, route);
     } else this.order(hull, 'helm', route);
   }

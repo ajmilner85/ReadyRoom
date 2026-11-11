@@ -334,7 +334,13 @@ end
 -- m: {g, crs?, bell?, auto?}; "OK" or "ERR:<reason>"
 local function bridgeOrder(m)
   local ab = airBoss()
-  if not ab then return 'ERR:Air Boss ship control is not available on this server' end
+  if not ab then
+    local have = {}
+    for _, n in ipairs({ 'orderShipDir', 'orderShipSpeed', 'automaticShipSpeedDir', 'getShipSpeedDir' }) do
+      have[#have + 1] = n .. '=' .. type(_G[n])
+    end
+    return 'ERR:Air Boss ship control is not available on this server (' .. table.concat(have, ', ') .. ')'
+  end
   local oid, why = shipObjectId(m.g)
   if not oid then return 'ERR:' .. why end
   local okS, spd = pcall(ab.getShipSpeedDir, oid)
@@ -394,7 +400,9 @@ local function handleCmd(c, body)
     info('order ' .. tostring(m.op) .. ' for ' .. m.g .. ' from ' .. c.peer)
     return reply(nil)
   end
-  reply(type(res) == 'string' and res:gsub('^ERR:', ''):sub(1, 200) or 'no reply')
+  local why = type(res) == 'string' and res:gsub('^ERR:', ''):sub(1, 200) or 'no reply'
+  warn('order ' .. tostring(m.op) .. ' for ' .. tostring(m.g) .. ' refused: ' .. why)
+  reply(why)
 end
 
 -- ---------------------------------------------------------------- client I/O
