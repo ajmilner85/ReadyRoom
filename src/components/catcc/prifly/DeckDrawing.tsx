@@ -112,7 +112,7 @@ export const DeckDrawing: React.FC<{
     <g>
       <defs>
         <filter id="catTrackShadow" filterUnits="userSpaceOnUse" x={-200} y={-60} width={400} height={120}>
-          <feDropShadow dx={0} dy={0} stdDeviation={0.45} floodColor="#000" floodOpacity={0.7} />
+          <feDropShadow dx={0} dy={0} stdDeviation={0.45} floodColor="#000" floodOpacity={0.5} />
         </filter>
       </defs>
       {/* hull, elevators, island */}
@@ -163,6 +163,8 @@ export const DeckDrawing: React.FC<{
             {/* both ends of the track are lighter grey blocks on the model, ~3 m long, track width */}
             <path d={line([a, onCatTrack(k, 3, 0)]) + line([onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]) - 3, 0), b])} stroke={C.catStart} strokeWidth={1.56} strokeLinecap="butt" />
           </g>
+          {/* a thin, see-through 60% grey edge round the whole track */}
+          <path d={ring([onCatTrack(k, 0, 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), -0.78), onCatTrack(k, 0, -0.78)])} fill="none" stroke="#999999" strokeOpacity={0.45} strokeWidth={0.22} strokeLinejoin="miter" />
           <path d={ring(G.jbd[k])} fill={jbdUp[k] ? 'rgba(222,154,31,.4)' : C.jbdFill} stroke={jbdUp[k] ? '#E7B04F' : C.jbdEdge} strokeWidth={jbdUp[k] ? 0.6 : 0.35} />
         </g>
       ))}
