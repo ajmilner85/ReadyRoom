@@ -49,7 +49,7 @@ const catDeg = (k: string) => {
 };
 // the side away from the neighbouring catapult: 1 starboard, 2 port, 3 starboard, 4 starboard (port of 4 is the deck edge)
 const CAT_SIDE: Record<string, number> = { '1': -1, '2': 1, '3': -1, '4': -1 };
-const CAT_LABEL = Object.fromEntries(Object.keys(CATS).map((k) => [k, { p: onCatTrack(k, 5, CAT_SIDE[k] * 2.4), rot: -catDeg(k) }]));
+const CAT_LABEL = Object.fromEntries(Object.keys(CATS).map((k) => [k, { p: onCatTrack(k, 5, CAT_SIDE[k] * 3.1), rot: -catDeg(k) }]));
 
 // ---------------------------------------------------------------- elevator and island labels: area centres, on one line
 
@@ -190,7 +190,10 @@ export const DeckDrawing: React.FC<{
       {/* labels */}
       <g style={{ pointerEvents: 'none' }}>
         {Object.keys(CATS).map((k) => (
-          <T key={k} p={CAT_LABEL[k].p} rot={CAT_LABEL[k].rot} anchor="start" size={2.6}>{`CAT ${k}`}</T>
+          <g key={k} transform={`rotate(${CAT_LABEL[k].rot} ${CAT_LABEL[k].p[0]} ${-CAT_LABEL[k].p[1]})`}>
+            <rect x={CAT_LABEL[k].p[0] - 0.9} y={-CAT_LABEL[k].p[1] - 1.85} width={10.8} height={3.7} rx={0.5} fill="#0B0E12" stroke="#7D8896" strokeWidth={0.3} />
+            <T p={CAT_LABEL[k].p} anchor="start" size={2.6} fill="#C9D3DD">{`CAT ${k}`}</T>
+          </g>
         ))}
         {Object.keys(G.elev).map((k) => (
           <T key={k} p={EL_LABEL[k]} fill={C.elevLine}>{`EL ${k}`}</T>
