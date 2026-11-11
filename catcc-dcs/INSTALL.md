@@ -28,7 +28,7 @@ In `Config\CATCC.lua`, set `token` to a long random string; anything shorter tha
 -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 40 | ForEach-Object {[char]$_})
 ```
 
-The same token goes in the room service's `CATCC_SOURCES` secret (see below). Keep it out of git.
+The same token goes in the room service's `CATCC_TOKEN` secret (see below). Keep it out of git.
 
 ## 3. Allow `net.dostring_in` (probably already done)
 
