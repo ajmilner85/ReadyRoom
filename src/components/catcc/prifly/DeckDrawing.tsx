@@ -155,6 +155,8 @@ export const DeckDrawing: React.FC<{
           <path d={line([a, b])} stroke={C.catTrack} strokeWidth={1.56} strokeLinecap="butt" />
           {/* both ends of the track are lighter grey blocks on the model, ~3 m long, track width */}
           <path d={line([a, onCatTrack(k, 3, 0)]) + line([onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]) - 3, 0), b])} stroke={C.catStart} strokeWidth={1.56} strokeLinecap="butt" />
+          {/* a dark (not black) border round the whole track so it stands off the deck */}
+          <path d={ring([onCatTrack(k, 0, 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), -0.78), onCatTrack(k, 0, -0.78)])} fill="none" stroke="#0E1216" strokeWidth={0.4} strokeLinejoin="miter" />
           <path d={ring(G.jbd[k])} fill={jbdUp[k] ? 'rgba(222,154,31,.4)' : C.jbdFill} stroke={jbdUp[k] ? '#E7B04F' : C.jbdEdge} strokeWidth={jbdUp[k] ? 0.6 : 0.35} />
         </g>
       ))}
