@@ -213,8 +213,8 @@ export const DeckDrawing: React.FC<{
             <path d={line([a, b])} stroke={C.catTrack} strokeWidth={1.56} strokeLinecap="butt" />
             {/* both ends of the track are lighter grey blocks on the model, ~3 m long, track width */}
             <path d={line([a, onCatTrack(k, 3, 0)]) + line([onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]) - 3, 0), b])} stroke={C.catStart} strokeWidth={1.56} strokeLinecap="butt" />
-            {/* the shuttle slot: a dark line down the middle of the track */}
-            <path d={line([a, b])} stroke="#14181D" strokeWidth={0.22} strokeLinecap="butt" />
+            {/* the shuttle slot: a darker line down the middle of the track, ending halfway into the block at the launch end */}
+            <path d={line([a, onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]) - 1.5, 0)])} stroke="#2C333B" strokeWidth={0.22} strokeLinecap="butt" />
           </g>
           {/* a thin edge round the whole track: black at 60%, so it darkens whatever is under it 60% toward black */}
           <path d={ring([onCatTrack(k, 0, 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), 0.78), onCatTrack(k, Math.hypot(b[0] - a[0], b[1] - a[1]), -0.78), onCatTrack(k, 0, -0.78)])} fill="none" stroke="#000000" strokeOpacity={0.6} strokeWidth={0.22} strokeLinejoin="miter" />
