@@ -22,9 +22,9 @@ $ErrorActionPreference = 'Stop'
 # DCS lives under Program Files: writing there needs admin. Re-launch elevated (one UAC prompt).
 $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator)
 if (-not $isAdmin) {
-  $args = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-File', "`"$PSCommandPath`"", '-DcsPath', "`"$DcsPath`"", '-HoldSeconds', $HoldSeconds)
-  if ($Revert) { $args += '-Revert' }
-  Start-Process powershell -Verb RunAs -ArgumentList $args
+  $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-File', "`"$PSCommandPath`"", '-DcsPath', "`"$DcsPath`"", '-HoldSeconds', $HoldSeconds)
+  if ($Revert) { $argv += '-Revert' }
+  Start-Process powershell -Verb RunAs -ArgumentList $argv
   Write-Host "Opened an elevated window to do the change (approve the UAC prompt)."
   exit 0
 }
