@@ -1,7 +1,7 @@
 /**
  * The Nimitz flight deck, to scale (1 SVG unit = 1 m), bow right and port up, from the trace over the DCS
  * model (nimitzDeck.gen.ts). Markings are drawn at their painted widths and in the model's colours
- * (white paint, orange-tan elevator lines, red foul lines, tan jet blast deflectors), darkened so aircraft,
+ * (white paint, amber-and-red elevator lines, red-and-white foul lines, tan jet blast deflectors), darkened so aircraft,
  * routes and alerts stand out. Base labels (catapults, elevators, island) always show; the rest are
  * layers the boss turns on.
  */
@@ -15,10 +15,12 @@ const C = {
   paintDim: '#6C757E',
   yellow: '#A98A35',
   red: '#A2453D',
-  elevLine: '#B07E3A', // elevator edge and safety line: orange-tan on the model
+  elevLine: '#B9923A', // elevator edge and safety line: amber, dashed with red on the model
+  foulWhite: '#8A939B',
   jbdFill: '#4A4536',
   jbdEdge: '#A98A35',
   catTrack: '#4C545D',
+  catStart: '#6A737C',
   struct: '#3E4854',
   structEdge: '#6E7A88',
   label: '#93A1B0',
@@ -110,7 +112,9 @@ export const DeckDrawing: React.FC<{
     <g>
       {/* hull, elevators, island */}
       <path d={ring(G.outline)} fill={C.deck} stroke={C.edge} strokeWidth={0.5} strokeLinejoin="round" />
-      <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.elevLine} strokeWidth={0.32} strokeLinejoin="round" />
+      {/* elevator edge and safety line: alternating amber and red, ~0.4 m each on the model (drawn 0.5 m to stay legible) */}
+      <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="round" />
+      <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="round" strokeDasharray="0.5 0.5" />
       <path d={roundRing(G.struct['Island'], 1.6)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.35} />
       <path d={roundRing(G.struct['Radar Mast'], 0.8)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.3} />
 
@@ -123,16 +127,18 @@ export const DeckDrawing: React.FC<{
       <path d={line(L.c)} fill="none" stroke={C.paintDim} strokeWidth={0.9} />
       <path d={L.yellow.map(line).join('')} fill="none" stroke={C.yellow} strokeWidth={0.9} />
       <path d={line(L.rdMark)} fill="none" stroke={C.yellow} strokeWidth={1.1} />
-      {/* foul lines (landing area and catapults) */}
-      <path d={G.safety.map(line).join('')} fill="none" stroke={C.red} strokeWidth={0.28} />
+      {/* foul lines (landing area and catapults): alternating white and red, ~1.7 m each */}
+      <path d={G.safety.map(line).join('')} fill="none" stroke={C.foulWhite} strokeWidth={0.3} />
+      <path d={G.safety.map(line).join('')} fill="none" stroke={C.red} strokeWidth={0.3} strokeDasharray="1.7 1.7" />
       {/* arresting gear */}
       <path d={G.wires.map(line).join('')} fill="none" stroke="#6E7882" strokeWidth={0.4} strokeDasharray="0.8 0.6" />
 
-      {/* catapults: track, shuttle at the aft end, jet blast deflector behind it */}
+      {/* catapults: track, its lighter start block, jet blast deflector behind it */}
       {Object.entries(CATS).map(([k, [a, b]]) => (
         <g key={k}>
           <path d={line([a, b])} stroke={C.catTrack} strokeWidth={1.56} strokeLinecap="butt" />
-          <path d={line([a, onCatTrack(k, 2.5, 0)])} stroke={C.yellow} strokeWidth={1.56} />
+          {/* the start of the track (the shuttle's battery position) is a lighter grey block on the model */}
+          <path d={line([onCatTrack(k, -1, 0), onCatTrack(k, 9, 0)])} stroke={C.catStart} strokeWidth={1.9} strokeLinecap="butt" />
           <path d={ring(G.jbd[k])} fill={jbdUp[k] ? 'rgba(222,154,31,.4)' : C.jbdFill} stroke={jbdUp[k] ? '#E7B04F' : C.jbdEdge} strokeWidth={jbdUp[k] ? 0.6 : 0.35} />
         </g>
       ))}
@@ -186,7 +192,7 @@ export const DeckDrawing: React.FC<{
           <T key={k} p={CAT_LABEL[k].p} rot={CAT_LABEL[k].rot} anchor="start" size={2.6}>{`CAT ${k}`}</T>
         ))}
         {Object.keys(G.elev).map((k) => (
-          <T key={k} p={EL_LABEL[k]} fill="#7C8794">{`EL ${k}`}</T>
+          <T key={k} p={EL_LABEL[k]} fill={C.elevLine}>{`EL ${k}`}</T>
         ))}
         <T p={ISLAND_LABEL} fill="#C9D3DD" size={3}>ISLAND</T>
         {layers.has('areas') &&
