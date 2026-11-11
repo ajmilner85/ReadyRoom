@@ -203,6 +203,12 @@ local function installSampler()
   if not src then return false end
   local res = dostring(src .. '\nreturn (type(CATCC_sample) == "function") and "CATCC_OK" or "CATCC_FAIL"')
   if res ~= 'CATCC_OK' then
+    local okS, isServer = pcall(function() return DCS.isServer() end)
+    if okS and isServer == false then
+      samplerWarn('this DCS is a client in someone else\'s multiplayer session: the mission runs on that server, ' ..
+        'so the CATCC hook there (not this one) provides the data')
+      return false
+    end
     samplerWarn('installing sampler in state "' .. tostring(cfg.state) .. '" failed: ' .. tostring(res) ..
       ' (check autoexec.cfg: net.allow_dostring_in must include "' .. tostring(cfg.state) .. '")')
     return false
