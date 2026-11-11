@@ -87,7 +87,7 @@ Each order is logged in `dcs.log` as `CATCC: order helm for <group> from <ip>`.
 
 1. Install the files into your own `Saved Games\DCS\` (not `DCS.server`) exactly as above, with `commands = true` and any 16+ character token.
 2. Start a mission with a carrier group (single player is fine). If the log says the sampler failed in state `server`, set `state = 'mission'` in the config.
-3. On the same PC: `npm run catcc:local -- --token <token>` (the room on port 3002, source "DCS (localhost)"), then `npm run dev` and open `/catcc`.
+3. On the same PC: `npm run catcc:local` (the room on port 3002, source "DCS (localhost)"; it reads the token from your `Config\CATCC.lua`, so it never has to be typed), then `npm run dev` and open `/catcc`.
 4. Take the Bridge seat and give a helm order. The ship should start turning within a second or two.
 
 ## Room service (SDOBot on Fly)

@@ -9,7 +9,8 @@
  *        ~/Documents/Tacview). `npm run catcc:replay` is that, from 3300 s.
  *        --demo-pattern adds synthetic pattern traffic (final, bolter downwind, inbound) for the
  *        Approach / Final displays.
- *   node catcc-server/room/main.ts --hook <host[:port]> --token <token>
+ *   node catcc-server/room/main.ts --hook <host[:port]> [--token <token>]
+ *        (the token defaults to the one in Saved Games/DCS/Config/CATCC.lua)
  *        dev mode against a real DCS hook (e.g. a local DCS with the hook installed: --hook localhost),
  *        as source "local", accepting any sign-in token (CATCC_DEV_NOAUTH). `npm run catcc:local`.
  *
@@ -47,6 +48,23 @@ function latestAcmi(): string {
   throw new Error('--acmi latest: no .acmi recording in Downloads or Documents/Tacview (or set CATCC_ACMI)');
 }
 
+/**
+ * The token from the local DCS install's hook config (Saved Games/DCS[.openbeta]/Config/CATCC.lua),
+ * so it never has to be typed (or pasted anywhere) for local testing. Never logged.
+ */
+function localConfigToken(): string | undefined {
+  for (const d of ['DCS', 'DCS.openbeta']) {
+    try {
+      const src = fs.readFileSync(path.join(os.homedir(), 'Saved Games', d, 'Config', 'CATCC.lua'), 'utf8');
+      const m = /^\s*token\s*=\s*['"]([^'"]+)['"]/m.exec(src);
+      if (m && m[1].length >= 16) return m[1];
+    } catch {
+      /* not there */
+    }
+  }
+  return undefined;
+}
+
 async function main() {
   const port = Number(process.env.CATCC_PORT ?? 3002);
   const extra: SourceConfig[] = [];
@@ -80,8 +98,8 @@ async function main() {
   const hook = opt('hook');
   if (hook) {
     const [host, p] = hook.split(':');
-    const token = opt('token') ?? process.env.CATCC_HOOK_TOKEN;
-    if (!token) throw new Error('--hook needs --token <the token in Config/CATCC.lua> (or CATCC_HOOK_TOKEN)');
+    const token = opt('token') ?? process.env.CATCC_HOOK_TOKEN ?? localConfigToken();
+    if (!token) throw new Error('--hook: no token in Saved Games/DCS/Config/CATCC.lua (or pass --token / set CATCC_HOOK_TOKEN)');
     extra.push({ id: 'local', name: `DCS (${host})`, kind: 'hook', host, port: p ? Number(p) : 10310, token });
     env.CATCC_DEV_NOAUTH = '1';
     console.log(`[CATCC] dev: DCS hook at ${host}:${p ?? 10310}`);
