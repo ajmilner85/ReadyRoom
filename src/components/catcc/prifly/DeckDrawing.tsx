@@ -6,7 +6,7 @@
  * layers the boss turns on.
  */
 import React from 'react';
-import { CATS, NIMITZ as G, TAXI_ROUTES, areaCentroid, centroid, line, ring, roundRing, type DeckLayer, type V } from './deck.ts';
+import { CATS, NIMITZ as G, TAXI_ROUTES, areaCentroid, centroid, line, openAt, ring, roundLine, roundRing, type DeckLayer, type V } from './deck.ts';
 
 const C = {
   deck: '#1D2228',
@@ -64,6 +64,22 @@ const EL_LABEL: Record<string, V> = Object.fromEntries(
   }),
 );
 const ISLAND_LABEL: V = areaCentroid(G.struct['Island']);
+
+// ---------------------------------------------------------------- elevator lines
+
+/**
+ * Each elevator, as painted: its edge (inner line) and safety line (outer) run from the deck edge round
+ * to the deck edge (no line along the edge itself); the edge's inboard corners are filleted, the
+ * corners on the deck edge left square, and the safety line is square throughout.
+ */
+const ELEV_LINES = Object.entries(G.elev)
+  .map(([k, e]) => {
+    const ys = [...e.poly, ...e.safety].map((q) => q[1]);
+    const out = k === '4' ? Math.max(...ys) : Math.min(...ys); // EL 4 is to port, 1-3 to starboard
+    const onEdge = (v: V) => Math.abs(v[1] - out) < 1.5;
+    return roundLine(openAt(e.poly, onEdge), 1.0, onEdge) + line(openAt(e.safety, onEdge));
+  })
+  .join('');
 
 // ---------------------------------------------------------------- hull number: hollow block glyphs, tops to the bow
 
@@ -123,8 +139,8 @@ export const DeckDrawing: React.FC<{
       {/* hull, elevators, island */}
       <path d={ring(G.outline)} fill={C.deck} stroke={C.edge} strokeWidth={0.5} strokeLinejoin="round" />
       {/* elevator edge and safety line: alternating amber and red, ~0.4 m each on the model (drawn 0.5 m to stay legible) */}
-      <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="round" />
-      <path d={Object.values(G.elev).map((e) => ring(e.poly) + line(e.safety)).join('')} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="round" strokeDasharray="0.5 0.5" />
+      <path d={ELEV_LINES} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="miter" />
+      <path d={ELEV_LINES} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="miter" strokeDasharray="0.5 0.5" />
       <g filter="url(#islandShadow)">
         <path d={roundRing(G.struct['Island'], 1.6)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.35} />
         <path d={roundRing(G.struct['Radar Mast'], 0.8)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.3} />

@@ -54,8 +54,8 @@ export const areaCentroid = (q: V[]): V => {
   return Math.abs(a) < 1e-9 ? centroid(r) : [cx / (3 * a), cy / (3 * a)];
 };
 
-/** closed polygon with its corners filleted (radius r, metres, limited to half of each edge) as SVG path data */
-export const roundRing = (q: V[], r: number): string => {
+/** closed polygon with its corners filleted (radius r, metres, limited to half of each edge; corners `keep` picks stay sharp) as SVG path data */
+export const roundRing = (q: V[], r: number, keep?: (v: V) => boolean): string => {
   const p = q.length > 2 && q[0][0] === q[q.length - 1][0] && q[0][1] === q[q.length - 1][1] ? q.slice(0, -1) : q;
   const n = p.length;
   const pt = (v: V) => `${f(v[0])},${f(-v[1])}`;
@@ -66,12 +66,48 @@ export const roundRing = (q: V[], r: number): string => {
     const c = p[(i + 1) % n];
     const la = Math.hypot(a[0] - b[0], a[1] - b[1]);
     const lc = Math.hypot(c[0] - b[0], c[1] - b[1]);
-    const k = Math.min(r, la / 2, lc / 2);
+    const k = keep?.(b) ? 0 : Math.min(r, la / 2, lc / 2);
     const s: V = [b[0] + ((a[0] - b[0]) / la) * k, b[1] + ((a[1] - b[1]) / la) * k];
     const e: V = [b[0] + ((c[0] - b[0]) / lc) * k, b[1] + ((c[1] - b[1]) / lc) * k];
     d += `${i ? 'L' : 'M'}${pt(s)}Q${pt(b)} ${pt(e)}`;
   }
   return d + 'Z';
+};
+
+/** open polyline with its interior corners filleted (radius r; corners `keep` picks stay sharp) as SVG path data */
+export const roundLine = (p: V[], r: number, keep?: (v: V) => boolean): string => {
+  const pt = (v: V) => `${f(v[0])},${f(-v[1])}`;
+  let d = `M${pt(p[0])}`;
+  for (let i = 1; i < p.length - 1; i++) {
+    const [a, b, c] = [p[i - 1], p[i], p[i + 1]];
+    const la = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const lc = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    const k = keep?.(b) ? 0 : Math.min(r, la / 2, lc / 2);
+    if (!k) {
+      d += `L${pt(b)}`;
+      continue;
+    }
+    const s: V = [b[0] + ((a[0] - b[0]) / la) * k, b[1] + ((a[1] - b[1]) / la) * k];
+    const e: V = [b[0] + ((c[0] - b[0]) / lc) * k, b[1] + ((c[1] - b[1]) / lc) * k];
+    d += `L${pt(s)}Q${pt(b)} ${pt(e)}`;
+  }
+  return d + `L${pt(p[p.length - 1])}`;
+};
+
+/** a closed ring opened at its side `onEdge` marks (both ends on it): the vertices from one end of that side round to the other */
+export const openAt = (q: V[], onEdge: (v: V) => boolean): V[] => {
+  const r = q.length > 2 && q[0][0] === q[q.length - 1][0] && q[0][1] === q[q.length - 1][1] ? q.slice(0, -1) : q;
+  const n = r.length;
+  // the longest side with both ends on the edge
+  let best = -1;
+  let bestL = 0;
+  for (let i = 0; i < n; i++) {
+    const [a, b] = [r[i], r[(i + 1) % n]];
+    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+    if (onEdge(a) && onEdge(b) && L > bestL) [best, bestL] = [i, L];
+  }
+  if (best < 0) return [...r, r[0]];
+  return Array.from({ length: n }, (_, j) => r[(best + 1 + j) % n]);
 };
 
 /** catapult tracks, aft end (shuttle start) first */
