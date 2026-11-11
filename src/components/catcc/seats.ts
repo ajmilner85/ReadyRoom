@@ -128,6 +128,8 @@ export const SEATS: Record<SeatRole, SeatDef> = {
   final: S('final', 'catcc', 'Final', 'FINAL', 'radar', P_FINAL, U_FINAL),
   boss: S('boss', 'prifly', 'Air Boss', 'AIR BOSS', 'boss'),
   miniboss: S('miniboss', 'prifly', 'Mini Boss (Tower)', 'MINI BOSS', 'boss'),
+  /** clears each catapult shot (in the condensed layout the Air Boss does) */
+  shooter: S('shooter', 'prifly', 'Shooter', 'SHOOTER', 'boss'),
   ood: S('ood', 'bridge', 'Officer of the Deck', 'OOD', 'radar', P_OOD, U_OOD),
   lso: S('lso', 'lso', 'LSO', 'LSO', 'lso'),
   clso: S('clso', 'lso', 'Controlling LSO', 'CONTROLLING', 'lso'),
@@ -141,7 +143,7 @@ const LAYOUTS: Record<SeatLayout, Record<LocationId, SeatRole[]>> = {
   expanded: {
     cdc: ['aw', 'strike', 'suw'],
     catcc: ['airops', 'departure', 'marshal', 'approach', 'final'],
-    prifly: ['boss', 'miniboss'],
+    prifly: ['boss', 'miniboss', 'shooter'],
     bridge: ['ood'],
     lso: ['clso', 'blso', 'writer'],
   },

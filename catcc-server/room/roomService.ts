@@ -32,6 +32,7 @@ import { HookClient } from '../dcs/hookClient.ts';
 import { TacviewRealtimeClient } from '../tacview/realtimeClient.ts';
 import type { VerifyToken } from './auth.ts';
 import type { PersistedState, RoomStore } from './persist.ts';
+import { aircraftOnDeck, computeLaunch, heldPlayers, launchAuthority, type LaunchState } from '../../src/catcc/core/room/launch.ts';
 
 export type SourceConfig =
   | { id: string; name: string; kind: 'hook'; host: string; port?: number; token: string }
@@ -75,6 +76,11 @@ class Source {
   /** the last ship order sent to DCS per ship (carrier hull or escort track id) and its answer */
   readonly orders: Record<string, OrderStatus> = {};
   readonly subscribers = new Set<Conn>();
+  /** launch clearance per carrier (transient: not kept across restarts) */
+  launch: Record<string, LaunchState> = {};
+  private launchJson = '';
+  private holdJson = '';
+  private holdSentAt = 0;
   /** the latest picture (for ship groups and positions) */
   private tracks: WireTrack[] = [];
   private hook?: HookClient;
@@ -188,6 +194,7 @@ class Source {
           if (frame.err) this.log(`[${cfg.id}] sampler error: ${frame.err}`);
           this.publish(store.t, store.utc, frame.theatre ?? undefined, store.tracks.values());
         },
+        onSalute: (player) => this.onSalute(player),
         onEnv: (env) => {
           const m = JSON.stringify({ t: 'env', src: cfg.id, env } satisfies ServerMsg);
           if (m === this.lastEnv) return;
@@ -268,6 +275,7 @@ class Source {
       }
     }
     if (dropped) this.broadcastAssignments();
+    this.updateLaunch();
     // ownership of flights no longer in the picture is dropped
     const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...(t.g ? [t.g] : [])]));
     let gone = false;
@@ -278,6 +286,63 @@ class Source {
       }
     }
     if (gone) this.broadcastOwners();
+  }
+
+  // ---------------------------------------------------------------- launch clearance
+
+  launchMsg(): string {
+    return JSON.stringify({ t: 'launch', src: this.cfg.id, launch: this.launch } satisfies ServerMsg);
+  }
+
+  /** Recompute who is held on which deck; publish changes and keep the hook's hold list fresh. */
+  updateLaunch(): void {
+    this.launch = computeLaunch(this.launch, this.seats.values(), this.tracks);
+    const j = this.launchMsg();
+    if (j !== this.launchJson) {
+      this.launchJson = j;
+      for (const c of this.subscribers) send(c, j);
+    }
+    // the hook forgets holds it isn't reminded of (so a room that goes away never strands anyone): resend every 5 s
+    if (!this.hook || !this.status.authed) return;
+    const hold = heldPlayers(this.launch, this.tracks);
+    const hj = JSON.stringify(hold);
+    const now = Date.now();
+    if (hj === this.holdJson && now - this.holdSentAt < 5000) return;
+    if (hj === '[]' && this.holdJson === '[]' && now - this.holdSentAt < 30_000) return;
+    this.holdJson = hj;
+    this.holdSentAt = now;
+    void this.hook.command({ op: 'launch', hold }).then((r) => {
+      if (!r.ok) {
+        this.holdJson = ''; // try again next frame
+        this.log(`[${this.cfg.id}] launch holds not taken by the hook: ${r.error}`);
+      }
+    });
+  }
+
+  /** a pilot's mod reported a salute */
+  private onSalute(player: string): void {
+    const t = this.tracks.find((x) => x.ip && x.pi === player);
+    if (!t) return;
+    for (const [hull, list] of aircraftOnDeck(this.tracks)) {
+      if (!list.some((x) => x.id === t.id)) continue;
+      this.launch[hull] ??= { auth: null, hold: [], cleared: {}, saluted: {} };
+      this.launch[hull].saluted[t.id] = Date.now();
+    }
+    this.updateLaunch();
+  }
+
+  /** PriFly clears an aircraft (or takes the clearance back); null when allowed, else why not */
+  clearLaunch(userId: string, carrier: string, trackId: string, clear: boolean): string | null {
+    const a = launchAuthority(this.seats.values(), carrier);
+    if (!a) return `nobody holds the Shooter or Air Boss seat on ${carrier}: launches go on the pilot's salute`;
+    if (a.userId !== userId) return `launches on ${carrier} are cleared by the ${a.role === 'shooter' ? 'Shooter' : 'Air Boss'} (${a.name})`;
+    const st = this.launch[carrier];
+    if (!st || !(st.hold.includes(trackId) || st.cleared[trackId])) return 'that aircraft is not on deck';
+    if (clear) st.cleared[trackId] = Date.now();
+    else delete st.cleared[trackId];
+    this.holdSentAt = 0; // tell the hook now
+    this.updateLaunch();
+    return null;
   }
 
   ordersMsg(): string {
@@ -451,6 +516,8 @@ class Source {
 
   broadcastSeats(): void {
     this.dirty();
+    // who clears launches follows the seats
+    queueMicrotask(() => this.updateLaunch());
     const m = this.seatsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -610,6 +677,7 @@ export class RoomService {
         send(c, src.ownersMsg());
         send(c, src.opsMsg());
         send(c, src.ordersMsg());
+        send(c, src.launchMsg());
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -671,6 +739,16 @@ export class RoomService {
         if (!src.mayEditOps(c.user.userId, msg.carrier)) return send(c, { t: 'error', error: `claim a ${msg.carrier} seat to change this` });
         src.ops[msg.carrier] = applyOpsPatch(src.ops[msg.carrier] ?? {}, patch);
         src.broadcastOps();
+        return;
+      }
+      case 'launch': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        if (typeof msg.carrier !== 'string' || msg.carrier.length > 16 || typeof msg.trackId !== 'string' || msg.trackId.length > 32 || typeof msg.clear !== 'boolean') {
+          return send(c, { t: 'error', error: 'invalid launch clearance' });
+        }
+        const why = src.clearLaunch(c.user.userId, msg.carrier, msg.trackId, msg.clear);
+        if (why) send(c, { t: 'error', error: why });
         return;
       }
       case 'claim':

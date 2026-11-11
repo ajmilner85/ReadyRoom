@@ -245,6 +245,26 @@ drain(good, 'ab')
 for _, c in ipairs(abCalls) do rec('abcall', c) end
 orderShipDir, orderShipSpeed, automaticShipSpeedDir, getShipSpeedDir = nil, nil, nil, nil
 
+-- 3d. launch holds: a pilot's mod connects without a token and hears only the hold list; the room's
+-- list reaches it at once; a salute goes back to the room; holds lapse when the room stops refreshing
+local pilot = newClientSock('10.0.0.9')
+pending[#pending + 1] = pilot
+tick()
+pilot.inbox[#pilot.inbox + 1] = 'PILOT'
+tick()
+tick(1.0)
+cmd('CMD {"id":11,"op":"launch","hold":["Volt 3-1 | 401 Ace"]}')
+pilot.inbox[#pilot.inbox + 1] = 'SALUTE Volt 3-1 | 401 Ace'
+tick(0.01)
+cmd('CMD {"id":12,"op":"launch","hold":[42]}')
+drain(pilot, 'pilot')
+drain(good, 'launch')
+tick(16) -- no refresh from the room: the hold lapses
+tick(0.01)
+drain(pilot, 'lapse')
+rec('pilotOpen', tostring(not pilot.closed))
+drain(good, 'afterLaunch')
+
 -- 4. mission env reset (sampler lost) is recovered automatically
 M.env = newMissionEnv()
 tick(1.1) -- detects missing sampler

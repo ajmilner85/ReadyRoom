@@ -12,6 +12,12 @@
 --   server -> client  {"type":"frame","seq":n,"mt":..,"abs":..,"date":"..","units":[...]}
 --   server -> client  {"type":"env","start":..,"date":..,"theatre":..,"wx":{...},"routes":[...]}  every 30 s
 --   client -> server  PING                       -> {"type":"pong"}
+--   Pilots' mod (no token; receives nothing but launch holds):
+--   client -> server  PILOT                      -> {"type":"hold","p":["<player name>",...]} now and every 5 s
+--   client -> server  SALUTE <player name>       -> relayed to authenticated clients as {"type":"salute","p":".."}
+--   Launch holds (from the room, whatever the commands setting): CMD {"id":n,"op":"launch","hold":["<player name>",...]}
+--     The players PriFly hasn't cleared to launch. Forgotten (no holds) if not refreshed for 15 s,
+--     so a room that goes away never strands anyone on a catapult.
 --   client -> server  CMD <json>                 -> {"type":"cmd","id":n,"ok":true} or {...,"ok":false,"error":".."}
 --     Ship orders, only when Config/CATCC.lua sets commands = true (the hello says "cmds":true):
 --       {"id":n,"op":"helm","g":"<ship group>","crs":<deg true>,"kt":<kt>}   steer a course at a speed
@@ -40,7 +46,7 @@ local cfg = {
   bind = '*',
   token = '',
   rate_hz = 1,
-  max_clients = 16,
+  max_clients = 64, -- the room plus every pilot running the CATCC pilot mod
   max_buffer = 4 * 1024 * 1024,
   auth_timeout_s = 10,
   state = 'server', -- net.dostring_in state that reaches the mission scripting environment
@@ -131,6 +137,26 @@ end
 local function broadcast(line)
   for _, c in ipairs(clients) do
     if c.authed and not c.closed then send(c, line) end
+  end
+end
+
+-- ---------------------------------------------------------------- launch holds (pilots' mod)
+local HOLD_TTL_S = 15
+local holdList = {} -- player names held on deck
+local holdAt = -1e9
+local lastHoldSentAt = -1e9
+
+local function holdMessage()
+  local names = {}
+  for i, n in ipairs(holdList) do names[i] = jstr(n) end
+  return '{"type":"hold","p":[' .. table.concat(names, ',') .. ']}'
+end
+
+local function sendHolds()
+  lastHoldSentAt = now()
+  local m = holdMessage()
+  for _, c in ipairs(clients) do
+    if c.pilot and not c.closed then send(c, m) end
   end
 end
 
@@ -375,8 +401,21 @@ local function handleCmd(c, body)
   local function reply(err)
     send(c, '{"type":"cmd","id":' .. id .. ',"ok":' .. (err and 'false,"error":' .. jstr(err) or 'true') .. '}')
   end
-  if not cfg.commands then return reply('commands are off (Config/CATCC.lua: commands = true)') end
   if not ok then return reply('bad JSON') end
+  if type(m) == 'table' and m.op == 'launch' then
+    -- launch holds are not ship orders: taken whatever the commands setting
+    if type(m.hold) ~= 'table' or #m.hold > 64 then return reply('bad hold list') end
+    local list = {}
+    for _, n in ipairs(m.hold) do
+      if type(n) ~= 'string' or #n < 1 or #n > 64 then return reply('bad player name') end
+      list[#list + 1] = n
+    end
+    holdList = list
+    holdAt = now()
+    sendHolds()
+    return reply(nil)
+  end
+  if not cfg.commands then return reply('commands are off (Config/CATCC.lua: commands = true)') end
   local t = now()
   if t - (c.cmdWindow or 0) >= 1 then c.cmdWindow = t; c.cmdCount = 0 end
   c.cmdCount = (c.cmdCount or 0) + 1
@@ -407,6 +446,21 @@ end
 
 -- ---------------------------------------------------------------- client I/O
 local function handleLine(c, line)
+  if c.pilot then
+    local name = line:match('^SALUTE%s+(.-)%s*$')
+    if name and #name >= 1 and #name <= 64 then
+      broadcast('{"type":"salute","p":' .. jstr(name) .. '}')
+    elseif line:match('^PING') then
+      send(c, '{"type":"pong"}')
+    end
+    return
+  end
+  if not c.authed and line:match('^PILOT%s*$') then
+    c.pilot = true
+    send(c, holdMessage())
+    info('pilot client ' .. c.peer .. ' connected')
+    return
+  end
   if not c.authed then
     local tok = line:match('^AUTH%s+(%S+)%s*$')
     if cfg.token and tok == cfg.token then
@@ -489,7 +543,7 @@ local function tick()
   for _, c in ipairs(clients) do
     if not c.closed then
       readClient(c)
-      if not c.authed and not c.closeAfterFlush and t - c.connectedAt > cfg.auth_timeout_s then
+      if not c.authed and not c.pilot and not c.closeAfterFlush and t - c.connectedAt > cfg.auth_timeout_s then
         drop(c, 'auth timeout')
       end
     end
@@ -508,6 +562,14 @@ local function tick()
         sampleEnv()
       end
     end
+  end
+
+  -- launch holds: forgotten when the room stops refreshing them; pilots hear the list every 5 s
+  if #holdList > 0 and t - holdAt > HOLD_TTL_S then
+    holdList = {}
+    sendHolds()
+  elseif t - lastHoldSentAt >= 5 then
+    sendHolds()
   end
 
   for _, c in ipairs(clients) do flush(c) end

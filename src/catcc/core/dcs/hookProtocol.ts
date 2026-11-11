@@ -126,9 +126,17 @@ export type ShipCmd =
   /** Air Boss ship control (Supercarrier ships): heading order and engine bell (1..9), or back to automatic */
   | { op: 'bridge'; g: string; crs?: number; bell?: number; auto?: true };
 
+/**
+ * Launch holds: the DCS player names to hold on deck (PriFly hasn't cleared them). The hook passes
+ * the list to the pilots' mod; it forgets it (no holds) if the room stops refreshing it.
+ */
+export type LaunchCmd = { op: 'launch'; hold: string[] };
+
 export type HookMessage =
   | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean; ab?: boolean }
   | { type: 'cmd'; id: number | null; ok: boolean; error?: string }
+  /** a pilot's mod reports the pilot's salute (player name) */
+  | { type: 'salute'; p: string }
   | { type: 'auth'; ok: true }
   | { type: 'mission'; state: 'running' | 'stopped'; name: string }
   | { type: 'pong' }

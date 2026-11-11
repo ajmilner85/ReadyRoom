@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { HookEnv, HookFrame, HookMessage, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { HookEnv, HookFrame, HookMessage, LaunchCmd, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
 
 /**
  * Client for the CATCC DCS export hook (protocol v1): newline-delimited JSON, AUTH <token>.
@@ -14,6 +14,8 @@ export interface HookClientOptions {
   handshakeTimeoutMs?: number;
   onFrame: (frame: HookFrame) => void;
   onEnv?: (env: HookEnv) => void;
+  /** a pilot's mod reported a salute (player name) */
+  onSalute?: (player: string) => void;
   onStatus?: (status: HookClientStatus) => void;
 }
 
@@ -64,10 +66,11 @@ export class HookClient {
   }
 
   /** Send a ship order; resolves with the hook's reply (or a local failure after 10 s). */
-  command(cmd: ShipCmd): Promise<{ ok: boolean; error?: string }> {
+  command(cmd: ShipCmd | LaunchCmd): Promise<{ ok: boolean; error?: string }> {
     const sock = this.sock;
     if (!sock || !this.status.authed) return Promise.resolve({ ok: false, error: 'not connected to the DCS hook' });
-    if (!this.status.cmds) return Promise.resolve({ ok: false, error: 'the DCS hook does not accept orders (commands = true in Config/CATCC.lua)' });
+    // launch holds aren't ship orders: the hook takes them whatever its commands setting
+    if (!this.status.cmds && cmd.op !== 'launch') return Promise.resolve({ ok: false, error: 'the DCS hook does not accept orders (commands = true in Config/CATCC.lua)' });
     const id = ++this.cmdSeq;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -177,6 +180,9 @@ export class HookClient {
       }
       case 'frame':
         this.opts.onFrame(msg);
+        break;
+      case 'salute':
+        if (typeof msg.p === 'string') this.opts.onSalute?.(msg.p);
         break;
       case 'env': {
         // every HookEnv field is passed on (bulls was being dropped here, so no bullseye reached the scope)

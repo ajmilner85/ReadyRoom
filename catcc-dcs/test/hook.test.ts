@@ -136,6 +136,20 @@ describe('CATCC DCS hook', () => {
     ]);
   });
 
+  it('relays launch holds to pilots\' mods (no token, holds only), salutes to the room, and lets holds lapse', () => {
+    const pilot = msgs('pilot');
+    expect(pilot[0]).toMatchObject({ type: 'hello' });
+    expect(pilot.filter((m) => m.type === 'frame')).toEqual([]);
+    expect(pilot.filter((m) => m.type === 'hold')).toEqual([{ type: 'hold', p: [] }, { type: 'hold', p: ['Volt 3-1 | 401 Ace'] }]);
+    const launch = msgs('launch');
+    expect(launch.find((m) => m.type === 'cmd' && m.id === 11)).toEqual({ type: 'cmd', id: 11, ok: true });
+    expect(launch.find((m) => m.type === 'cmd' && m.id === 12)).toMatchObject({ ok: false, error: 'bad player name' });
+    expect(launch.find((m) => m.type === 'salute')).toEqual({ type: 'salute', p: 'Volt 3-1 | 401 Ace' });
+    // not refreshed for 15 s: forgotten, and the pilot is told (an idle pilot is never timed out)
+    expect(msgs('lapse').filter((m) => m.type === 'hold').at(-1)).toEqual({ type: 'hold', p: [] });
+    expect(t.find((x) => x.label === 'pilotOpen')?.payload).toBe('true');
+  });
+
   it('reinstalls the sampler after the mission environment resets', () => {
     expect(msgs('reset').filter((m) => m.type === 'frame').length).toBeGreaterThanOrEqual(1);
   });

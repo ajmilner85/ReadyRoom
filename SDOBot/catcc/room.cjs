@@ -3736,7 +3736,7 @@ function supabaseStore(url, serviceKey, log = () => void 0) {
 // src/catcc/core/room/protocol.ts
 var ROOM_PROTO = 1;
 var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
-var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
+var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "shooter", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
 var r = (n, dp) => n === void 0 || !Number.isFinite(n) ? void 0 : Math.round(n * 10 ** dp) / 10 ** dp;
 function toWire(t) {
   return {
@@ -4568,7 +4568,7 @@ var HookClient = class {
   command(cmd) {
     const sock = this.sock;
     if (!sock || !this.status.authed) return Promise.resolve({ ok: false, error: "not connected to the DCS hook" });
-    if (!this.status.cmds) return Promise.resolve({ ok: false, error: "the DCS hook does not accept orders (commands = true in Config/CATCC.lua)" });
+    if (!this.status.cmds && cmd.op !== "launch") return Promise.resolve({ ok: false, error: "the DCS hook does not accept orders (commands = true in Config/CATCC.lua)" });
     const id = ++this.cmdSeq;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -4675,6 +4675,9 @@ var HookClient = class {
       case "frame":
         this.opts.onFrame(msg);
         break;
+      case "salute":
+        if (typeof msg.p === "string") this.opts.onSalute?.(msg.p);
+        break;
       case "env": {
         const env = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes, ...msg.bulls ? { bulls: msg.bulls } : {} };
         this.opts.onEnv?.(env);
@@ -4752,6 +4755,55 @@ ${this.opts.clientName}
   }
 };
 
+// src/catcc/core/room/launch.ts
+function launchAuthority(seats, carrier) {
+  const here = [...seats].filter((s) => s.carrier === carrier && !s.away);
+  return here.find((s) => s.role === "shooter") ?? here.find((s) => s.role === "boss") ?? null;
+}
+var DECK_RADIUS_M = 220;
+var DECK_MAX_ALT_FT = 200;
+function aircraftOnDeck(tracks) {
+  const out = /* @__PURE__ */ new Map();
+  const cvs = tracks.filter((t) => t.k === "carrier" && t.hull);
+  for (const t of tracks) {
+    if (t.k !== "fixedwing" && t.k !== "rotary") continue;
+    if (t.air || t.alt > DECK_MAX_ALT_FT) continue;
+    const cv = cvs.find((c) => distanceNm(c.lat, c.lon, t.lat, t.lon) * M_PER_NM < DECK_RADIUS_M);
+    if (!cv) continue;
+    const list = out.get(cv.hull) ?? [];
+    list.push(t);
+    out.set(cv.hull, list);
+  }
+  return out;
+}
+function computeLaunch(prev, seats, tracks) {
+  const seatList = [...seats];
+  const decks = aircraftOnDeck(tracks);
+  const out = {};
+  for (const cv of tracks.filter((t) => t.k === "carrier" && t.hull)) {
+    const hull = cv.hull;
+    const onDeck = decks.get(hull) ?? [];
+    const ids = new Set(onDeck.map((t) => t.id));
+    const keep = (r2) => Object.fromEntries(Object.entries(r2 ?? {}).filter(([id]) => ids.has(id)));
+    const cleared = keep(prev[hull]?.cleared);
+    const saluted = keep(prev[hull]?.saluted);
+    const a = launchAuthority(seatList, hull);
+    const hold = a ? onDeck.filter((t) => t.ip && !cleared[t.id]).map((t) => t.id) : [];
+    out[hull] = { auth: a ? { carrier: a.carrier, role: a.role, name: a.name } : null, hold, cleared, saluted };
+  }
+  return out;
+}
+function heldPlayers(launch, tracks) {
+  const byId = new Map(tracks.map((t) => [t.id, t]));
+  const names = /* @__PURE__ */ new Set();
+  for (const st of Object.values(launch)) for (const id of st.hold) {
+    const t = byId.get(id);
+    const name = t?.ip ? t.pi : void 0;
+    if (name) names.add(name);
+  }
+  return [...names].sort();
+}
+
 // catcc-server/room/roomService.ts
 var Source = class {
   status;
@@ -4763,6 +4815,11 @@ var Source = class {
   /** the last ship order sent to DCS per ship (carrier hull or escort track id) and its answer */
   orders = {};
   subscribers = /* @__PURE__ */ new Set();
+  /** launch clearance per carrier (transient: not kept across restarts) */
+  launch = {};
+  launchJson = "";
+  holdJson = "";
+  holdSentAt = 0;
   /** the latest picture (for ship groups and positions) */
   tracks = [];
   hook;
@@ -4868,6 +4925,7 @@ var Source = class {
           if (frame.err) this.log(`[${cfg.id}] sampler error: ${frame.err}`);
           this.publish(store.t, store.utc, frame.theatre ?? void 0, store.tracks.values());
         },
+        onSalute: (player) => this.onSalute(player),
         onEnv: (env) => {
           const m = JSON.stringify({ t: "env", src: cfg.id, env });
           if (m === this.lastEnv) return;
@@ -4944,6 +5002,7 @@ var Source = class {
       }
     }
     if (dropped) this.broadcastAssignments();
+    this.updateLaunch();
     const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...t.g ? [t.g] : []]));
     let gone = false;
     for (const k of Object.keys(this.owners)) {
@@ -4953,6 +5012,57 @@ var Source = class {
       }
     }
     if (gone) this.broadcastOwners();
+  }
+  // ---------------------------------------------------------------- launch clearance
+  launchMsg() {
+    return JSON.stringify({ t: "launch", src: this.cfg.id, launch: this.launch });
+  }
+  /** Recompute who is held on which deck; publish changes and keep the hook's hold list fresh. */
+  updateLaunch() {
+    this.launch = computeLaunch(this.launch, this.seats.values(), this.tracks);
+    const j = this.launchMsg();
+    if (j !== this.launchJson) {
+      this.launchJson = j;
+      for (const c of this.subscribers) send(c, j);
+    }
+    if (!this.hook || !this.status.authed) return;
+    const hold = heldPlayers(this.launch, this.tracks);
+    const hj = JSON.stringify(hold);
+    const now = Date.now();
+    if (hj === this.holdJson && now - this.holdSentAt < 5e3) return;
+    if (hj === "[]" && this.holdJson === "[]" && now - this.holdSentAt < 3e4) return;
+    this.holdJson = hj;
+    this.holdSentAt = now;
+    void this.hook.command({ op: "launch", hold }).then((r2) => {
+      if (!r2.ok) {
+        this.holdJson = "";
+        this.log(`[${this.cfg.id}] launch holds not taken by the hook: ${r2.error}`);
+      }
+    });
+  }
+  /** a pilot's mod reported a salute */
+  onSalute(player) {
+    const t = this.tracks.find((x) => x.ip && x.pi === player);
+    if (!t) return;
+    for (const [hull, list] of aircraftOnDeck(this.tracks)) {
+      if (!list.some((x) => x.id === t.id)) continue;
+      this.launch[hull] ??= { auth: null, hold: [], cleared: {}, saluted: {} };
+      this.launch[hull].saluted[t.id] = Date.now();
+    }
+    this.updateLaunch();
+  }
+  /** PriFly clears an aircraft (or takes the clearance back); null when allowed, else why not */
+  clearLaunch(userId, carrier, trackId, clear) {
+    const a = launchAuthority(this.seats.values(), carrier);
+    if (!a) return `nobody holds the Shooter or Air Boss seat on ${carrier}: launches go on the pilot's salute`;
+    if (a.userId !== userId) return `launches on ${carrier} are cleared by the ${a.role === "shooter" ? "Shooter" : "Air Boss"} (${a.name})`;
+    const st = this.launch[carrier];
+    if (!st || !(st.hold.includes(trackId) || st.cleared[trackId])) return "that aircraft is not on deck";
+    if (clear) st.cleared[trackId] = Date.now();
+    else delete st.cleared[trackId];
+    this.holdSentAt = 0;
+    this.updateLaunch();
+    return null;
   }
   ordersMsg() {
     return JSON.stringify({ t: "orders", src: this.cfg.id, orders: this.orders });
@@ -5102,6 +5212,7 @@ var Source = class {
   }
   broadcastSeats() {
     this.dirty();
+    queueMicrotask(() => this.updateLaunch());
     const m = this.seatsMsg();
     for (const c of this.subscribers) send(c, m);
   }
@@ -5246,6 +5357,7 @@ var RoomService = class {
         send(c, src.ownersMsg());
         send(c, src.opsMsg());
         send(c, src.ordersMsg());
+        send(c, src.launchMsg());
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -5307,6 +5419,16 @@ var RoomService = class {
         if (!src.mayEditOps(c.user.userId, msg.carrier)) return send(c, { t: "error", error: `claim a ${msg.carrier} seat to change this` });
         src.ops[msg.carrier] = applyOpsPatch(src.ops[msg.carrier] ?? {}, patch);
         src.broadcastOps();
+        return;
+      }
+      case "launch": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        if (typeof msg.carrier !== "string" || msg.carrier.length > 16 || typeof msg.trackId !== "string" || msg.trackId.length > 32 || typeof msg.clear !== "boolean") {
+          return send(c, { t: "error", error: "invalid launch clearance" });
+        }
+        const why = src.clearLaunch(c.user.userId, msg.carrier, msg.trackId, msg.clear);
+        if (why) send(c, { t: "error", error: why });
         return;
       }
       case "claim":

@@ -8,6 +8,7 @@
  *   { t:'release', src, seat }
  *   { t:'plan', src, carrier, plan }      replace one carrier's radials/stacks
  *   { t:'assign', src, trackId, assignment|null }
+ *   { t:'launch', src, carrier, trackId, clear }  PriFly clears (or un-clears) an aircraft to launch
  *   { t:'ping' }
  * Plan/assign edits are open to any signed-in user until someone holds a seat on that
  * carrier (or MC); then only seat holders may edit.
@@ -19,11 +20,13 @@
  *   { t:'plans', src, plans } | { t:'assignments', src, assignments }
  *   { t:'env', src, env }                  mission weather + ship routes (hook sources), ~30 s
  *   { t:'orders', src, orders }            what the DCS hook did with each ship order (helm, route, station)
+ *   { t:'launch', src, launch }            launch clearance per carrier (see core/room/launch.ts)
  *   { t:'pong' } | { t:'error', error }
  */
 import type { CarrierWx, HookEnv, OrderPoint } from '../dcs/hookProtocol.ts';
 import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
 import type { OpsState, Ownership } from './ops.ts';
+import type { LaunchState } from './launch.ts';
 
 export const ROOM_PROTO = 1;
 
@@ -46,6 +49,7 @@ export type SeatRole =
   // PriFly
   | 'boss'
   | 'miniboss'
+  | 'shooter'
   // Bridge
   | 'ood'
   // LSO platform
@@ -59,7 +63,7 @@ export type SeatRole =
  * any of them is held for a carrier (or the mission commander seat), only their holders may edit it.
  */
 export const PLAN_ROLES: SeatRole[] = ['catcc', 'airops', 'departure', 'marshal', 'approach', 'final', 'ood', 'mission_commander'];
-export const SEAT_ROLES: SeatRole[] = ['strike', 'aw', 'suw', 'catcc', 'airops', 'departure', 'marshal', 'approach', 'final', 'boss', 'miniboss', 'ood', 'lso', 'clso', 'blso', 'writer', 'mission_commander'];
+export const SEAT_ROLES: SeatRole[] = ['strike', 'aw', 'suw', 'catcc', 'airops', 'departure', 'marshal', 'approach', 'final', 'boss', 'miniboss', 'shooter', 'ood', 'lso', 'clso', 'blso', 'writer', 'mission_commander'];
 
 /** A seat is a role on one carrier (hull, e.g. "CVN-72"); the mission commander seat uses carrier "*". */
 export interface SeatKey {
@@ -192,6 +196,8 @@ export type ClientMsg =
   | { t: 'accept'; src: string; key: string }
   /** patch a carrier's shared ops state (deck, aids, lights, launch, formation) */
   | { t: 'ops'; src: string; carrier: string; patch: Partial<Record<keyof OpsState, unknown>> }
+  /** the carrier's clearing seat (Shooter, else Air Boss) clears an aircraft on deck to launch, or takes it back */
+  | { t: 'launch'; src: string; carrier: string; trackId: string; clear: boolean }
   | { t: 'ping' };
 
 export type ServerMsg =
@@ -205,6 +211,7 @@ export type ServerMsg =
   | { t: 'owners'; src: string; owners: Record<string, Ownership> }
   | { t: 'ops'; src: string; ops: Record<string, OpsState> }
   | { t: 'orders'; src: string; orders: Record<string, OrderStatus> }
+  | { t: 'launch'; src: string; launch: Record<string, LaunchState> }
   | { t: 'pong' }
   | { t: 'error'; error: string };
 
