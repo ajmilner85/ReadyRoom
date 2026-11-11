@@ -37,6 +37,43 @@ export const DECK_LAYERS: { k: DeckLayer; label: string; title: string }[] = [
 /** the drawing's frame: stern to bow plus label room; port edge to starboard edge plus the scale bar */
 export const DECK_VIEWBOX = '-172 -47 348 96';
 
+/** a polygon's area centroid (the vertex average leans toward wherever the trace has more points) */
+export const areaCentroid = (q: V[]): V => {
+  const r = q.length > 2 && q[0][0] === q[q.length - 1][0] && q[0][1] === q[q.length - 1][1] ? q.slice(0, -1) : q;
+  let a = 0;
+  let cx = 0;
+  let cy = 0;
+  for (let i = 0; i < r.length; i++) {
+    const [x0, y0] = r[i];
+    const [x1, y1] = r[(i + 1) % r.length];
+    const c = x0 * y1 - x1 * y0;
+    a += c;
+    cx += (x0 + x1) * c;
+    cy += (y0 + y1) * c;
+  }
+  return Math.abs(a) < 1e-9 ? centroid(r) : [cx / (3 * a), cy / (3 * a)];
+};
+
+/** closed polygon with its corners filleted (radius r, metres, limited to half of each edge) as SVG path data */
+export const roundRing = (q: V[], r: number): string => {
+  const p = q.length > 2 && q[0][0] === q[q.length - 1][0] && q[0][1] === q[q.length - 1][1] ? q.slice(0, -1) : q;
+  const n = p.length;
+  const pt = (v: V) => `${f(v[0])},${f(-v[1])}`;
+  let d = '';
+  for (let i = 0; i < n; i++) {
+    const a = p[(i - 1 + n) % n];
+    const b = p[i];
+    const c = p[(i + 1) % n];
+    const la = Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const lc = Math.hypot(c[0] - b[0], c[1] - b[1]);
+    const k = Math.min(r, la / 2, lc / 2);
+    const s: V = [b[0] + ((a[0] - b[0]) / la) * k, b[1] + ((a[1] - b[1]) / la) * k];
+    const e: V = [b[0] + ((c[0] - b[0]) / lc) * k, b[1] + ((c[1] - b[1]) / lc) * k];
+    d += `${i ? 'L' : 'M'}${pt(s)}Q${pt(b)} ${pt(e)}`;
+  }
+  return d + 'Z';
+};
+
 /** catapult tracks, aft end (shuttle start) first */
 export const CATS: Record<string, V[]> = G.cats;
 

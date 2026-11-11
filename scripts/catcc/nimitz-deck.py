@@ -290,9 +290,21 @@ def main():
         parts = nm.split('/')
         spot = parts[1]
         if not helo or helo[-1]['n'] != spot:
-            helo.append({'n': spot, 'polys': []})
-        helo[-1]['polys'].append(poly(s[0]))
+            helo.append({'n': spot, 'sq': []})
+        part = parts[-1]
+        q = poly(s[0])
+        if part == 'T':
+            helo[-1]['t'] = q
+        elif part == 'Numeral':
+            helo[-1]['num'] = q[:4]  # the box the spot number is painted in (no box: no number painted)
+        elif part == 'Extension':
+            helo[-1]['ext'] = q
+        else:
+            helo[-1]['sq'].append(q)
     safety = [poly(s[0]) for nm, s in feats(trace, 'Flight Deck/Safety Lines/')]
+    # hull number on the bow: hollow block glyphs, tops toward the bow. The traced strokes are glyph
+    # centrelines; keep the 7's measured skeleton and the 1's bar so the TS glyphs can be placed exactly
+    bow = {'seven': poly(feat(trace, 'CVN-71 - 7 Numeral')[0]), 'one': poly(feat(trace, 'CVN-71 - 1 Numeral')[0]), 'stroke': 1.865 * A}
     struct = {nm.split('/')[-1]: poly(s[0]) for nm, s in feats(trace, 'Other Structures/') if 'Ordnance' not in nm}
     ordnance = [poly(s[0]) for nm, s in feats(trace, 'Other Structures/Ordnance Elevator')]
     barricade = [poly(feat(trace, '%s Barricade Stanchion' % k)[0]) for k in ('Left', 'Right')]
@@ -316,7 +328,7 @@ def main():
 
     deck = r({
         'outline': outline, 'la': la, 'wires': wires, 'barricade': barricade, 'cats': cats, 'jbd': jbd,
-        'elev': elev, 'parking': parking, 'helo': helo, 'safety': safety, 'struct': struct, 'ordnance': ordnance,
+        'elev': elev, 'parking': parking, 'helo': helo, 'bow': bow, 'safety': safety, 'struct': struct, 'ordnance': ordnance,
         'laDeg': 9.78,
     })
     taxi = r({'to': taxiTo, 'park': taxiPark})
@@ -337,7 +349,8 @@ def main():
   jbd: Record<string, V[]>;
   elev: Record<string, { poly: V[]; safety: V[] }>;
   parking: { name: string; poly: V[] }[];
-  helo: { n: string; polys: V[][] }[];
+  helo: { n: string; t: V[]; sq: V[][]; ext?: V[]; num?: V[] }[];
+  bow: { seven: V[]; one: V[]; stroke: number };
   safety: V[][];
   struct: Record<string, V[]>;
   ordnance: V[][];
