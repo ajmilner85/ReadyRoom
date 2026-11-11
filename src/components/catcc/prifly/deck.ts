@@ -1,80 +1,44 @@
 /**
- * Nimitz flight deck geometry and the F/A-18C planform, copied from catcc-handoff/mockup/Boss.dc.html
- * (blueprint-traced, metres; X forward, Y port; origin = 3-wire touchdown point), plus helpers to
- * place live aircraft on the deck.
+ * Nimitz flight deck for PriFly: the geometry (nimitzDeck.gen.ts, generated from the hand trace over the
+ * DCS model and the Supercarrier taxi recordings: scripts/catcc/nimitz-deck.py), drawing helpers, the
+ * F/A-18C planform, live aircraft placed on the deck, and the DCS deck-crew taxi routes.
+ * Deck coordinates: metres, x forward, y to port, origin = the DCS unit reference point (where the hook
+ * reports the ship). The drawing puts the bow right and port up: SVG (x, -y).
  */
 import type { ScopeTrack, Carrier, Picture } from '../scopeModel.ts';
+import { NIMITZ_DECK as G, NIMITZ_TAXI } from './nimitzDeck.gen.ts';
 
-type V = [number, number];
-const G = {
-  outline: [[260.82,-6.51],[257.91,-3.92],[257.55,6.09],[259.0,7.94],[256.09,10.91],[189.27,20.17],[186.36,21.28],[185.64,20.91],[183.82,22.77],[182.37,23.14],[178.37,26.1],[178.37,31.29],[176.2,33.51],[168.57,33.88],[158.04,41.67],[120.99,42.04],[100.65,37.59],[1.51,38.7],[0.42,39.81],[-25.0,40.18],[-26.09,39.07],[-27.55,39.07],[-30.09,36.48],[-35.54,21.65],[-70.4,18.32],[-72.94,15.35],[-74.76,7.57],[-71.85,-19.85],[-69.68,-22.08],[-59.87,-21.34],[-52.24,-27.26],[-32.27,-29.49],[-31.18,-32.45],[-29.0,-34.68],[-24.64,-35.05],[-22.46,-33.19],[-19.92,-35.79],[11.68,-35.42],[50.17,-35.79],[55.26,-36.53],[79.59,-36.9],[80.32,-36.16],[103.2,-36.9],[146.78,-36.9],[185.64,-18.0],[242.66,-13.55],[246.65,-13.92],[255.73,-12.07],[260.82,-6.51]] as V[],
-  LA: { c: [[-73.451,-4.767],[170.093,33.806]] as V[], pi: [[-74.317,3.398],[159.677,40.459]] as V[], po: [[-74.655,6.584],[147.532,41.775]] as V[], si: [[-72.584,-12.932],[178.37,26.815]] as V[], so: [[-72.246,-16.119],[181.181,24.02]] as V[] },
-  wires: [[[-18.793,-12.816],[-23.956,19.777]],[[-6.774,-10.913],[-11.936,21.681]],[[4.643,-9.104],[-0.519,23.489]],[[16.612,-7.209],[11.45,25.385]]] as V[][],
-  cats: { '1': [[142.074,-13.438],[249.92,-7.18]], '2': [[138.396,6.273],[249.92,8.88]], '3': [[45.153,20.475],[157.67,29.25]], '4': [[27.6,32.269],[141.69,31.7]] } as Record<string, V[]>,
-  island: [[19.478,-24.159],[46.599,-35.603]] as V[],
-  elev: [[[-26.09,36.48],[-25.73,23.51],[-24.28,22.02],[-2.49,21.65],[-1.03,23.14],[-1.4,27.21],[1.14,33.51],[1.14,36.11],[-0.31,37.59],[-24.64,37.96]],[[54.17,-19.85],[54.53,-32.82],[55.98,-34.31],[78.14,-34.68],[79.59,-33.19],[77.05,-26.52],[77.05,-20.59],[75.6,-19.11],[55.62,-18.37]],[[100.29,-20.22],[100.65,-32.82],[102.11,-34.31],[123.53,-34.68],[124.99,-33.19],[124.99,-30.97],[121.72,-25.04],[121.72,-20.22],[120.27,-18.74],[101.74,-18.74]],[[-19.92,-20.59],[-20.28,-31.34],[-18.47,-33.56],[3.69,-33.19],[5.14,-31.71],[2.23,-23.93],[2.23,-20.59],[0.78,-19.11],[-18.47,-19.11]]] as V[][],
-  bars: { p: [-56.78,-33.952,-11.123,11.705,34.534,57.363,80.191,103.02,125.848,148.677], s: [-56.78,-33.952,-11.123,11.705,34.534,57.363,80.191,103.02,125.848,148.677,171.506], in: 8.2, out: 11.4 },
-  rd: [[-72.246,-16.119],[-74.655,6.584],[-71.655,7.059],[-69.246,-15.644]] as V[],
-  jbd: { '1': [[126.7,-14.33],3.321], '2': [[123.0,5.913],1.339], '3': [[29.8,19.278],4.459], '4': [[12.2,32.346],-0.286] } as Record<string, [V, number]>,
-};
-export const CATS = G.cats;
+export type V = [number, number];
+export { G as NIMITZ };
 
 const f = (n: number) => (Math.round(n * 100) / 100).toString();
 const P = (p: V) => `${f(p[0])},${f(-p[1])}`;
-const seg = (a: V, b: V) => `M${P(a)}L${P(b)}`;
-const ring = (q: V[]) => `M${q.map(P).join('L')}Z`;
+/** open polyline as SVG path data */
+export const line = (q: V[]) => `M${q.map(P).join('L')}`;
+/** closed polygon as SVG path data */
+export const ring = (q: V[]) => `M${q.map(P).join('L')}Z`;
+export const centroid = (q: V[]): V => {
+  const n = q.length;
+  return [q.reduce((s, p) => s + p[0], 0) / n, q.reduce((s, p) => s + p[1], 0) / n];
+};
 
-export const DECK = (() => {
-  const TY = 6.866;
-  const r9 = (9 * Math.PI) / 180;
-  const LU: V = [Math.cos(r9), Math.sin(r9)];
-  const LN: V = [-LU[1], LU[0]];
-  const laP = (s: number, o: number): V => [LU[0] * s + LN[0] * o, TY + LU[1] * s + LN[1] * o];
-  const B = G.bars;
-  const bars = B.p.map((s) => seg(laP(s, B.in), laP(s, B.out))).concat(B.s.map((s) => seg(laP(s, -B.in), laP(s, -B.out)))).join('');
-  let rails = '';
-  let shuttles = '';
-  Object.values(G.cats).forEach(([a, b]) => {
-    const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
-    const u: V = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
-    const n: V = [-u[1] * 0.7, u[0] * 0.7];
-    rails += seg([a[0] + n[0], a[1] + n[1]], [b[0] + n[0], b[1] + n[1]]) + seg([a[0] - n[0], a[1] - n[1]], [b[0] - n[0], b[1] - n[1]]);
-    shuttles += seg(a, [a[0] + u[0] * 2, a[1] + u[1] * 2]);
-  });
-  const jbdPoly = ([c, ang]: [V, number]) => {
-    const r = (ang * Math.PI) / 180;
-    const fw: V = [Math.cos(r), Math.sin(r)];
-    const pp: V = [-fw[1], fw[0]];
-    const W = 4.85;
-    const D = 1.6;
-    const q = (i: number, j: number): V => [c[0] + fw[0] * D * i + pp[0] * W * j, c[1] + fw[1] * D * i + pp[1] * W * j];
-    return ring([q(-1, -1), q(1, -1), q(1, 1), q(-1, 1)]);
-  };
-  const J = G.jbd;
-  const [i0, i1] = G.island;
-  const catLbl = (k: string, dx: number, dy: number) => {
-    const b = G.cats[k][1];
-    return { x: f(b[0] + dx), y: f(-b[1] + dy) };
-  };
-  return {
-    outline: G.outline.map(P).join(' '),
-    rd: G.rd.map(P).join(' '),
-    elev: G.elev.map(ring).join(''),
-    edgeIn: seg(G.LA.pi[0], G.LA.pi[1]) + seg(G.LA.si[0], G.LA.si[1]),
-    edgeOut: seg(G.LA.po[0], G.LA.po[1]) + seg(G.LA.so[0], G.LA.so[1]),
-    cl: seg(G.LA.c[0], G.LA.c[1]),
-    bars,
-    rails,
-    shuttles,
-    wires: G.wires.map((w) => seg(w[0], w[1])).join(''),
-    jbd: (k: string) => jbdPoly(J[k]),
-    isl: { x: f(i0[0]), y: f(-i0[1]), w: f(i1[0] - i0[0]), h: f(i0[1] - i1[1]), cx: f((i0[0] + i1[0]) / 2), cy: f(-(i0[1] + i1[1]) / 2 + 1.3) },
-    c1l: catLbl('1', 1.5, 5.5),
-    c2l: catLbl('2', -10, -3),
-    c3l: catLbl('3', -14, -3),
-    c4l: catLbl('4', -14, -3),
-  };
-})();
+// ---------------------------------------------------------------- drawing layers
+
+export type DeckLayer = 'areas' | 'helo' | 'wires' | 'spots' | 'routes' | 'gear';
+export const DECK_LAYERS: { k: DeckLayer; label: string; title: string }[] = [
+  { k: 'areas', label: 'Areas', title: 'Deck parking areas: Crotch, Point, Corral, Junk Yard, Patio, Finger, Box, Street, Six-pack' },
+  { k: 'spots', label: 'DCS spots', title: 'The 16 parking spots DCS taxis recovered aircraft to' },
+  { k: 'routes', label: 'DCS routes', title: 'Every Supercarrier deck-crew taxi route: launch (to the catapults) and recovery (to the parking spots)' },
+  { k: 'wires', label: 'Wires', title: 'Arresting wire numbers' },
+  { k: 'helo', label: 'Helo spots', title: 'Helicopter landing spots' },
+  { k: 'gear', label: 'Equipment', title: 'LSO platform, lens, shooter bubble, weapons elevators, barricade stanchions' },
+];
+
+/** the drawing's frame: stern to bow plus label room; port edge to starboard edge plus the scale bar */
+export const DECK_VIEWBOX = '-172 -47 348 96';
+
+/** catapult tracks, aft end (shuttle start) first */
+export const CATS: Record<string, V[]> = G.cats;
 
 // ---------------------------------------------------------------- F/A-18C planform
 const mir = (p: V[]): V[] => p.concat(p.slice().reverse().map((q) => [-q[0], q[1]] as V));
@@ -104,8 +68,6 @@ export function hornetIcon(IL = 30): string {
 
 // ---------------------------------------------------------------- live aircraft on deck
 
-/** DCS places a carrier's reference point near mid-ships; the deck model's origin is the 3-wire. */
-export const DCS_ORIGIN_X = 94;
 const M_PER_NM = 1852;
 
 export interface DeckJet {
@@ -119,46 +81,124 @@ export interface DeckJet {
 
 export function onDeck(c: Carrier, air: ScopeTrack[]): DeckJet[] {
   const D = Math.PI / 180;
-  const h = c.ship.brc * D;
+  // the deck is laid out along the ship's head, not its course over the ground
+  const head = c.track.hdg ?? c.ship.brc;
+  const h = head * D;
   const fwd: V = [Math.sin(h), -Math.cos(h)];
-  const port: V = [fwd[1], -fwd[0]]; // left of the bow (heading − 90°) in scope coords
+  const port: V = [fwd[1], -fwd[0]]; // left of the bow (heading - 90 deg) in scope coords
   const out: DeckJet[] = [];
   for (const t of air) {
     const dx = (t.p[0] - c.track.p[0]) * M_PER_NM;
     const dy = (t.p[1] - c.track.p[1]) * M_PER_NM;
-    if (Math.hypot(dx, dy) > 260) continue;
+    if (Math.hypot(dx, dy) > 200) continue;
     if (t.air === true || t.alt > 200) continue;
-    const x = dx * fwd[0] + dy * fwd[1] + DCS_ORIGIN_X;
+    const x = dx * fwd[0] + dy * fwd[1];
     const y = dx * port[0] + dy * port[1];
-    const rel = (((t.hdg ?? c.ship.brc) - c.ship.brc + 540) % 360) - 180;
+    const rel = (((t.hdg ?? head) - head + 540) % 360) - 180;
     const relSpeed = Math.abs((t.gs ?? 0) - (c.track.gs ?? 0));
     out.push({ t, x, y, a: -rel, moving: relSpeed > 3 });
   }
   return out;
 }
 
-/** Inside the landing area strip (around the angled-deck centreline, ±12 m)? */
-export function inLandingArea(x: number, y: number): boolean {
-  const [a, b] = G.LA.c;
+const inPoly = (x: number, y: number, q: V[]) => {
+  let inside = false;
+  for (let i = 0, j = q.length - 1; i < q.length; j = i++) {
+    const [xi, yi] = q[i];
+    const [xj, yj] = q[j];
+    if (yi > y !== yj > y && x < ((xj - xi) * (y - yi)) / (yj - yi) + xi) inside = !inside;
+  }
+  return inside;
+};
+
+/** Inside the landing area (its painted outer borders, stern to the waist round-down)? */
+export const inLandingArea = (x: number, y: number): boolean => inPoly(x, y, G.la.outer);
+
+/** The jet spotted on a catapult: on its track, from just aft of the shuttle to 25 m up it. */
+export function onCat(jets: DeckJet[], k: string): DeckJet | undefined {
+  const [a, b] = G.cats[k];
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const u: V = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
-  const s = (x - a[0]) * u[0] + (y - a[1]) * u[1];
-  const o = Math.abs((x - a[0]) * -u[1] + (y - a[1]) * u[0]);
-  return s > 0 && s < 200 && o < 12;
-}
-
-/** Board number of the jet spotted on a catapult (within 12 m of its start), if any. */
-export function onCat(jets: DeckJet[], k: string): DeckJet | undefined {
-  const a = G.cats[k][0];
-  return jets.find((j) => Math.hypot(j.x - a[0], j.y - a[1]) < 12);
+  return jets.find((j) => {
+    const s = (j.x - a[0]) * u[0] + (j.y - a[1]) * u[1];
+    const o = Math.abs((j.x - a[0]) * -u[1] + (j.y - a[1]) * u[0]);
+    return s > -8 && s < 25 && o < 5;
+  });
 }
 
 /** Jets on the focus carrier's deck, those in the landing area, and what's spotted on each catapult. */
 export function deckStatus(pic: Picture) {
-  const f = pic.focus;
-  if (!f) return null;
-  const jets = onDeck(f, [...pic.air, ...(pic.ground ?? [])]);
+  const fc = pic.focus;
+  if (!fc) return null;
+  const jets = onDeck(fc, [...pic.air, ...(pic.ground ?? [])]);
   const foul = jets.filter((j) => inLandingArea(j.x, j.y));
   const cats = Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(jets, k)]));
   return { jets, foul, cats };
+}
+
+// ---------------------------------------------------------------- DCS deck-crew taxi routes
+
+export interface TaxiRoute {
+  kind: 'to' | 'park';
+  /** DCS parking / spawn spot index (1-16) */
+  spot: number;
+  /** catapult a launch route ends at */
+  cat?: string;
+  pts: V[];
+}
+export const TAXI_ROUTES: TaxiRoute[] = [
+  ...NIMITZ_TAXI.to.map((r) => ({ kind: 'to' as const, spot: r.spot, cat: r.cat, pts: r.pts })),
+  ...NIMITZ_TAXI.park.map((r) => ({ kind: 'park' as const, spot: r.spot, pts: r.pts })),
+];
+
+/** nearest point on a polyline: the point, its distance, the index of the segment it lies on and the segment's direction */
+export function nearestOn(q: V[], p: V): { at: V; d: number; i: number; dir: V } {
+  let best = { at: q[0], d: Infinity, i: 0, dir: [1, 0] as V };
+  for (let i = 0; i < q.length - 1; i++) {
+    const [a, b] = [q[i], q[i + 1]];
+    const L2 = (b[0] - a[0]) ** 2 + (b[1] - a[1]) ** 2 || 1e-9;
+    const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * (b[0] - a[0]) + (p[1] - a[1]) * (b[1] - a[1])) / L2));
+    const at: V = [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+    const d = Math.hypot(p[0] - at[0], p[1] - at[1]);
+    const L = Math.sqrt(L2);
+    if (d < best.d) best = { at, d, i, dir: [(b[0] - a[0]) / L, (b[1] - a[1]) / L] };
+  }
+  return best;
+}
+
+const tail = (q: V[], n: { at: V; i: number }): V[] => [n.at, ...q.slice(n.i + 1)];
+
+/**
+ * The way the deck crew would take a jet from where it is to a catapult: join the nearest DCS launch
+ * route for that catapult and follow it to the hold-short behind the JBD, then onto the shuttle.
+ */
+export function taxiToCat(from: V, k: string): V[] {
+  let best: { r: TaxiRoute; n: ReturnType<typeof nearestOn> } | null = null;
+  for (const r of TAXI_ROUTES) {
+    if (r.kind !== 'to' || r.cat !== k) continue;
+    const n = nearestOn(r.pts, from);
+    if (!best || n.d < best.n.d) best = { r, n };
+  }
+  const shuttle = G.cats[k][0];
+  if (!best) return [from, shuttle];
+  return [from, ...tail(best.r.pts, best.n), shuttle];
+}
+
+/**
+ * Where a taxiing jet is likely headed: the DCS route it is on (within 6 m, running the way the jet
+ * points), from the jet onward; null when it's on none.
+ */
+export function routeAhead(j: { x: number; y: number; a: number }): { route: TaxiRoute; pts: V[] } | null {
+  const r = (j.a * Math.PI) / 180;
+  const h: V = [Math.cos(r), Math.sin(r)];
+  let best: { route: TaxiRoute; n: ReturnType<typeof nearestOn> } | null = null;
+  for (const route of TAXI_ROUTES) {
+    const n = nearestOn(route.pts, [j.x, j.y]);
+    if (n.d > 6 || n.dir[0] * h[0] + n.dir[1] * h[1] < 0.5) continue;
+    if (!best || n.d < best.n.d) best = { route, n };
+  }
+  if (!best) return null;
+  const pts = tail(best.route.pts, best.n);
+  if (best.route.cat) pts.push(G.cats[best.route.cat][0]);
+  return { route: best.route, pts: [[j.x, j.y], ...pts] };
 }

@@ -1,7 +1,8 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
 import FlightCard from '../../ui/flight cards/FlightCard';
-import type { Flight, FlightMember } from '../../../types/FlightData';
+import { flightOf } from '../strips.ts';
+import type { Flight } from '../../../types/FlightData';
 import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, stackConflict, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
 import { add, dir, len, mul, P, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { isCarrierCapable } from '../../../catcc/core/dcs/aircraft.ts';
@@ -55,33 +56,7 @@ function save(k: string, v: unknown) {
   }
 }
 
-// ---------------------------------------------------------------- strips (D02.1 via FlightCard)
-const elementOf = (cs?: string) => /-(\d+)$/.exec(cs ?? '')?.[1] ?? '';
-function flightOf(f: Formation): Flight {
-  const lead = f.lead;
-  const [name, num] = (lead.fl ?? f.group).split(/\s+(?=\d+$)/);
-  const members: FlightMember[] = [...f.members]
-    .sort((a, b) => Number(elementOf(a.cs) || 99) - Number(elementOf(b.cs) || 99))
-    .map((m) => ({
-      dashNumber: elementOf(m.cs) || m.id,
-      boardNumber: m.bd ?? '---',
-      fuel: (m.lb !== undefined ? Math.round(m.lb / 100) / 10 : undefined) as number,
-      pilotCallsign: m.pl ?? m.pi ?? '',
-    }));
-  const fuels = members.map((m) => m.fuel).filter((x) => typeof x === 'number');
-  return {
-    id: f.id,
-    callsign: (name ?? f.group).toUpperCase(),
-    flightNumber: num ?? '',
-    members,
-    position: { bearing: r3(lead.brg), distance: String(Math.round(lead.rng)), altitude: String(Math.round(lead.alt)) },
-    lowState: fuels.length ? Math.min(...fuels) : NaN,
-    currentSection: '',
-    currentDivision: 0,
-    formation: members.length === 1 ? 'single' : 'group',
-    aircraftType: lead.ty,
-  } as Flight;
-}
+// ---------------------------------------------------------------- strips (D02.1 via FlightCard): flightOf in ../strips.ts
 const PHASES: [Phase, string][] = [
   ['departure', 'DEPARTURE'],
   ['inbound', 'INBOUND'],

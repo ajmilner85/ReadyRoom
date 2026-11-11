@@ -370,7 +370,7 @@ const CatccApp: React.FC = () => {
         />
       )}
       {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
-      {mod === 'boss' && <BossView key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} />}
+      {mod === 'boss' && <BossView key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} />}
       {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
       {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull: hull ?? '', ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }} />}
     </div>

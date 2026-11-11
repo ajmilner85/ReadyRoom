@@ -6,22 +6,17 @@
 import React from 'react';
 import type { CatStatus, LightSetting, OpsState } from '../../../catcc/core/room/ops.ts';
 import type { LightItem } from './lights.ts';
-import { windOverDeck } from '../../../catcc/core/env/wod.ts';
 import { fuelK, shortType, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { finalPicture, landingWeightLb } from '../final/finalModel.ts';
 import { deckStatus, onCat } from './deck.ts';
+import { catEntry } from './launch.ts';
 
 const SEG: React.CSSProperties = { display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 };
 const ms = (t: number) => {
   const n = Math.max(0, Math.round(t));
   return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
 };
-const chip = (k: string, v: React.ReactNode, c = '#7FD397') => (
-  <span className="chip">
-    {k} <span style={{ color: c }}>{v}</span>
-  </span>
-);
 const id = (t: ScopeTrack) => t.bd ?? t.cs ?? t.id;
 
 // ---------------------------------------------------------------- deck status bar
@@ -33,10 +28,6 @@ export const DeckBar: React.FC<{ pic: Picture; deck: DeckCall | null; ops?: OpsS
   const foul = deck.foul;
   const fp = finalPicture(pic);
   const next = fp?.arrivals[0];
-  const wt = next ? landingWeightLb(next.t.ty, next.t.lb) : null;
-  const tr = pic.focus?.track;
-  const wod = tr?.wx?.d0 != null && tr.wx.s0 != null && fp ? windOverDeck(fp.ship.crs, fp.ship.gs, tr.wx.d0, tr.wx.s0) : null;
-  const wodAng = wod && fp ? Math.round(((wod.from - fp.fb + 540) % 360) - 180) : 0;
   const call = (f: boolean | null, reason?: string) => setOps({ deck: f === null ? null : { foul: f, ...(reason ? { reason } : {}), at: Date.now() } });
   return (
     <section aria-label="Deck status" style={{ display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap', padding: '10px 12px', borderRadius: 8, border: `1px solid ${foul ? '#E0524E' : '#40A85B'}`, background: foul ? 'rgba(224,82,78,.1)' : 'rgba(64,168,91,.1)' }}>
@@ -66,10 +57,6 @@ export const DeckBar: React.FC<{ pic: Picture; deck: DeckCall | null; ops?: OpsS
       )}
       <div style={{ flex: 1 }} />
       {next && <span className="mono" style={{ fontSize: 12, color: '#93A1B0' }}>NEXT · {id(next.t)} 3/4 NM in {ms(next.tBall!)}</span>}
-      {chip('WIRES 1–4', wt ? `SET ${Math.round(wt / 1000)}` : '—')}
-      {chip('BARRICADE', 'STOWED', '#93A1B0')}
-      {chip('LENS', '3.5°')}
-      {chip('WOD', wod ? `${Math.round(wod.kt)} · ${Math.abs(wodAng)}° ${wodAng >= 0 ? 'R' : 'L'}` : '—', wod && Math.abs(wodAng) <= 5 && wod.kt >= 25 && wod.kt <= 32 ? '#7FD397' : '#E7B04F')}
     </section>
   );
 };
@@ -90,8 +77,7 @@ export const LaunchTab: React.FC<{ pic: Picture; ops?: OpsState; setOps: (p: Par
   // aircraft on deck, by flight key (a queue entry is a flight)
   const onDeck = new Map<string, ScopeTrack>();
   for (const j of jets) if (!onDeck.has(keyOf(j.t))) onDeck.set(keyOf(j.t), j.t);
-  const launch = ops?.launch ?? {};
-  const cat = (k: string) => launch[k] ?? { status: (k === '3' || k === '4' ? 'down' : 'ready') as CatStatus, queue: [] as string[] };
+  const cat = (k: string) => catEntry(ops, k);
   // flights that have launched (no longer on deck) drop out of the queues when the boss next edits them
   const live = (q: string[]) => q.filter((k) => onDeck.has(k));
   const save = (k: string, v: { status: CatStatus; queue: string[] }) => {
