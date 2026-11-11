@@ -31,6 +31,18 @@ const C = {
 const ROUTE_COL = { to: '#5FD068', park: '#6FB6E6' } as const;
 
 const NAMES: Record<string, string> = { Crotch: 'CROTCH', Point: 'POINT', Corral: 'CORRAL', 'Junk Yard': 'JUNK YARD', Patio: 'PATIO', Finger: 'FINGER', Box: 'BOX', Street: 'STREET', Sixpack: 'SIX-PACK' };
+/** areas whose name runs along the area's long axis instead of level */
+const AXIS_LABELS = new Set(['Street', 'Sixpack']);
+/** SVG rotation that lays text along a polygon's major (principal) axis, kept reading left to right */
+const majorAxisRot = (q: V[]) => {
+  const [mx, my] = centroid(q);
+  let sxx = 0, syy = 0, sxy = 0;
+  for (const [x, y] of q) { sxx += (x - mx) ** 2; syy += (y - my) ** 2; sxy += (x - mx) * (y - my); }
+  let deg = ((0.5 * Math.atan2(2 * sxy, sxx - syy)) * 180) / Math.PI;
+  if (deg > 90) deg -= 180;
+  if (deg <= -90) deg += 180;
+  return -deg; // drawing flips y
+};
 
 const T: React.FC<{ p: V; children: React.ReactNode; size?: number; fill?: string; anchor?: 'start' | 'middle' | 'end'; rot?: number; weight?: number; opacity?: number; font?: string }> = ({ p, children, size = 3.4, fill = C.label, anchor = 'middle', rot, weight, opacity, font }) => (
   <text x={p[0]} y={-p[1]} textAnchor={anchor} dominantBaseline="central" transform={rot ? `rotate(${rot} ${p[0]} ${-p[1]})` : undefined} style={{ fontSize: size, fill, fontWeight: weight, opacity, letterSpacing: '.04em', ...(font ? { fontFamily: font, letterSpacing: 0 } : {}) }}>
@@ -273,7 +285,7 @@ export const DeckDrawing: React.FC<{
         <T p={ISLAND_LABEL} fill="#C9D3DD" size={3}>ISLAND</T>
         {layers.has('areas') &&
           G.parking.map((a) => (
-            <T key={a.name} p={areaCentroid(a.poly)} fill="#6FB6E6" size={2.8} opacity={0.85}>
+            <T key={a.name} p={areaCentroid(a.poly)} rot={AXIS_LABELS.has(a.name) ? majorAxisRot(a.poly) : undefined} fill="#6FB6E6" size={2.8} opacity={0.85}>
               {NAMES[a.name] ?? a.name.toUpperCase()}
             </T>
           ))}
