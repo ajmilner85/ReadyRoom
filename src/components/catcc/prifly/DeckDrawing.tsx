@@ -203,13 +203,23 @@ export const DeckDrawing: React.FC<{
             </T>
           ))}
         {layers.has('wires') &&
-          G.wires.map((w, i) => {
-            const p = w[0][1] > w[1][1] ? w[0] : w[1];
-            return (
-              <T key={i} p={[p[0], p[1] + 2.4]} size={2.6} fill="#9AA4AE">
-                {i + 1}
-              </T>
-            );
+          G.wires.flatMap((w, i) => {
+            // a numbered disc just beyond each end of the wire, along its line; the number squared to the landing area
+            const [a, b] = w;
+            const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
+            const u: V = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
+            const R = 1.6;
+            return [
+              [a[0] - u[0] * (R + 0.3), a[1] - u[1] * (R + 0.3)] as V,
+              [b[0] + u[0] * (R + 0.3), b[1] + u[1] * (R + 0.3)] as V,
+            ].map((p, j) => (
+              <g key={`${i}${j}`}>
+                <circle cx={p[0]} cy={-p[1]} r={R} fill="#0B0E12" stroke="#9AA4AE" strokeWidth={0.3} />
+                <T p={p} size={2.1} fill="#C9D3DD" weight={600} rot={-G.laDeg}>
+                  {i + 1}
+                </T>
+              </g>
+            ));
           })}
         {layers.has('gear') && (
           <>
