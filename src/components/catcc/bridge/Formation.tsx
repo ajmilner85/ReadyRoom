@@ -4,6 +4,7 @@
  * are relative to the formation axis (the BRC); the plot is axis-up. Apply saves every preset's
  * draft and makes the shown one active; the formation is shared room state.
  */
+import { OrderMark } from './Nav.tsx';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { OrderStatus } from '../../../catcc/core/room/protocol.ts';
 import type { EscortRole, Formation, OpsState, Station } from '../../../catcc/core/room/ops.ts';
@@ -59,10 +60,9 @@ export const FormationPanel: React.FC<{
   const orderMark = (id: string) => {
     const o = orders?.[id];
     if (!f.drive || !o) return null;
-    const [ch, c, t] = o.ok === undefined ? ['…', '#93A1B0', 'Order sent to DCS'] : o.ok ? ['✓', '#7FD397', 'DCS took the station order'] : ['✗', '#FF8A85', `DCS refused: ${o.error ?? 'no reason given'}`];
     return (
-      <span title={t} style={{ color: c, marginLeft: 4 }}>
-        {ch}
+      <span style={{ marginLeft: 6 }}>
+        <OrderMark o={o} label={false} />
       </span>
     );
   };

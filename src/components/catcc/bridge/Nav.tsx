@@ -78,12 +78,14 @@ const ll = (lat: number, lon: number) => {
 };
 
 /** A ship order's state as a small mark: sending, taken, refused (the reason in its tooltip). */
-export const OrderMark: React.FC<{ o?: OrderStatus }> = ({ o }) => {
-  if (!o) return null;
-  const [t, c, tip] = o.ok === undefined ? ['DCS …', '#93A1B0', 'Sent to DCS'] : o.ok ? ['DCS ✓', '#7FD397', 'DCS took the order'] : ['DCS ✗', '#FF8A85', `DCS refused: ${o.error ?? 'no reason given'}`];
+export const OrderMark: React.FC<{ o?: OrderStatus; label?: boolean }> = ({ o, label = true }) => {
+  // only a refusal is worth showing: the header's pulsing alert dot, with the reason on hover
+  if (!o || o.ok !== false) return null;
+  const tip = `DCS refused the order: ${o.error ?? 'no reason given'}`;
   return (
-    <span className="mono" title={tip} style={{ fontSize: 10.5, fontWeight: 600, color: c, letterSpacing: '.04em' }}>
-      {t}
+    <span title={tip} aria-label={tip} style={{ display: 'inline-flex', alignItems: 'center', gap: 6, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, verticalAlign: 'middle' }}>
+      <span className="cc-feed-alert" style={{ width: 8, height: 8, borderRadius: '50%', background: '#FF8A85', color: '#FF8A85', flex: 'none' }} />
+      {label && <span className="cc-feed-alert-text" style={{ color: '#FF8A85' }}>DCS</span>}
     </span>
   );
 };
