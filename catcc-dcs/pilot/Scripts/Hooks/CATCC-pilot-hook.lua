@@ -412,6 +412,10 @@ local function nativeChocks(t, name, chock, parked)
     end
     return
   end
+  -- Re-setting the ship's chock flag does NOT physically hold the player, and the deck crew's C++
+  -- update clears it the next frame (it flickers). Off by default; the flag read above still finds
+  -- the parking spot. cfg.fightDeckCrew = true only to re-test the flag behaviour.
+  if not cfg.fightDeckCrew then return end
   local on = flags:sub(mySlot + 1, mySlot + 1) == '1'
   if chock and parked and not on then
     local ok2, r, e2 = pcall(native.set, mySlot, true)
