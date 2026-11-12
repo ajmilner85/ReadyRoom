@@ -9,7 +9,8 @@
 #      Scripts\Hooks\CATCC-pilot-hook.lua into Saved Games\DCS (or DCS.openbeta);
 #   2. with -Server, writes Saved Games\...\Config\CATCC-pilot.lua (default server: the squadron's);
 #   3. patches the deck crew's launch sequence (CoreMods\tech\USS_Nimitz\scripts\common.xml) so the
-#      shooter, after your salute, waits while the gate says you're held. Removes the 30 s test patch.
+#      shooter, once you're ready on the catapult and before the run-up signal, waits while the gate
+#      says you're held. Removes any earlier CATCC patch (the 30 s test, the old after-salute gate).
 # DCS updates replace common.xml: run this again after an update. Restart DCS afterwards.
 
 param(
@@ -83,11 +84,12 @@ if ($Server) {
   [System.IO.File]::WriteAllText((Join-Path $cfgDir 'CATCC-pilot.lua'), "return { host = '$Server', port = $Port }`n", $enc)
 }
 
-# 3. the gate in the launch sequence, right after the shooter sees your salute
-$anchor = 'name="salute_flag == true?" output_bb_key="" param_name="salute_flag" param_value="true"/>'
+# 3. the gate in the launch sequence: once you're on the catapult and ready, before the shooter's
+#    run-up signal (Sign_Launch1). Taxiing on and spawning on the cat both end in this phase.
+$anchor = 'name="client_status == 13" output_bb_key="" param_name="client_status" param_value="13"/>'
 $at = $text.IndexOf($anchor)
-if ($at -lt 0) { throw "Salute check not found in common.xml (DCS update changed the tree?)" }
-if ($text.IndexOf($anchor, $at + 1) -ge 0) { throw "Salute check found more than once; not patching blind." }
+if ($at -lt 0) { throw "Ready-on-catapult check not found in common.xml (DCS update changed the tree?)" }
+if ($text.IndexOf($anchor, $at + 1) -ge 0) { throw "Ready-on-catapult check found more than once; not patching blind." }
 $lineStart = $text.LastIndexOf("`n", $at) + 1
 $i0 = ($text.Substring($lineStart, $at - $lineStart) -replace '\S.*$', '')
 $i1 = "$i0    "
