@@ -40,7 +40,6 @@ local sock, rbuf = nil, ''
 local nextConnectAt = 0
 local held = {}          -- player name -> true (held for launch)
 local chocked = {}       -- player name -> true (chocks held: no taxi instruction yet)
-local pendingChocks = nil -- the pilot's "remove chocks" request, kept until PriFly gives the taxi instruction
 local chocksPlaced = false -- this hold: chocks already asked for (or the jet was cold, so they were on)
 local stoppedSince = nil
 local lastChockCheckAt = -1e9
@@ -193,24 +192,56 @@ end
 
 local function fresh(t) return t - heardAt < FRESH_S end
 
--- the F8 menu's "Wheel chocks > Remove" (Hornet comm.lua, patched by install.ps1) asks here first:
--- while PriFly holds this aircraft's chocks the request is kept (and PriFly told the pilot is ready
--- to taxi); it goes through by itself once the taxi instruction is given. Anything amiss: through at once.
-local M = {}
-function M.chocksRemove(orig, params)
-  local ok, isHeld = pcall(function()
-    local name = myName()
-    return running and name ~= nil and fresh(now()) and chocked[name] == true
-  end)
-  if ok and isHeld then
-    pendingChocks = { orig = orig, params = params }
-    sendLine('EV taxi ' .. tostring(myName()))
-    logi('chocks request held: waiting for the taxi instruction from PriFly')
+-- The F8 menu's "Wheel chocks" (Hornet comm.lua, patched by install.ps1) runs in DCS's main Lua state,
+-- not this one: it keeps CATCC_CHOCKS there (held flag, the pilot's kept requests, place / remove).
+-- Every second this hook sets the flag and collects the requests through net.dostring_in; while
+-- PriFly holds the chocks a request is kept (and PriFly hears the pilot is ready to taxi), and the
+-- chocks come off once the taxi instruction is given. Not found, or no word from here: stock menu.
+local MENU_STATES = { 'server', 'mission' }
+local menuState = nil
+local lastProbeAt, lastSyncAt, menuWarned = -1e9, -1e9, false
+local startedAt = 0
+
+local function menuDo(code)
+  if not menuState then return nil end
+  local ok, r = pcall(net.dostring_in, menuState, code)
+  return ok and r or nil
+end
+
+local function findMenu(t)
+  if menuState or t - lastProbeAt < 5 then return end
+  lastProbeAt = t
+  for _, st in ipairs(MENU_STATES) do
+    local ok, r = pcall(net.dostring_in, st, 'return CATCC_CHOCKS and "yes" or "no"')
+    if ok and r == 'yes' then
+      menuState = st
+      logi('chocks menu found in Lua state "' .. st .. '"')
+      return
+    end
+  end
+  if not menuWarned and t - startedAt > 60 then
+    menuWarned = true
+    logi('chocks menu not found (is comm.lua patched, and does autoexec.cfg net.allow_dostring_in include "server"?)')
+  end
+end
+
+local function syncMenu(t, chock, name)
+  findMenu(t)
+  if not menuState or t - lastSyncAt < 1 then return end
+  lastSyncAt = t
+  local r = menuDo(string.format('local S = CATCC_CHOCKS; if not S then return "gone" end; S.held = %s; ' ..
+    'S.at = os and os.clock and os.clock() or 0; local a = S.asked or 0; S.asked = 0; local out = tostring(a); ' ..
+    'if not S.held and S.pending then S.pending = false; S.remove(); out = out .. ",removed" end; return out', chock and 'true' or 'false'))
+  if r == 'gone' or r == nil then
+    if r == 'gone' then menuState = nil end
     return
   end
-  return orig:perform(params)
+  if (tonumber(r:match('^(%d+)')) or 0) > 0 then
+    if name then sendLine('EV taxi ' .. name) end
+    logi('chocks request held: waiting for the taxi instruction from PriFly')
+  end
+  if r:find('removed', 1, true) then logi('taxi instruction given: chocks coming off') end
 end
-package.loaded.catcc_pilot = M
 
 -- tell the gate device (LoSetCommand lives in the export environment)
 local function setCmd(cmd, v)
@@ -290,16 +321,9 @@ local function tick()
   end
   local chock = name ~= nil and fresh(t) and chocked[name] == true
   -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
-  local menu = package.loaded.catcc_pilot_menu
-  if pendingChocks and not chock then
-    local pc = pendingChocks
-    pendingChocks = nil
-    -- the menu's own call selects the ground crew first, as pressing it does
-    local ok, err = pcall(function() if menu and menu.remove then menu.remove() else pc.orig:perform(pc.params) end end)
-    logi(ok and 'taxi instruction given: chocks coming off' or ('chocks request failed: ' .. tostring(err)))
-  end
+  syncMenu(t, chock, name)
   -- a hot start has no chocks: while PriFly holds them, have the deck crew put them on (once, stopped 3 s)
-  if chock and not chocksPlaced and menu and menu.place and t - lastChockCheckAt >= 1 then
+  if chock and not chocksPlaced and menuState and t - lastChockCheckAt >= 1 then
     lastChockCheckAt = t
     local gs = groundSpeed()
     if gs and gs < 0.3 then
@@ -307,8 +331,8 @@ local function tick()
       if t - stoppedSince >= 3 then
         chocksPlaced = true
         if engineRunning() then
-          local ok, err = pcall(menu.place)
-          logi(ok and 'hot start held by PriFly: chocks requested' or ('placing chocks failed: ' .. tostring(err)))
+          local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
+          logi(r == 'ok' and 'hot start held by PriFly: chocks requested' or ('placing chocks failed: ' .. tostring(r)))
         end
       end
     else
@@ -336,7 +360,8 @@ end
 local handler = {}
 function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
-  chocked, pendingChocks, lbDown = {}, nil, nil
+  chocked, lbDown = {}, nil
+  menuState, menuWarned, startedAt = nil, false, now()
   chocksPlaced, stoppedSince = false, nil
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()

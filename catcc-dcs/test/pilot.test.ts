@@ -79,27 +79,36 @@ args[85] = 0.88; frame(0.6)
 frame(0.6)
 args[85] = 0; frame(0.6)
 rec('lb ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
--- chocks: the F8 request is kept while PriFly holds them, and goes through on the taxi instruction
-local orig = { perform = function(self, p) rec('chocks removed ' .. tostring(p)) end }
-local menu = package.loaded.catcc_pilot
--- a hot start (engines running, stopped): the deck crew is asked to put chocks on, once
+-- chocks: the menu's state lives in DCS's main Lua state ("server" to net.dostring_in), as the patched
+-- comm.lua line leaves it; the hook sets the held flag there and collects the pilot's requests
 EXPORT = { speed = 0, rpm = 70 }
-net.dostring_in = function(state, code)
-  if code:find('LoGetVectorVelocity', 1, true) then return tostring(EXPORT.speed) end
-  if code:find('LoGetEngineInfo', 1, true) then return tostring(EXPORT.rpm) end
-  return nil
+local MAIN = { os = os, tostring = tostring }
+MAIN.CATCC_CHOCKS = { held = false, at = 0, asked = 0, pending = false,
+  place = function() rec('chocks placed') end, remove = function() rec('chocks removed via menu') end }
+-- what the patched menu does when the pilot presses Remove
+local function pressRemove()
+  local S = MAIN.CATCC_CHOCKS
+  if S.held then S.asked = S.asked + 1; S.pending = true else rec('chocks removed (stock)') end
 end
-package.loaded.catcc_pilot_menu = { place = function() rec('chocks placed') end, remove = function() rec('chocks removed via menu') end }
+net.dostring_in = function(state, code)
+  if state == 'export' then
+    if code:find('LoGetVectorVelocity', 1, true) then return tostring(EXPORT.speed) end
+    if code:find('LoGetEngineInfo', 1, true) then return tostring(EXPORT.rpm) end
+    return nil
+  end
+  if state ~= 'server' then return nil end
+  return assert(load(code, 'main', 't', MAIN))()
+end
 before = #server.sent
 server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}'
-for _ = 1, 6 do frame(1.0) end
-menu.chocksRemove(orig, 'P')
-frame(0.6)
+for _ = 1, 8 do frame(1.0) end -- found, flag set, stopped 3 s: a hot start gets chocks placed
+pressRemove()
+frame(1.1)
 rec('chocks kept ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
 server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":[]}'
-frame(0.6)
+frame(1.1)
 -- nobody holds them: straight through
-menu.chocksRemove(orig, 'Q')
+pressRemove()
 -- single player: the network name is "player"; the server knows the unit's pilot name
 net.get_player_info = function() return 'player' end
 Export.LoGetPilotName = function() return 'New callsign' end
@@ -145,7 +154,7 @@ describe('CATCC pilot hook', () => {
     const i = out.indexOf('chocks kept EV taxi Volt 3-1 | 401 Ace|');
     expect(i).toBeGreaterThan(-1);
     expect(out.slice(0, i).some((l) => l.startsWith('chocks removed'))).toBe(false);
-    expect(out.slice(i).filter((l) => l.startsWith('chocks')).slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed Q']);
+    expect(out.slice(i).filter((l) => l.startsWith('chocks')).slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed (stock)']);
   });
   it('has the deck crew chock a hot-started jet while PriFly holds the chocks, once', () => {
     expect(out.filter((l) => l === 'chocks placed')).toHaveLength(1);

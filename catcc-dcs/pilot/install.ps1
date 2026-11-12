@@ -130,16 +130,22 @@ if ($null -ne $commText) {
     if ($eol -lt 0) { $eol = $commText.Length }
     if ($eol -gt 0 -and $commText[$eol - 1] -eq "`r") { $eol = $eol - 1 }
     $cnl = if ($commText.Contains("`r`n")) { "`r`n" } else { "`n" }
-    # Remove asks the pilot hook first; place / remove are also published (ground crew selected first, as
-    # the menu does) so the hook can chock a hot-started jet and pull the chocks on the taxi instruction
+    # The menu runs in DCS's main Lua state, not the GUI state the pilot hook runs in: the line keeps
+    # CATCC_CHOCKS there (held flag + when the hook last set it, requests kept, place / remove with the
+    # ground crew selected first, as the menu does). The hook reads and writes it with net.dostring_in.
+    # No word from the hook for 15 s: not held (the stock request).
     $line = "do local G = getfenv(0); local wc = menus['Wheel chocks']; local it = wc and wc.items and wc.items[2]; " +
       "local pl = wc and wc.items and wc.items[1]; " +
-      "if it and it.command and pl and pl.command and G and G.package and G.package.loaded then " +
+      "if G and it and it.command and pl and pl.command then " +
       "local orig, place, tune = it.command, pl.command, selectAndTuneCommunicator; " +
-      "G.package.loaded.catcc_pilot_menu = { place = function() if tune then tune(nil) end; place:perform({}) end, " +
-      "remove = function() if tune then tune(nil) end; orig:perform({}) end }; " +
-      "it.command = { perform = function(self, p) local m = G.package.loaded.catcc_pilot; " +
-      "if m and m.chocksRemove then return m.chocksRemove(orig, p) end; return orig:perform(p) end } end end " +
+      "local S = G.CATCC_CHOCKS or { held = false, at = 0, asked = 0, pending = false }; G.CATCC_CHOCKS = S; " +
+      "local clock = G.os and G.os.clock; " +
+      "S.place = function() if tune then tune(nil) end; place:perform({}) end; " +
+      "S.remove = function() if tune then tune(nil) end; orig:perform({}) end; " +
+      "it.command = { perform = function(self, p) " +
+      "if S.held and (not clock or clock() - (S.at or 0) < 15) then S.asked = (S.asked or 0) + 1; S.pending = true; return end; " +
+      "return orig:perform(p) end }; " +
+      "if G.print then G.print('CATCC: Hornet wheel chocks menu routed through PriFly') end end end " +
       "-- CATCC: PriFly holds the chocks until it gives the taxi instruction"
     $commText = $commText.Substring(0, $eol) + $cnl + $line + $commText.Substring($eol)
     [System.IO.File]::WriteAllText($comm, $commText, $enc)
