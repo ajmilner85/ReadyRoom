@@ -416,6 +416,8 @@ local function handleCmd(c, body)
       if type(n) ~= 'string' or #n < 1 or #n > 64 then return reply('bad player name') end
       list[#list + 1] = n
     end
+    local was, is = table.concat(holdList, ', '), table.concat(list, ', ')
+    if is ~= was then info('PriFly holds: ' .. (is ~= '' and is or '(none)')) end
     holdList = list
     holdAt = now()
     sendHolds()

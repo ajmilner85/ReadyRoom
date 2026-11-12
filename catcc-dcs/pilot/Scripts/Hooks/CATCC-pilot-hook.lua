@@ -141,7 +141,12 @@ local function tick()
   local v = hold and 1 or 0
   if v ~= lastSent or t - lastSentAt >= 2 then
     setGate(v)
-    if v ~= lastSent then logi(hold and 'held by PriFly' or 'not held') end
+    if v ~= lastSent then
+      local names = {}
+      for n in pairs(held) do names[#names + 1] = n end
+      logi((hold and 'held by PriFly' or 'not held') .. ' (me: ' .. tostring(name) .. '; list: ' ..
+        (#names > 0 and table.concat(names, ', ') or 'empty') .. (t - heardAt < FRESH_S and '' or ', stale') .. ')')
+    end
     lastSent, lastSentAt = v, t
     -- once per mission: check the gate argument really changes on this aircraft
     if hold and not checked and Export and Export.LoGetAircraftDrawArgumentValue then

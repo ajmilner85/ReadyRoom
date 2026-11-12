@@ -300,6 +300,11 @@ class Source {
     const j = this.launchMsg();
     if (j !== this.launchJson) {
       this.launchJson = j;
+      const byId = new Map(this.tracks.map((t) => [t.id, t]));
+      const who = (id: string) => byId.get(id)?.pi ?? id;
+      const parts = Object.entries(this.launch).map(([hull, st]) =>
+        `${hull}: ${st.auth ? `${st.auth.role} ${st.auth.name}` : 'AUTO'}, held [${st.hold.map(who).join(', ')}], cleared [${Object.keys(st.cleared).map(who).join(', ')}]`);
+      this.log(`[${this.cfg.id}] launch: ${parts.join(' | ') || 'no carrier in the picture'}`);
       for (const c of this.subscribers) send(c, j);
     }
     // the hook forgets holds it isn't reminded of (so a room that goes away never strands anyone): resend every 5 s
