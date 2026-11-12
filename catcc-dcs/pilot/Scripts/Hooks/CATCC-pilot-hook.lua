@@ -43,6 +43,8 @@ local chocked = {}       -- player name -> true (chocks held: no taxi instructio
 local chocksPlaced = false -- this hold: chocks already asked for (or the jet was cold, so they were on)
 local stoppedSince = nil
 local lastChockCheckAt = -1e9
+local rechockAt = nil     -- when to put the chocks back after a salute pulled them (PriFly still holds them)
+local RECHOCK_S = 4
 local lbDown = nil       -- launch bar down, as last reported (nil: not reported this hold)
 local lastLbAt = -1e9
 local heardAt = -1e9     -- last hold list from the server
@@ -96,13 +98,26 @@ local function myName()
 end
 
 -- ground speed (m/s) and whether an engine is running (a hot start), for chocking a jet that spawned without
+-- (the GUI's Export table first: autoexec.cfg rarely lets hooks dostring into "export")
 local function groundSpeed()
-  local v = exportVal(nil, 'tostring((function() local v = LoGetVectorVelocity() return v and math.sqrt(v.x * v.x + v.z * v.z) end)())')
-  return tonumber(v)
+  local v
+  if Export and Export.LoGetVectorVelocity then
+    local ok, w = pcall(Export.LoGetVectorVelocity)
+    if ok and type(w) == 'table' then v = math.sqrt((w.x or 0) ^ 2 + (w.z or 0) ^ 2) end
+  else
+    v = tonumber(exportVal(nil, 'tostring((function() local v = LoGetVectorVelocity() return v and math.sqrt(v.x * v.x + v.z * v.z) end)())'))
+  end
+  return v
 end
 local function engineRunning()
-  local v = exportVal(nil, 'tostring((function() local e = LoGetEngineInfo() return e and e.RPM and math.max(e.RPM.left or 0, e.RPM.right or 0) end)())')
-  return (tonumber(v) or 0) > 50
+  local v
+  if Export and Export.LoGetEngineInfo then
+    local ok, e = pcall(Export.LoGetEngineInfo)
+    if ok and type(e) == 'table' and type(e.RPM) == 'table' then v = math.max(e.RPM.left or 0, e.RPM.right or 0) end
+  else
+    v = tonumber(exportVal(nil, 'tostring((function() local e = LoGetEngineInfo() return e and e.RPM and math.max(e.RPM.left or 0, e.RPM.right or 0) end)())'))
+  end
+  return (v or 0) > 50
 end
 
 local function close(why)
@@ -275,7 +290,7 @@ local function resolveSalute()
 end
 
 -- on deck while held: did the pilot just salute? (the gate device's mark, or the pilot figure's arm)
-local function pollSalute(t, name)
+local function pollSalute(t, name, heldNow, chockedNow)
   if t - lastPollAt < SALUTE_POLL_S then return end
   lastPollAt = t
   local how = nil
@@ -292,6 +307,8 @@ local function pollSalute(t, name)
     lastSaluteAt = t
     sendLine('SALUTE ' .. name)
     logi('salute reported to PriFly (' .. how .. ')')
+    -- parked with the chocks held: the deck crew pulls them on a salute (DCS's own logic); put them back
+    if chockedNow and not heldNow then rechockAt = t + RECHOCK_S end
   end
   wasSaluting = saluting
 end
@@ -354,13 +371,21 @@ local function tick()
   elseif not hold then
     lbDown = nil
   end
-  if hold or chock then pollSalute(t, name) else wasSaluting = false end
+  if hold or chock then pollSalute(t, name, hold, chock) else wasSaluting = false end
+  -- a salute pulled the chocks while PriFly still holds them: have the deck crew put them back
+  if rechockAt and t >= rechockAt then
+    rechockAt = nil
+    if chock and not hold and menuState then
+      local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
+      logi(r == 'ok' and 'salute while PriFly holds the chocks: chocks put back' or ('putting chocks back failed: ' .. tostring(r)))
+    end
+  end
 end
 
 local handler = {}
 function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
-  chocked, lbDown = {}, nil
+  chocked, lbDown, rechockAt = {}, nil, nil
   menuState, menuWarned, startedAt = nil, false, now()
   chocksPlaced, stoppedSince = false, nil
   wasSaluting, lastSaluteAt = false, -1e9

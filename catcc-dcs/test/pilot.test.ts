@@ -105,6 +105,12 @@ for _ = 1, 8 do frame(1.0) end -- found, flag set, stopped 3 s: a hot start gets
 pressRemove()
 frame(1.1)
 rec('chocks kept ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
+-- a salute while parked (the deck crew pulls the chocks on it): the chocks go back on a few seconds later
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}' -- the 5 s refresh
+args[520] = 0.5; frame(0.3)
+args[520] = 0
+for _ = 1, 5 do frame(1.0) end
+rec('rechock done')
 server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":[]}'
 frame(1.1)
 -- nobody holds them: straight through
@@ -154,10 +160,16 @@ describe('CATCC pilot hook', () => {
     const i = out.indexOf('chocks kept EV taxi Volt 3-1 | 401 Ace|');
     expect(i).toBeGreaterThan(-1);
     expect(out.slice(0, i).some((l) => l.startsWith('chocks removed'))).toBe(false);
-    expect(out.slice(i).filter((l) => l.startsWith('chocks')).slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed (stock)']);
+    expect(out.slice(i).filter((l) => l.startsWith('chocks') && l !== 'chocks placed').slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed (stock)']);
   });
   it('has the deck crew chock a hot-started jet while PriFly holds the chocks, once', () => {
-    expect(out.filter((l) => l === 'chocks placed')).toHaveLength(1);
+    const kept = out.findIndex((l) => l.startsWith('chocks kept'));
+    expect(out.slice(0, kept).filter((l) => l === 'chocks placed')).toHaveLength(1);
+  });
+  it('puts the chocks back after a salute pulls them while PriFly holds them', () => {
+    const kept = out.findIndex((l) => l.startsWith('chocks kept'));
+    const done = out.indexOf('rechock done');
+    expect(out.slice(kept, done).filter((l) => l === 'chocks placed')).toHaveLength(1);
   });
   it('knows the pilot by the unit\'s pilot name too (single player)', () => {
     expect(out).toContain('gate 11873=1'); // held under the multiplayer name above; the single-player case follows
