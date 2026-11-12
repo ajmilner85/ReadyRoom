@@ -150,6 +150,11 @@ describe('CATCC DCS hook', () => {
     expect(launch.find((m) => m.type === 'salute')).toEqual({ type: 'salute', p: 'Volt 3-1 | 401 Ace' });
     // a chocks request goes to the room (unknown events don't)
     expect(launch.filter((m) => m.type === 'pilotev')).toEqual([{ type: 'pilotev', e: 'taxi', p: 'Volt 3-2 | 402 Bee' }]);
+    // on the pilot's screen: told to stand by (chocks held), then the mod's own message
+    expect(t.filter((x) => x.label === 'tell').map((x) => x.payload)).toEqual([
+      '2002 PriFly: chocks stay on until your taxi instructions. Stand by.',
+      '2002 CATCC: native chocks module loaded',
+    ]);
     // not refreshed for 15 s: forgotten, and the pilot is told (an idle pilot is never timed out)
     expect(msgs('lapse').filter((m) => m.type === 'hold').at(-1)).toEqual({ type: 'hold', p: [], c: [] });
     expect(t.find((x) => x.label === 'pilotOpen')?.payload).toBe('true');

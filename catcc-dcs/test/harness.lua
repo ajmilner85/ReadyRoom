@@ -90,6 +90,10 @@ local HORNET = mkUnit({ id = 2001, name = 'Volt 3-1', type = 'FA-18C_hornet', ca
   p = { x = 20000, y = 6000, z = -5000 }, hdg = 345, crs = 343.5, gsKt = 420, vsMs = -15, fuel = 0.62, air = true })
 local HELO = mkUnit({ id = 3001, name = 'Angel', type = 'SH-60B', callsign = 'Angel1', p = { x = 1000, y = 100, z = 500 }, hdg = 90, crs = 90, gsKt = 0, fuel = 0.8, air = true })
 
+-- a player on deck (only in the players list: the sampler's groups stay as they are)
+local BEE = mkUnit({ id = 2002, name = 'Volt 3-2', type = 'FA-18C_hornet', callsign = 'Volt32', player = 'Volt 3-2 | 402 Bee',
+  p = { x = 0, y = 20, z = 0 }, hdg = 70, crs = 70, gsKt = 0, fuel = 1, air = false })
+
 local GROUPS = {
   [2] = { [0] = { mkGroup('Volt 3', { HORNET }) }, [1] = { mkGroup('Angel', { HELO }) }, [3] = { mkGroup('CSG-1', { CV }) } },
 }
@@ -114,7 +118,9 @@ local function newMissionEnv()
       side = { NEUTRAL = 0, RED = 1, BLUE = 2 },
       getGroups = function(side, cat) return (GROUPS[side] or {})[cat] or {} end,
       getMainRefPoint = function(side) return side == 2 and { x = 1000, y = 0, z = 2000 } or nil end,
+      getPlayers = function(side) return side == 2 and { HORNET, BEE } or {} end,
     },
+    trigger = { action = { outTextForUnit = function(id, text, secs) rec('tell', id .. ' ' .. text) end } },
     coord = { LOtoLL = LOtoLL, LLtoLO = LLtoLO },
     atmosphere = {
       getWind = function(p) local d = gridDir(250); local s = p.y < 100 and 10 or 20; return { x = d.x * s, y = 0, z = d.z * s } end,
@@ -257,6 +263,9 @@ cmd('CMD {"id":11,"op":"launch","hold":["Volt 3-1 | 401 Ace"],"chocks":["Volt 3-
 pilot.inbox[#pilot.inbox + 1] = 'SALUTE Volt 3-1 | 401 Ace'
 pilot.inbox[#pilot.inbox + 1] = 'EV taxi Volt 3-2 | 402 Bee'
 pilot.inbox[#pilot.inbox + 1] = 'EV nonsense Volt 3-2 | 402 Bee'
+-- the mod's own messages (a client can't show them itself): onto that player's screen
+pilot.inbox[#pilot.inbox + 1] = 'MSG Volt 3-2 | 402 Bee\tnative chocks module loaded'
+pilot.inbox[#pilot.inbox + 1] = 'MSG Volt 3-2 | 402 Bee no tab, not a message'
 tick(0.01)
 cmd('CMD {"id":12,"op":"launch","hold":[42]}')
 drain(pilot, 'pilot')

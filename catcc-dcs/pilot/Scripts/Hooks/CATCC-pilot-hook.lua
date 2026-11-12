@@ -8,7 +8,12 @@
 -- Fail-open everywhere: no config, no server, no word from the server for 12 s, or not on the list
 -- means not held. The gate device also opens by itself if this hook goes quiet.
 --
+-- What the pilot needs to know while flying goes on screen ("CATCC: ..." in the mission message area):
+-- shown directly in single player or when hosting, relayed through the server hook from a client.
+-- Everything also goes to dcs.log.
+--
 -- Config (optional): Saved Games\DCS\Config\CATCC-pilot.lua returning { host = '..', port = 10310 }
+-- (messages = false: nothing on screen)
 
 local CMD_GATE = 11873      -- must match Mods/aircraft/CATCC-Pilot/Cockpit/Scripts/catcc_gate.lua
 local CMD_SALUTE_ID = 11874 -- tells the gate device which command is the pilot salute
@@ -20,7 +25,7 @@ local FRESH_S = 12
 local SALUTE_POLL_S = 0.2
 local SALUTE_COOLDOWN_S = 5
 
-local cfg = { host = 'dcs.fightingstingrays.com', port = 10310, enabled = true }
+local cfg = { host = 'dcs.fightingstingrays.com', port = 10310, enabled = true, messages = true }
 
 local function logi(m) if log and log.write then log.write('CATCC-PILOT', log.INFO, m) end end
 
@@ -206,6 +211,57 @@ end
 
 local function fresh(t) return t - heardAt < FRESH_S end
 
+-- ---- on screen: a line in the mission message area, for this pilot only
+local SAY_REPEAT_S = 10 -- the same text at most this often
+local saidAt, pendingSay = {}, {}
+
+local function simFn(n)
+  for _, tbl in ipairs({ DCS or false, Sim or false }) do
+    if tbl and type(tbl[n]) == 'function' then
+      local ok, v = pcall(tbl[n])
+      if ok then return v end
+    end
+  end
+  return nil
+end
+
+-- joined someone else's server: the mission's message functions only work on the server
+local function isClient()
+  local mp, srv = simFn('isMultiplayer'), simFn('isServer')
+  if mp ~= nil and srv ~= nil then return mp == true and srv ~= true end
+  local ok1, me = pcall(net.get_my_player_id)
+  local ok2, sv = pcall(net.get_server_id)
+  return ok1 and ok2 and me ~= nil and sv ~= nil and me ~= sv
+end
+
+local SAY_LOCAL = 'local u = world and world.getPlayer and world.getPlayer(); ' ..
+  'if u and u.getID and trigger and trigger.action and trigger.action.outTextForUnit then ' ..
+  'trigger.action.outTextForUnit(u:getID(), %q, %d) return "ok" end return "no"'
+
+local function say(text)
+  logi(text)
+  if cfg.messages == false then return end
+  local t = now()
+  if t - (saidAt[text] or -1e9) < SAY_REPEAT_S then return end
+  saidAt[text] = t
+  if isClient() then
+    -- the server hook shows it (once it's in touch: kept until then)
+    if #pendingSay < 10 then pendingSay[#pendingSay + 1] = { text = text, at = t } end
+    return
+  end
+  local ok, r = pcall(net.dostring_in, 'server', string.format(SAY_LOCAL, 'CATCC: ' .. text, SAY_REPEAT_S))
+  if not (ok and r == 'ok') and #pendingSay < 10 then pendingSay[#pendingSay + 1] = { text = text, at = t } end
+end
+
+-- kept messages go through the server hook once it's in touch; old news is dropped
+local function flushSay(t, name)
+  if #pendingSay == 0 or not name or not fresh(t) then return end
+  for _, m in ipairs(pendingSay) do
+    if t - m.at < 30 then sendLine('MSG ' .. name .. '\t' .. m.text) end
+  end
+  pendingSay = {}
+end
+
 -- The F8 menu's "Wheel chocks" (Hornet comm.lua, patched by install.ps1) runs in DCS's main Lua state,
 -- not this one: it keeps CATCC_CHOCKS there (held flag, the pilot's kept requests, place / remove).
 -- Every second this hook sets the flag and collects the requests through net.dostring_in; while
@@ -236,6 +292,7 @@ local function findMenu(t)
   if not menuWarned and t - startedAt > 60 then
     menuWarned = true
     logi('chocks menu not found (is comm.lua patched, and does autoexec.cfg net.allow_dostring_in include "server"?)')
+    say('the F8 chocks menu is not routed through PriFly (run the CATCC installer again)')
   end
 end
 
@@ -254,7 +311,7 @@ local function syncMenu(t, chock, name)
     if name then sendLine('EV taxi ' .. name) end
     logi('chocks request held: waiting for the taxi instruction from PriFly')
   end
-  if r:find('removed', 1, true) then logi('taxi instruction given: chocks coming off') end
+  if r:find('removed', 1, true) then say('taxi instruction given: chocks coming off') end
 end
 
 -- The carrier's own wheel chocks (catcc_chocks.dll, next to the gate device): the ship keeps one chock
@@ -265,7 +322,19 @@ end
 -- without that. Anything missing or failing: no native chocks, everything else carries on.
 local native, nativeTried = nil, false
 local lastNativeAt, nativeFlags, nativeErr = -1e9, nil, nil
-local mySlot, slotSetByUs, nativeDumped = nil, false, false
+local mySlot, slotSetByUs, nativeDumped, slotUnknownSaid = nil, false, false, false
+
+-- the spots with chocks on (as the ship counts them, from 0), short enough for the screen
+local function spotList(flags)
+  local l = {}
+  for i = 1, #flags do
+    if flags:sub(i, i) == '1' then
+      if #l == 12 then l[#l + 1] = '...' break end
+      l[#l + 1] = tostring(i - 1)
+    end
+  end
+  return #l > 0 and ('spots ' .. table.concat(l, ', ')) or 'no spots'
+end
 
 local function loadNative()
   if nativeTried then return native end
@@ -276,7 +345,7 @@ local function loadNative()
     local ok2, m = pcall(loader)
     if ok2 and type(m) == 'table' then native = m end
   end
-  logi(native and 'native chocks module loaded' or ('native chocks module not loaded: ' .. tostring(ok and err or loader)))
+  say(native and 'native chocks module loaded' or ('native chocks module not loaded: ' .. tostring(ok and err or loader)))
   return native
 end
 
@@ -303,7 +372,11 @@ local function nativeChocks(t, name, chock, parked)
   local ok, info, err = pcall(native.probe, p.x, p.y, p.z)
   if not ok or not info then
     local e = tostring(ok and err or info)
-    if e ~= nativeErr then nativeErr = e; logi('native chocks: ' .. e) end
+    if e ~= nativeErr then
+      nativeErr = e
+      -- away from the carrier is no news
+      if e == 'no carrier here' then logi('native chocks: ' .. e) else say('native chocks: ' .. e) end
+    end
     nativeFlags = nil
     return
   end
@@ -312,12 +385,17 @@ local function nativeChocks(t, name, chock, parked)
   if flags ~= nativeFlags then
     logi(string.format('carrier chock flags (%d spots, ship %s, me %s %s, %.0f m off): %s',
       info.count, tostring(info.ship), tostring(info.self), tostring(info.selfType), info.dist or -1, flags))
+    if not nativeFlags then
+      say(string.format('carrier found (%d parking spots), chocks on %s', info.count, spotList(flags)))
+    elseif parked then
+      say('carrier chocks now on ' .. spotList(flags))
+    end
     -- a flag that changed while this jet sat parked: its spot
     if nativeFlags and #nativeFlags == #flags and parked then
       for i = 1, #flags do
         if flags:sub(i, i) ~= nativeFlags:sub(i, i) and i - 1 ~= mySlot then
           mySlot = i - 1
-          logi('my parking spot: ' .. mySlot .. ' (its chock flag changed while I was parked)')
+          say('my parking spot: ' .. mySlot .. ' (its chock flag changed while I was parked)')
         end
       end
     end
@@ -327,16 +405,22 @@ local function nativeChocks(t, name, chock, parked)
     end
     nativeFlags = flags
   end
-  if not mySlot then return end
+  if not mySlot then
+    if chock and parked and not slotUnknownSaid then
+      slotUnknownSaid = true
+      say('PriFly holds the chocks, but my parking spot is not known yet')
+    end
+    return
+  end
   local on = flags:sub(mySlot + 1, mySlot + 1) == '1'
   if chock and parked and not on then
     local ok2, r, e2 = pcall(native.set, mySlot, true)
     slotSetByUs = ok2 and r == true
-    logi('PriFly holds the chocks: spot ' .. mySlot .. ' chocked again' .. (slotSetByUs and '' or (' (failed: ' .. tostring(ok2 and e2 or r) .. ')')))
+    say('PriFly holds the chocks: spot ' .. mySlot .. ' chocked again' .. (slotSetByUs and '' or (' (failed: ' .. tostring(ok2 and e2 or r) .. ')')))
   elseif not chock and slotSetByUs then
     slotSetByUs = false
     if on then pcall(native.set, mySlot, false) end
-    logi('chocks let go (spot ' .. mySlot .. ')')
+    say('chocks let go (spot ' .. mySlot .. ')')
   end
 end
 
@@ -388,15 +472,29 @@ local function pollSalute(t, name, heldNow, chockedNow)
   if saluting and not wasSaluting and t - lastSaluteAt >= SALUTE_COOLDOWN_S and sock then
     lastSaluteAt = t
     sendLine('SALUTE ' .. name)
-    logi('salute reported to PriFly (' .. how .. ')')
+    logi('salute seen (' .. how .. ')')
+    say('salute reported to PriFly')
   end
   wasSaluting = saluting
 end
+
+local inContact, contactWarned, tickErrSaid = false, false, false
 
 local function tick()
   poll()
   local t = now()
   local name = myName()
+  -- in touch with the CATCC server hook (it sends the hold list every 5 s, PriFly staffed or not)
+  local contact = fresh(t)
+  if contact ~= inContact then
+    if contact then say('in contact with PriFly') else say('lost contact with PriFly: nothing is held') end
+    inContact = contact
+  elseif not contact and not contactWarned and t - startedAt > 30 then
+    contactWarned = true
+    say('no contact with PriFly (CATCC server ' .. tostring(cfg.host) .. ':' .. tostring(cfg.port) .. ')')
+  end
+  if contact then contactWarned = true end
+  flushSay(t, name)
   local hold = name ~= nil and t - heardAt < FRESH_S and held[name] == true
   local v = hold and 1 or 0
   -- chocks drawn while PriFly holds them and the jet is parked (never on a catapult: launch bar down)
@@ -405,7 +503,7 @@ local function tick()
     setCmd(CMD_GATE, v)
     if saluteId then setCmd(CMD_SALUTE_ID, saluteId) end
     setCmd(CMD_CHOCKS, showChocks)
-    if showChocks ~= lastChocks then logi(showChocks == 1 and 'chocks shown (PriFly holds them)' or 'chocks no longer shown') end
+    if showChocks ~= lastChocks then say(showChocks == 1 and 'chocks drawn: PriFly holds them until your taxi instruction' or 'chocks no longer drawn') end
     lastChocks = showChocks
     if v ~= lastSent then
       local names = {}
@@ -449,6 +547,8 @@ function handler.onSimulationStart()
   menuState, menuWarned, startedAt = nil, false, now()
   wasSaluting, lastSaluteAt = false, -1e9
   lastNativeAt, nativeFlags, nativeErr, mySlot, slotSetByUs, nativeDumped = -1e9, nil, nil, nil, false, false
+  slotUnknownSaid, saidAt, pendingSay = false, {}, {}
+  inContact, contactWarned, tickErrSaid = false, false, false
   resolveSalute()
   if not exportListed then
     exportListed = true
@@ -466,7 +566,13 @@ end
 function handler.onSimulationFrame()
   if not running then return end
   local ok, err = pcall(tick)
-  if not ok then logi('tick error: ' .. tostring(err)) end
+  if not ok then
+    logi('tick error: ' .. tostring(err))
+    if not tickErrSaid then
+      tickErrSaid = true
+      pcall(say, 'pilot mod error: ' .. tostring(err):sub(1, 120))
+    end
+  end
 end
 
 DCS.setUserCallbacks(handler)

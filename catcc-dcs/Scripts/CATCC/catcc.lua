@@ -17,6 +17,8 @@
 --   client -> server  SALUTE <player name>       -> relayed to authenticated clients as {"type":"salute","p":".."}
 --   client -> server  EV taxi|lb1|lb0 <player name> -> relayed as {"type":"pilotev","e":"taxi","p":".."}
 --     taxi: asked for the chocks to come off (if held, the pilot is told to stand by); lb1/lb0: launch bar down/up
+--   client -> server  MSG <player name><TAB><text> -> shown on that player's screen as "CATCC: <text>"
+--     (the mod's own messages, when the pilot is a client and can't show them locally)
 --   Launch holds (from the room, whatever the commands setting):
 --     CMD {"id":n,"op":"launch","hold":["<player name>",...],"chocks":["<player name>",...]}
 --     hold: the players PriFly hasn't cleared to launch; chocks: those with no taxi instruction yet.
@@ -488,6 +490,7 @@ local function handleLine(c, line)
   if c.pilot then
     local name = line:match('^SALUTE%s+(.-)%s*$')
     local ev, who = line:match('^EV%s+(%l[%l%d]*)%s+(.-)%s*$')
+    local mwho, mtext = line:match('^MSG ([^\t]+)\t(.-)%s*$')
     -- a mod reports a few things a minute at most
     local t = now()
     if t - (c.evWindow or 0) >= 10 then c.evWindow = t; c.evCount = 0 end
@@ -502,6 +505,8 @@ local function handleLine(c, line)
         for _, n in ipairs(chockList) do if n == who then heldNow = true end end
         if heldNow then tellPlayer(who, 'PriFly: chocks stay on until your taxi instructions. Stand by.') end
       end
+    elseif mwho and #mwho <= 64 and mtext and mtext ~= '' then
+      tellPlayer(mwho, 'CATCC: ' .. mtext:gsub('%c', ' '):sub(1, 200))
     elseif line:match('^PING') then
       send(c, '{"type":"pong"}')
     end

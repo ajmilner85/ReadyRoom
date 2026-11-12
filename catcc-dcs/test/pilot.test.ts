@@ -37,6 +37,13 @@ end
 local cb
 DCS = { setUserCallbacks = function(h) cb = h end, getRealTime = function() return realTime end }
 net = { get_my_player_id = function() return 7 end, get_player_info = function(id, k) return 'Volt 3-1 | 401 Ace' end }
+-- the mission's message functions (single player / hosting: the hook shows its messages itself)
+local SAY = { world = { getPlayer = function() return { getID = function() return 77 end } end },
+  trigger = { action = { outTextForUnit = function(id, text) rec('say ' .. text) end } } }
+net.dostring_in = function(state, code)
+  if state ~= 'server' then return nil end
+  return assert(load(code, 'say', 't', SAY))()
+end
 Export = { LoSetCommand = function(c, v) rec('gate ' .. c .. '=' .. v) end }
 local args = {}
 package.preload.Input = function()
@@ -82,7 +89,7 @@ rec('lb ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
 -- chocks: the menu's state lives in DCS's main Lua state ("server" to net.dostring_in), as the patched
 -- comm.lua line leaves it; the hook sets the held flag there and collects the pilot's requests
 EXPORT = { speed = 0, rpm = 70 }
-local MAIN = { os = os, tostring = tostring }
+local MAIN = { os = os, tostring = tostring, world = SAY.world, trigger = SAY.trigger }
 MAIN.CATCC_CHOCKS = { held = false, at = 0, asked = 0, pending = false,
   place = function() rec('chocks placed') end, remove = function() rec('chocks removed via menu') end }
 -- what the patched menu does when the pilot presses Remove
@@ -123,6 +130,16 @@ local mark = #out
 server.inbox[#server.inbox + 1] = '{"type":"hold","p":["New callsign"],"c":[]}'
 frame(2.1)
 for k = mark + 1, #out do if out[k] == 'gate 11873=1' then rec('sp gate 11873=1') break end end
+-- joined someone else's server: the mission's message functions are the server's, so messages go
+-- through the server hook (MSG <name><TAB><text>)
+DCS.isMultiplayer = function() return true end
+DCS.isServer = function() return false end
+net.get_player_info = function() return 'Volt 3-1 | 401 Ace' end
+before = #server.sent
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}'
+frame(2.1)
+frame(0.1)
+rec('relay ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
 return table.concat(out, '\\n')
 `;
 
@@ -172,6 +189,23 @@ describe('CATCC pilot hook', () => {
   });
   it('never asks the deck crew for chocks itself (DCS refuses them on a hot start or after a release)', () => {
     expect(out).not.toContain('chocks placed');
+  });
+  it('shows the pilot what matters on screen (single player or hosting: directly)', () => {
+    for (const m of [
+      'in contact with PriFly',
+      'salute reported to PriFly',
+      'chocks drawn: PriFly holds them until your taxi instruction',
+      'taxi instruction given: chocks coming off',
+      'lost contact with PriFly: nothing is held',
+    ]) {
+      expect(out).toContain('say CATCC: ' + m);
+    }
+    // the same message at most every 10 s (the first two salutes, 7 s apart: shown once)
+    const end = out.findIndex((l) => l.startsWith('salutes '));
+    expect(out.slice(0, end).filter((l) => l === 'say CATCC: salute reported to PriFly').length).toBe(1);
+  });
+  it('sends its messages through the server hook when it joined someone else\'s server', () => {
+    expect(out.find((l) => l.startsWith('relay '))).toBe('relay MSG Volt 3-1 | 401 Ace\tchocks drawn: PriFly holds them until your taxi instruction|');
   });
   it('knows the pilot by the unit\'s pilot name too (single player)', () => {
     expect(out).toContain('gate 11873=1'); // held under the multiplayer name above; the single-player case follows
