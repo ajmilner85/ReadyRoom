@@ -40,9 +40,6 @@ local sock, rbuf = nil, ''
 local nextConnectAt = 0
 local held = {}          -- player name -> true (held for launch)
 local chocked = {}       -- player name -> true (chocks held: no taxi instruction yet)
-local braking = false     -- wheel brakes applied for PriFly (parked, chocks held, no taxi instruction)
-local lastBrakeAt = -1e9
-local brakeOn, brakeOff = nil, nil -- iCommandPlaneWheelBrakeOn / Off (looked up)
 local lastChockCheckAt = -1e9
 local exportListed = false
 local lbDown = nil       -- launch bar down, as last reported (nil: not reported this hold)
@@ -285,13 +282,8 @@ local function resolveSalute()
     local ok2, env = pcall(Input.getEnvTable)
     local id = ok2 and type(env) == 'table' and type(env.Actions) == 'table' and env.Actions.iCommandPilotGestureSalute
     if type(id) == 'number' then saluteId = id end
-    local a = ok2 and type(env) == 'table' and type(env.Actions) == 'table' and env.Actions or {}
-    if type(a.iCommandPlaneWheelBrakeOn) == 'number' and type(a.iCommandPlaneWheelBrakeOff) == 'number' then
-      brakeOn, brakeOff = a.iCommandPlaneWheelBrakeOn, a.iCommandPlaneWheelBrakeOff
-    end
   end
-  logi('salute command: ' .. (saluteId and tostring(saluteId) or 'not found (watching the pilot figure only)') ..
-    '; wheel brake commands: ' .. (brakeOn and (brakeOn .. '/' .. brakeOff) or 'not found'))
+  logi('salute command: ' .. (saluteId and tostring(saluteId) or 'not found (watching the pilot figure only)'))
 end
 
 -- on deck while held: did the pilot just salute? (the gate device's mark, or the pilot figure's arm)
@@ -342,21 +334,6 @@ local function tick()
   local chock = name ~= nil and fresh(t) and chocked[name] == true
   -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
   syncMenu(t, chock, name)
-  -- parked with the chocks held (no taxi instruction): wheel brakes on, renewed every second in case
-  -- the pilot's own brake key lets them off (DCS's deck crew releases the chocks on a salute, so the
-  -- chocks alone don't hold a jet). Never on a catapult (launch bar down). Off once PriFly lets go.
-  local barDown = (readArg(LB_ARG) or 0) > 0.6
-  local wantBrake = chock and not barDown and brakeOn ~= nil
-  if wantBrake and (not braking or t - lastBrakeAt >= 1) then
-    setCmd(brakeOn, 1)
-    lastBrakeAt = t
-    if not braking then logi('parked, chocks held by PriFly: wheel brakes on until the taxi instruction') end
-    braking = true
-  elseif braking and not wantBrake then
-    setCmd(brakeOff, 1)
-    braking = false
-    logi('wheel brakes released (taxi instruction, or PriFly let go)')
-  end
   -- held for launch: tell PriFly when the launch bar is down (the shooter is ready and waiting)
   if hold and t - lastLbAt >= 0.5 then
     lastLbAt = t
@@ -378,7 +355,6 @@ function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
   chocked, lbDown = {}, nil
   menuState, menuWarned, startedAt = nil, false, now()
-  braking = false
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()
   if not exportListed then
@@ -392,8 +368,6 @@ function handler.onSimulationStart()
 end
 function handler.onSimulationStop()
   running = false
-  if braking and brakeOff then pcall(setCmd, brakeOff, 1) end
-  braking = false
   close(nil)
 end
 function handler.onSimulationFrame()

@@ -166,19 +166,6 @@ describe('CATCC pilot hook', () => {
   it('never asks the deck crew for chocks itself (DCS refuses them on a hot start or after a release)', () => {
     expect(out).not.toContain('chocks placed');
   });
-  it('holds the wheel brakes while parked with the chocks held, renewed each second, and lets go on the taxi instruction', () => {
-    const kept = out.findIndex((l) => l.startsWith('chocks kept'));
-    const done = out.indexOf('rechock done');
-    // brakes on while held (more than once: renewed), never off until PriFly lets go
-    const before = out.slice(0, done);
-    const first = before.indexOf('gate 74=1');
-    expect(first).toBeGreaterThan(-1);
-    expect(first).toBeLessThan(kept);
-    expect(before.filter((l) => l === 'gate 74=1').length).toBeGreaterThan(3);
-    expect(before.slice(first)).not.toContain('gate 75=1');
-    // released: brakes off once
-    expect(out.slice(done).filter((l) => l === 'gate 75=1')).toHaveLength(1);
-  });
   it('knows the pilot by the unit\'s pilot name too (single player)', () => {
     expect(out).toContain('gate 11873=1'); // held under the multiplayer name above; the single-player case follows
     expect(out.find((l) => l.startsWith('sp '))).toBe('sp gate 11873=1');
