@@ -41,6 +41,9 @@ local nextConnectAt = 0
 local held = {}          -- player name -> true (held for launch)
 local chocked = {}       -- player name -> true (chocks held: no taxi instruction yet)
 local pendingChocks = nil -- the pilot's "remove chocks" request, kept until PriFly gives the taxi instruction
+local chocksPlaced = false -- this hold: chocks already asked for (or the jet was cold, so they were on)
+local stoppedSince = nil
+local lastChockCheckAt = -1e9
 local lbDown = nil       -- launch bar down, as last reported (nil: not reported this hold)
 local lastLbAt = -1e9
 local heardAt = -1e9     -- last hold list from the server
@@ -55,11 +58,52 @@ local lastSaluteAt = -1e9
 
 local function now() return (DCS and DCS.getRealTime and DCS.getRealTime()) or socket.gettime() end
 
-local function myName()
+-- something from the export environment (this aircraft): Export.<fn>() if the GUI has it, else via dostring
+local function exportVal(fn, expr)
+  if Export and Export[fn] then
+    local ok, v = pcall(Export[fn])
+    if ok then return v end
+  end
+  local ok, v = pcall(net.dostring_in, 'export', 'return ' .. expr)
+  return ok and v or nil
+end
+
+local function netName()
   local ok, id = pcall(net.get_my_player_id)
   if not ok or not id then return nil end
   local ok2, name = pcall(net.get_player_info, id, 'name')
   return ok2 and name or nil
+end
+
+-- the aircraft's pilot name: what the server sees in single player (the mission's name for the unit)
+local pilotNameAt, pilotNameV = -1e9, nil
+local function pilotName()
+  local t = now()
+  if t - pilotNameAt >= 1 then
+    pilotNameAt = t
+    local v = exportVal('LoGetPilotName', 'LoGetPilotName()')
+    pilotNameV = type(v) == 'string' and v ~= '' and v or nil
+  end
+  return pilotNameV
+end
+
+-- the name PriFly knows this pilot by: the multiplayer name, or in single player the unit's pilot name
+local function myName()
+  local a, b = netName(), pilotName()
+  for _, n in ipairs({ a or false, b or false }) do
+    if n and (held[n] or chocked[n]) then return n end
+  end
+  return a or b
+end
+
+-- ground speed (m/s) and whether an engine is running (a hot start), for chocking a jet that spawned without
+local function groundSpeed()
+  local v = exportVal(nil, 'tostring((function() local v = LoGetVectorVelocity() return v and math.sqrt(v.x * v.x + v.z * v.z) end)())')
+  return tonumber(v)
+end
+local function engineRunning()
+  local v = exportVal(nil, 'tostring((function() local e = LoGetEngineInfo() return e and e.RPM and math.max(e.RPM.left or 0, e.RPM.right or 0) end)())')
+  return (tonumber(v) or 0) > 50
 end
 
 local function close(why)
@@ -246,11 +290,32 @@ local function tick()
   end
   local chock = name ~= nil and fresh(t) and chocked[name] == true
   -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
+  local menu = package.loaded.catcc_pilot_menu
   if pendingChocks and not chock then
     local pc = pendingChocks
     pendingChocks = nil
-    local ok, err = pcall(function() pc.orig:perform(pc.params) end)
+    -- the menu's own call selects the ground crew first, as pressing it does
+    local ok, err = pcall(function() if menu and menu.remove then menu.remove() else pc.orig:perform(pc.params) end end)
     logi(ok and 'taxi instruction given: chocks coming off' or ('chocks request failed: ' .. tostring(err)))
+  end
+  -- a hot start has no chocks: while PriFly holds them, have the deck crew put them on (once, stopped 3 s)
+  if chock and not chocksPlaced and menu and menu.place and t - lastChockCheckAt >= 1 then
+    lastChockCheckAt = t
+    local gs = groundSpeed()
+    if gs and gs < 0.3 then
+      stoppedSince = stoppedSince or t
+      if t - stoppedSince >= 3 then
+        chocksPlaced = true
+        if engineRunning() then
+          local ok, err = pcall(menu.place)
+          logi(ok and 'hot start held by PriFly: chocks requested' or ('placing chocks failed: ' .. tostring(err)))
+        end
+      end
+    else
+      stoppedSince = nil
+    end
+  elseif not chock then
+    chocksPlaced, stoppedSince = false, nil
   end
   -- held for launch: tell PriFly when the launch bar is down (the shooter is ready and waiting)
   if hold and t - lastLbAt >= 0.5 then
@@ -272,6 +337,7 @@ local handler = {}
 function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
   chocked, pendingChocks, lbDown = {}, nil, nil
+  chocksPlaced, stoppedSince = false, nil
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()
   nextConnectAt = 0

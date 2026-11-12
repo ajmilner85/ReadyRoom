@@ -82,9 +82,17 @@ rec('lb ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
 -- chocks: the F8 request is kept while PriFly holds them, and goes through on the taxi instruction
 local orig = { perform = function(self, p) rec('chocks removed ' .. tostring(p)) end }
 local menu = package.loaded.catcc_pilot
+-- a hot start (engines running, stopped): the deck crew is asked to put chocks on, once
+EXPORT = { speed = 0, rpm = 70 }
+net.dostring_in = function(state, code)
+  if code:find('LoGetVectorVelocity', 1, true) then return tostring(EXPORT.speed) end
+  if code:find('LoGetEngineInfo', 1, true) then return tostring(EXPORT.rpm) end
+  return nil
+end
+package.loaded.catcc_pilot_menu = { place = function() rec('chocks placed') end, remove = function() rec('chocks removed via menu') end }
 before = #server.sent
 server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}'
-frame(0.6)
+for _ = 1, 6 do frame(1.0) end
 menu.chocksRemove(orig, 'P')
 frame(0.6)
 rec('chocks kept ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
@@ -92,6 +100,13 @@ server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":[]}'
 frame(0.6)
 -- nobody holds them: straight through
 menu.chocksRemove(orig, 'Q')
+-- single player: the network name is "player"; the server knows the unit's pilot name
+net.get_player_info = function() return 'player' end
+Export.LoGetPilotName = function() return 'New callsign' end
+local mark = #out
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":["New callsign"],"c":[]}'
+frame(2.1)
+for k = mark + 1, #out do if out[k] == 'gate 11873=1' then rec('sp gate 11873=1') break end end
 return table.concat(out, '\\n')
 `;
 
@@ -130,6 +145,13 @@ describe('CATCC pilot hook', () => {
     const i = out.indexOf('chocks kept EV taxi Volt 3-1 | 401 Ace|');
     expect(i).toBeGreaterThan(-1);
     expect(out.slice(0, i).some((l) => l.startsWith('chocks removed'))).toBe(false);
-    expect(out.slice(i)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed P', 'chocks removed Q']);
+    expect(out.slice(i).filter((l) => l.startsWith('chocks')).slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed Q']);
+  });
+  it('has the deck crew chock a hot-started jet while PriFly holds the chocks, once', () => {
+    expect(out.filter((l) => l === 'chocks placed')).toHaveLength(1);
+  });
+  it('knows the pilot by the unit\'s pilot name too (single player)', () => {
+    expect(out).toContain('gate 11873=1'); // held under the multiplayer name above; the single-player case follows
+    expect(out.find((l) => l.startsWith('sp '))).toBe('sp gate 11873=1');
   });
 });

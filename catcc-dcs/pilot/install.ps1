@@ -130,8 +130,14 @@ if ($null -ne $commText) {
     if ($eol -lt 0) { $eol = $commText.Length }
     if ($eol -gt 0 -and $commText[$eol - 1] -eq "`r") { $eol = $eol - 1 }
     $cnl = if ($commText.Contains("`r`n")) { "`r`n" } else { "`n" }
+    # Remove asks the pilot hook first; place / remove are also published (ground crew selected first, as
+    # the menu does) so the hook can chock a hot-started jet and pull the chocks on the taxi instruction
     $line = "do local G = getfenv(0); local wc = menus['Wheel chocks']; local it = wc and wc.items and wc.items[2]; " +
-      "if it and it.command and G and G.package and G.package.loaded then local orig = it.command; " +
+      "local pl = wc and wc.items and wc.items[1]; " +
+      "if it and it.command and pl and pl.command and G and G.package and G.package.loaded then " +
+      "local orig, place, tune = it.command, pl.command, selectAndTuneCommunicator; " +
+      "G.package.loaded.catcc_pilot_menu = { place = function() if tune then tune(nil) end; place:perform({}) end, " +
+      "remove = function() if tune then tune(nil) end; orig:perform({}) end }; " +
       "it.command = { perform = function(self, p) local m = G.package.loaded.catcc_pilot; " +
       "if m and m.chocksRemove then return m.chocksRemove(orig, p) end; return orig:perform(p) end } end end " +
       "-- CATCC: PriFly holds the chocks until it gives the taxi instruction"
