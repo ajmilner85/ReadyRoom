@@ -257,6 +257,89 @@ local function syncMenu(t, chock, name)
   if r:find('removed', 1, true) then logi('taxi instruction given: chocks coming off') end
 end
 
+-- The carrier's own wheel chocks (catcc_chocks.dll, next to the gate device): the ship keeps one chock
+-- flag per parking spot. While PriFly holds this jet's chocks, the spot's flag goes back on whenever
+-- the deck crew pulls it (their second salute); on the taxi instruction it is let go. The spot is the
+-- one whose flag last changed while this jet sat parked (the crew placing or pulling its chocks).
+-- First version: also logs what it sees (flags, ship memory around them) so the spot can be found
+-- without that. Anything missing or failing: no native chocks, everything else carries on.
+local native, nativeTried = nil, false
+local lastNativeAt, nativeFlags, nativeErr = -1e9, nil, nil
+local mySlot, slotSetByUs, nativeDumped = nil, false, false
+
+local function loadNative()
+  if nativeTried then return native end
+  nativeTried = true
+  local path = ((lfs and lfs.writedir and lfs.writedir()) or '') .. 'Mods\\aircraft\\CATCC-Pilot\\bin\\catcc_chocks.dll'
+  local ok, loader, err = pcall(package.loadlib, path, 'luaopen_catcc_chocks')
+  if ok and loader then
+    local ok2, m = pcall(loader)
+    if ok2 and type(m) == 'table' then native = m end
+  end
+  logi(native and 'native chocks module loaded' or ('native chocks module not loaded: ' .. tostring(ok and err or loader)))
+  return native
+end
+
+local function selfPos()
+  if not (Export and Export.LoGetSelfData) then return nil end
+  local ok, d = pcall(Export.LoGetSelfData)
+  local p = ok and type(d) == 'table' and d.Position
+  if type(p) == 'table' and p.x then return p end
+  return nil
+end
+
+local function dumpNative(why)
+  for off = 0x1300, 0x16ff, 0x100 do
+    local ok, hex = pcall(native.dump, off, 0x100)
+    logi(string.format('ship memory %s +0x%x: %s', why, off, ok and tostring(hex) or 'n/a'))
+  end
+end
+
+local function nativeChocks(t, name, chock, parked)
+  if t - lastNativeAt < 1 or not loadNative() then return end
+  lastNativeAt = t
+  local p = selfPos()
+  if not p then return end
+  local ok, info, err = pcall(native.probe, p.x, p.y, p.z)
+  if not ok or not info then
+    local e = tostring(ok and err or info)
+    if e ~= nativeErr then nativeErr = e; logi('native chocks: ' .. e) end
+    nativeFlags = nil
+    return
+  end
+  nativeErr = nil
+  local flags = info.flags
+  if flags ~= nativeFlags then
+    logi(string.format('carrier chock flags (%d spots, ship %s, me %s %s, %.0f m off): %s',
+      info.count, tostring(info.ship), tostring(info.self), tostring(info.selfType), info.dist or -1, flags))
+    -- a flag that changed while this jet sat parked: its spot
+    if nativeFlags and #nativeFlags == #flags and parked then
+      for i = 1, #flags do
+        if flags:sub(i, i) ~= nativeFlags:sub(i, i) and i - 1 ~= mySlot then
+          mySlot = i - 1
+          logi('my parking spot: ' .. mySlot .. ' (its chock flag changed while I was parked)')
+        end
+      end
+    end
+    if not nativeDumped or (nativeFlags and parked) then
+      nativeDumped = true
+      dumpNative(nativeFlags and 'after a change' or 'first look')
+    end
+    nativeFlags = flags
+  end
+  if not mySlot then return end
+  local on = flags:sub(mySlot + 1, mySlot + 1) == '1'
+  if chock and parked and not on then
+    local ok2, r, e2 = pcall(native.set, mySlot, true)
+    slotSetByUs = ok2 and r == true
+    logi('PriFly holds the chocks: spot ' .. mySlot .. ' chocked again' .. (slotSetByUs and '' or (' (failed: ' .. tostring(ok2 and e2 or r) .. ')')))
+  elseif not chock and slotSetByUs then
+    slotSetByUs = false
+    if on then pcall(native.set, mySlot, false) end
+    logi('chocks let go (spot ' .. mySlot .. ')')
+  end
+end
+
 -- tell the gate device (LoSetCommand lives in the export environment)
 local function setCmd(cmd, v)
   if Export and Export.LoSetCommand then
@@ -341,6 +424,8 @@ local function tick()
   local chock = name ~= nil and fresh(t) and chocked[name] == true
   -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
   syncMenu(t, chock, name)
+  local sp = groundSpeed()
+  nativeChocks(t, name, chock, (readArg(LB_ARG) or 0) <= 0.6 and sp ~= nil and sp < 0.5)
   -- held for launch: tell PriFly when the launch bar is down (the shooter is ready and waiting)
   if hold and t - lastLbAt >= 0.5 then
     lastLbAt = t
@@ -363,6 +448,7 @@ function handler.onSimulationStart()
   chocked, lbDown, lastChocks = {}, nil, 0
   menuState, menuWarned, startedAt = nil, false, now()
   wasSaluting, lastSaluteAt = false, -1e9
+  lastNativeAt, nativeFlags, nativeErr, mySlot, slotSetByUs, nativeDumped = -1e9, nil, nil, nil, false, false
   resolveSalute()
   if not exportListed then
     exportListed = true
