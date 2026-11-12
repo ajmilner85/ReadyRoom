@@ -21,6 +21,11 @@ local SALUTE_S = 3
 -- iCommandPilotGestureSalute in DCS 2.9.31 (the hook's lookup logged it). Listened for from load: a
 -- listen added later, when the hook passes the number, did not seem to take.
 local SALUTE_CMD = 238
+-- Chocks drawn while PriFly holds them (the hook sends CMD_CHOCKS 1/0). Hornet model: 23 = main gear
+-- chocks (the nose wheel's argument, if it has one, goes here too). Set to 1 while shown; 0 once when
+-- they go, then left alone (DCS may drive them itself for real chocks).
+local CMD_CHOCKS = 11875
+local CHOCK_ARGS = { 23 }
 
 local dev = GetSelf()
 local held = false
@@ -28,6 +33,8 @@ local lastWord = -1e9
 local clock = 0
 local saluteId = SALUTE_CMD
 local salutedUntil = -1e9
+local chocks = false
+local chocksWord = -1e9
 
 make_default_activity(0.5)
 
@@ -39,6 +46,14 @@ end
 
 local function apply()
   set_aircraft_draw_argument_value(GATE_ARG, value())
+  if chocks then for _, a in ipairs(CHOCK_ARGS) do set_aircraft_draw_argument_value(a, 1) end end
+end
+
+local function setChocks(on)
+  if on == chocks then return end
+  chocks = on
+  if not on then for _, a in ipairs(CHOCK_ARGS) do set_aircraft_draw_argument_value(a, 0) end end
+  apply()
 end
 
 function post_initialize()
@@ -49,6 +64,7 @@ end
 dev:listen_command(CMD_GATE)
 dev:listen_command(CMD_SALUTE_ID)
 dev:listen_command(SALUTE_CMD)
+dev:listen_command(CMD_CHOCKS)
 local listening = { [SALUTE_CMD] = true }
 
 function SetCommand(command, v)
@@ -67,6 +83,9 @@ function SetCommand(command, v)
       saluteId = id
       dev:listen_command(id)
     end
+  elseif command == CMD_CHOCKS then
+    chocksWord = clock
+    setChocks(v > 0.5)
   elseif command == SALUTE_CMD or command == saluteId then
     salutedUntil = clock + SALUTE_S
     apply()
@@ -76,6 +95,7 @@ end
 function update()
   clock = clock + 0.5
   if held and clock - lastWord > STALE_S then held = false end
+  if chocks and clock - chocksWord > STALE_S then setChocks(false) end
   -- keep it set: some models reset unused arguments
   apply()
 end

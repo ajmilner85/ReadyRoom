@@ -163,6 +163,13 @@ describe('CATCC pilot hook', () => {
     expect(out.slice(0, i).some((l) => l.startsWith('chocks removed'))).toBe(false);
     expect(out.slice(i).filter((l) => l.startsWith('chocks') && l !== 'chocks placed').slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed (stock)']);
   });
+  it('draws the chocks (model argument via the gate device) while PriFly holds them and the jet is parked', () => {
+    const kept = out.findIndex((l) => l.startsWith('chocks kept'));
+    const done = out.indexOf('rechock done');
+    expect(out.slice(0, kept)).toContain('gate 11875=1');
+    // released: no longer drawn
+    expect(out.slice(done)).toContain('gate 11875=0');
+  });
   it('never asks the deck crew for chocks itself (DCS refuses them on a hot start or after a release)', () => {
     expect(out).not.toContain('chocks placed');
   });

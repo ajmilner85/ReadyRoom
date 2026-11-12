@@ -12,6 +12,7 @@
 
 local CMD_GATE = 11873      -- must match Mods/aircraft/CATCC-Pilot/Cockpit/Scripts/catcc_gate.lua
 local CMD_SALUTE_ID = 11874 -- tells the gate device which command is the pilot salute
+local CMD_CHOCKS = 11875    -- tells the gate device to draw chocks (PriFly holds them, parked)
 local GATE_ARG = 997        -- the gate device's draw argument (0.25 / 0.75 for a few seconds after a salute)
 local SALUTE_ARGS = { 520, 521 } -- the pilot figure's salute (right / left hand) on the Hornet
 local LB_ARG = 85                -- the launch bar (the deck crew's own check: above 0.6 = down)
@@ -47,6 +48,7 @@ local lastLbAt = -1e9
 local heardAt = -1e9     -- last hold list from the server
 local lastSentAt = -1e9
 local lastSent = nil
+local lastChocks = 0
 local running = false
 local checkAt = nil      -- when to read the gate argument back (once per mission, a moment after the first hold)
 local saluteId = nil     -- the salute command's number (false: not found)
@@ -314,9 +316,14 @@ local function tick()
   local name = myName()
   local hold = name ~= nil and t - heardAt < FRESH_S and held[name] == true
   local v = hold and 1 or 0
-  if v ~= lastSent or t - lastSentAt >= 2 then
+  -- chocks drawn while PriFly holds them and the jet is parked (never on a catapult: launch bar down)
+  local showChocks = (name ~= nil and fresh(t) and chocked[name] == true and (readArg(LB_ARG) or 0) <= 0.6) and 1 or 0
+  if v ~= lastSent or showChocks ~= lastChocks or t - lastSentAt >= 2 then
     setCmd(CMD_GATE, v)
     if saluteId then setCmd(CMD_SALUTE_ID, saluteId) end
+    setCmd(CMD_CHOCKS, showChocks)
+    if showChocks ~= lastChocks then logi(showChocks == 1 and 'chocks shown (PriFly holds them)' or 'chocks no longer shown') end
+    lastChocks = showChocks
     if v ~= lastSent then
       local names = {}
       for n in pairs(held) do names[#names + 1] = n end
@@ -353,7 +360,7 @@ end
 local handler = {}
 function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
-  chocked, lbDown = {}, nil
+  chocked, lbDown, lastChocks = {}, nil, 0
   menuState, menuWarned, startedAt = nil, false, now()
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()
