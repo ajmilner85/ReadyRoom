@@ -106,7 +106,8 @@ pressRemove()
 frame(1.1)
 rec('chocks kept ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
 -- a salute while parked (the deck crew pulls the chocks on it): the chocks go back on a few seconds later
-server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}' -- the 5 s refresh
+-- the 5 s refresh; held for launch too, as every player jet on deck is
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":["Volt 3-1 | 401 Ace"],"c":["Volt 3-1 | 401 Ace"]}'
 args[520] = 0.5; frame(0.3)
 args[520] = 0
 for _ = 1, 5 do frame(1.0) end

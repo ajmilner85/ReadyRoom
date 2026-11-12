@@ -45,6 +45,7 @@ local stoppedSince = nil
 local lastChockCheckAt = -1e9
 local rechockAt = nil     -- when to put the chocks back after a salute pulled them (PriFly still holds them)
 local RECHOCK_S = 4
+local exportListed = false
 local lbDown = nil       -- launch bar down, as last reported (nil: not reported this hold)
 local lastLbAt = -1e9
 local heardAt = -1e9     -- last hold list from the server
@@ -308,7 +309,7 @@ local function pollSalute(t, name, heldNow, chockedNow)
     sendLine('SALUTE ' .. name)
     logi('salute reported to PriFly (' .. how .. ')')
     -- parked with the chocks held: the deck crew pulls them on a salute (DCS's own logic); put them back
-    if chockedNow and not heldNow then rechockAt = t + RECHOCK_S end
+    if chockedNow then rechockAt = t + RECHOCK_S end
   end
   wasSaluting = saluting
 end
@@ -339,21 +340,18 @@ local function tick()
   local chock = name ~= nil and fresh(t) and chocked[name] == true
   -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
   syncMenu(t, chock, name)
-  -- a hot start has no chocks: while PriFly holds them, have the deck crew put them on (once, stopped 3 s)
-  if chock and not chocksPlaced and menuState and t - lastChockCheckAt >= 1 then
-    lastChockCheckAt = t
-    local gs = groundSpeed()
-    if gs and gs < 0.3 then
-      stoppedSince = stoppedSince or t
-      if t - stoppedSince >= 3 then
-        chocksPlaced = true
-        if engineRunning() then
-          local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
-          logi(r == 'ok' and 'hot start held by PriFly: chocks requested' or ('placing chocks failed: ' .. tostring(r)))
-        end
+  -- on a catapult (launch bar down) chocks are never asked for
+  local barDown = (readArg(LB_ARG) or 0) > 0.6
+  -- a hot start has no chocks: while PriFly holds them, have the deck crew put them on (once, 3 s in;
+  -- a cold start has them on already and the crew just declines)
+  if chock and not chocksPlaced and menuState then
+    stoppedSince = stoppedSince or t
+    if t - stoppedSince >= 3 then
+      chocksPlaced = true
+      if not barDown then
+        local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
+        logi(r == 'ok' and 'chocks held by PriFly: chocks requested' or ('placing chocks failed: ' .. tostring(r)))
       end
-    else
-      stoppedSince = nil
     end
   elseif not chock then
     chocksPlaced, stoppedSince = false, nil
@@ -375,7 +373,7 @@ local function tick()
   -- a salute pulled the chocks while PriFly still holds them: have the deck crew put them back
   if rechockAt and t >= rechockAt then
     rechockAt = nil
-    if chock and not hold and menuState then
+    if chock and not barDown and menuState then
       local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
       logi(r == 'ok' and 'salute while PriFly holds the chocks: chocks put back' or ('putting chocks back failed: ' .. tostring(r)))
     end
@@ -390,6 +388,13 @@ function handler.onSimulationStart()
   chocksPlaced, stoppedSince = false, nil
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()
+  if not exportListed then
+    exportListed = true
+    local keys = {}
+    if type(Export) == 'table' then for k in pairs(Export) do keys[#keys + 1] = tostring(k) end end
+    table.sort(keys)
+    logi('GUI Export table: ' .. (#keys > 0 and table.concat(keys, ', ') or 'none'))
+  end
   nextConnectAt = 0
 end
 function handler.onSimulationStop()
