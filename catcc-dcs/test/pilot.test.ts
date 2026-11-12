@@ -40,7 +40,7 @@ net = { get_my_player_id = function() return 7 end, get_player_info = function(i
 Export = { LoSetCommand = function(c, v) rec('gate ' .. c .. '=' .. v) end }
 local args = {}
 package.preload.Input = function()
-  return { getEnvTable = function() return { Actions = { iCommandPilotGestureSalute = 1234 } } end }
+  return { getEnvTable = function() return { Actions = { iCommandPilotGestureSalute = 1234, iCommandPlaneWheelBrakeOn = 74, iCommandPlaneWheelBrakeOff = 75 } } end }
 end
 assert(load(PILOT_SRC, 'pilot'))()
 local function frame(dt) realTime = realTime + dt; cb.onSimulationFrame() end
@@ -163,14 +163,21 @@ describe('CATCC pilot hook', () => {
     expect(out.slice(0, i).some((l) => l.startsWith('chocks removed'))).toBe(false);
     expect(out.slice(i).filter((l) => l.startsWith('chocks') && l !== 'chocks placed').slice(0, 3)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed via menu', 'chocks removed (stock)']);
   });
-  it('has the deck crew chock a hot-started jet while PriFly holds the chocks, once', () => {
-    const kept = out.findIndex((l) => l.startsWith('chocks kept'));
-    expect(out.slice(0, kept).filter((l) => l === 'chocks placed')).toHaveLength(1);
+  it('never asks the deck crew for chocks itself (DCS refuses them on a hot start or after a release)', () => {
+    expect(out).not.toContain('chocks placed');
   });
-  it('puts the chocks back after a salute pulls them while PriFly holds them', () => {
+  it('holds the wheel brakes while parked with the chocks held, renewed each second, and lets go on the taxi instruction', () => {
     const kept = out.findIndex((l) => l.startsWith('chocks kept'));
     const done = out.indexOf('rechock done');
-    expect(out.slice(kept, done).filter((l) => l === 'chocks placed')).toHaveLength(1);
+    // brakes on while held (more than once: renewed), never off until PriFly lets go
+    const before = out.slice(0, done);
+    const first = before.indexOf('gate 74=1');
+    expect(first).toBeGreaterThan(-1);
+    expect(first).toBeLessThan(kept);
+    expect(before.filter((l) => l === 'gate 74=1').length).toBeGreaterThan(3);
+    expect(before.slice(first)).not.toContain('gate 75=1');
+    // released: brakes off once
+    expect(out.slice(done).filter((l) => l === 'gate 75=1')).toHaveLength(1);
   });
   it('knows the pilot by the unit\'s pilot name too (single player)', () => {
     expect(out).toContain('gate 11873=1'); // held under the multiplayer name above; the single-player case follows

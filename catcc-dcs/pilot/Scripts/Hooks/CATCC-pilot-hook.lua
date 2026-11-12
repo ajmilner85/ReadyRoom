@@ -40,11 +40,10 @@ local sock, rbuf = nil, ''
 local nextConnectAt = 0
 local held = {}          -- player name -> true (held for launch)
 local chocked = {}       -- player name -> true (chocks held: no taxi instruction yet)
-local chocksPlaced = false -- this hold: chocks already asked for (or the jet was cold, so they were on)
-local stoppedSince = nil
+local braking = false     -- wheel brakes applied for PriFly (parked, chocks held, no taxi instruction)
+local lastBrakeAt = -1e9
+local brakeOn, brakeOff = nil, nil -- iCommandPlaneWheelBrakeOn / Off (looked up)
 local lastChockCheckAt = -1e9
-local rechockAt = nil     -- when to put the chocks back after a salute pulled them (PriFly still holds them)
-local RECHOCK_S = 4
 local exportListed = false
 local lbDown = nil       -- launch bar down, as last reported (nil: not reported this hold)
 local lastLbAt = -1e9
@@ -286,8 +285,13 @@ local function resolveSalute()
     local ok2, env = pcall(Input.getEnvTable)
     local id = ok2 and type(env) == 'table' and type(env.Actions) == 'table' and env.Actions.iCommandPilotGestureSalute
     if type(id) == 'number' then saluteId = id end
+    local a = ok2 and type(env) == 'table' and type(env.Actions) == 'table' and env.Actions or {}
+    if type(a.iCommandPlaneWheelBrakeOn) == 'number' and type(a.iCommandPlaneWheelBrakeOff) == 'number' then
+      brakeOn, brakeOff = a.iCommandPlaneWheelBrakeOn, a.iCommandPlaneWheelBrakeOff
+    end
   end
-  logi('salute command: ' .. (saluteId and tostring(saluteId) or 'not found (watching the pilot figure only)'))
+  logi('salute command: ' .. (saluteId and tostring(saluteId) or 'not found (watching the pilot figure only)') ..
+    '; wheel brake commands: ' .. (brakeOn and (brakeOn .. '/' .. brakeOff) or 'not found'))
 end
 
 -- on deck while held: did the pilot just salute? (the gate device's mark, or the pilot figure's arm)
@@ -308,8 +312,6 @@ local function pollSalute(t, name, heldNow, chockedNow)
     lastSaluteAt = t
     sendLine('SALUTE ' .. name)
     logi('salute reported to PriFly (' .. how .. ')')
-    -- parked with the chocks held: the deck crew pulls them on a salute (DCS's own logic); put them back
-    if chockedNow then rechockAt = t + RECHOCK_S end
   end
   wasSaluting = saluting
 end
@@ -340,21 +342,20 @@ local function tick()
   local chock = name ~= nil and fresh(t) and chocked[name] == true
   -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
   syncMenu(t, chock, name)
-  -- on a catapult (launch bar down) chocks are never asked for
+  -- parked with the chocks held (no taxi instruction): wheel brakes on, renewed every second in case
+  -- the pilot's own brake key lets them off (DCS's deck crew releases the chocks on a salute, so the
+  -- chocks alone don't hold a jet). Never on a catapult (launch bar down). Off once PriFly lets go.
   local barDown = (readArg(LB_ARG) or 0) > 0.6
-  -- a hot start has no chocks: while PriFly holds them, have the deck crew put them on (once, 3 s in;
-  -- a cold start has them on already and the crew just declines)
-  if chock and not chocksPlaced and menuState then
-    stoppedSince = stoppedSince or t
-    if t - stoppedSince >= 3 then
-      chocksPlaced = true
-      if not barDown then
-        local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
-        logi(r == 'ok' and 'chocks held by PriFly: chocks requested' or ('placing chocks failed: ' .. tostring(r)))
-      end
-    end
-  elseif not chock then
-    chocksPlaced, stoppedSince = false, nil
+  local wantBrake = chock and not barDown and brakeOn ~= nil
+  if wantBrake and (not braking or t - lastBrakeAt >= 1) then
+    setCmd(brakeOn, 1)
+    lastBrakeAt = t
+    if not braking then logi('parked, chocks held by PriFly: wheel brakes on until the taxi instruction') end
+    braking = true
+  elseif braking and not wantBrake then
+    setCmd(brakeOff, 1)
+    braking = false
+    logi('wheel brakes released (taxi instruction, or PriFly let go)')
   end
   -- held for launch: tell PriFly when the launch bar is down (the shooter is ready and waiting)
   if hold and t - lastLbAt >= 0.5 then
@@ -370,22 +371,14 @@ local function tick()
     lbDown = nil
   end
   if hold or chock then pollSalute(t, name, hold, chock) else wasSaluting = false end
-  -- a salute pulled the chocks while PriFly still holds them: have the deck crew put them back
-  if rechockAt and t >= rechockAt then
-    rechockAt = nil
-    if chock and not barDown and menuState then
-      local r = menuDo('if CATCC_CHOCKS and CATCC_CHOCKS.place then CATCC_CHOCKS.place() return "ok" end return "no"')
-      logi(r == 'ok' and 'salute while PriFly holds the chocks: chocks put back' or ('putting chocks back failed: ' .. tostring(r)))
-    end
-  end
 end
 
 local handler = {}
 function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
-  chocked, lbDown, rechockAt = {}, nil, nil
+  chocked, lbDown = {}, nil
   menuState, menuWarned, startedAt = nil, false, now()
-  chocksPlaced, stoppedSince = false, nil
+  braking = false
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()
   if not exportListed then
@@ -399,6 +392,8 @@ function handler.onSimulationStart()
 end
 function handler.onSimulationStop()
   running = false
+  if braking and brakeOff then pcall(setCmd, brakeOff, 1) end
+  braking = false
   close(nil)
 end
 function handler.onSimulationFrame()
