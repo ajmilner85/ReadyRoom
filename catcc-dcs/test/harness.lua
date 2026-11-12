@@ -253,8 +253,10 @@ tick()
 pilot.inbox[#pilot.inbox + 1] = 'PILOT'
 tick()
 tick(1.0)
-cmd('CMD {"id":11,"op":"launch","hold":["Volt 3-1 | 401 Ace"]}')
+cmd('CMD {"id":11,"op":"launch","hold":["Volt 3-1 | 401 Ace"],"chocks":["Volt 3-2 | 402 Bee"]}')
 pilot.inbox[#pilot.inbox + 1] = 'SALUTE Volt 3-1 | 401 Ace'
+pilot.inbox[#pilot.inbox + 1] = 'EV taxi Volt 3-2 | 402 Bee'
+pilot.inbox[#pilot.inbox + 1] = 'EV nonsense Volt 3-2 | 402 Bee'
 tick(0.01)
 cmd('CMD {"id":12,"op":"launch","hold":[42]}')
 drain(pilot, 'pilot')

@@ -3,6 +3,7 @@ import { Icon } from '../ui/primitives';
 import KneeboardPendingBanner from './KneeboardPendingBanner';
 import FlightAssignmentsKneeboard from './FlightAssignmentsKneeboard';
 import CommsPlanKneeboard from './CommsPlanKneeboard';
+import DeckKneeboard from './DeckKneeboard';
 import { useAuth } from '../../context/AuthContext';
 import { supabase } from '../../utils/supabaseClient';
 import type { Cycle } from '../../types/EventTypes';
@@ -36,6 +37,12 @@ type ThemeMode = 'light' | 'dark';
 const KNEEBOARD_WIDTH = 1358;
 const KNEEBOARD_HEIGHT = 2048;
 
+// Define page GUIDs (must be consistent across sessions)
+const PAGE_1_GUID = 'f8a8b3c1-4d2e-4f5a-9b1c-2d3e4f5a6b7c'; // Flight Assignments
+const PAGE_2_GUID = 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'; // Comms Plan
+const PAGE_3_GUID = '6d1f3e2a-8c4b-4a7e-9f05-3b2c1d0e9a87'; // Flight Deck (live taxi clearance)
+const PAGE_GUIDS = [PAGE_1_GUID, PAGE_2_GUID, PAGE_3_GUID];
+
 const KneeboardLayout: React.FC = () => {
   const { userProfile, loading: authLoading } = useAuth();
   const [theme, setTheme] = useState<ThemeMode>(() => {
@@ -62,17 +69,13 @@ const KneeboardLayout: React.FC = () => {
   const [pageGuids, setPageGuids] = useState<string[]>([]);
   const [isOpenKneeboard, setIsOpenKneeboard] = useState(false);
 
-  // Define page GUIDs (must be consistent across sessions)
-  const PAGE_1_GUID = 'f8a8b3c1-4d2e-4f5a-9b1c-2d3e4f5a6b7c'; // Flight Assignments
-  const PAGE_2_GUID = 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'; // Test Page
-
   // Initialize OpenKneeboard page-based content
   useEffect(() => {
     const initializeOpenKneeboard = async () => {
       if (!window.OpenKneeboard) {
         console.log('[KNEEBOARD] Not running in OpenKneeboard context');
         // Default to page 1 when not in OpenKneeboard
-        setPageGuids([PAGE_1_GUID, PAGE_2_GUID]);
+        setPageGuids(PAGE_GUIDS);
         setCurrentPageGuid(PAGE_1_GUID);
         return;
       }
@@ -100,7 +103,9 @@ const KneeboardLayout: React.FC = () => {
         // Check if pages already exist
         const existingPages = await window.OpenKneeboard.GetPages();
 
-        if (existingPages.havePages && existingPages.pages.length > 0) {
+        // pages OpenKneeboard kept from an earlier version of this list are replaced, so new pages appear
+        const same = existingPages.havePages && existingPages.pages.length === PAGE_GUIDS.length && existingPages.pages.every((p, i) => p.guid === PAGE_GUIDS[i]);
+        if (same) {
           console.log('[KNEEBOARD] Using existing pages:', existingPages.pages);
           const guids = existingPages.pages.map(p => p.guid);
           setPageGuids(guids);
@@ -117,12 +122,17 @@ const KneeboardLayout: React.FC = () => {
               guid: PAGE_2_GUID,
               pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
               extraData: { title: 'Comms Plan' }
+            },
+            {
+              guid: PAGE_3_GUID,
+              pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
+              extraData: { title: 'Flight Deck' }
             }
           ];
 
           await window.OpenKneeboard.SetPages(pages);
           console.log('[KNEEBOARD] Pages initialized:', pages);
-          setPageGuids([PAGE_1_GUID, PAGE_2_GUID]);
+          setPageGuids(PAGE_GUIDS);
           setCurrentPageGuid(PAGE_1_GUID);
         }
 
@@ -135,7 +145,7 @@ const KneeboardLayout: React.FC = () => {
       } catch (error) {
         console.error('[KNEEBOARD] Error initializing OpenKneeboard:', error);
         // Fallback to page 1
-        setPageGuids([PAGE_1_GUID, PAGE_2_GUID]);
+        setPageGuids(PAGE_GUIDS);
         setCurrentPageGuid(PAGE_1_GUID);
       }
     };
@@ -886,6 +896,9 @@ const KneeboardLayout: React.FC = () => {
             colors={colors}
             commsData={commsData}
           />
+        )}
+        {currentPageGuid === PAGE_3_GUID && (
+          <DeckKneeboard board={userProfile?.pilot?.boardNumber} colors={colors} />
         )}
       </div>
     </div>

@@ -13,11 +13,14 @@
 --   server -> client  {"type":"env","start":..,"date":..,"theatre":..,"wx":{...},"routes":[...]}  every 30 s
 --   client -> server  PING                       -> {"type":"pong"}
 --   Pilots' mod (no token; receives nothing but launch holds):
---   client -> server  PILOT                      -> {"type":"hold","p":["<player name>",...]} now and every 5 s
+--   client -> server  PILOT                      -> {"type":"hold","p":["<player name>",...],"c":[...]} now and every 5 s
 --   client -> server  SALUTE <player name>       -> relayed to authenticated clients as {"type":"salute","p":".."}
---   Launch holds (from the room, whatever the commands setting): CMD {"id":n,"op":"launch","hold":["<player name>",...]}
---     The players PriFly hasn't cleared to launch. Forgotten (no holds) if not refreshed for 15 s,
---     so a room that goes away never strands anyone on a catapult.
+--   client -> server  EV taxi|lb1|lb0 <player name> -> relayed as {"type":"pilotev","e":"taxi","p":".."}
+--     taxi: asked for the chocks to come off (if held, the pilot is told to stand by); lb1/lb0: launch bar down/up
+--   Launch holds (from the room, whatever the commands setting):
+--     CMD {"id":n,"op":"launch","hold":["<player name>",...],"chocks":["<player name>",...]}
+--     hold: the players PriFly hasn't cleared to launch; chocks: those with no taxi instruction yet.
+--     Forgotten (no holds) if not refreshed for 15 s, so a room that goes away never strands anyone.
 --   client -> server  CMD <json>                 -> {"type":"cmd","id":n,"ok":true} or {...,"ok":false,"error":".."}
 --     Ship orders, only when Config/CATCC.lua sets commands = true (the hello says "cmds":true):
 --       {"id":n,"op":"helm","g":"<ship group>","crs":<deg true>,"kt":<kt>}   steer a course at a speed
@@ -142,14 +145,32 @@ end
 
 -- ---------------------------------------------------------------- launch holds (pilots' mod)
 local HOLD_TTL_S = 15
-local holdList = {} -- player names held on deck
+local holdList = {}  -- player names held on deck (launch)
+local chockList = {} -- player names whose chocks are held (no taxi instruction yet)
 local holdAt = -1e9
 local lastHoldSentAt = -1e9
 
-local function holdMessage()
+local function jlist(l)
   local names = {}
-  for i, n in ipairs(holdList) do names[i] = jstr(n) end
-  return '{"type":"hold","p":[' .. table.concat(names, ',') .. ']}'
+  for i, n in ipairs(l) do names[i] = jstr(n) end
+  return '[' .. table.concat(names, ',') .. ']'
+end
+
+local function holdMessage()
+  return '{"type":"hold","p":' .. jlist(holdList) .. ',"c":' .. jlist(chockList) .. '}'
+end
+
+-- a line of text on a player's screen (mission environment); the room's own word for the pilot
+local function tellPlayer(name, text)
+  local code = string.format([[
+local name, text = %q, %q
+for _, side in ipairs({ coalition.side.BLUE, coalition.side.RED, coalition.side.NEUTRAL }) do
+  for _, u in ipairs(coalition.getPlayers(side) or {}) do
+    if u and u.getPlayerName and u:getPlayerName() == name then trigger.action.outTextForUnit(u:getID(), text, 10) return 'ok' end
+  end
+end
+return 'none']], name, text)
+  pcall(net.dostring_in, cfg.state, code)
 end
 
 local function sendHolds()
@@ -410,15 +431,25 @@ local function handleCmd(c, body)
   if not ok then return reply('bad JSON') end
   if type(m) == 'table' and m.op == 'launch' then
     -- launch holds are not ship orders: taken whatever the commands setting
-    if type(m.hold) ~= 'table' or #m.hold > 64 then return reply('bad hold list') end
-    local list = {}
-    for _, n in ipairs(m.hold) do
-      if type(n) ~= 'string' or #n < 1 or #n > 64 then return reply('bad player name') end
-      list[#list + 1] = n
+    local function names(l)
+      if l == nil then return {} end
+      if type(l) ~= 'table' or #l > 64 then return nil end
+      local out = {}
+      for _, n in ipairs(l) do
+        if type(n) ~= 'string' or #n < 1 or #n > 64 then return nil end
+        out[#out + 1] = n
+      end
+      return out
     end
+    local list, chocks = names(m.hold), names(m.chocks)
+    if not list or m.hold == nil then return reply('bad hold list') end
+    if not chocks then return reply('bad chocks list') end
     local was, is = table.concat(holdList, ', '), table.concat(list, ', ')
     if is ~= was then info('PriFly holds: ' .. (is ~= '' and is or '(none)')) end
+    local cwas, cis = table.concat(chockList, ', '), table.concat(chocks, ', ')
+    if cis ~= cwas then info('PriFly holds chocks: ' .. (cis ~= '' and cis or '(none)')) end
     holdList = list
+    chockList = chocks
     holdAt = now()
     sendHolds()
     return reply(nil)
@@ -456,8 +487,21 @@ end
 local function handleLine(c, line)
   if c.pilot then
     local name = line:match('^SALUTE%s+(.-)%s*$')
+    local ev, who = line:match('^EV%s+(%l[%l%d]*)%s+(.-)%s*$')
+    -- a mod reports a few things a minute at most
+    local t = now()
+    if t - (c.evWindow or 0) >= 10 then c.evWindow = t; c.evCount = 0 end
+    c.evCount = (c.evCount or 0) + 1
+    if c.evCount > 20 then return end
     if name and #name >= 1 and #name <= 64 then
       broadcast('{"type":"salute","p":' .. jstr(name) .. '}')
+    elseif ev and who and #who >= 1 and #who <= 64 and (ev == 'taxi' or ev == 'lb1' or ev == 'lb0') then
+      broadcast('{"type":"pilotev","e":"' .. ev .. '","p":' .. jstr(who) .. '}')
+      if ev == 'taxi' then
+        local heldNow = false
+        for _, n in ipairs(chockList) do if n == who then heldNow = true end end
+        if heldNow then tellPlayer(who, 'PriFly: chocks stay on until your taxi instructions. Stand by.') end
+      end
     elseif line:match('^PING') then
       send(c, '{"type":"pong"}')
     end
@@ -573,8 +617,9 @@ local function tick()
   end
 
   -- launch holds: forgotten when the room stops refreshing them; pilots hear the list every 5 s
-  if #holdList > 0 and t - holdAt > HOLD_TTL_S then
+  if (#holdList > 0 or #chockList > 0) and t - holdAt > HOLD_TTL_S then
     holdList = {}
+    chockList = {}
     sendHolds()
   elseif t - lastHoldSentAt >= 5 then
     sendHolds()

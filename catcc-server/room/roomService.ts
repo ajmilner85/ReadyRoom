@@ -4,7 +4,7 @@ import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { AcmiLineParser } from '../../src/catcc/core/acmi/parser.ts';
 import { HookTrackStore } from '../../src/catcc/core/dcs/hookTrackStore.ts';
-import type { OrderPoint, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { OrderPoint, PilotEvent, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
 import { bellFor, hasAirBoss } from '../../src/catcc/core/dcs/bells.ts';
 import { formationFor } from '../../src/catcc/core/geometry/formation.ts';
 import { orderChanged, stationOrder } from '../../src/catcc/core/geometry/stationKeeping.ts';
@@ -32,7 +32,7 @@ import { HookClient } from '../dcs/hookClient.ts';
 import { TacviewRealtimeClient } from '../tacview/realtimeClient.ts';
 import type { VerifyToken } from './auth.ts';
 import type { PersistedState, RoomStore } from './persist.ts';
-import { aircraftOnDeck, computeLaunch, heldPlayers, launchAuthority, type LaunchState } from '../../src/catcc/core/room/launch.ts';
+import { aircraftOnDeck, chockedPlayers, computeLaunch, heldPlayers, launchAuthority, type LaunchState } from '../../src/catcc/core/room/launch.ts';
 
 export type SourceConfig =
   | { id: string; name: string; kind: 'hook'; host: string; port?: number; token: string }
@@ -195,6 +195,7 @@ class Source {
           this.publish(store.t, store.utc, frame.theatre ?? undefined, store.tracks.values());
         },
         onSalute: (player) => this.onSalute(player),
+        onPilotEvent: (player, e) => this.onPilotEvent(player, e),
         onEnv: (env) => {
           const m = JSON.stringify({ t: 'env', src: cfg.id, env } satisfies ServerMsg);
           if (m === this.lastEnv) return;
@@ -296,27 +297,29 @@ class Source {
 
   /** Recompute who is held on which deck; publish changes and keep the hook's hold list fresh. */
   updateLaunch(): void {
-    this.launch = computeLaunch(this.launch, this.seats.values(), this.tracks);
+    this.launch = computeLaunch(this.launch, this.seats.values(), this.tracks, (hull) => new Set(Object.keys(this.ops[hull]?.taxi ?? {})));
     const j = this.launchMsg();
     if (j !== this.launchJson) {
       this.launchJson = j;
       const byId = new Map(this.tracks.map((t) => [t.id, t]));
       const who = (id: string) => byId.get(id)?.pi ?? id;
       const parts = Object.entries(this.launch).map(([hull, st]) =>
-        `${hull}: ${st.auth ? `${st.auth.role} ${st.auth.name}` : 'AUTO'}, held [${st.hold.map(who).join(', ')}], cleared [${Object.keys(st.cleared).map(who).join(', ')}]`);
+        `${hull}: ${st.auth ? `${st.auth.role} ${st.auth.name}` : 'AUTO'}, held [${st.hold.map(who).join(', ')}], cleared [${Object.keys(st.cleared).map(who).join(', ')}]` +
+        `; chocks ${st.taxiAuth ? `${st.taxiAuth.role} ${st.taxiAuth.name}` : 'AUTO'}, held [${(st.chocks ?? []).map(who).join(', ')}], ready [${Object.keys(st.taxiReady ?? {}).map(who).join(', ')}]`);
       this.log(`[${this.cfg.id}] launch: ${parts.join(' | ') || 'no carrier in the picture'}`);
       for (const c of this.subscribers) send(c, j);
     }
     // the hook forgets holds it isn't reminded of (so a room that goes away never strands anyone): resend every 5 s
     if (!this.hook || !this.status.authed) return;
     const hold = heldPlayers(this.launch, this.tracks);
-    const hj = JSON.stringify(hold);
+    const chocks = chockedPlayers(this.launch, this.tracks);
+    const hj = JSON.stringify([hold, chocks]);
     const now = Date.now();
     if (hj === this.holdJson && now - this.holdSentAt < 5000) return;
-    if (hj === '[]' && this.holdJson === '[]' && now - this.holdSentAt < 30_000) return;
+    if (hj === '[[],[]]' && this.holdJson === hj && now - this.holdSentAt < 30_000) return;
     this.holdJson = hj;
     this.holdSentAt = now;
-    void this.hook.command({ op: 'launch', hold }).then((r) => {
+    void this.hook.command({ op: 'launch', hold, chocks }).then((r) => {
       if (!r.ok) {
         this.holdJson = ''; // try again next frame
         this.log(`[${this.cfg.id}] launch holds not taken by the hook: ${r.error}`);
@@ -326,12 +329,30 @@ class Source {
 
   /** a pilot's mod reported a salute */
   private onSalute(player: string): void {
+    this.onDeckEvent(player, (st, id, hull) => {
+      // before a taxi instruction a salute (the Hornet's thumbs-up) means ready to taxi
+      if (!this.ops[hull]?.taxi?.[id]) (st.taxiReady ??= {})[id] = Date.now();
+      else st.saluted[id] = Date.now();
+    });
+  }
+
+  /** a pilot's mod asked for the chocks to come off, or reported the launch bar */
+  private onPilotEvent(player: string, e: PilotEvent): void {
+    this.onDeckEvent(player, (st, id, hull) => {
+      if (e === 'taxi') {
+        if (!this.ops[hull]?.taxi?.[id]) (st.taxiReady ??= {})[id] = Date.now();
+      } else if (e === 'lb1') (st.barDown ??= {})[id] = Date.now();
+      else if (st.barDown) delete st.barDown[id];
+    });
+  }
+
+  private onDeckEvent(player: string, apply: (st: LaunchState, trackId: string, hull: string) => void): void {
     const t = this.tracks.find((x) => x.ip && x.pi === player);
     if (!t) return;
     for (const [hull, list] of aircraftOnDeck(this.tracks)) {
       if (!list.some((x) => x.id === t.id)) continue;
       this.launch[hull] ??= { auth: null, hold: [], cleared: {}, saluted: {} };
-      this.launch[hull].saluted[t.id] = Date.now();
+      apply(this.launch[hull], t.id, hull);
     }
     this.updateLaunch();
   }
@@ -475,6 +496,9 @@ class Source {
     this.dirty();
     const m = this.opsMsg();
     for (const c of this.subscribers) send(c, m);
+    // a taxi instruction releases that aircraft's chocks
+    this.holdSentAt = 0;
+    this.updateLaunch();
   }
 
   /** A user may act for a seat they hold, or for one nobody holds (its work rolls up to whoever is there). */

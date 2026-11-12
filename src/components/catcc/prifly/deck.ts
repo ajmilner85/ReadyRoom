@@ -24,9 +24,10 @@ export const centroid = (q: V[]): V => {
 
 // ---------------------------------------------------------------- drawing layers
 
-export type DeckLayer = 'areas' | 'helo' | 'catRoutes' | 'parkRoutes' | 'gear';
+export type DeckLayer = 'areas' | 'taxi' | 'helo' | 'catRoutes' | 'parkRoutes' | 'gear';
 export const DECK_LAYERS: { k: DeckLayer; label: string; title: string }[] = [
   { k: 'areas', label: 'Areas', title: 'Deck parking areas: Crotch, Point, Corral, Junk Yard, Patio, Finger, Box, Street, Six-pack' },
+  { k: 'taxi', label: 'Taxi Network', title: "PriFly's taxi roads and parking spots: the routes taxi instructions follow (always shown while an aircraft is selected)" },
   { k: 'catRoutes', label: 'AI Catapult Routes', title: "The DCS deck crew's 16 launch routes, each from its spawn spot (numbered) to a catapult" },
   { k: 'parkRoutes', label: 'AI Parking Routes', title: "The DCS deck crew's 16 recovery routes, from the landing area to each parking spot (numbered)" },
   { k: 'helo', label: 'Helo spots', title: 'Helicopter landing spots' },
@@ -124,6 +125,10 @@ const norm = (q: V[]) => (area(q) < 0 ? q.slice().reverse() : q);
 const FUS = mir(ST.map((s) => [s[1], s[0]] as V));
 export const SPREAD = [FUS, mir(WS), mir(STAB)].map(norm);
 export const FOLDED = [FUS, mir(WF), mir(STAB)].map(norm);
+/** the twin fins seen from above, canted out (one side; the other is its mirror) */
+const FIN: V[] = [[0.072, -0.19], [0.09, -0.19], [0.135, -0.45], [0.114, -0.462]];
+/** the tail (stabilators across the aft fuselage, and the fins): where a livery's colour goes, drawn over the planform */
+export const TAIL = [mir(STAB), FIN, FIN.map((p) => [-p[0], p[1]] as V)].map(norm);
 
 /** Planform on the deck (metres): x forward, y port, angle a (deg, CCW from bow). */
 export function jetShape(polys: V[][], x: number, y: number, a: number, L = 17.07): string {
@@ -173,7 +178,7 @@ export function onDeck(c: Carrier, air: ScopeTrack[]): DeckJet[] {
   return out;
 }
 
-const inPoly = (x: number, y: number, q: V[]) => {
+export const inPoly = (x: number, y: number, q: V[]) => {
   let inside = false;
   for (let i = 0, j = q.length - 1; i < q.length; j = i++) {
     const [xi, yi] = q[i];
@@ -187,7 +192,7 @@ const inPoly = (x: number, y: number, q: V[]) => {
 export const inLandingArea = (x: number, y: number): boolean => inPoly(x, y, G.la.outer);
 
 /** The jet spotted on a catapult: on its track, from just aft of the shuttle to 25 m up it. */
-export function onCat(jets: DeckJet[], k: string): DeckJet | undefined {
+export function onCat<J extends { x: number; y: number }>(jets: J[], k: string): J | undefined {
   const [a, b] = G.cats[k];
   const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
   const u: V = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
@@ -239,22 +244,6 @@ export function nearestOn(q: V[], p: V): { at: V; d: number; i: number; dir: V }
 }
 
 const tail = (q: V[], n: { at: V; i: number }): V[] => [n.at, ...q.slice(n.i + 1)];
-
-/**
- * The way the deck crew would take a jet from where it is to a catapult: join the nearest DCS launch
- * route for that catapult and follow it to the hold-short behind the JBD, then onto the shuttle.
- */
-export function taxiToCat(from: V, k: string): V[] {
-  let best: { r: TaxiRoute; n: ReturnType<typeof nearestOn> } | null = null;
-  for (const r of TAXI_ROUTES) {
-    if (r.kind !== 'to' || r.cat !== k) continue;
-    const n = nearestOn(r.pts, from);
-    if (!best || n.d < best.n.d) best = { r, n };
-  }
-  const shuttle = G.cats[k][0];
-  if (!best) return [from, shuttle];
-  return [from, ...tail(best.r.pts, best.n), shuttle];
-}
 
 /**
  * Where a taxiing jet is likely headed: the DCS route it is on (within 6 m, running the way the jet

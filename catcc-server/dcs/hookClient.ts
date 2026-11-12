@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { HookEnv, HookFrame, HookMessage, LaunchCmd, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { HookEnv, HookFrame, HookMessage, LaunchCmd, PilotEvent, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
 
 /**
  * Client for the CATCC DCS export hook (protocol v1): newline-delimited JSON, AUTH <token>.
@@ -16,6 +16,8 @@ export interface HookClientOptions {
   onEnv?: (env: HookEnv) => void;
   /** a pilot's mod reported a salute (player name) */
   onSalute?: (player: string) => void;
+  /** a pilot's mod reported something else (chocks request, launch bar) */
+  onPilotEvent?: (player: string, e: PilotEvent) => void;
   onStatus?: (status: HookClientStatus) => void;
 }
 
@@ -183,6 +185,9 @@ export class HookClient {
         break;
       case 'salute':
         if (typeof msg.p === 'string') this.opts.onSalute?.(msg.p);
+        break;
+      case 'pilotev':
+        if (typeof msg.p === 'string' && (msg.e === 'taxi' || msg.e === 'lb1' || msg.e === 'lb0')) this.opts.onPilotEvent?.(msg.p, msg.e);
         break;
       case 'env': {
         // every HookEnv field is passed on (bulls was being dropped here, so no bullseye reached the scope)

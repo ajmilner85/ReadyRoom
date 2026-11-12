@@ -213,11 +213,12 @@ export class FakeHookServer {
           let id: number | null = null;
           let refused: string | null = null;
           try {
-            const m = JSON.parse(line.slice(4)) as { id?: number; op?: string; g?: string; hold?: string[] };
+            const m = JSON.parse(line.slice(4)) as { id?: number; op?: string; g?: string; hold?: string[]; chocks?: string[] };
             id = typeof m.id === 'number' ? m.id : null;
             if (m.op === 'launch') {
               // launch holds: kept for tests (and the pilots' side of a replay has nobody to hold)
               this.hold = Array.isArray(m.hold) ? m.hold : [];
+              this.chocks = Array.isArray(m.chocks) ? m.chocks : [];
             } else {
               this.ops.push(String(m.op));
               if (m.op === 'bridge' && this.refuseBridge) refused = 'Air Boss ship control is not available on this server';
@@ -235,6 +236,14 @@ export class FakeHookServer {
 
   /** the players the room last asked to hold on deck */
   hold: string[] = [];
+  /** the players whose chocks the room last asked to hold */
+  chocks: string[] = [];
+
+  /** a pilot's mod reporting a chocks request or the launch bar */
+  pilotEvent(player: string, e: 'taxi' | 'lb1' | 'lb0'): void {
+    const line = `${JSON.stringify({ type: 'pilotev', e, p: player })}\n`;
+    for (const c of this.clients) if (c.authed) c.sock.write(line);
+  }
 
   /** a pilot's mod reporting a salute */
   salute(player: string): void {

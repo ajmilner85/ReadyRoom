@@ -70,6 +70,28 @@ server.inbox[#server.inbox + 1] = '{"type":"hold","p":[]}'
 frame(0.3)
 args[997] = 0.25; frame(6)   -- not held: nothing to report
 rec('salutes ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
+args[997] = 0
+-- held for launch with the launch bar coming down: PriFly hears the shooter is ready
+before = #server.sent
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":["Volt 3-1 | 401 Ace"],"c":[]}'
+frame(0.6)
+args[85] = 0.88; frame(0.6)
+frame(0.6)
+args[85] = 0; frame(0.6)
+rec('lb ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
+-- chocks: the F8 request is kept while PriFly holds them, and goes through on the taxi instruction
+local orig = { perform = function(self, p) rec('chocks removed ' .. tostring(p)) end }
+local menu = package.loaded.catcc_pilot
+before = #server.sent
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}'
+frame(0.6)
+menu.chocksRemove(orig, 'P')
+frame(0.6)
+rec('chocks kept ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":[]}'
+frame(0.6)
+-- nobody holds them: straight through
+menu.chocksRemove(orig, 'Q')
 return table.concat(out, '\\n')
 `;
 
@@ -100,5 +122,14 @@ describe('CATCC pilot hook', () => {
   });
   it('reports a salute while held, once per salute, from the gate mark or the pilot figure', () => {
     expect(out.find((l) => l.startsWith('salutes '))).toBe('salutes SALUTE Volt 3-1 | 401 Ace|SALUTE Volt 3-1 | 401 Ace|');
+  });
+  it('tells PriFly the launch bar is down (shooter ready) and back up', () => {
+    expect(out.find((l) => l.startsWith('lb '))).toBe('lb EV lb1 Volt 3-1 | 401 Ace|EV lb0 Volt 3-1 | 401 Ace|');
+  });
+  it('keeps the F8 chocks request while PriFly holds the chocks, then lets it through', () => {
+    const i = out.indexOf('chocks kept EV taxi Volt 3-1 | 401 Ace|');
+    expect(i).toBeGreaterThan(-1);
+    expect(out.slice(0, i).some((l) => l.startsWith('chocks removed'))).toBe(false);
+    expect(out.slice(i)).toEqual(['chocks kept EV taxi Volt 3-1 | 401 Ace|', 'chocks removed P', 'chocks removed Q']);
   });
 });

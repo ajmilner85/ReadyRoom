@@ -3866,7 +3866,7 @@ function cleanOpsPatch(p) {
   const out = {};
   for (const [k, v] of e) {
     if (v === null) {
-      if (!["deck", "aids", "lights", "launch", "formation"].includes(k)) return null;
+      if (!["deck", "aids", "lights", "launch", "taxi", "formation"].includes(k)) return null;
       out[k] = null;
       continue;
     }
@@ -3905,6 +3905,18 @@ function cleanOpsPatch(p) {
           cats[cat] = { status: x.status, queue: [...x.queue] };
         }
         out.launch = cats;
+        break;
+      }
+      case "taxi": {
+        const te = entries(v, 80);
+        if (!te) return null;
+        const taxi = {};
+        for (const [id, o] of te) {
+          const x = o;
+          if (!okFlightKey(id) || !x || typeof x.to !== "string" || !/^[A-Z0-9]{1,8}$/.test(x.to) || !fin(x.at, 0, 1e13)) return null;
+          taxi[id] = { to: x.to, at: x.at };
+        }
+        out.taxi = taxi;
         break;
       }
       case "formation": {
@@ -4678,6 +4690,9 @@ var HookClient = class {
       case "salute":
         if (typeof msg.p === "string") this.opts.onSalute?.(msg.p);
         break;
+      case "pilotev":
+        if (typeof msg.p === "string" && (msg.e === "taxi" || msg.e === "lb1" || msg.e === "lb0")) this.opts.onPilotEvent?.(msg.p, msg.e);
+        break;
       case "env": {
         const env = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes, ...msg.bulls ? { bulls: msg.bulls } : {} };
         this.opts.onEnv?.(env);
@@ -4760,6 +4775,10 @@ function launchAuthority(seats, carrier) {
   const here = [...seats].filter((s) => s.carrier === carrier && !s.away);
   return here.find((s) => s.role === "shooter") ?? here.find((s) => s.role === "boss") ?? null;
 }
+function taxiAuthority(seats, carrier) {
+  const here = [...seats].filter((s) => s.carrier === carrier && !s.away);
+  return here.find((s) => s.role === "boss") ?? here.find((s) => s.role === "miniboss") ?? null;
+}
 var DECK_RADIUS_M = 220;
 var DECK_MAX_ALT_FT = 200;
 function aircraftOnDeck(tracks) {
@@ -4776,10 +4795,11 @@ function aircraftOnDeck(tracks) {
   }
   return out;
 }
-function computeLaunch(prev, seats, tracks) {
+function computeLaunch(prev, seats, tracks, taxied = () => /* @__PURE__ */ new Set()) {
   const seatList = [...seats];
   const decks = aircraftOnDeck(tracks);
   const out = {};
+  const seatOf = (a) => a ? { carrier: a.carrier, role: a.role, name: a.name } : null;
   for (const cv of tracks.filter((t) => t.k === "carrier" && t.hull)) {
     const hull = cv.hull;
     const onDeck = decks.get(hull) ?? [];
@@ -4787,16 +4807,27 @@ function computeLaunch(prev, seats, tracks) {
     const keep = (r2) => Object.fromEntries(Object.entries(r2 ?? {}).filter(([id]) => ids.has(id)));
     const cleared = keep(prev[hull]?.cleared);
     const saluted = keep(prev[hull]?.saluted);
+    const barDown = keep(prev[hull]?.barDown);
+    const sent = taxied(hull);
+    const taxiReady = Object.fromEntries(Object.entries(keep(prev[hull]?.taxiReady)).filter(([id]) => !sent.has(id)));
     const a = launchAuthority(seatList, hull);
     const hold = a ? onDeck.filter((t) => t.ip && !cleared[t.id]).map((t) => t.id) : [];
-    out[hull] = { auth: a ? { carrier: a.carrier, role: a.role, name: a.name } : null, hold, cleared, saluted };
+    const ta = taxiAuthority(seatList, hull);
+    const chocks = ta ? onDeck.filter((t) => t.ip && !sent.has(t.id)).map((t) => t.id) : [];
+    out[hull] = { auth: seatOf(a), hold, cleared, saluted, barDown, taxiAuth: seatOf(ta), chocks, taxiReady };
   }
   return out;
 }
 function heldPlayers(launch, tracks) {
+  return playerNames(launch, tracks, (st) => st.hold);
+}
+function chockedPlayers(launch, tracks) {
+  return playerNames(launch, tracks, (st) => st.chocks ?? []);
+}
+function playerNames(launch, tracks, pick) {
   const byId = new Map(tracks.map((t) => [t.id, t]));
   const names = /* @__PURE__ */ new Set();
-  for (const st of Object.values(launch)) for (const id of st.hold) {
+  for (const st of Object.values(launch)) for (const id of pick(st)) {
     const t = byId.get(id);
     const name = t?.ip ? t.pi : void 0;
     if (name) names.add(name);
@@ -4926,6 +4957,7 @@ var Source = class {
           this.publish(store.t, store.utc, frame.theatre ?? void 0, store.tracks.values());
         },
         onSalute: (player) => this.onSalute(player),
+        onPilotEvent: (player, e) => this.onPilotEvent(player, e),
         onEnv: (env) => {
           const m = JSON.stringify({ t: "env", src: cfg.id, env });
           if (m === this.lastEnv) return;
@@ -5019,21 +5051,26 @@ var Source = class {
   }
   /** Recompute who is held on which deck; publish changes and keep the hook's hold list fresh. */
   updateLaunch() {
-    this.launch = computeLaunch(this.launch, this.seats.values(), this.tracks);
+    this.launch = computeLaunch(this.launch, this.seats.values(), this.tracks, (hull) => new Set(Object.keys(this.ops[hull]?.taxi ?? {})));
     const j = this.launchMsg();
     if (j !== this.launchJson) {
       this.launchJson = j;
+      const byId = new Map(this.tracks.map((t) => [t.id, t]));
+      const who = (id) => byId.get(id)?.pi ?? id;
+      const parts = Object.entries(this.launch).map(([hull, st]) => `${hull}: ${st.auth ? `${st.auth.role} ${st.auth.name}` : "AUTO"}, held [${st.hold.map(who).join(", ")}], cleared [${Object.keys(st.cleared).map(who).join(", ")}]; chocks ${st.taxiAuth ? `${st.taxiAuth.role} ${st.taxiAuth.name}` : "AUTO"}, held [${(st.chocks ?? []).map(who).join(", ")}], ready [${Object.keys(st.taxiReady ?? {}).map(who).join(", ")}]`);
+      this.log(`[${this.cfg.id}] launch: ${parts.join(" | ") || "no carrier in the picture"}`);
       for (const c of this.subscribers) send(c, j);
     }
     if (!this.hook || !this.status.authed) return;
     const hold = heldPlayers(this.launch, this.tracks);
-    const hj = JSON.stringify(hold);
+    const chocks = chockedPlayers(this.launch, this.tracks);
+    const hj = JSON.stringify([hold, chocks]);
     const now = Date.now();
     if (hj === this.holdJson && now - this.holdSentAt < 5e3) return;
-    if (hj === "[]" && this.holdJson === "[]" && now - this.holdSentAt < 3e4) return;
+    if (hj === "[[],[]]" && this.holdJson === hj && now - this.holdSentAt < 3e4) return;
     this.holdJson = hj;
     this.holdSentAt = now;
-    void this.hook.command({ op: "launch", hold }).then((r2) => {
+    void this.hook.command({ op: "launch", hold, chocks }).then((r2) => {
       if (!r2.ok) {
         this.holdJson = "";
         this.log(`[${this.cfg.id}] launch holds not taken by the hook: ${r2.error}`);
@@ -5042,12 +5079,27 @@ var Source = class {
   }
   /** a pilot's mod reported a salute */
   onSalute(player) {
+    this.onDeckEvent(player, (st, id, hull) => {
+      if (!this.ops[hull]?.taxi?.[id]) (st.taxiReady ??= {})[id] = Date.now();
+      else st.saluted[id] = Date.now();
+    });
+  }
+  /** a pilot's mod asked for the chocks to come off, or reported the launch bar */
+  onPilotEvent(player, e) {
+    this.onDeckEvent(player, (st, id, hull) => {
+      if (e === "taxi") {
+        if (!this.ops[hull]?.taxi?.[id]) (st.taxiReady ??= {})[id] = Date.now();
+      } else if (e === "lb1") (st.barDown ??= {})[id] = Date.now();
+      else if (st.barDown) delete st.barDown[id];
+    });
+  }
+  onDeckEvent(player, apply) {
     const t = this.tracks.find((x) => x.ip && x.pi === player);
     if (!t) return;
     for (const [hull, list] of aircraftOnDeck(this.tracks)) {
       if (!list.some((x) => x.id === t.id)) continue;
       this.launch[hull] ??= { auth: null, hold: [], cleared: {}, saluted: {} };
-      this.launch[hull].saluted[t.id] = Date.now();
+      apply(this.launch[hull], t.id, hull);
     }
     this.updateLaunch();
   }
@@ -5175,6 +5227,8 @@ var Source = class {
     this.dirty();
     const m = this.opsMsg();
     for (const c of this.subscribers) send(c, m);
+    this.holdSentAt = 0;
+    this.updateLaunch();
   }
   /** A user may act for a seat they hold, or for one nobody holds (its work rolls up to whoever is there). */
   mayActFor(userId, seat) {

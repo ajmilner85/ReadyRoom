@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../geo.ts';
-import { computeLaunch, heldPlayers, launchAuthority } from './launch.ts';
+import { chockedPlayers, computeLaunch, heldPlayers, launchAuthority, taxiAuthority } from './launch.ts';
 import type { SeatHolder, WireTrack } from './protocol.ts';
 
 const CV = { lat: 26.2, lon: 56.8 };
@@ -40,5 +40,27 @@ describe('launch clearance', () => {
     const airborne = tracks().map((t) => (t.id === 'u2' ? { ...t, air: true, alt: 400 } : t));
     l = computeLaunch(l, [seat('boss', 'b')], airborne);
     expect(l['CVN-72'].cleared).toEqual({});
+  });
+});
+
+describe('chocks', () => {
+  it('are released by the Air Boss, else the Mini Boss; the Shooter alone does not hold them', () => {
+    expect(taxiAuthority([seat('miniboss', 'm')], 'CVN-72')?.userId).toBe('m');
+    expect(taxiAuthority([seat('miniboss', 'm'), seat('boss', 'b')], 'CVN-72')?.userId).toBe('b');
+    expect(taxiAuthority([seat('shooter', 's')], 'CVN-72')).toBeNull();
+    const l = computeLaunch({}, [seat('shooter', 's')], tracks());
+    expect(l['CVN-72'].chocks).toEqual([]);
+  });
+
+  it('stay on player aircraft until a taxi instruction; ready to taxi lasts until then', () => {
+    let l = computeLaunch({}, [seat('miniboss', 'm')], tracks());
+    expect(l['CVN-72'].taxiAuth).toMatchObject({ role: 'miniboss' });
+    expect(chockedPlayers(l, tracks())).toEqual(['Volt 3-1 | 401 Ace']);
+    l['CVN-72'].taxiReady = { u2: 5 };
+    l = computeLaunch(l, [seat('miniboss', 'm')], tracks());
+    expect(l['CVN-72'].taxiReady).toEqual({ u2: 5 });
+    l = computeLaunch(l, [seat('miniboss', 'm')], tracks(), () => new Set(['u2']));
+    expect(l['CVN-72'].chocks).toEqual([]);
+    expect(l['CVN-72'].taxiReady).toEqual({});
   });
 });

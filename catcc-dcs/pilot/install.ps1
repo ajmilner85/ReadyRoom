@@ -10,7 +10,8 @@
 #   2. with -Server, writes Saved Games\...\Config\CATCC-pilot.lua (default server: the squadron's);
 #   3. patches the deck crew's launch sequence (CoreMods\tech\USS_Nimitz\scripts\common.xml) so the
 #      shooter, once you're ready on the catapult and before the run-up signal, waits while the gate
-#      says you're held. Removes any earlier CATCC patch (the 30 s test, the old after-salute gate).
+#      says you're held. Removes any earlier CATCC patch (the 30 s test, the old after-salute gate);
+#   4. routes the Hornet's F8 "Wheel chocks > Remove" through PriFly (Mods\aircraft\FA-18C\comm.lua).
 # DCS updates replace common.xml: run this again after an update. Restart DCS afterwards.
 
 param(
@@ -56,7 +57,15 @@ $modDst = Join-Path $SavedGames 'Mods\aircraft\CATCC-Pilot'
 $hookDst = Join-Path $SavedGames 'Scripts\Hooks\CATCC-pilot-hook.lua'
 $xml = Join-Path $DcsPath 'CoreMods\tech\USS_Nimitz\scripts\common.xml'
 if (-not (Test-Path $xml)) { throw "Not found: $xml (pass -DcsPath)" }
+$comm = Join-Path $DcsPath 'Mods\aircraft\FA-18C\comm.lua' # the Hornet's F8 radio menu
 $enc = New-Object System.Text.UTF8Encoding($false)
+
+# the line we add to comm.lua ends in "-- CATCC ...", so removing it is one pass too
+$commText = $null
+if (Test-Path $comm) {
+  $commText = [System.IO.File]::ReadAllText($comm, $enc)
+  $commText = [regex]::Replace($commText, '\r?\n[^\r\n]*-- CATCC[^\r\n]*', '')
+}
 
 # every line we add to common.xml carries "CATCC" (the test patch too), so removing is one pass
 $text = [System.IO.File]::ReadAllText($xml, $enc)
@@ -64,9 +73,10 @@ $text = [regex]::Replace($text, '\n[ \t]*<[^\n]*CATCC[^\n]*', '')
 
 if ($Uninstall) {
   [System.IO.File]::WriteAllText($xml, $text, $enc)
+  if ($null -ne $commText) { [System.IO.File]::WriteAllText($comm, $commText, $enc) }
   if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
   if (Test-Path $hookDst) { Remove-Item -Force $hookDst }
-  Write-Host "CATCC pilot mod removed; common.xml back to stock. Restart DCS."
+  Write-Host "CATCC pilot mod removed; common.xml and the Hornet's comm.lua back to stock. Restart DCS."
   exit 0
 }
 
@@ -109,5 +119,30 @@ $end = $at + $anchor.Length
 $text = $text.Substring(0, $end) + $gate + $text.Substring($end)
 [System.IO.File]::WriteAllText($xml, $text, $enc)
 
+# 4. the Hornet's F8 "Wheel chocks > Remove" asks the pilot hook first (PriFly holds the chocks until it
+#    gives a taxi instruction). Looked up when pressed, so without the mod's hook it is the stock request.
+$chocksDone = $false
+if ($null -ne $commText) {
+  $canchor = "submenu = menus['Wheel chocks']}"
+  $ca = $commText.IndexOf($canchor)
+  if ($ca -ge 0 -and $commText.IndexOf($canchor, $ca + 1) -lt 0) {
+    $eol = $commText.IndexOf("`n", $ca)
+    if ($eol -lt 0) { $eol = $commText.Length }
+    if ($eol -gt 0 -and $commText[$eol - 1] -eq "`r") { $eol = $eol - 1 }
+    $cnl = if ($commText.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $line = "do local G = getfenv(0); local wc = menus['Wheel chocks']; local it = wc and wc.items and wc.items[2]; " +
+      "if it and it.command and G and G.package and G.package.loaded then local orig = it.command; " +
+      "it.command = { perform = function(self, p) local m = G.package.loaded.catcc_pilot; " +
+      "if m and m.chocksRemove then return m.chocksRemove(orig, p) end; return orig:perform(p) end } end end " +
+      "-- CATCC: PriFly holds the chocks until it gives the taxi instruction"
+    $commText = $commText.Substring(0, $eol) + $cnl + $line + $commText.Substring($eol)
+    [System.IO.File]::WriteAllText($comm, $commText, $enc)
+    $chocksDone = $true
+  } else {
+    Write-Warning "Hornet comm.lua: the Wheel chocks menu wasn't found exactly once; chocks not routed through PriFly."
+  }
+}
+
 $srv = if ($Server) { "${Server}:$Port" } else { 'the squadron server (default)' }
-Write-Host "CATCC pilot mod installed in $SavedGames (server: $srv); launch gate added to common.xml. Restart DCS."
+$chk = if ($chocksDone) { '; Hornet chocks routed through PriFly' } else { '' }
+Write-Host "CATCC pilot mod installed in $SavedGames (server: $srv); launch gate added to common.xml$chk. Restart DCS."

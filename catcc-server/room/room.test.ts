@@ -219,6 +219,9 @@ describe('room service with fake DCS hook', () => {
     await b.waitFor('ops', (m) => m.ops['CVN-72']?.deck?.foul === true && m.ops['CVN-72']?.launch?.['1']?.queue[0] === 'Volt 3');
     a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { deck: null } });
     await b.waitFor('ops', (m) => !!m.ops['CVN-72'] && !m.ops['CVN-72'].deck && !!m.ops['CVN-72'].launch);
+    // PriFly's taxi instructions ride the same state
+    a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { taxi: { '101': { to: 'C2', at: 5 } } } });
+    await b.waitFor('ops', (m) => m.ops['CVN-72']?.taxi?.['101']?.to === 'C2');
     a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { lights: { deck: 'PURPLE' } } });
     expect((await a.waitFor('error', (e) => e.error === 'invalid ops update')).error).toBe('invalid ops update');
     a.ws.close();

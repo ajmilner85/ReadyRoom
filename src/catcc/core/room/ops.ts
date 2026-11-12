@@ -53,6 +53,8 @@ export interface OpsState {
   lights?: Record<string, LightSetting>;
   /** catapults: status and the queue of flight keys */
   launch?: Record<string, { status: CatStatus; queue: string[] }>;
+  /** PriFly's taxi instructions: aircraft (track id) → deck destination (a catapult or parking spot id) and when it was given */
+  taxi?: Record<string, { to: string; at: number }>;
   formation?: Formation;
 }
 
@@ -87,7 +89,7 @@ export function cleanOpsPatch(p: unknown): Partial<Record<keyof OpsState, unknow
   const out: Partial<Record<keyof OpsState, unknown>> = {};
   for (const [k, v] of e) {
     if (v === null) {
-      if (!['deck', 'aids', 'lights', 'launch', 'formation'].includes(k)) return null;
+      if (!['deck', 'aids', 'lights', 'launch', 'taxi', 'formation'].includes(k)) return null;
       out[k as keyof OpsState] = null;
       continue;
     }
@@ -126,6 +128,18 @@ export function cleanOpsPatch(p: unknown): Partial<Record<keyof OpsState, unknow
           cats[cat] = { status: x.status, queue: [...x.queue] };
         }
         out.launch = cats;
+        break;
+      }
+      case 'taxi': {
+        const te = entries(v, 80);
+        if (!te) return null;
+        const taxi: Record<string, { to: string; at: number }> = {};
+        for (const [id, o] of te) {
+          const x = o as { to: string; at: number };
+          if (!okFlightKey(id) || !x || typeof x.to !== 'string' || !/^[A-Z0-9]{1,8}$/.test(x.to) || !fin(x.at, 0, 1e13)) return null;
+          taxi[id] = { to: x.to, at: x.at };
+        }
+        out.taxi = taxi;
         break;
       }
       case 'formation': {

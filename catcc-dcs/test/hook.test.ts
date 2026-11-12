@@ -140,13 +140,18 @@ describe('CATCC DCS hook', () => {
     const pilot = msgs('pilot');
     expect(pilot[0]).toMatchObject({ type: 'hello' });
     expect(pilot.filter((m) => m.type === 'frame')).toEqual([]);
-    expect(pilot.filter((m) => m.type === 'hold')).toEqual([{ type: 'hold', p: [] }, { type: 'hold', p: ['Volt 3-1 | 401 Ace'] }]);
+    expect(pilot.filter((m) => m.type === 'hold')).toEqual([
+      { type: 'hold', p: [], c: [] },
+      { type: 'hold', p: ['Volt 3-1 | 401 Ace'], c: ['Volt 3-2 | 402 Bee'] },
+    ]);
     const launch = msgs('launch');
     expect(launch.find((m) => m.type === 'cmd' && m.id === 11)).toEqual({ type: 'cmd', id: 11, ok: true });
-    expect(launch.find((m) => m.type === 'cmd' && m.id === 12)).toMatchObject({ ok: false, error: 'bad player name' });
+    expect(launch.find((m) => m.type === 'cmd' && m.id === 12)).toMatchObject({ ok: false, error: 'bad hold list' });
     expect(launch.find((m) => m.type === 'salute')).toEqual({ type: 'salute', p: 'Volt 3-1 | 401 Ace' });
+    // a chocks request goes to the room (unknown events don't)
+    expect(launch.filter((m) => m.type === 'pilotev')).toEqual([{ type: 'pilotev', e: 'taxi', p: 'Volt 3-2 | 402 Bee' }]);
     // not refreshed for 15 s: forgotten, and the pilot is told (an idle pilot is never timed out)
-    expect(msgs('lapse').filter((m) => m.type === 'hold').at(-1)).toEqual({ type: 'hold', p: [] });
+    expect(msgs('lapse').filter((m) => m.type === 'hold').at(-1)).toEqual({ type: 'hold', p: [], c: [] });
     expect(t.find((x) => x.label === 'pilotOpen')?.payload).toBe('true');
   });
 

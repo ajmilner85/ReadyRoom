@@ -6,6 +6,7 @@
  * layers the boss turns on.
  */
 import React from 'react';
+import { TaxiNet } from './TaxiOverlay.tsx';
 import { CATS, NIMITZ as G, TAXI_ROUTES, areaCentroid, centroid, line, nearestOn, openAt, ring, roundLine, roundRing, type DeckLayer, type V } from './deck.ts';
 
 const C = {
@@ -44,11 +45,19 @@ const majorAxisRot = (q: V[]) => {
   return -deg; // drawing flips y
 };
 
-const T: React.FC<{ p: V; children: React.ReactNode; size?: number; fill?: string; anchor?: 'start' | 'middle' | 'end'; rot?: number; weight?: number; opacity?: number; font?: string }> = ({ p, children, size = 3.4, fill = C.label, anchor = 'middle', rot, weight, opacity, font }) => (
-  <text x={p[0]} y={-p[1]} textAnchor={anchor} dominantBaseline="central" transform={rot ? `rotate(${rot} ${p[0]} ${-p[1]})` : undefined} style={{ fontSize: size, fill, fontWeight: weight, opacity, letterSpacing: '.04em', ...(font ? { fontFamily: font, letterSpacing: 0 } : {}) }}>
-    {children}
-  </text>
-);
+/** the drawing is shown bow up (the kneeboard turns it -90 deg): level labels are turned back so they still read level */
+const BowUp = React.createContext(false);
+
+/** a label; `rot` turns it with the deck (rot 0: square to the drawing, turned with it when shown bow up) */
+const T: React.FC<{ p: V; children: React.ReactNode; size?: number; fill?: string; anchor?: 'start' | 'middle' | 'end'; rot?: number; weight?: number; opacity?: number; font?: string }> = ({ p, children, size = 3.4, fill = C.label, anchor = 'middle', rot, weight, opacity, font }) => {
+  const bowUp = React.useContext(BowUp);
+  const r = rot ?? (bowUp ? 90 : 0);
+  return (
+    <text x={p[0]} y={-p[1]} textAnchor={anchor} dominantBaseline="central" transform={r ? `rotate(${r} ${p[0]} ${-p[1]})` : undefined} style={{ fontSize: size, fill, fontWeight: weight, opacity, letterSpacing: '.04em', ...(font ? { fontFamily: font, letterSpacing: 0 } : {}) }}>
+      {children}
+    </text>
+  );
+};
 
 // ---------------------------------------------------------------- catapult labels: along each track, just off it
 
@@ -66,6 +75,8 @@ const catDeg = (k: string) => {
 // the side away from the neighbouring catapult: 1 starboard, 2 port, 3 starboard, 4 starboard (port of 4 is the deck edge)
 const CAT_SIDE: Record<string, number> = { '1': -1, '2': 1, '3': -1, '4': -1 };
 const CAT_LABEL = Object.fromEntries(Object.keys(CATS).map((k) => [k, { p: onCatTrack(k, 5, CAT_SIDE[k] * 3.1), rot: -catDeg(k) }]));
+/** bow up (kneeboard): each label centred on its track's line just aft of the start of the track, square across it */
+const CAT_LABEL_UP = Object.fromEntries(Object.keys(CATS).map((k) => [k, { p: onCatTrack(k, -(1.85 + 1.6), 0), rot: 90 - catDeg(k) }]));
 
 // ---------------------------------------------------------------- elevator labels: off the deck edge, outboard of each elevator
 
@@ -76,6 +87,19 @@ const EL_LABEL: Record<string, V> = Object.fromEntries(
   Object.entries(G.elev).map(([k, e]) => {
     const c = areaCentroid(e.poly);
     return [k, STBD.includes(k) ? [c[0], stbdOut] : [c[0], Math.max(...e.poly.map((q) => q[1])) + 2.4]];
+  }),
+);
+/**
+ * bow up (kneeboard): the labels read level, so each runs away from the deck: from just outboard of its
+ * elevator (and of the deck edge alongside it), to starboard for 1-3, to port for 4
+ */
+const EL_LABEL_UP: Record<string, { p: V; anchor: 'start' | 'end' }> = Object.fromEntries(
+  Object.entries(G.elev).map(([k, e]) => {
+    const c = areaCentroid(e.poly);
+    const xs = e.poly.map((q) => q[0]);
+    const [x0, x1] = [Math.min(...xs) - 2, Math.max(...xs) + 2];
+    const ys = [...e.poly, ...e.safety, ...G.outline.filter((q) => q[0] >= x0 && q[0] <= x1)].map((q) => q[1]);
+    return [k, STBD.includes(k) ? { p: [c[0], Math.min(...ys) - 1.2], anchor: 'start' } : { p: [c[0], Math.max(...ys) + 1.2], anchor: 'end' }];
   }),
 );
 const ISLAND_LABEL: V = areaCentroid(G.struct['Island']);
@@ -164,11 +188,14 @@ export const DeckDrawing: React.FC<{
   hull?: string;
   /** JBDs raised (a jet spotted on that catapult) */
   jbdUp?: Record<string, boolean>;
-}> = ({ layers, hull, jbdUp = {} }) => {
+  /** drawn inside a rotate(-90) group (bow up): level labels are turned back, the scale bar and BOW arrow left out */
+  bowUp?: boolean;
+}> = ({ layers, hull, jbdUp = {}, bowUp = false }) => {
   const L = G.la;
   const num = /(\d{2})$/.exec(hull ?? '')?.[1];
   const bw = G.bow.stroke;
   return (
+    <BowUp.Provider value={bowUp}>
     <g>
       <defs>
         {/* the flight deck over the sea: a deep shadow all round */}
@@ -260,6 +287,7 @@ export const DeckDrawing: React.FC<{
         </g>
       )}
       {layers.has('areas') && <path d={G.parking.map((a) => ring(a.poly)).join('')} fill="rgba(111,182,230,.05)" stroke="#6FB6E6" strokeOpacity={0.45} strokeWidth={0.35} strokeDasharray="2 1.2" />}
+      {layers.has('taxi') && <TaxiNet />}
       {(['catRoutes', 'parkRoutes'] as const).map(
         (k) =>
           layers.has(k) && (
@@ -274,16 +302,27 @@ export const DeckDrawing: React.FC<{
       {/* labels */}
       <g style={{ pointerEvents: 'none' }}>
         {Object.keys(CATS).map((k) => (
+          bowUp ? (
+            <g key={k} transform={`rotate(${CAT_LABEL_UP[k].rot} ${CAT_LABEL_UP[k].p[0]} ${-CAT_LABEL_UP[k].p[1]})`}>
+              <rect x={CAT_LABEL_UP[k].p[0] - 5} y={-CAT_LABEL_UP[k].p[1] - 1.85} width={10} height={3.7} rx={0.5} fill="#0B0E12" stroke="#7D8896" strokeWidth={0.3} />
+              <T p={[CAT_LABEL_UP[k].p[0] + 0.05, CAT_LABEL_UP[k].p[1]]} size={2.6} fill="#C9D3DD" rot={0}>{`CAT ${k}`}</T>
+            </g>
+          ) : (
           <g key={k} transform={`rotate(${CAT_LABEL[k].rot} ${CAT_LABEL[k].p[0]} ${-CAT_LABEL[k].p[1]})`}>
             <rect x={CAT_LABEL[k].p[0] - 0.9} y={-CAT_LABEL[k].p[1] - 1.85} width={10} height={3.7} rx={0.5} fill="#0B0E12" stroke="#7D8896" strokeWidth={0.3} />
             {/* centred in the box (middle anchor, nudged by half the trailing letter-spacing) so the padding is even both sides */}
-            <T p={[CAT_LABEL[k].p[0] - 0.9 + 5 + 0.05, CAT_LABEL[k].p[1]]} size={2.6} fill="#C9D3DD">{`CAT ${k}`}</T>
+            <T p={[CAT_LABEL[k].p[0] - 0.9 + 5 + 0.05, CAT_LABEL[k].p[1]]} size={2.6} fill="#C9D3DD" rot={0}>{`CAT ${k}`}</T>
           </g>
+          )
         ))}
         {Object.keys(G.elev).map((k) => (
-          <T key={k} p={EL_LABEL[k]} fill={C.elevLine}>{`EL ${k}`}</T>
+          bowUp ? (
+            <T key={k} p={EL_LABEL_UP[k].p} anchor={EL_LABEL_UP[k].anchor} fill={C.elevLine}>{`EL ${k}`}</T>
+          ) : (
+            <T key={k} p={EL_LABEL[k]} fill={C.elevLine}>{`EL ${k}`}</T>
+          )
         ))}
-        <T p={ISLAND_LABEL} fill="#C9D3DD" size={3}>ISLAND</T>
+        {!bowUp && <T p={ISLAND_LABEL} fill="#C9D3DD" size={3}>ISLAND</T>}
         {layers.has('areas') &&
           G.parking.map((a) => (
             <T key={a.name} p={areaCentroid(a.poly)} rot={AXIS_LABELS.has(a.name) ? majorAxisRot(a.poly) : undefined} fill="#6FB6E6" size={2.8} opacity={0.85}>
@@ -297,13 +336,17 @@ export const DeckDrawing: React.FC<{
             const L = Math.hypot(b[0] - a[0], b[1] - a[1]);
             const u: V = [(b[0] - a[0]) / L, (b[1] - a[1]) / L];
             const R = 1.6;
+            // the wire's direction pointing to starboard (deck deg CCW from the bow, in (-180, 0])
+            const d = (Math.atan2(u[1], u[0]) * 180) / Math.PI;
+            const wireDeg = d > 0 ? d - 180 : d;
             return [
               [a[0] - u[0] * (R + 0.3), a[1] - u[1] * (R + 0.3)] as V,
               [b[0] + u[0] * (R + 0.3), b[1] + u[1] * (R + 0.3)] as V,
             ].map((p, j) => (
               <g key={`${i}${j}`}>
                 <circle cx={p[0]} cy={-p[1]} r={R} fill="#0B0E12" stroke="#9AA4AE" strokeWidth={0.3} />
-                <T p={p} size={2.1} fill="#C9D3DD" weight={600} rot={-G.laDeg}>
+                {/* bow up (kneeboard): along the wire, reading toward starboard (left to right) */}
+                <T p={p} size={2.1} fill="#C9D3DD" weight={600} rot={bowUp ? -wireDeg : -G.laDeg}>
                   {i + 1}
                 </T>
               </g>
@@ -331,11 +374,14 @@ export const DeckDrawing: React.FC<{
       </g>
 
       {/* scale and orientation */}
-      <g style={{ pointerEvents: 'none' }}>
-        <path d="M110 45H160M110 43.5V46.5M160 43.5V46.5" stroke="#6B7683" strokeWidth={0.4} />
-        <T p={[135, -41.6]} size={2.6} fill="#6B7683">50 M</T>
-        <T p={[172, -45]} size={2.6} fill="#6B7683" anchor="end">BOW →</T>
-      </g>
+      {!bowUp && (
+        <g style={{ pointerEvents: 'none' }}>
+          <path d="M110 45H160M110 43.5V46.5M160 43.5V46.5" stroke="#6B7683" strokeWidth={0.4} />
+          <T p={[135, -41.6]} size={2.6} fill="#6B7683">50 M</T>
+          <T p={[172, -45]} size={2.6} fill="#6B7683" anchor="end">BOW →</T>
+        </g>
+      )}
     </g>
+    </BowUp.Provider>
   );
 };

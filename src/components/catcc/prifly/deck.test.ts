@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { CATS, NIMITZ, TAXI_ROUTES, inLandingArea, onCat, routeAhead, taxiToCat, type DeckJet, type V } from './deck.ts';
+import { CATS, NIMITZ, TAXI_ROUTES, inLandingArea, onCat, routeAhead, type DeckJet, type V } from './deck.ts';
 
 const jet = (x: number, y: number, a = 0) => ({ t: { id: 'j' }, x, y, a, moving: false }) as unknown as DeckJet;
 const angleOf = (a: V, b: V) => (Math.atan2(b[1] - a[1], b[0] - a[0]) * 180) / Math.PI;
@@ -41,15 +41,6 @@ describe('DCS deck-crew taxi routes', () => {
   it('has 16 launch and 16 recovery routes', () => {
     expect(TAXI_ROUTES.filter((r) => r.kind === 'to')).toHaveLength(16);
     expect(TAXI_ROUTES.filter((r) => r.kind === 'park')).toHaveLength(16);
-  });
-
-  it('takes a jet from its spot along the catapult\'s route to the shuttle', () => {
-    const from: V = [-120, -30]; // aft of the island, starboard
-    const p = taxiToCat(from, '1');
-    expect(p[0]).toEqual(from);
-    expect(p[p.length - 1]).toEqual(CATS['1'][0]);
-    // joins a route close by, not across the deck
-    expect(Math.hypot(p[1][0] - from[0], p[1][1] - from[1])).toBeLessThan(15);
   });
 
   it('follows a taxiing jet along the route it is on, the way it points', () => {

@@ -71,18 +71,19 @@ const CAT_STATUS: { k: CatStatus; l: string; fg: string; bg: string }[] = [
   { k: 'down', l: 'DOWN', fg: '#93A1B0', bg: '#222C37' },
 ];
 
-/** One spotted jet's clearance: who's held, who saluted, who's cleared; the clearing seat's LAUNCH / CANCEL. */
+/** One spotted jet's clearance: who's held, whether the shooter is ready for it, who's cleared; the clearing seat's LAUNCH / CANCEL. */
 const Clearance: React.FC<{ t: ScopeTrack; launch?: LaunchState; mayClear: boolean; onClear?: (trackId: string, clear: boolean) => void }> = ({ t, launch, mayClear, onClear }) => {
   if (!launch || !t.ip) return null;
   const cleared = !!launch.cleared[t.id];
   const held = launch.hold.includes(t.id);
-  const saluted = !!launch.saluted[t.id];
+  // launch bar down while held: the shooter has the jet and waits for PriFly before the run-up signal
+  const ready = held && !!launch.barDown?.[t.id];
   const [label, fg, bg] = !launch.auth
     ? ['GOES ON SALUTE', '#93A1B0', '#222C37']
     : cleared
       ? ['CLEARED', '#7FD397', 'rgba(127,211,151,.14)']
       : held
-        ? [saluted ? 'SALUTED · HOLDING' : 'HOLDING', '#E7B04F', 'rgba(231,176,79,.16)']
+        ? [ready ? 'SHOOTER READY · AWAITING LAUNCH AUTHORIZATION' : 'HOLDING', '#E7B04F', 'rgba(231,176,79,.16)']
         : [null, '', ''];
   if (!label) return null;
   const btn = (text: string, on: boolean, clear: boolean) => (
@@ -93,7 +94,7 @@ const Clearance: React.FC<{ t: ScopeTrack; launch?: LaunchState; mayClear: boole
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '8px 0 0' }}>
       <span className="mono" style={{ fontSize: 12 }}>{id(t)}</span>
-      <span className={saluted && held ? 'cc-feed-alert-text' : undefined} style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '2px 7px', borderRadius: 3, background: bg, color: fg }}>
+      <span className={ready ? 'cc-feed-alert-text' : undefined} style={{ fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '2px 7px', borderRadius: 3, background: bg, color: fg }}>
         {label}
       </span>
       <span style={{ flex: 1 }} />
@@ -145,6 +146,13 @@ export const LaunchTab: React.FC<{
           {auth ? (auth.role === 'shooter' ? 'SHOOTER' : 'AIR BOSS') : 'AUTO'}
         </span>
         <span style={{ fontSize: 12, color: '#93A1B0' }}>{auth ? (mayClear ? 'You clear each shot' : `Shots cleared by ${auth.name}`) : 'No Shooter or Air Boss seated: launches go on the salute'}</span>
+      </section>
+      <section className="pnl" aria-label="Chocks" style={{ padding: 10, display: 'flex', alignItems: 'center', gap: 8 }}>
+        <span className="lbl">Chocks</span>
+        <span className="mono" style={{ fontSize: 11, fontWeight: 600, letterSpacing: '.06em', padding: '2px 7px', borderRadius: 3, background: launch?.taxiAuth ? 'rgba(231,176,79,.16)' : '#222C37', color: launch?.taxiAuth ? '#E7B04F' : '#93A1B0' }}>
+          {launch?.taxiAuth ? (launch.taxiAuth.role === 'boss' ? 'AIR BOSS' : 'MINI BOSS') : 'AUTO'}
+        </span>
+        <span style={{ fontSize: 12, color: '#93A1B0' }}>{launch?.taxiAuth ? 'Chocks stay on until a taxi instruction' : 'No Air Boss or Mini Boss seated: chocks come off on request'}</span>
       </section>
       <section className="pnl" aria-label="Launch sequence" style={{ padding: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>

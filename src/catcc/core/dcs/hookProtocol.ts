@@ -130,13 +130,22 @@ export type ShipCmd =
  * Launch holds: the DCS player names to hold on deck (PriFly hasn't cleared them). The hook passes
  * the list to the pilots' mod; it forgets it (no holds) if the room stops refreshing it.
  */
-export type LaunchCmd = { op: 'launch'; hold: string[] };
+export type LaunchCmd = { op: 'launch'; hold: string[]; /** players whose chocks are held (no taxi instruction yet) */ chocks?: string[] };
+
+/** What a pilot's mod reports besides the salute: */
+export type PilotEvent =
+  /** asked for the chocks to come off (held: ready to taxi) */
+  | 'taxi'
+  /** launch bar down / up */
+  | 'lb1'
+  | 'lb0';
 
 export type HookMessage =
   | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean; ab?: boolean }
   | { type: 'cmd'; id: number | null; ok: boolean; error?: string }
   /** a pilot's mod reports the pilot's salute (player name) */
   | { type: 'salute'; p: string }
+  | { type: 'pilotev'; e: PilotEvent; p: string }
   | { type: 'auth'; ok: true }
   | { type: 'mission'; state: 'running' | 'stopped'; name: string }
   | { type: 'pong' }

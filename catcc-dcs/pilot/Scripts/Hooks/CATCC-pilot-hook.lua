@@ -14,6 +14,7 @@ local CMD_GATE = 11873      -- must match Mods/aircraft/CATCC-Pilot/Cockpit/Scri
 local CMD_SALUTE_ID = 11874 -- tells the gate device which command is the pilot salute
 local GATE_ARG = 997        -- the gate device's draw argument (0.25 / 0.75 for a few seconds after a salute)
 local SALUTE_ARGS = { 520, 521 } -- the pilot figure's salute (right / left hand) on the Hornet
+local LB_ARG = 85                -- the launch bar (the deck crew's own check: above 0.6 = down)
 local FRESH_S = 12
 local SALUTE_POLL_S = 0.2
 local SALUTE_COOLDOWN_S = 5
@@ -37,7 +38,11 @@ local socket = require('socket')
 
 local sock, rbuf = nil, ''
 local nextConnectAt = 0
-local held = {}          -- player name -> true
+local held = {}          -- player name -> true (held for launch)
+local chocked = {}       -- player name -> true (chocks held: no taxi instruction yet)
+local pendingChocks = nil -- the pilot's "remove chocks" request, kept until PriFly gives the taxi instruction
+local lbDown = nil       -- launch bar down, as last reported (nil: not reported this hold)
+local lastLbAt = -1e9
 local heardAt = -1e9     -- last hold list from the server
 local lastSentAt = -1e9
 local lastSent = nil
@@ -74,12 +79,10 @@ local function connect()
   sock:send('PILOT\n')
 end
 
--- {"type":"hold","p":["name",...]}
-local function onLine(line)
-  if not line:find('"type":"hold"', 1, true) then return end
-  local _, i = line:find('"p":[', 1, true)
-  if not i then return end
-  -- the strings in the array, until its closing bracket (names may hold brackets, quotes, escapes)
+-- the strings in the JSON array after `key` ("p":[ ...), as a set (names may hold brackets, quotes, escapes)
+local function nameSet(line, key)
+  local _, i = line:find(key, 1, true)
+  if not i then return nil end
   local list = {}
   i = i + 1
   while i <= #line do
@@ -111,7 +114,16 @@ local function onLine(line)
     end
     i = i + 1
   end
+  return list
+end
+
+-- {"type":"hold","p":["name",...],"c":["name",...]}
+local function onLine(line)
+  if not line:find('"type":"hold"', 1, true) then return end
+  local list = nameSet(line, '"p":[')
+  if not list then return end
   held = list
+  chocked = nameSet(line, '"c":[') or {}
   heardAt = now()
 end
 
@@ -130,6 +142,31 @@ local function poll()
     end
   end
 end
+
+local function sendLine(l)
+  if sock then pcall(function() sock:send(l .. '\n') end) end
+end
+
+local function fresh(t) return t - heardAt < FRESH_S end
+
+-- the F8 menu's "Wheel chocks > Remove" (Hornet comm.lua, patched by install.ps1) asks here first:
+-- while PriFly holds this aircraft's chocks the request is kept (and PriFly told the pilot is ready
+-- to taxi); it goes through by itself once the taxi instruction is given. Anything amiss: through at once.
+local M = {}
+function M.chocksRemove(orig, params)
+  local ok, isHeld = pcall(function()
+    local name = myName()
+    return running and name ~= nil and fresh(now()) and chocked[name] == true
+  end)
+  if ok and isHeld then
+    pendingChocks = { orig = orig, params = params }
+    sendLine('EV taxi ' .. tostring(myName()))
+    logi('chocks request held: waiting for the taxi instruction from PriFly')
+    return
+  end
+  return orig:perform(params)
+end
+package.loaded.catcc_pilot = M
 
 -- tell the gate device (LoSetCommand lives in the export environment)
 local function setCmd(cmd, v)
@@ -162,7 +199,7 @@ local function resolveSalute()
   logi('salute command: ' .. (saluteId and tostring(saluteId) or 'not found (watching the pilot figure only)'))
 end
 
--- while held: did the pilot just salute? (the gate device's mark, or the pilot figure's arm)
+-- on deck while held: did the pilot just salute? (the gate device's mark, or the pilot figure's arm)
 local function pollSalute(t, name)
   if t - lastPollAt < SALUTE_POLL_S then return end
   lastPollAt = t
@@ -178,7 +215,7 @@ local function pollSalute(t, name)
   local saluting = how ~= nil
   if saluting and not wasSaluting and t - lastSaluteAt >= SALUTE_COOLDOWN_S and sock then
     lastSaluteAt = t
-    pcall(function() sock:send('SALUTE ' .. name .. '\n') end)
+    sendLine('SALUTE ' .. name)
     logi('salute reported to PriFly (' .. how .. ')')
   end
   wasSaluting = saluting
@@ -207,12 +244,34 @@ local function tick()
     checkAt = false
     logi('gate argument ' .. GATE_ARG .. ' reads ' .. tostring(readArg(GATE_ARG) or 'n/a') .. (hold and ' while held' or ' (no longer held)'))
   end
-  if hold then pollSalute(t, name) else wasSaluting = false end
+  local chock = name ~= nil and fresh(t) and chocked[name] == true
+  -- the kept chocks request goes through once PriFly lets go (taxi instruction, or no word: fail-open)
+  if pendingChocks and not chock then
+    local pc = pendingChocks
+    pendingChocks = nil
+    local ok, err = pcall(function() pc.orig:perform(pc.params) end)
+    logi(ok and 'taxi instruction given: chocks coming off' or ('chocks request failed: ' .. tostring(err)))
+  end
+  -- held for launch: tell PriFly when the launch bar is down (the shooter is ready and waiting)
+  if hold and t - lastLbAt >= 0.5 then
+    lastLbAt = t
+    local a = readArg(LB_ARG)
+    if a then
+      local down = a > 0.6
+      -- up is only news after down
+      if down ~= (lbDown or false) then sendLine('EV ' .. (down and 'lb1' or 'lb0') .. ' ' .. name) end
+      lbDown = down
+    end
+  elseif not hold then
+    lbDown = nil
+  end
+  if hold or chock then pollSalute(t, name) else wasSaluting = false end
 end
 
 local handler = {}
 function handler.onSimulationStart()
   running, checkAt, held, heardAt, lastSent = true, nil, {}, -1e9, nil
+  chocked, pendingChocks, lbDown = {}, nil, nil
   wasSaluting, lastSaluteAt = false, -1e9
   resolveSalute()
   nextConnectAt = 0

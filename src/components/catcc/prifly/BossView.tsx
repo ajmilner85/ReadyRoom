@@ -1,13 +1,17 @@
 /**
  * PriFly Air Boss / Mini Boss (carrier-ops-handoff-2/mockup/Boss.dc.html): left sidebar (Info, wind),
- * the flight deck with live positions and the DCS deck-crew taxi routes, the arrivals / departures
- * boards with flight strips, and the right sidebar (PLAT, launch, lights, air plan).
+ * the flight deck with live positions and taxi instructions, the arrivals / departures boards with
+ * flight strips, and the right sidebar (PLAT, launch, lights, air plan).
+ *
+ * Deck management: click an aircraft, hover a catapult or parking spot to see the route there through
+ * the taxi network (taxiNet.ts), click to send it. Instructions are worked in the order given; a route
+ * is green as far as it is clear and dashed amber beyond the first aircraft in its way.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import FlightCard from '../../ui/flight cards/FlightCard';
 import { fuelK, groupFormations, phaseOf, shortType, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
-import { DECK_LAYERS, DECK_VIEWBOX, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, line, onCat, routeAhead, taxiToCat, type DeckJet, type DeckLayer, type V } from './deck.ts';
+import { DECK_LAYERS, DECK_VIEWBOX, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, line, onCat, routeAhead, type DeckJet, type DeckLayer, type V } from './deck.ts';
 import { DeckDrawing } from './DeckDrawing.tsx';
 import { IcReset } from '../icons.tsx';
 import type { DeckEvent } from './useDeckLog.ts';
@@ -17,7 +21,9 @@ import type { Assignment } from '../../../catcc/core/room/protocol.ts';
 import type { DeckCall } from '../deck.ts';
 import { DeckBar, LaunchTab, LightsPanel } from './BossPanels.tsx';
 import type { LaunchState } from '../../../catcc/core/room/launch.ts';
-import { catEntry, withQueued } from './launch.ts';
+import { catEntry, taxiOrders, withLaunch, withTaxi, type DeckId } from './launch.ts';
+import { TAXI_COL, planTaxi, taxiDest, type DeckPose, type TaxiPlan } from './taxiNet.ts';
+import { TaxiDests, TaxiRoute } from './TaxiOverlay.tsx';
 import { PRIFLY_LIGHTS } from './lights.ts';
 import { InfoPanels } from '../radar/InfoPanels.tsx';
 import { WindIndicator, type WindMode } from '../bridge/Nav.tsx';
@@ -128,6 +134,8 @@ export const BossView: React.FC<{
   const [curPath, setCurPath] = useState<V[]>([]);
   const [drawing, setDrawing] = useState(false);
   const [selected, setSelected] = useState<string | null>(null);
+  /** the destination under the pointer while an aircraft is selected: its route is previewed */
+  const [hoverDest, setHoverDest] = useState<string | null>(null);
   const [layerList, setLayerList] = useState<DeckLayer[]>(() => load('catcc.deck.layers', { l: DEFAULT_LAYERS }).l.filter((k) => DECK_LAYERS.some((x) => x.k === k)));
   const layers = useMemo(() => new Set(layerList), [layerList]);
   const [wind, setWind] = useState<{ m: WindMode }>(() => load('catcc.wind', { m: 'true' as WindMode }));
@@ -153,6 +161,15 @@ export const BossView: React.FC<{
     return [v.x, -v.y];
   };
 
+  // ------------------------------------------------ aircraft on deck, where they are drawn (the sand table moves them)
+  const placed: DeckJet[] = useMemo(() => {
+    if (!st) return [];
+    return st.jets.map((j) => {
+      const c = mode === 'sand' ? chits[j.t.id] : undefined;
+      return c ? { ...j, x: c.x, y: c.y, a: c.a } : j;
+    });
+  }, [st, mode, chits]);
+
   // ------------------------------------------------ launch queues: which catapult each flight on deck is assigned to
   const onDeckKeys = useMemo(() => new Set((st?.jets ?? []).map((j) => keyOf(j.t))), [st]);
   const assignedCat = useMemo(() => {
@@ -160,47 +177,86 @@ export const BossView: React.FC<{
     for (const k of ['1', '2', '3', '4']) catEntry(ops, k).queue.filter((x) => onDeckKeys.has(x)).forEach((key, pos) => m.set(key, { cat: k, pos }));
     return m;
   }, [ops, onDeckKeys]);
-  const taxiTo = (key: string, k: string | null) => setOps({ launch: withQueued(ops, onDeckKeys, key, k) });
 
-  const jets: (DeckJet & { cls: 'sel' | 'green' | 'white' | 'gray' })[] = useMemo(() => {
-    if (!st) return [];
+  // ------------------------------------------------ taxi instructions, worked in the order given
+  const deckIds: DeckId[] = useMemo(() => (st?.jets ?? []).map((j) => ({ id: j.t.id, key: keyOf(j.t) })), [st]);
+  const poses: DeckPose[] = useMemo(() => placed.map((j) => ({ id: j.t.id, x: j.x, y: j.y, a: j.a })), [placed]);
+  const orders = useMemo(() => taxiOrders(ops, deckIds), [ops, deckIds]);
+  const plans = useMemo(() => planTaxi(poses, orders), [poses, orders]);
+  /** the selected aircraft's route to the destination under the pointer, as if it were the next instruction given */
+  const preview: TaxiPlan | null = useMemo(
+    () => (selected && hoverDest && !readOnly ? planTaxi(poses, { ...orders, [selected]: { to: hoverDest, at: Number.MAX_SAFE_INTEGER } }).get(selected) ?? null : null),
+    [selected, hoverDest, readOnly, poses, orders],
+  );
+  const sendTo = (id: string, to: string | null) => {
+    setOps(withTaxi(ops, deckIds, id, to, Date.now()));
+    setHoverDest(null);
+    setSelected(null);
+  };
+
+  // aircraft colours: normal (parked / recovered) until the pilot is ready to taxi (green), then under
+  // PriFly's taxi instruction (magenta); selected, moving or in the landing area always orange
+  const jets: (DeckJet & { cls: 'sel' | 'taxi' | 'ready' | 'white' | 'gray'; atCat: boolean })[] = useMemo(() => {
     const now = Date.now();
-    return st.jets.map((j) => {
-      const c = mode === 'sand' ? chits[j.t.id] : undefined;
-      const jj = c ? { ...j, x: c.x, y: c.y, a: c.a } : j;
+    return placed.map((jj) => {
       const atCat = ['1', '2', '3', '4'].some((k) => onCat([jj], k));
-      const cls: 'sel' | 'green' | 'white' | 'gray' =
-        j.t.id === selected || (mode === 'live' && (jj.moving || inLandingArea(jj.x, jj.y))) ? 'sel' : atCat || assignedCat.has(keyOf(j.t)) ? 'green' : (landedAt.get(j.t.id) ?? 0) > now - 15 * 60_000 ? 'white' : 'gray';
-      return { ...jj, cls };
+      const cls: 'sel' | 'taxi' | 'ready' | 'white' | 'gray' =
+        jj.t.id === selected || (mode === 'live' && (jj.moving || inLandingArea(jj.x, jj.y)))
+          ? 'sel'
+          : plans.has(jj.t.id)
+            ? 'taxi'
+            : launch?.taxiReady?.[jj.t.id] && !atCat
+              ? 'ready'
+              : (landedAt.get(jj.t.id) ?? 0) > now - 15 * 60_000
+                ? 'white'
+                : 'gray';
+      return { ...jj, cls, atCat };
     });
-  }, [st, mode, chits, selected, landedAt, assignedCat]);
+  }, [placed, mode, selected, landedAt, plans, launch]);
 
-  // taxi routes: assigned jets along the DCS launch route to their catapult; other taxiing jets along the route they're on
+  // aircraft taxiing without an instruction: the DCS deck-crew route they are on, from the jet onward
   const routes = useMemo(() => {
-    const out: { id: string; pts: V[]; kind: 'next' | 'queued' | 'ahead' }[] = [];
-    for (const j of jets) {
-      const a = assignedCat.get(keyOf(j.t));
-      if (a) {
-        if (onCat([j], a.cat)) continue;
-        out.push({ id: j.t.id, pts: taxiToCat([j.x, j.y], a.cat), kind: a.pos === 0 ? 'next' : 'queued' });
-      } else if (mode === 'live' && j.moving) {
-        const r = routeAhead(j);
-        if (r) out.push({ id: j.t.id, pts: r.pts, kind: 'ahead' });
-      }
+    const out: { id: string; pts: V[] }[] = [];
+    if (mode !== 'live') return out;
+    for (const j of placed) {
+      if (!j.moving || plans.has(j.t.id)) continue;
+      const r = routeAhead(j);
+      if (r) out.push({ id: j.t.id, pts: r.pts });
     }
     return out;
-  }, [jets, assignedCat, mode]);
+  }, [placed, plans, mode]);
 
-  const shape = (j: DeckJet & { cls: string }) => jetShape(j.cls === 'gray' || j.cls === 'white' ? FOLDED : SPREAD, j.x, j.y, j.a);
+  // Esc lets go of the selected aircraft
+  useEffect(() => {
+    if (!selected) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== 'Escape') return;
+      setSelected(null);
+      setHoverDest(null);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [selected]);
+
+  const shape = (j: DeckJet & { cls: string; atCat: boolean }) => jetShape(j.atCat || j.cls === 'sel' || j.cls === 'taxi' ? SPREAD : FOLDED, j.x, j.y, j.a);
   const byCls = (c: string) => jets.filter((j) => j.cls === c).map(shape).join('');
   const aboard = st?.jets.length ?? 0;
   const owned = pic.air.filter((t) => t.owner === hull).length;
   const tanker = pic.air.find((t) => t.owner === hull && /tanker|S-3B/i.test(t.ty) && t.air !== false);
   const guard = pic.air.find((t) => t.owner === hull && t.k === 'rotary');
-  const colors: Record<string, string> = { sel: '#F15822', green: '#5FC37A', white: '#C9D3DD', gray: '#6E7A88' };
-  const labelCol: Record<string, string> = { sel: '#FFB08F', green: '#7FD397', white: '#C9D3DD', gray: '#93A1B0' };
+  const colors: Record<string, string> = { sel: '#F15822', taxi: '#E45BEA', ready: '#5FC37A', white: '#C9D3DD', gray: '#6E7A88' };
+  const labelCol: Record<string, string> = { sel: '#FFB08F', taxi: '#EF8FF3', ready: '#7FD397', white: '#C9D3DD', gray: '#93A1B0' };
   const selJet = jets.find((j) => j.t.id === selected);
-  const selCat = selJet ? assignedCat.get(keyOf(selJet.t))?.cat ?? null : null;
+  const selPlan = selected ? plans.get(selected) : undefined;
+  /** the route in hand: the preview while a destination is hovered, else the selected aircraft's instruction */
+  const shown = preview ?? selPlan;
+  const nameOf = (id: string | null | undefined) => {
+    const t = id ? jets.find((j) => j.t.id === id)?.t : undefined;
+    return t ? (t.bd ?? t.cs ?? t.id) : '';
+  };
+  const picking = !!selJet && !readOnly;
+  // the road system shows while an aircraft is being sent somewhere
+  const deckLayers = useMemo(() => (picking && !layers.has('taxi') ? new Set([...layers, 'taxi' as DeckLayer]) : layers), [picking, layers]);
   const toggleLayer = (k: DeckLayer) => {
     const next = layers.has(k) ? layerList.filter((x) => x !== k) : [...layerList, k];
     setLayerList(next);
@@ -327,7 +383,10 @@ export const BossView: React.FC<{
                 if (drawing) {
                   const q = toDeck(e);
                   if (q) setCurPath((c) => [...c, q]);
-                } else if (e.target === e.currentTarget) setSelected(null);
+                } else {
+                  setSelected(null);
+                  setHoverDest(null);
+                }
               }}
               onMouseMove={(e) => {
                 const d = dragRef.current;
@@ -338,19 +397,28 @@ export const BossView: React.FC<{
               onMouseUp={() => (dragRef.current = null)}
               onMouseLeave={() => (dragRef.current = null)}
             >
-              <DeckDrawing layers={layers} hull={hull} jbdUp={Object.fromEntries(Object.entries(st?.cats ?? {}).map(([k, j]) => [k, !!j]))} />
+              <DeckDrawing layers={deckLayers} hull={hull} jbdUp={Object.fromEntries(Object.entries(st?.cats ?? {}).map(([k, j]) => [k, !!j]))} />
               {[...paths, curPath].filter((p) => p.length > 1).map((p, i) => (
                 <path key={i} d={line(p)} fill="none" stroke="#F15822" strokeWidth={1} strokeDasharray="3 2" />
               ))}
               <g fill="none" strokeLinejoin="round" strokeLinecap="round" style={{ pointerEvents: 'none' }}>
                 {routes.map((r) => (
-                  <path key={r.id} d={line(r.pts)} stroke={r.kind === 'ahead' ? '#F15822' : '#5FD068'} strokeWidth={r.kind === 'next' ? 1.1 : 0.7} strokeOpacity={r.kind === 'queued' ? 0.5 : 0.9} strokeDasharray={r.kind === 'ahead' ? '2 1.5' : '3 1.5'} />
+                  <path key={r.id} d={line(r.pts)} stroke="#F15822" strokeWidth={0.7} strokeOpacity={0.9} strokeDasharray="2 1.5" />
                 ))}
               </g>
-              <path d={byCls('gray')} fill={colors.gray} />
-              <path d={byCls('white')} fill={colors.white} />
-              <path d={byCls('green')} fill={colors.green} />
-              <path d={byCls('sel')} fill={colors.sel} />
+              {/* taxi instructions: everyone else's first, the aircraft in hand on top */}
+              {[...plans.values()]
+                .filter((p) => p.id !== selected)
+                .map((p) => (
+                  <TaxiRoute key={p.id} plan={p} strong={false} />
+                ))}
+              {shown && <TaxiRoute plan={shown} strong />}
+              {picking && <TaxiDests who={nameOf(selected)} current={selPlan?.to ?? null} hover={hoverDest} onHover={setHoverDest} onPick={(to) => sendTo(selJet.t.id, to)} />}
+              <path d={byCls('gray')} fill={colors.gray} style={{ pointerEvents: 'none' }} />
+              <path d={byCls('white')} fill={colors.white} style={{ pointerEvents: 'none' }} />
+              <path d={byCls('ready')} fill={colors.ready} style={{ pointerEvents: 'none' }} />
+              <path d={byCls('taxi')} fill={colors.taxi} style={{ pointerEvents: 'none' }} />
+              <path d={byCls('sel')} fill={colors.sel} style={{ pointerEvents: 'none' }} />
               {mode === 'live' && (
                 <g fill="none" strokeWidth={0.5} style={{ pointerEvents: 'none' }}>
                   {jets.filter((j) => j.cls === 'sel').map((j) => (
@@ -360,66 +428,83 @@ export const BossView: React.FC<{
               )}
               <g className="id">
                 {jets.map((j) => {
+                  const p = plans.get(j.t.id);
                   const a = assignedCat.get(keyOf(j.t));
+                  const pick = (e: React.MouseEvent) => {
+                    e.stopPropagation();
+                    setHoverDest(null);
+                    setSelected(j.t.id === selected ? null : j.t.id);
+                    if (mode !== 'sand') return;
+                    const q = toDeck(e);
+                    if (q) dragRef.current = { id: j.t.id, dx: q[0] - j.x, dy: q[1] - j.y };
+                  };
                   return (
-                    <text
-                      key={j.t.id}
-                      x={j.x}
-                      y={-j.y - 9.5}
-                      textAnchor="middle"
-                      style={{ fill: labelCol[j.cls], cursor: mode === 'sand' ? 'grab' : 'pointer' }}
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        setSelected(j.t.id === selected ? null : j.t.id);
-                        if (mode !== 'sand') return;
-                        const q = toDeck(e);
-                        if (q) dragRef.current = { id: j.t.id, dx: q[0] - j.x, dy: q[1] - j.y };
-                      }}
-                    >
-                      {j.t.bd ?? j.t.cs ?? ''}
-                      {a ? ` C${a.cat}` : ''}
-                    </text>
+                    <g key={j.t.id} style={{ cursor: mode === 'sand' ? 'grab' : 'pointer' }} onMouseDown={pick} onClick={(e) => e.stopPropagation()}>
+                      {/* the aircraft itself is the click target, not just its board number */}
+                      <circle cx={j.x} cy={-j.y} r={7.5} fill="#000" fillOpacity={0} />
+                      {/* while a destination is being picked the board numbers let the pointer through to the markers under them */}
+                      <text x={j.x} y={Math.max(-j.y - 9.5, p && !p.arrived ? -39.8 : -44)} textAnchor="middle" style={{ fill: labelCol[j.cls], pointerEvents: picking ? 'none' : undefined }}>
+                        {j.t.bd ?? j.t.cs ?? ''}
+                        {(!p || p.arrived) && a ? ` C${a.cat}` : ''}
+                      </text>
+                      {/* where it has been sent: a second line over the board number, so neighbours' labels don't run together */}
+                      {p && !p.arrived && (
+                        <text x={j.x} y={Math.max(-j.y - 14.2, -44.5)} textAnchor="middle" style={{ fontSize: 3.3, fill: p.blockedBy ? TAXI_COL.blocked : '#7FD397', pointerEvents: 'none' }}>
+                          {`▸${taxiDest(p.to)?.short ?? ''}`}
+                        </text>
+                      )}
+                    </g>
                   );
                 })}
               </g>
             </svg>
 
-            {/* the selected jet: send it to a catapult (planning: DCS has no API to order deck crews) */}
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap', minHeight: 30 }}>
+            {/* the aircraft in hand: where it is being sent and whether the way is clear (planning: DCS has no API to order deck crews) */}
+            <div aria-live="polite" style={{ display: 'flex', alignItems: 'center', gap: 10, flexWrap: 'wrap', minHeight: 30 }}>
               {selJet ? (
                 <>
                   <span className="mono" style={{ fontSize: 12.5, color: '#FFB08F', fontWeight: 600 }}>
                     {selJet.t.bd ?? selJet.t.cs ?? selJet.t.id} {shortType(selJet.t.ty)}
                     {selJet.t.lb !== undefined ? ` · ${fuelK(selJet.t.lb)}` : ''}
                   </span>
-                  <span className="lbl" title="Puts the flight in that catapult's launch queue and shows the deck crew's route there. DCS can't be ordered to taxi a jet: this is the plan the directors work to.">
-                    Taxi to
-                  </span>
-                  {['1', '2', '3', '4'].map((k) => (
-                    <button key={k} disabled={readOnly} aria-pressed={selCat === k} onClick={() => taxiTo(keyOf(selJet.t), selCat === k ? null : k)} style={btn(selCat === k, !readOnly)}>
-                      CAT {k}
-                    </button>
-                  ))}
-                  {selCat && !readOnly && (
-                    <button onClick={() => taxiTo(keyOf(selJet.t), null)} style={btn()}>
-                      Unassign
+                  {shown ? (
+                    <span className="mono" style={{ fontSize: 12.5, color: shown.arrived ? '#93A1B0' : shown.blockedBy ? TAXI_COL.blocked : '#7FD397' }}>
+                      {preview ? '→' : 'TAXI TO'} {taxiDest(shown.to)?.label.toUpperCase()}
+                      {shown.arrived
+                        ? ' · THERE'
+                        : shown.blockedBy
+                          ? ` · CLEAR FOR ${Math.round(shown.clearLen)} OF ${Math.round(shown.len)} M · BLOCKED BY ${nameOf(shown.blockedBy) || 'AN AIRCRAFT'}`
+                          : ` · ${Math.round(shown.len)} M · CLEAR`}
+                      {!preview && plans.size > 1 ? ` · #${shown.seq} OF ${plans.size}` : ''}
+                    </span>
+                  ) : (
+                    <span className="mono" style={{ fontSize: 11.5, color: '#93A1B0' }}>
+                      {readOnly ? 'No taxi instruction' : 'Hover a catapult or a parking spot to see the route there; click to send it. Esc lets go.'}
+                    </span>
+                  )}
+                  <span style={{ flex: 1 }} />
+                  {selPlan && !readOnly && (
+                    <button onClick={() => sendTo(selJet.t.id, null)} style={btn()}>
+                      Cancel taxi
                     </button>
                   )}
                 </>
               ) : (
                 <span className="mono" style={{ fontSize: 11.5, color: '#6B7683' }}>
-                  {mode === 'sand' ? 'Drag a board number to move its chit. Positions here are planning only.' : 'Click a board number to assign it a catapult; its DCS taxi route shows on the deck.'}
+                  {mode === 'sand' ? 'Drag an aircraft to move its chit (planning only). Click one to send it to a catapult or parking spot.' : 'Click an aircraft, then a catapult or parking spot, to give it a taxi instruction.'}
                 </span>
               )}
             </div>
           </div>
           <div className="mono" style={{ fontSize: 11.5, color: '#93A1B0', display: 'flex', gap: 18, flexWrap: 'wrap' }}>
             <span><span style={{ color: '#F15822' }}>■</span> selected / taxiing / in landing area</span>
-            <span><span style={{ color: '#5FC37A' }}>■</span> on a catapult or queued</span>
+            <span><span style={{ color: '#5FC37A' }}>■</span> ready to taxi</span>
+            <span><span style={{ color: '#E45BEA' }}>■</span> under taxi instruction</span>
             <span><span style={{ color: '#C9D3DD' }}>■</span> recovered</span>
             <span><span style={{ color: '#6E7A88' }}>■</span> parked / down</span>
-            <span><span style={{ color: '#5FD068' }}>- -</span> route to catapult</span>
-            <span><span style={{ color: '#F15822' }}>- -</span> route ahead</span>
+            <span><span style={{ color: TAXI_COL.clear, fontWeight: 700 }}>━</span> taxi route, clear</span>
+            <span><span style={{ color: TAXI_COL.blocked }}>- -</span> beyond an aircraft in the way</span>
+            <span><span style={{ color: '#F15822' }}>- -</span> route ahead (no instruction)</span>
           </div>
         </section>
 
@@ -446,7 +531,7 @@ export const BossView: React.FC<{
             </button>
           ))}
         </div>
-        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={setOps} readOnly={readOnly} launch={launch} mayClear={!!mayClear} onClear={onClear} />}
+        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={(p) => setOps(p.launch ? withLaunch(ops, deckIds, p.launch as NonNullable<OpsState['launch']>) : p)} readOnly={readOnly} launch={launch} mayClear={!!mayClear} onClear={onClear} />}
         {tab === 'lights' && <LightsPanel items={PRIFLY_LIGHTS} ops={ops} setOps={setOps} readOnly={readOnly} />}
         {tab === 'plan' && (
           <>

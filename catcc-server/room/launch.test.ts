@@ -90,7 +90,20 @@ describe('launch clearance through the room', () => {
     const jet = held.launch['CVN-72'].hold[0];
     await until(() => fake.hold.includes(PILOT));
 
-    // the pilot salutes (their mod reports it)
+    // the Boss also holds the chocks until a taxi instruction
+    expect(held.launch['CVN-72'].taxiAuth).toMatchObject({ role: 'boss' });
+    await until(() => fake.chocks.includes(PILOT));
+    // the pilot asks for the chocks to come off (their mod reports it): ready to taxi
+    fake.pilotEvent(PILOT, 'taxi');
+    await boss.waitFor('launch', (m) => !!m.launch['CVN-72']?.taxiReady?.[jet]);
+    // the taxi instruction releases the chocks, and ready-to-taxi goes with it
+    boss.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { taxi: { [jet]: { to: 'C1', at: Date.now() } } } });
+    await boss.waitFor('launch', (m) => m.launch['CVN-72']?.chocks?.length === 0 && !m.launch['CVN-72'].taxiReady?.[jet]);
+    await until(() => fake.chocks.length === 0);
+
+    // on the cat: launch bar down (the shooter is ready), then a salute
+    fake.pilotEvent(PILOT, 'lb1');
+    await boss.waitFor('launch', (m) => !!m.launch['CVN-72']?.barDown?.[jet]);
     fake.salute(PILOT);
     await boss.waitFor('launch', (m) => !!m.launch['CVN-72']?.saluted[jet]);
 
