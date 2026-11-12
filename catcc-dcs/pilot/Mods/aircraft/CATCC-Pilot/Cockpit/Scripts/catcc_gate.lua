@@ -18,12 +18,15 @@ local CMD_GATE = 11873    -- custom command id, sent by the hook with LoSetComma
 local CMD_SALUTE_ID = 11874 -- the hook tells us the salute command's number
 local STALE_S = 15        -- no word from the hook for this long: open the gate
 local SALUTE_S = 3
+-- iCommandPilotGestureSalute in DCS 2.9.31 (the hook's lookup logged it). Listened for from load: a
+-- listen added later, when the hook passes the number, did not seem to take.
+local SALUTE_CMD = 238
 
 local dev = GetSelf()
 local held = false
 local lastWord = -1e9
 local clock = 0
-local saluteId = nil
+local saluteId = SALUTE_CMD
 local salutedUntil = -1e9
 
 make_default_activity(0.5)
@@ -45,6 +48,8 @@ end
 
 dev:listen_command(CMD_GATE)
 dev:listen_command(CMD_SALUTE_ID)
+dev:listen_command(SALUTE_CMD)
+local listening = { [SALUTE_CMD] = true }
 
 function SetCommand(command, v)
   if command == CMD_GATE then
@@ -56,11 +61,13 @@ function SetCommand(command, v)
     end
   elseif command == CMD_SALUTE_ID then
     local id = math.floor(v + 0.5)
-    if id > 0 and saluteId == nil and id ~= CMD_GATE and id ~= CMD_SALUTE_ID then
+    -- a different number (a future DCS version): listen for that too
+    if id > 0 and not listening[id] and id ~= CMD_GATE and id ~= CMD_SALUTE_ID then
+      listening[id] = true
       saluteId = id
       dev:listen_command(id)
     end
-  elseif saluteId and command == saluteId then
+  elseif command == SALUTE_CMD or command == saluteId then
     salutedUntil = clock + SALUTE_S
     apply()
   end
