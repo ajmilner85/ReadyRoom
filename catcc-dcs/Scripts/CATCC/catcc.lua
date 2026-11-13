@@ -74,6 +74,16 @@ do
   end
 end
 
+-- test switches, kept out of CATCC.lua (which holds the token): Config/CATCC-test.lua returning e.g.
+-- { chockTest = true } (F10 chock test menu, Scripts/CATCC/chocktest.lua)
+do
+  local f = loadfile(writedir .. 'Config/CATCC-test.lua')
+  if f then
+    local ok, t = pcall(f)
+    if ok and type(t) == 'table' then cfg.chockTest = t.chockTest == true end
+  end
+end
+
 if type(cfg.token) ~= 'string' or #cfg.token < 16 then
   warn('token missing or shorter than 16 characters; all clients will be refused')
   cfg.token = nil
@@ -238,6 +248,17 @@ local function installSampler()
   end
   info('sampler installed in state "' .. cfg.state .. '"')
   samplerInstalled = true
+  if cfg.chockTest then
+    local fh = io.open(writedir .. 'Scripts/CATCC/chocktest.lua', 'r')
+    if fh then
+      local ct = fh:read('*a')
+      fh:close()
+      local r = dostring(ct .. '\nreturn (type(CATCC_CT) == "table") and "CATCC_OK" or "CATCC_FAIL"')
+      if r == 'CATCC_OK' then info('chock test menu installed') else warn('chock test install failed: ' .. tostring(r)) end
+    else
+      warn('chockTest is on but Scripts/CATCC/chocktest.lua is missing')
+    end
+  end
   return true
 end
 
