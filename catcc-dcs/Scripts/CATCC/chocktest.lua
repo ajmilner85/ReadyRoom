@@ -20,7 +20,12 @@ local atan2 = math.atan2 or math.atan
 local TWO_PI = 2 * math.pi
 
 local GEAR = { along = -2.4378, across = 1.55, r = 0.34 } -- Hornet main gear (the test is Hornet only)
-local TYPES = {                                            -- stock statics with a collision shell
+-- orient: 'along' keeps the object's length along the wheel's travel; default lies a long object across.
+-- gap / behind: what a type starts with when picked (Closer / Farther / Toggle change it from there).
+local TYPES = {
+  -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces
+  { type = 'CATCC_Chock',        category = 'ADEquipment', label = 'CATCC chock', orient = 'along', gap = 0.10, behind = true },
+  -- stock statics with a collision shell (too big for chocks; kept for comparison)
   { type = 'trunks_small_cargo', category = 'Cargos', label = 'logs (small)' },
   { type = 'ammo_cargo',         category = 'Cargos', label = 'ammo box' },
   { type = 'f_bar_cargo',        category = 'Cargos', label = 'F-bar' },
@@ -126,14 +131,20 @@ local function place(unit, idx)
   local ship = carrierUnder(pos.p)
   if not ship then return say(gid, 'no carrier under you') end
   removeBlockers(s)
+  if s.typeIdx ~= idx then
+    -- a newly picked type starts from its own gap and front/behind setting
+    s.gap = t.gap or GAP0
+    s.behind = t.behind or false
+  end
   s.typeIdx = idx
   local hc = heading(ship:getPosition().x)
   local country = ship:getCountry()
   local box = boxOf(t, country, ship, hc, pos)
   if not box then return say(gid, t.label .. ': could not spawn it (type ' .. t.type .. ')') end
   local lenX, lenZ = box.max.x - box.min.x, box.max.z - box.min.z
-  -- lie across the jet's path when the object is longer than it is wide
-  local across = lenX > lenZ
+  -- lie across the jet's path when the object is longer than it is wide (unless the type says otherwise)
+  local across
+  if t.orient == 'along' then across = false elseif t.orient == 'across' then across = true else across = lenX > lenZ end
   local hj = heading(pos.x)
   local hdg = across and (hj + math.pi / 2) % TWO_PI or hj
   -- the jet's horizontal forward and right
