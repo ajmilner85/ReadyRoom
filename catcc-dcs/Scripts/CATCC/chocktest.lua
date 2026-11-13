@@ -24,7 +24,7 @@ local GEAR = { along = -2.4378, across = 1.55, r = 0.34 } -- Hornet main gear (t
 -- gap / behind: what a type starts with when picked (Closer / Farther / Toggle change it from there).
 local TYPES = {
   -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces
-  { type = 'CATCC_Chock',        category = 'ADEquipment', label = 'CATCC chock', orient = 'along', gap = 0.10, behind = true },
+  { type = 'CATCC_Chock',        category = 'ADEquipment', label = 'CATCC chock', orient = 'along', gap = 0.03, behind = true },
   -- stock statics with a collision shell (too big for chocks; kept for comparison)
   { type = 'trunks_small_cargo', category = 'Cargos', label = 'logs (small)' },
   { type = 'ammo_cargo',         category = 'Cargos', label = 'ammo box' },

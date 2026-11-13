@@ -75,6 +75,46 @@ shell = block('CHOCK')
 collection('Collision').objects.link(shell)
 shell.EDMProps.SPECIAL_TYPE = 'COLLISION_SHELL'
 
+# collision lines: DCS tests one object's lines against the other's shell, and every stock object that
+# stops a jet carries both (a shell alone was driven straight through). The jet's own lines don't run
+# down at tyre-bottom height, so the chock's lines must reach into the tyre's shell (WHEEL_L / WHEEL_R):
+# the block's edges, plus lines across the full width at several heights on both sloped faces (where
+# the tyre presses), plus lines up each slope.
+def lines(name):
+    vs, es = [], []
+
+    def seg(a, b):
+        vs.append(a); vs.append(b)
+        es.append((len(vs) - 2, len(vs) - 1))
+
+    def slope_x(z, sign):  # the sloped face's x at height z (front: +, back: -)
+        return sign * (L / 2 - (L / 2 - T / 2) * (z / H))
+
+    # the block's 12 edges
+    b = [(-L / 2, -W / 2, 0), (L / 2, -W / 2, 0), (L / 2, W / 2, 0), (-L / 2, W / 2, 0)]
+    t = [(-T / 2, -W / 2, H), (T / 2, -W / 2, H), (T / 2, W / 2, H), (-T / 2, W / 2, H)]
+    for i in range(4):
+        seg(b[i], b[(i + 1) % 4]); seg(t[i], t[(i + 1) % 4]); seg(b[i], t[i])
+    for sign in (1, -1):
+        # across the width at several heights on the slope
+        for k in range(1, 6):
+            z = H * k / 6
+            x = slope_x(z, sign)
+            seg((x, -W / 2, z), (x, W / 2, z))
+        # up the slope at several points across the width
+        for k in range(1, 6):
+            y = -W / 2 + W * k / 6
+            seg((slope_x(0, sign), y, 0), (slope_x(H, sign), y, H))
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(vs, es, [])
+    me.update()
+    return bpy.data.objects.new(name, me)
+
+
+cl = lines('CHOCK_LINES')
+collection('Collision').objects.link(cl)
+cl.EDMProps.SPECIAL_TYPE = 'COLLISION_LINE'
+
 print('CATCC chock: L=%.3f T=%.3f H=%.3f W=%.3f -> %s' % (L, T, H, W, OUT))
 res = bpy.ops.edm.export(filepath=OUT)
 print('CATCC chock export:', res)
