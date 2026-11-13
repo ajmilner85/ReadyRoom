@@ -143,16 +143,114 @@ rec('relay ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
 return table.concat(out, '\\n')
 `;
 
-function run(): string[] {
+// The ship chock flag test (Config/CATCC-test.lua chockTest = true): the F10 switch lives in the
+// mission's Lua state (CATCC_CT.shipFlag); the native module is mocked as a carrier with 4 parking
+// spots, with or without a deck crew that clears the flags between frames.
+const flagHarness = `
+local out = {}
+local function rec(s) out[#out + 1] = s end
+realTime = 0
+log = { INFO = 1, write = function() end }
+lfs = { writedir = function() return 'W/' end }
+loadfile = function(p)
+  if p == 'W/Config/CATCC-test.lua' then return function() return { chockTest = true } end end
+  return nil
+end
+package.preload.socket = function()
+  return {
+    gettime = function() return realTime end,
+    tcp = function()
+      local s = {}
+      function s:settimeout() end
+      function s:connect() end
+      function s:send() end
+      function s:close() end
+      function s:receive() return nil, 'timeout', '' end
+      return s
+    end,
+  }
+end
+local cb
+DCS = { setUserCallbacks = function(h) cb = h end, getRealTime = function() return realTime end }
+net = { get_my_player_id = function() return 7 end, get_player_info = function() return 'Volt 3-1 | 401 Ace' end }
+local MAIN = { tostring = tostring, CATCC_CT = {},
+  world = { getPlayer = function() return { getID = function() return 77 end } end },
+  trigger = { action = { outTextForUnit = function(id, text) rec('say ' .. text) end } } }
+net.dostring_in = function(state, code)
+  if state ~= 'server' then return nil end
+  return assert(load(code, 'main', 't', MAIN))()
+end
+Export = { LoSetCommand = function() end, LoGetSelfData = function() return { Position = { x = 1, y = 20, z = 2 } } end }
+package.preload.Input = function() return { getEnvTable = function() return { Actions = {} } end } end
+local flags, crew, sets = { false, false, false, false }, false, 0
+local function read()
+  local s = ''
+  for i = 1, 4 do s = s .. (flags[i] and '1' or '0') end
+  return s
+end
+local NATIVE = {
+  probe = function() return { count = 4, flags = read(), ship = 1, dist = 10, self = 2, selfType = '1.1.1.0' } end,
+  set = function(i, on) flags[i + 1] = on; sets = sets + 1; return true end,
+  dump = function() return '' end,
+}
+package.loadlib = function(path, fn) rec('loadlib ' .. fn); return function() return NATIVE end end
+assert(load(PILOT_SRC, 'pilot'))()
+local function frame(dt)
+  realTime = realTime + dt
+  if crew then for i = 1, 4 do flags[i] = false end end
+  cb.onSimulationFrame()
+end
+cb.onSimulationStart()
+for _ = 1, 10 do frame(0.1) end
+rec('idle sets ' .. sets)          -- the switch not thrown: the flags are left alone
+MAIN.CATCC_CT.shipFlag = 'on'
+for _ = 1, 70 do frame(0.1) end    -- 7 s, nothing clears them
+rec('on flags ' .. read())
+crew = true                        -- a deck crew that clears them between frames
+for _ = 1, 70 do frame(0.1) end
+crew = false
+frame(0.1)
+MAIN.CATCC_CT.shipFlag = 'off'
+frame(0.6)
+local before = sets
+for _ = 1, 10 do frame(0.1) end
+rec('off flags ' .. read() .. ' later sets ' .. (sets - before))
+return table.concat(out, '\\n')
+`;
+
+function run(h: string = harness): string[] {
   const L = lauxlib.luaL_newstate();
   lualib.luaL_openlibs(L);
   lua.lua_pushstring(L, to_luastring(src));
   lua.lua_setglobal(L, to_luastring('PILOT_SRC'));
-  const status = lauxlib.luaL_dostring(L, to_luastring(harness));
+  const status = lauxlib.luaL_dostring(L, to_luastring(h));
   const out = lua.lua_tojsstring(L, -1) as string;
   if (status !== 0) throw new Error(out);
   return out.split('\n');
 }
+
+describe('CATCC pilot hook: ship chock flag test', () => {
+  const out = run(flagHarness);
+  it('leaves the carrier alone until the F10 switch is thrown', () => {
+    expect(out).toContain('idle sets 0');
+  });
+  it('sets every spot on every frame while ON, and says how often the flags were still on at the next frame', () => {
+    expect(out).toContain('on flags 1111');
+    const kept = out.map((l) => l.match(/^say CATCC: ship chock flags: set on all 4 spots every frame; still on at the next frame (\d+) times of (\d+) \(last read (\d+)\)$/)).filter(Boolean) as RegExpMatchArray[];
+    expect(kept.length).toBeGreaterThanOrEqual(2);
+    // nothing clears them: still on every time
+    expect(kept[0][1]).toBe(kept[0][2]);
+    expect(Number(kept[0][2])).toBeGreaterThan(10);
+    expect(kept[0][3]).toBe('1111');
+    // a deck crew clearing them between frames: never still on
+    const cleared = kept.find((m) => m[3] === '0000');
+    expect(cleared).toBeDefined();
+  });
+  it('clears the flags once when switched OFF, then leaves them alone', () => {
+    expect(out).toContain('say CATCC: ship chock flags cleared on all 4 spots (they read 1111 before)');
+    expect(out).toContain('off flags 0000 later sets 0');
+  });
+});
 
 describe('CATCC pilot hook', () => {
   const out = run();

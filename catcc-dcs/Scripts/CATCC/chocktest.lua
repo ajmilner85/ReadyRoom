@@ -1,14 +1,23 @@
 -- CATCC chock test (DCS mission scripting environment, Lua 5.1). TEST ONLY.
 --
 -- Installed by the CATCC hook when Saved Games\DCS\Config\CATCC-test.lua returns { chockTest = true }.
--- Adds F10 > "CATCC chock test" for every player: puts static objects ("blockers") at the jet's wheels
--- or gear legs, linked to the carrier so they move with the deck, to find out whether a static object
--- physically holds the jet, and whether touching it damages it.
+-- Adds F10 > "CATCC chock test" for every player.
 --
--- On screen and in dcs.log ("CATCC chock test: ..."): what was placed, then while blockers are out, how
--- far the jet has moved (carrier frame) and its life, whenever either changes. It also watches the
--- Hornet's own wheel chocks (draw argument 23: F8 > Ground Crew > Wheel chocks) and reports how far the
--- jet moves while they are on.
+-- 1. Ship chock flags: ON / OFF. The carrier keeps a wheel-chock flag per parking spot; the deck crew's
+--    chocks (flag on) arrest a Hornet in full afterburner. ON asks the pilot mod (CATCC-pilot-hook.lua,
+--    catcc_chocks.dll) to set every spot's flag, every frame; it reads CATCC_CT.shipFlag from here.
+-- 2. The Hornet's own wheel chocks (draw argument 23) are watched all the time: on screen and in dcs.log
+--    ("CATCC chock test: ...") when they go on or come off, and how far the jet moves while they are on.
+-- 3. PARKED (2026-11-13, the user's call: not the right approach, and it would be worse in multiplayer):
+--    collision "blockers", static objects at the wheels or gear legs, linked to the carrier. What they
+--    showed in DCS 2.9.31:
+--      - deck-equipment statics (ADEquipment, lLandVehicle) never collide with the jet, at any height;
+--      - Cargo statics collide once <DCS>\Data\<shape>.csv exists, but they don't stop the jet's
+--        collision lines, they damage what touches them: a thin wall across the wheel's path gave a small
+--        bounce, a wall at the gear leg or a 0.4 m block at the tyres collapsed the main gear in well
+--        under a second and the jet sank onto the deck; the jet's life stayed 20/20 throughout;
+--      - a chock-height shell (0.18 m) touches nothing: see the geometry below.
+--    The code and its menu stay for reference: set CATCC_CT_SHOW_BLOCKERS = true before this file runs.
 --
 -- Hornet geometry, aircraft frame (along = metres forward of the origin, across = to the right):
 --   flight model (CoreMods/aircraft/FA-18C/FA-18C_hornet.lua): main wheels at -2.4378, +-1.55, diameter
@@ -24,8 +33,10 @@
 -- starboard, offsets.angle = heading relative to the carrier (radians); checked against the
 -- Supercarrier population template mission.
 
-CATCC_CT = { players = {}, menus = {} }
+-- shipFlag: 'on' / 'off', read by the pilot mod (net.dostring_in) for the ship chock flag test
+CATCC_CT = { players = {}, menus = {}, shipFlag = nil }
 local CT = CATCC_CT
+local SHOW_BLOCKERS = CATCC_CT_SHOW_BLOCKERS == true -- the parked collision experiments' menu
 
 local atan2 = math.atan2 or math.atan
 local TWO_PI = 2 * math.pi
@@ -332,6 +343,16 @@ local function addMenu(unit)
   playerState(unit) -- watched from now on (the Hornet's own chocks), blockers or not
   local un = unit:getName()
   local root = missionCommands.addSubMenuForGroup(gid, 'CATCC chock test')
+  missionCommands.addCommandForGroup(gid, 'Ship chock flags: ON', root, withUnit(un, function(u)
+    CT.shipFlag = 'on'
+    say(g:getID(), "ship chock flags ON: the pilot mod now sets the carrier's chock flag on every parking spot, every frame. " ..
+      'Are the chocks drawn? Add power: any movement is reported here')
+  end))
+  missionCommands.addCommandForGroup(gid, 'Ship chock flags: OFF', root, withUnit(un, function(u)
+    CT.shipFlag = 'off'
+    say(g:getID(), 'ship chock flags OFF: the pilot mod clears them once and leaves them alone')
+  end))
+  if not SHOW_BLOCKERS then return end
   for i, t in ipairs(TYPES) do
     missionCommands.addCommandForGroup(gid, 'Place: ' .. t.label, root, withUnit(un, function(u) place(u, i) end))
   end

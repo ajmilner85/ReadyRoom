@@ -9,7 +9,7 @@ import { lauxlib, lua, lualib, to_luastring } from 'fengari';
 
 const src = fs.readFileSync(path.resolve(__dirname, '../Scripts/CATCC/chocktest.lua'), 'utf8');
 
-const harness = `
+const mocks = `
 local out = {}
 local function rec(s) out[#out + 1] = s end
 local HC = 0.5                    -- carrier heading (rad, clockwise from north)
@@ -77,9 +77,14 @@ trigger = { action = { outTextForGroup = function(gid, text) rec('say ' .. gid .
 local logged = {}
 env = { info = function(s) logged[#logged + 1] = s end }
 
+CATCC_CT_SHOW_BLOCKERS = %SHOW%
 assert(load(CT_SRC, 'chocktest'))()
 rec('menu ' .. table.concat(order, ' | '))
 local function tick() timers[2](nil, 1) end
+`;
+
+// the parked collision blockers (their menu shows with CATCC_CT_SHOW_BLOCKERS)
+const blockers = `
 local function dump(tag)
   for _, s in ipairs(spawned) do
     if s.alive then
@@ -126,7 +131,16 @@ rec('logged ' .. #logged .. ' ' .. tostring(logged[1]))
 return table.concat(out, '\\n')
 `;
 
-function run(): string[] {
+// the menu as installed: the ship chock flag switch only
+const flagSwitch = `
+cmds['Ship chock flags: ON']()
+rec('flag ' .. tostring(CATCC_CT.shipFlag))
+cmds['Ship chock flags: OFF']()
+rec('flag ' .. tostring(CATCC_CT.shipFlag))
+return table.concat(out, '\\n')
+`;
+
+function run(harness: string): string[] {
   const L = lauxlib.luaL_newstate();
   lualib.luaL_openlibs(L);
   lua.lua_pushstring(L, to_luastring(src));
@@ -160,7 +174,13 @@ const chockSpots = (gap: number) => {
 };
 
 describe('CATCC chock test (mission environment)', () => {
-  const out = run();
+  const out = run(mocks.replace('%SHOW%', 'true') + blockers);
+  const plain = run(mocks.replace('%SHOW%', 'nil') + flagSwitch);
+  it('offers only the ship chock flag switch unless the parked blockers are asked for, and the switch sets what the pilot mod reads', () => {
+    expect(plain.find((l) => l.startsWith('menu '))).toBe('menu Ship chock flags: ON | Ship chock flags: OFF');
+    expect(plain.filter((l) => l.startsWith('flag '))).toEqual(['flag on', 'flag off']);
+    expect(plain.some((l) => l.includes('ship chock flags ON'))).toBe(true);
+  });
   it('fits the F10 menu (10 items at most)', () => {
     const menu = out.find((l) => l.startsWith('menu '))!.slice(5).split(' | ');
     expect(menu.length).toBeLessThanOrEqual(10);

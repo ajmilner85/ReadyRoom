@@ -36,6 +36,13 @@ do
     local ok, user = pcall(f)
     if ok and type(user) == 'table' then for k, v in pairs(user) do cfg[k] = v end end
   end
+  -- test switches (the same file the server hook reads): { chockTest = true } turns on the ship chock
+  -- flag test below
+  local tf = loadfile(writedir .. 'Config/CATCC-test.lua')
+  if tf then
+    local ok, test = pcall(tf)
+    if ok and type(test) == 'table' and test.chockTest == true then cfg.chockTest = true end
+  end
 end
 
 package.path = (package.path or '') .. ';.\\LuaSocket\\?.lua'
@@ -412,9 +419,10 @@ local function nativeChocks(t, name, chock, parked)
     end
     return
   end
-  -- Re-setting the ship's chock flag does NOT physically hold the player, and the deck crew's C++
-  -- update clears it the next frame (it flickers). Off by default; the flag read above still finds
-  -- the parking spot. cfg.fightDeckCrew = true only to re-test the flag behaviour.
+  -- Re-setting the ship's chock flag once a second did not hold the player (2026-11-12): the deck crew's
+  -- C++ update clears it at once, so the jet was chocked for a frame at a time (the drawn chocks
+  -- flickered). Off by default; the flag read above still finds the parking spot. cfg.fightDeckCrew =
+  -- true only to re-test that. Whether the jet holds while the flag stays on: shipFlagTest below.
   if not cfg.fightDeckCrew then return end
   local on = flags:sub(mySlot + 1, mySlot + 1) == '1'
   if chock and parked and not on then
@@ -425,6 +433,70 @@ local function nativeChocks(t, name, chock, parked)
     slotSetByUs = false
     if on then pcall(native.set, mySlot, false) end
     say('chocks let go (spot ' .. mySlot .. ')')
+  end
+end
+
+-- TEST ONLY (Config\CATCC-test.lua chockTest = true; F10 > CATCC chock test > Ship chock flags: ON / OFF,
+-- which sets CATCC_CT.shipFlag in the mission's Lua state).
+-- The carrier keeps a wheel-chock flag per parking spot; the jet on the spot draws its chocks while the
+-- flag is on, and the deck crew's chocks arrest a Hornet in full afterburner (2026-11-13). The Hornet's
+-- own ground crew won't place chocks on the carrier ("unable to comply"). ON: every frame, set every
+-- spot's flag, and say what the flags read just before (what survived since the last frame). It answers:
+-- with the flag kept on, is the jet held? and does anything clear the flag (the deck crew does while it
+-- runs; with the taxi deck crew disabled in the mission, maybe nothing)?
+local FLAG_SAY_S = 5
+local flagTest = { want = nil, pollAt = -1e9, saidAt = -1e9, sets = 0, checked = 0, kept = 0, err = nil }
+
+local function flagProbe()
+  if not loadNative() then return nil, 'the native module is not loaded' end
+  local p = selfPos()
+  if not p then return nil, 'no aircraft position' end
+  local ok, info, err = pcall(native.probe, p.x, p.y, p.z)
+  if not ok or not info then return nil, tostring(ok and err or info) end
+  return info
+end
+
+local function shipFlagTest(t)
+  if not cfg.chockTest then return end
+  if t - flagTest.pollAt >= 0.5 then
+    flagTest.pollAt = t
+    local ok, r = pcall(net.dostring_in, 'server', 'return tostring(CATCC_CT and CATCC_CT.shipFlag or "")')
+    local want = (ok and (r == 'on' or r == 'off')) and r or nil
+    if want ~= flagTest.want then
+      flagTest.want, flagTest.saidAt, flagTest.sets, flagTest.checked, flagTest.kept, flagTest.err = want, t, 0, 0, 0, nil
+      if want == 'off' then
+        local info, err = flagProbe()
+        if info then
+          for i = 0, info.count - 1 do pcall(native.set, i, false) end
+          say(string.format('ship chock flags cleared on all %d spots (they read %s before)', info.count, info.flags))
+        else
+          say('ship chock flags: ' .. err)
+        end
+      end
+    end
+  end
+  if flagTest.want ~= 'on' then return end
+  local info, err = flagProbe()
+  if not info then
+    if err ~= flagTest.err then
+      flagTest.err = err
+      say('ship chock flags: ' .. err)
+    end
+    return
+  end
+  flagTest.err = nil
+  -- what survived since the last frame's set
+  if flagTest.sets > 0 then
+    flagTest.checked = flagTest.checked + 1
+    if not info.flags:find('0', 1, true) then flagTest.kept = flagTest.kept + 1 end
+  end
+  for i = 0, info.count - 1 do pcall(native.set, i, true) end
+  flagTest.sets = flagTest.sets + 1
+  if t - flagTest.saidAt >= FLAG_SAY_S then
+    flagTest.saidAt = t
+    say(string.format('ship chock flags: set on all %d spots every frame; still on at the next frame %d times of %d (last read %s)',
+      info.count, flagTest.kept, flagTest.checked, info.flags))
+    flagTest.checked, flagTest.kept = 0, 0
   end
 end
 
@@ -487,6 +559,7 @@ local inContact, contactWarned, tickErrSaid = false, false, false
 local function tick()
   poll()
   local t = now()
+  shipFlagTest(t)
   local name = myName()
   -- in touch with the CATCC server hook (it sends the hold list every 5 s, PriFly staffed or not)
   local contact = fresh(t)
@@ -552,6 +625,7 @@ function handler.onSimulationStart()
   wasSaluting, lastSaluteAt = false, -1e9
   lastNativeAt, nativeFlags, nativeErr, mySlot, slotSetByUs, nativeDumped = -1e9, nil, nil, nil, false, false
   slotUnknownSaid, saidAt, pendingSay = false, {}, {}
+  flagTest.want, flagTest.pollAt, flagTest.sets, flagTest.checked, flagTest.kept, flagTest.err = nil, -1e9, 0, 0, 0, nil
   inContact, contactWarned, tickErrSaid = false, false, false
   resolveSalute()
   if not exportListed then
