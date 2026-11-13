@@ -20,11 +20,16 @@ local atan2 = math.atan2 or math.atan
 local TWO_PI = 2 * math.pi
 
 local GEAR = { along = -2.4378, across = 1.55, r = 0.34 } -- Hornet main gear (the test is Hornet only)
+local NOSE = { along = 2.9851, r = 0.5385 / 2 }           -- Hornet nose gear (centreline)
 -- orient: 'along' keeps the object's length along the wheel's travel; default lies a long object across.
 -- gap / behind: what a type starts with when picked (Closer / Farther / Toggle change it from there).
 local TYPES = {
-  -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces
-  { type = 'CATCC_Chock',        category = 'ADEquipment', label = 'CATCC chock', orient = 'along', gap = 0.03, behind = true },
+  -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces.
+  -- A Cargo like the stock logs/barrels (the only statics seen to push the jet; as deck equipment it was
+  -- driven through). nose: chocks at the nose wheel too. fwdAdj / aftAdj: nudges (m, + = toward the
+  -- tyre) from the user's look on deck: the front chock sat 5 cm too far ahead, the rear 20 cm too far aft.
+  { type = 'CATCC_Chock',        category = 'Cargos', label = 'CATCC chock', orient = 'along', gap = 0.03, behind = true,
+    nose = true, fwdAdj = 0.05, aftAdj = 0.20, mass = 500 },
   -- stock statics with a collision shell (too big for chocks; kept for comparison)
   { type = 'trunks_small_cargo', category = 'Cargos', label = 'logs (small)' },
   { type = 'ammo_cargo',         category = 'Cargos', label = 'ammo box' },
@@ -36,7 +41,10 @@ local TYPES = {
 local GAP0, GAP_STEP, GAP_MIN, GAP_MAX = 0.30, 0.05, 0.0, 1.0
 local SAY_S = 8
 
-local function say(gid, text) trigger.action.outTextForGroup(gid, 'CATCC test: ' .. text, SAY_S) end
+local function say(gid, text)
+  trigger.action.outTextForGroup(gid, 'CATCC test: ' .. text, SAY_S)
+  if env and env.info then env.info('CATCC chock test: ' .. text) end -- dcs.log too, so it can be read afterwards
+end
 
 local function heading(v) return (atan2(v.z, v.x)) % TWO_PI end
 
@@ -94,7 +102,7 @@ local function spawnStatic(country, t, name, P, hdg, ship, hc)
     x = P.x, y = P.z, heading = hdg,
     linkUnit = ship:getID(), linkOffset = true,
     offsets = { x = fwd, y = stb, angle = (hdg - hc) % TWO_PI },
-    canCargo = false, dead = false,
+    canCargo = false, dead = false, mass = t.mass,
   }
   return coalition.addStaticObject(country, obj)
 end
@@ -151,17 +159,21 @@ local function place(unit, idx)
   local fx, fz = math.cos(hj), math.sin(hj)
   local rx, rz = -math.sin(hj), math.cos(hj)
   local spots = {}
-  for _, side in ipairs({ -1, 1 }) do
-    local wheelAcross = side * GEAR.across
+  local wheels = {
+    { along = GEAR.along, across = -GEAR.across, r = GEAR.r, tag = 'L' },
+    { along = GEAR.along, across = GEAR.across, r = GEAR.r, tag = 'R' },
+  }
+  if t.nose then wheels[#wheels + 1] = { along = NOSE.along, across = 0, r = NOSE.r, tag = 'N' } end
+  for _, w in ipairs(wheels) do
     -- in front: the face toward the tyre sits gap ahead of it
-    local frontFace = GEAR.along + GEAR.r + s.gap
+    local frontFace = w.along + w.r + s.gap - (t.fwdAdj or 0)
     local along = across and (frontFace + box.max.z) or (frontFace - box.min.x)
-    local acrossC = across and (wheelAcross - (box.min.x + box.max.x) / 2) or (wheelAcross - (box.min.z + box.max.z) / 2)
-    spots[#spots + 1] = { along = along, across = acrossC, tag = (side < 0 and 'L' or 'R') .. ' front' }
+    local acrossC = across and (w.across - (box.min.x + box.max.x) / 2) or (w.across - (box.min.z + box.max.z) / 2)
+    spots[#spots + 1] = { along = along, across = acrossC, tag = w.tag .. ' front' }
     if s.behind then
-      local backFace = GEAR.along - GEAR.r - s.gap
+      local backFace = w.along - w.r - s.gap + (t.aftAdj or 0)
       local alongB = across and (backFace + box.min.z) or (backFace - box.max.x)
-      spots[#spots + 1] = { along = alongB, across = acrossC, tag = (side < 0 and 'L' or 'R') .. ' behind' }
+      spots[#spots + 1] = { along = alongB, across = acrossC, tag = w.tag .. ' behind' }
     end
   end
   local p = pos.p

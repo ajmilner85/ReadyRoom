@@ -136,21 +136,23 @@ describe('CATCC chock test (mission environment)', () => {
   it('reports how far the jet moved while the blockers are out', () => {
     expect(out.find((l) => l.includes('moved 0.50 m'))).toBe('say 5 CATCC test: moved 0.50 m (0.27 fwd, 0.42 stbd) since placed; life 20.0/20.0; blockers standing 2/2');
   });
-  it('places our chock as a pair per main wheel, aligned with the wheel, 3 cm ahead of and behind the tyre', () => {
+  it('places our chock as a pair per wheel (mains and nose), aligned with the wheel, nudged toward the tyre', () => {
     const chocks = out.filter((l) => l.startsWith('chock CATCC_Chock'));
-    expect(chocks).toHaveLength(4);
+    expect(chocks).toHaveLength(6);
     const rel = 1.0;
-    const front = -2.4378 + 0.34 + 0.03 + 0.18;
-    const back = -2.4378 - 0.34 - 0.03 - 0.18;
+    // gap 3 cm, then the deck check: front chock 5 cm further aft, rear chock 20 cm further forward
     const want: [number, number][] = [];
-    for (const side of [-1, 1]) for (const along of [front, back]) want.push([along, side * 1.55]);
+    for (const [along, r, across] of [[-2.4378, 0.34, -1.55], [-2.4378, 0.34, 1.55], [2.9851, 0.5385 / 2, 0]]) {
+      want.push([along + r + 0.03 - 0.05 + 0.18, across]);
+      want.push([along - r - 0.03 + 0.2 - 0.18, across]);
+    }
     const got = chocks.map((l) => l.match(/off=(-?[\d.]+),(-?[\d.]+),(-?[\d.]+)/)!.slice(1).map(Number));
     for (const [i, [along, across]] of want.entries()) {
       expect(got[i][0]).toBeCloseTo(-50 + along * Math.cos(rel) - across * Math.sin(rel), 3);
       expect(got[i][1]).toBeCloseTo(20 + along * Math.sin(rel) + across * Math.cos(rel), 3);
       expect(got[i][2]).toBeCloseTo(rel, 3);
     }
-    expect(out.find((l) => l.includes('CATCC chock x4 placed'))).toContain('gap 0.03 m, size 0.36 long x 0.30 wide x 0.18 high, end on');
+    expect(out.find((l) => l.includes('CATCC chock x6 placed'))).toContain('gap 0.03 m, size 0.36 long x 0.30 wide x 0.18 high, end on');
   });
   it('adds blockers behind the wheels on request, and removes them all', () => {
     expect(out).toContain('alive after toggle 4');
