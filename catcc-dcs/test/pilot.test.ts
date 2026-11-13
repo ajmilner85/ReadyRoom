@@ -193,12 +193,20 @@ local args = { [23] = 1 }   -- the deck crew's chocks are in
 Export = { LoSetCommand = function() end, LoGetAircraftDrawArgumentValue = function(n) return args[n] or 0 end,
   LoGetVectorVelocity = function() return { x = 13, y = 0, z = 0 } end } -- the carrier makes 13 m/s
 -- DCS's main Lua state: the F8 menu as the patched comm.lua leaves it, and the mission environment
-local MAIN = { os = os, tostring = tostring, CATCC_CT = {},
+-- (os.clock there runs with the test's time: on Windows it is wall time since DCS started)
+local MAIN = { os = { clock = function() return realTime end }, tostring = tostring, type = type, CATCC_CT = {},
   world = { getPlayer = function() return { getID = function() return 77 end } end },
   trigger = { action = { outTextForUnit = function(id, text) rec('say ' .. text) end } } }
 MAIN.CATCC_CHOCKS = { held = false, at = 0, asked = 0, pending = false, salPatched = not OLD_INSTALL,
   place = function() rec('ground crew asked: place') if GC_PLACES then args[23] = 1 end end,
   remove = function() rec('ground crew asked: remove') args[23] = 0 end }
+-- the radio calls: every one is built by speech.make (Scripts/Speech/speech.lua) in this state
+MAIN.Message = { wMsgGroundCrewCopy = 501, wMsgGroundCrewWheelChocksOn = 502, wMsgGroundCrewWheelChocksOff = 503 }
+MAIN.package = { loaded = { speech = { make = function(m) return { text = 'call ' .. m.event } end } } }
+local function radio(ev)
+  local r = MAIN.package.loaded.speech.make({ event = ev })
+  rec('radio ' .. ev .. ' ' .. (r and 'voiced' or 'silent'))
+end
 local function pressF8Salute()
   local S = MAIN.CATCC_CHOCKS
   if S.sal then S.salAsked = (S.salAsked or 0) + 1 else rec('F8 salute sent (stock)') end
@@ -376,15 +384,19 @@ GC_PLACES = true
 frames(4, 0.5)
 rec('unheld asks ' .. count('ground crew asked: place'))
 holdList('', '"Ace"')
-frames(4, 0.5)       -- 2 s into the hold: not yet
-rec('asked early ' .. count('ground crew asked: place'))
+frame(0.5)
+rec('asked at once ' .. count('ground crew asked: place'))
+-- the crew answers: its calls are silent for the mod's request
+radio(501); radio(502)
 frames(8, 0.5)
 holdList('', '"Ace"')
 frames(8, 0.5)
 rec('asked ' .. count('ground crew asked: place') .. ' chocks ' .. args[23])
--- taxi instruction: the chocks this mod asked for come out
+-- taxi instruction: the chocks this mod asked for come out, voiced
+realTime = realTime + 25
 holdList('', '')
 frames(4, 0.5)
+radio(501); radio(503)
 rec('removed ' .. count('ground crew asked: remove') .. ' chocks ' .. args[23])
 frames(8, 0.5)
 rec('removed later ' .. count('ground crew asked: remove'))
@@ -636,9 +648,12 @@ describe('CATCC pilot hook: the salute is held while PriFly holds the chocks (de
 
 describe('CATCC pilot hook: ground crew chocks while PriFly holds a jet with none in (deck crew off)', () => {
   const out = run(deck + groundCrew);
-  it('asks nobody while PriFly holds nothing, and waits a moment into the hold', () => {
+  it('asks nobody while PriFly holds nothing, and asks the moment the hold arrives', () => {
     expect(out).toContain('unheld asks 0');
-    expect(out).toContain('asked early 0');
+    expect(out).toContain('asked at once 1');
+  });
+  it('silences the crew\'s radio calls for its own request, and voices the removal on the taxi instruction', () => {
+    expect(out.filter((l) => l.startsWith('radio '))).toEqual(['radio 501 silent', 'radio 502 silent', 'radio 501 voiced', 'radio 503 voiced']);
   });
   it('asks the Hornet\'s ground crew once, on a carrier under way too, and knows the chocks as its own', () => {
     expect(out).toContain('asked 1 chocks 1');

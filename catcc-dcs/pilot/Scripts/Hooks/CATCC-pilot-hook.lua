@@ -351,7 +351,26 @@ local menuSalute, menuSaluteSaid = nil, false -- the F8 "Salute!" item is routed
 local startedAt = 0
 -- chocks this mod asked the ground crew for (deck crew off)
 local gc = { askedAt = nil, tries = 0, ours = false, still = nil, release = false, at = -1e9 }
-local PLACE_SETTLE_S, PLACE_RETRY_S, PLACE_TRIES = 3, 45, 3
+-- asked as soon as the hold arrives (the crew itself takes a few seconds; nothing scriptable is faster)
+local PLACE_SETTLE_S, PLACE_RETRY_S, PLACE_TRIES = 0, 45, 3
+-- The crew's radio call ("copy", "wheel chocks are now placed") when this mod asked: silenced. DCS builds
+-- every radio call through speech.make(message) (Scripts/Speech/speech.lua, loaded in the same Lua state
+-- as the F8 menu); while S.quietUntil runs, those two calls come back empty. The pilot's own requests
+-- (chocks out on the taxi instruction) are voiced as stock. Installed once, again if speech is reloaded.
+local QUIET_S = 20
+local QUIET_CREW = 'local quiet = "no speech module"; ' ..
+  'local sp = (package and package.loaded and package.loaded.speech) or speech; ' ..
+  'if type(sp) == "table" and type(sp.make) == "function" and Message then ' ..
+  '  if not sp.catccQuiet then ' ..
+  '    local orig = sp.make; ' ..
+  '    local ev = { [Message.wMsgGroundCrewCopy or -1] = true, [Message.wMsgGroundCrewWheelChocksOn or -1] = true }; ' ..
+  '    sp.make = function(m) ' ..
+  '      local S = CATCC_CHOCKS; ' ..
+  '      if S and S.quietUntil and m and ev[m.event] and os.clock() < S.quietUntil then ' ..
+  '        S.quieted = (S.quieted or 0) + 1; return nil end; ' ..
+  '      return orig(m) end; ' ..
+  '    sp.catccQuiet = true end; ' ..
+  '  quiet = "on" end; '
 
 local function menuDo(code)
   if not menuState then return nil end
@@ -437,8 +456,10 @@ local function groundChocks(t, chock, onDeck, hornet)
   gc.still = gc.still or t
   if t - gc.still < PLACE_SETTLE_S or gc.tries >= PLACE_TRIES or (gc.askedAt and t - gc.askedAt < PLACE_RETRY_S) then return end
   gc.tries, gc.askedAt = gc.tries + 1, t
-  local r = menuDo('local S = CATCC_CHOCKS; if S and S.place then S.place() return "asked" end return "no"')
-  if r == 'asked' then
+  local r = menuDo(QUIET_CREW .. 'local S = CATCC_CHOCKS; if S and S.place then S.quietUntil = (os and os.clock and os.clock() or 0) + ' ..
+    QUIET_S .. '; S.place() return "asked," .. quiet end return "no"')
+  if r and r:sub(1, 6) == 'asked,' then
+    logi('ground crew asked for chocks; their radio call ' .. (r == 'asked,on' and 'silenced' or ('NOT silenced (' .. r:sub(7) .. ')')))
     say('no chocks in: asking the ground crew for them (PriFly holds you until your taxi instruction)')
   else
     logi('ground crew chocks: the F8 menu did not take the request')
