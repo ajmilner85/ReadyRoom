@@ -9,12 +9,16 @@ import { lauxlib, lua, lualib, to_luastring } from 'fengari';
 const dir = path.resolve(__dirname, '..');
 const read = (p: string) => fs.readFileSync(path.join(dir, p), 'utf8');
 
-function runHarness(): { label: string; payload: string }[] {
+function runHarness(chockTest = false): { label: string; payload: string }[] {
   const L = lauxlib.luaL_newstate();
   lualib.luaL_openlibs(L);
   for (const [name, file] of [['HOOK_SRC', 'Scripts/CATCC/catcc.lua'], ['SAMPLER_SRC', 'Scripts/CATCC/sampler.lua']]) {
     lua.lua_pushstring(L, to_luastring(read(file)));
     lua.lua_setglobal(L, to_luastring(name));
+  }
+  if (chockTest) {
+    lua.lua_pushboolean(L, 1);
+    lua.lua_setglobal(L, to_luastring('CHOCK_TEST'));
   }
   const status = lauxlib.luaL_dostring(L, to_luastring(read('test/harness.lua')));
   const out = lua.lua_tojsstring(L, -1) as string;
@@ -166,6 +170,13 @@ describe('CATCC DCS hook', () => {
 
   it('drops clients that never authenticate', () => {
     expect(t.find((x) => x.label === 'idleClosed')?.payload).toBe('true');
+  });
+
+  it('installs the F10 chock test only when Config/CATCC-test.lua turns it on, room or not, and again after a mission reset', () => {
+    const installed = (run: { label: string; payload: string }[]) =>
+      run.filter((x) => x.label.startsWith('log') && x.payload.startsWith('chock test menu installed')).length;
+    expect(installed(t)).toBe(0);
+    expect(installed(runHarness(true))).toBe(2);
   });
 
   it('announces mission stop', () => {

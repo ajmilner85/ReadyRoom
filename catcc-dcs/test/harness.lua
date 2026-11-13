@@ -164,12 +164,20 @@ loadfile = function(path)
   if path == 'W/Config/CATCC.lua' then
     return function() return { token = 'abcdefghijklmnop-token', rate_hz = 1, name = 'Test', commands = true, max_cmds_per_s = 5 } end
   end
+  -- the test switches file (CHOCK_TEST set by the second run)
+  if path == 'W/Config/CATCC-test.lua' then
+    if CHOCK_TEST then return function() return { chockTest = true } end end
+    return nil
+  end
   return realLoadfile(path)
 end
 io = io or {}
 io.open = function(path)
   if path == 'W/Scripts/CATCC/sampler.lua' then
     return { read = function() return SAMPLER_SRC end, close = function() end }
+  end
+  if path == 'W/Scripts/CATCC/chocktest.lua' then
+    return { read = function() return 'CATCC_CT = { stub = true }' end, close = function() end }
   end
   return nil
 end

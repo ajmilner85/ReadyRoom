@@ -248,18 +248,27 @@ local function installSampler()
   end
   info('sampler installed in state "' .. cfg.state .. '"')
   samplerInstalled = true
-  if cfg.chockTest then
-    local fh = io.open(writedir .. 'Scripts/CATCC/chocktest.lua', 'r')
-    if fh then
-      local ct = fh:read('*a')
-      fh:close()
-      local r = dostring(ct .. '\nreturn (type(CATCC_CT) == "table") and "CATCC_OK" or "CATCC_FAIL"')
-      if r == 'CATCC_OK' then info('chock test menu installed') else warn('chock test install failed: ' .. tostring(r)) end
-    else
-      warn('chockTest is on but Scripts/CATCC/chocktest.lua is missing')
-    end
-  end
   return true
+end
+
+-- the F10 chock test (Config/CATCC-test.lua): installed whenever a mission runs, room or not, and again
+-- if the mission environment resets; checked every 5 s
+local lastChockTestAt, chockTestWarned = -1e9, false
+local function chockTest(t)
+  if not cfg.chockTest or t - lastChockTestAt < 5 then return end
+  lastChockTestAt = t
+  local ok, present = pcall(dostring, 'return type(CATCC_CT)')
+  if ok and present == 'table' then return end
+  local fh = io.open(writedir .. 'Scripts/CATCC/chocktest.lua', 'r')
+  if not fh then
+    if not chockTestWarned then chockTestWarned = true; warn('chockTest is on but Scripts/CATCC/chocktest.lua is missing') end
+    return
+  end
+  local ct = fh:read('*a')
+  fh:close()
+  local ok2, r = pcall(dostring, ct .. '\nreturn (type(CATCC_CT) == "table") and "CATCC_OK" or "CATCC_FAIL"')
+  if ok2 and r == 'CATCC_OK' then info('chock test menu installed (F10 > CATCC chock test)')
+  elseif not chockTestWarned then chockTestWarned = true; warn('chock test install failed: ' .. tostring(r)) end
 end
 
 local function sample()
@@ -642,6 +651,8 @@ local function tick()
     end
   end
 
+  if missionRunning then chockTest(t) end
+
   -- launch holds: forgotten when the room stops refreshing them; pilots hear the list every 5 s
   if (#holdList > 0 or #chockList > 0) and t - holdAt > HOLD_TTL_S then
     holdList = {}
@@ -661,6 +672,7 @@ function handler.onSimulationStart()
   missionRunning = true
   lastEnvAt = -1e9
   samplerInstalled = false
+  lastChockTestAt, chockTestWarned = -1e9, false
   broadcast(missionMessage())
 end
 
