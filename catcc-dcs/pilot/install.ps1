@@ -7,7 +7,8 @@
 # What it does:
 #   1. copies Mods\aircraft\CATCC-Pilot (the gate cockpit device, added to every aircraft),
 #      Mods\tech\CATCC-Chocks (PriFly's wheel chock static object) and
-#      Scripts\Hooks\CATCC-pilot-hook.lua into Saved Games\DCS (or DCS.openbeta);
+#      Scripts\Hooks\CATCC-pilot-hook.lua into Saved Games\DCS (or DCS.openbeta), and the cargo
+#      parameter files of our Cargo statics (Data\CATCC_*.csv) into the DCS folder's Data;
 #   2. with -Server, writes Saved Games\...\Config\CATCC-pilot.lua (default server: the squadron's);
 #   3. patches the deck crew's launch sequence (CoreMods\tech\USS_Nimitz\scripts\common.xml) so the
 #      shooter, once you're ready on the catapult and before the run-up signal, waits while the gate
@@ -57,7 +58,8 @@ $here = Split-Path -Parent $PSCommandPath
 $modDst = Join-Path $SavedGames 'Mods\aircraft\CATCC-Pilot'
 $chocksDst = Join-Path $SavedGames 'Mods\tech\CATCC-Chocks' # PriFly's wheel chock static: every PC in a session needs it
 $hookDst = Join-Path $SavedGames 'Scripts\Hooks\CATCC-pilot-hook.lua'
-$xml = Join-Path $DcsPath 'CoreMods\tech\USS_Nimitz\scripts\common.xml'
+$dataDst = Join-Path $DcsPath 'Data' # DCS wants <shape>.csv here for every Cargo static (ours: the test wall)
+$xml =Join-Path $DcsPath 'CoreMods\tech\USS_Nimitz\scripts\common.xml'
 if (-not (Test-Path $xml)) { throw "Not found: $xml (pass -DcsPath)" }
 $comm = Join-Path $DcsPath 'Mods\aircraft\FA-18C\comm.lua' # the Hornet's F8 radio menu
 $enc = New-Object System.Text.UTF8Encoding($false)
@@ -79,6 +81,7 @@ if ($Uninstall) {
   if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
   if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
   if (Test-Path $hookDst) { Remove-Item -Force $hookDst }
+  if (Test-Path $dataDst) { Get-ChildItem $dataDst -Filter 'CATCC_*.csv' | Remove-Item -Force }
   Write-Host "CATCC pilot mod removed; common.xml and the Hornet's comm.lua back to stock. Restart DCS."
   exit 0
 }
@@ -92,6 +95,9 @@ if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
 Copy-Item -Recurse (Join-Path $here 'Mods\tech\CATCC-Chocks') $chocksDst
 New-Item -ItemType Directory -Force (Split-Path $hookDst) | Out-Null
 Copy-Item -Force (Join-Path $here 'Scripts\Hooks\CATCC-pilot-hook.lua') $hookDst
+if ((Test-Path $dataDst) -and (Test-Path (Join-Path $here 'Data'))) {
+  Get-ChildItem (Join-Path $here 'Data') -Filter 'CATCC_*.csv' | ForEach-Object { Copy-Item -Force $_.FullName $dataDst }
+}
 
 # 2. config
 if ($Server) {

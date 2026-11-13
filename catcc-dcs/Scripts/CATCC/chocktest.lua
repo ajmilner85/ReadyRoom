@@ -1,17 +1,28 @@
 -- CATCC chock test (DCS mission scripting environment, Lua 5.1). TEST ONLY.
 --
 -- Installed by the CATCC hook when Saved Games\DCS\Config\CATCC-test.lua returns { chockTest = true }.
--- Adds F10 > "CATCC chock test" for every player: puts stock static objects ("blockers") in front of
--- (optionally also behind) the jet's main wheels, linked to the carrier so they move with the deck,
--- to find out whether a static object physically holds the jet, and whether touching it damages it.
+-- Adds F10 > "CATCC chock test" for every player: puts static objects ("blockers") at the jet's wheels
+-- or gear legs, linked to the carrier so they move with the deck, to find out whether a static object
+-- physically holds the jet, and whether touching it damages it.
 --
--- On screen: each blocker's measured size and height above the deck, then while blockers are out,
--- how far the jet has moved (carrier frame) and its life, whenever either changes.
+-- On screen and in dcs.log ("CATCC chock test: ..."): what was placed, then while blockers are out, how
+-- far the jet has moved (carrier frame) and its life, whenever either changes. It also watches the
+-- Hornet's own wheel chocks (draw argument 23: F8 > Ground Crew > Wheel chocks) and reports how far the
+-- jet moves while they are on.
 --
--- Geometry: Hornet main gear at x -2.4378, z +-1.55 m from the aircraft origin, wheel diameter 0.68 m
--- (CoreMods/aircraft/FA-18C/FA-18C_hornet.lua). Linked statics: offsets.x = metres forward along the
--- carrier's heading, offsets.y = metres to starboard, offsets.angle = heading relative to the
--- carrier (radians); checked against the Supercarrier population template mission.
+-- Hornet geometry, aircraft frame (along = metres forward of the origin, across = to the right):
+--   flight model (CoreMods/aircraft/FA-18C/FA-18C_hornet.lua): main wheels at -2.4378, +-1.55, diameter
+--   0.68; nose wheel at 2.9851, diameter 0.5385.
+--   collision model (FA-18C_Collision.edm, gear down, on its wheels: the origin sits about 1.8-1.9 m above
+--   the deck): the only collision lines near the wheels are, each side,
+--     the gear leg   (-1.576, +-0.773) 1.25 m up  ->  (-1.709, +-1.032) 0.4-0.5 m up
+--     the wheel line  about -2.3, +-1.696, from 0.4-0.5 m up straight down through the deck
+--   and on the centreline the nose wheel lines at 3.017 from 1.5 m up down through the deck. Nothing of
+--   the jet's collision lines is lower than about 0.4 m except those vertical wheel lines, which is why
+--   a 0.18 m chock never touched anything.
+-- Linked statics: offsets.x = metres forward along the carrier's heading, offsets.y = metres to
+-- starboard, offsets.angle = heading relative to the carrier (radians); checked against the
+-- Supercarrier population template mission.
 
 CATCC_CT = { players = {}, menus = {} }
 local CT = CATCC_CT
@@ -19,27 +30,50 @@ local CT = CATCC_CT
 local atan2 = math.atan2 or math.atan
 local TWO_PI = 2 * math.pi
 
-local GEAR = { along = -2.4378, across = 1.55, r = 0.34 } -- Hornet main gear (the test is Hornet only)
-local NOSE = { along = 2.9851, r = 0.5385 / 2 }           -- Hornet nose gear (centreline)
+local MAIN = { along = -2.4378, across = 1.55, r = 0.34 }
+local NOSE = { along = 2.9851, r = 0.5385 / 2 }
+local function pair(along, across, r, tag, extra)
+  local out = {}
+  for _, side in ipairs({ -1, 1 }) do
+    local w = { along = along, across = side * across, r = r, tag = (side < 0 and 'L' or 'R') .. (tag or '') }
+    for k, v in pairs(extra or {}) do w[k] = v end
+    out[#out + 1] = w
+  end
+  return out
+end
+-- stock objects: ahead of (and behind) the main wheels, by the flight model's numbers
+local MAIN_WHEELS = pair(MAIN.along, MAIN.across, MAIN.r)
+-- our chock: all three wheels. fwdAdj / aftAdj nudge the chock toward the tyre (m), from the user's looks
+-- on deck (the chock's toe sits under the tyre's curve, and the drawn wheel is not exactly where the
+-- flight model has it): mains front 5 cm, rear 15 cm; nose scaled to its smaller wheel.
+local CHOCK_WHEELS = pair(MAIN.along, MAIN.across, MAIN.r, nil, { fwdAdj = 0.05, aftAdj = 0.15 })
+CHOCK_WHEELS[#CHOCK_WHEELS + 1] = { along = NOSE.along, across = 0, r = NOSE.r, tag = 'N', fwdAdj = 0.07, aftAdj = 0.10 }
+-- the wall, just clear of the tyres (drawn wheel centre about -2.39, collision wheel 0.76 long): moving
+-- forward the wheel line reaches it after about 0.3 m
+local TYRE_SPOTS = pair(-2.388, 1.55, 0.38)
+-- the wall either side of the gear leg's lower part: front face at -1.57, rear face at -1.76 (the leg
+-- runs from -1.64 at the wall's top to -1.709 at its lower end), so the jet has 5-8 cm either way and
+-- a degree of pitch can't put a wall inside the leg line when it spawns
+local LEG_SPOTS = pair(-1.665, 0.975, 0.095, ' leg')
+
 -- orient: 'along' keeps the object's length along the wheel's travel; default lies a long object across.
--- gap / behind: what a type starts with when picked (Closer / Farther / Toggle change it from there).
+-- gap / behind: what an entry starts with when picked (Closer / Farther / Toggle change it from there).
+-- gapMin: how far Closer may go (a wall must not start inside the leg line or the wheel line).
 local TYPES = {
-  -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces.
-  -- A Cargo like the stock logs/barrels (the only statics seen to push the jet; as deck equipment it was
-  -- driven through). nose: chocks at the nose wheel too. fwdAdj / aftAdj: nudges (m, + = toward the
-  -- tyre) from the user's look on deck: the front chock sat 5 cm too far ahead, the rear 20 cm too far aft.
-  { type = 'CATCC_Chock',        category = 'Cargos', label = 'CATCC chock', orient = 'along', gap = 0.03, behind = true,
-    nose = true, fwdAdj = 0.05, aftAdj = 0.20, mass = 500 },
-  -- stock statics with a collision shell (too big for chocks; kept for comparison)
+  -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces
+  { type = 'CATCC_Chock', category = 'ADEquipment', label = 'CATCC chock', orient = 'along', gap = 0.03, behind = true, wheels = CHOCK_WHEELS },
+  -- our own wall, 0.10 thick, 0.50 wide, 0.80 high: tall enough to meet the jet's collision lines
+  { type = 'CATCC_Wall', category = 'ADEquipment', label = 'wall at tyres', orient = 'along', gap = 0.03, gapMin = -0.20, behind = true, wheels = TYRE_SPOTS },
+  { type = 'CATCC_Wall', category = 'ADEquipment', label = 'wall at gear legs', orient = 'along', gap = 0, behind = true, wheels = LEG_SPOTS },
+  -- the same wall as a Cargo (needs <DCS>\Data\CATCC_Wall.csv: run the CATCC installer once)
+  { type = 'CATCC_Wall_Cargo', category = 'Cargos', label = 'cargo wall at tyres', orient = 'along', gap = 0.03, gapMin = -0.20, behind = true, wheels = TYRE_SPOTS, mass = 500 },
+  { type = 'CATCC_Wall_Cargo', category = 'Cargos', label = 'cargo wall at gear legs', orient = 'along', gap = 0, behind = true, wheels = LEG_SPOTS, mass = 500 },
+  -- a stock cargo that pushed the jet before (far too big for a chock; kept for comparison)
   { type = 'trunks_small_cargo', category = 'Cargos', label = 'logs (small)' },
-  { type = 'ammo_cargo',         category = 'Cargos', label = 'ammo box' },
-  { type = 'f_bar_cargo',        category = 'Cargos', label = 'F-bar' },
-  { type = 'barrels_cargo',      category = 'Cargos', label = 'barrels' },
-  { type = 'm117_cargo',         category = 'Cargos', label = 'M117 pallet' },
-  { type = 'AS32-31A',           category = 'ADEquipment', label = 'deck tractor (large)' },
 }
-local GAP0, GAP_STEP, GAP_MIN, GAP_MAX = 0.30, 0.05, 0.0, 1.0
+local GAP0, GAP_STEP, GAP_MAX = 0.30, 0.05, 1.0
 local SAY_S = 8
+local OWN_CHOCKS_ARG = 23 -- the Hornet's drawn wheel chocks (main and nose gear)
 
 local function say(gid, text)
   trigger.action.outTextForGroup(gid, 'CATCC test: ' .. text, SAY_S)
@@ -77,7 +111,7 @@ local function playerState(unit)
   local name = unit:getName()
   local s = CT.players[name]
   if not s then
-    s = { gap = GAP0, behind = false, blockers = {}, typeIdx = nil, seq = 0 }
+    s = { gap = GAP0, behind = false, blockers = {}, typeIdx = nil, seq = 0, own = { on = false } }
     CT.players[name] = s
   end
   return s
@@ -140,7 +174,7 @@ local function place(unit, idx)
   if not ship then return say(gid, 'no carrier under you') end
   removeBlockers(s)
   if s.typeIdx ~= idx then
-    -- a newly picked type starts from its own gap and front/behind setting
+    -- a newly picked entry starts from its own gap and front/behind setting
     s.gap = t.gap or GAP0
     s.behind = t.behind or false
   end
@@ -159,19 +193,14 @@ local function place(unit, idx)
   local fx, fz = math.cos(hj), math.sin(hj)
   local rx, rz = -math.sin(hj), math.cos(hj)
   local spots = {}
-  local wheels = {
-    { along = GEAR.along, across = -GEAR.across, r = GEAR.r, tag = 'L' },
-    { along = GEAR.along, across = GEAR.across, r = GEAR.r, tag = 'R' },
-  }
-  if t.nose then wheels[#wheels + 1] = { along = NOSE.along, across = 0, r = NOSE.r, tag = 'N' } end
-  for _, w in ipairs(wheels) do
-    -- in front: the face toward the tyre sits gap ahead of it
-    local frontFace = w.along + w.r + s.gap - (t.fwdAdj or 0)
+  for _, w in ipairs(t.wheels or MAIN_WHEELS) do
+    -- in front: the face toward the wheel (or leg) sits gap ahead of it
+    local frontFace = w.along + w.r + s.gap - (w.fwdAdj or 0)
     local along = across and (frontFace + box.max.z) or (frontFace - box.min.x)
     local acrossC = across and (w.across - (box.min.x + box.max.x) / 2) or (w.across - (box.min.z + box.max.z) / 2)
     spots[#spots + 1] = { along = along, across = acrossC, tag = w.tag .. ' front' }
     if s.behind then
-      local backFace = w.along - w.r - s.gap + (t.aftAdj or 0)
+      local backFace = w.along - w.r - s.gap + (w.aftAdj or 0)
       local alongB = across and (backFace + box.min.z) or (backFace - box.max.x)
       spots[#spots + 1] = { along = alongB, across = acrossC, tag = w.tag .. ' behind' }
     end
@@ -187,21 +216,60 @@ local function place(unit, idx)
   local fwd, stb = toShip(ship, p)
   s.ref = { ship = ship:getName(), fwd = fwd, stb = stb, life = unit:getLife(), moved = 0, at = timer.getTime() }
   s.lastMoved, s.lastLife = 0, unit:getLife()
-  -- report what went out: size, and height above the deck (a static that ignores the deck ends up in the sea)
-  local h = '?'
+  -- report what went out: size, height above the ship (a static that ignores the deck ends up in the sea),
+  -- and how high the jet's origin sits above the blocker's base (= above the deck)
+  local h, up = '?', '?'
   local first = s.blockers[1] and StaticObject.getByName(s.blockers[1])
-  if first and first:isExist() then h = string.format('%.2f', first:getPoint().y - ship:getPoint().y) end
+  if first and first:isExist() then
+    h = string.format('%.2f', first:getPoint().y - ship:getPoint().y)
+    up = string.format('%.2f', p.y - first:getPoint().y)
+  end
   say(gid, string.format('%s x%d placed, gap %.2f m, size %.2f long x %.2f wide x %.2f high, %s; ' ..
-    'height above ship origin %s m (deck is about 20.15). Life %.1f/%.1f',
+    'height above ship origin %s m (deck is about 20.15), jet origin %s m above it. Life %.1f/%.1f',
     t.label, #s.blockers, s.gap, lenX, lenZ, box.max.y - box.min.y, across and 'lying across' or 'end on',
-    h, unit:getLife(), unit:getLife0()))
+    h, up, unit:getLife(), unit:getLife0()))
+end
+
+-- the Hornet's own wheel chocks (ground crew): say when they go on or come off, and how far the jet
+-- moves while they are on
+local function watchOwnChocks(unit, s, gid)
+  if not unit.getDrawArgumentValue then return end
+  local ok, a = pcall(unit.getDrawArgumentValue, unit, OWN_CHOCKS_ARG)
+  if not ok or type(a) ~= 'number' then return end
+  local on = a > 0.5
+  local own = s.own
+  if on ~= own.on then
+    own.on = on
+    if on then
+      local ship = carrierUnder(unit:getPoint())
+      own.ship = ship and ship:getName() or nil
+      if ship then own.fwd, own.stb = toShip(ship, unit:getPoint()) end
+      own.last, own.max = 0, 0
+      say(gid, "the Hornet's own wheel chocks are ON. Add power: any movement is reported here")
+    else
+      say(gid, string.format("the Hornet's own wheel chocks are OFF (moved %.2f m at most while they were on)", own.max or 0))
+    end
+    return
+  end
+  if not on or not own.ship then return end
+  local ship = Unit.getByName(own.ship)
+  if not ship then return end
+  local fwd, stb = toShip(ship, unit:getPoint())
+  local moved = math.sqrt((fwd - own.fwd) ^ 2 + (stb - own.stb) ^ 2)
+  if moved > own.max then own.max = moved end
+  if math.abs(moved - own.last) >= 0.05 then
+    own.last = moved
+    say(gid, string.format("moved %.2f m with the Hornet's own chocks on; life %.1f/%.1f", moved, unit:getLife(), unit:getLife0()))
+  end
 end
 
 local function monitor(unit)
   if not unit or not unit:isExist() then return end
   local s = CT.players[unit:getName()]
-  if not s or not s.ref or #s.blockers == 0 then return end
+  if not s then return end
   local gid = unit:getGroup():getID()
+  watchOwnChocks(unit, s, gid)
+  if not s.ref or #s.blockers == 0 then return end
   local ship = Unit.getByName(s.ref.ship)
   if not ship then return end
   local fwd, stb = toShip(ship, unit:getPoint())
@@ -243,6 +311,7 @@ local function addMenu(unit)
   local gid = g:getID()
   if CT.menus[gid] then return end
   CT.menus[gid] = true
+  playerState(unit) -- watched from now on (the Hornet's own chocks), blockers or not
   local un = unit:getName()
   local root = missionCommands.addSubMenuForGroup(gid, 'CATCC chock test')
   for i, t in ipairs(TYPES) do
@@ -250,7 +319,10 @@ local function addMenu(unit)
   end
   missionCommands.addCommandForGroup(gid, 'Closer (gap -5 cm)', root, withUnit(un, function(u)
     local s = playerState(u)
-    s.gap = math.max(GAP_MIN, s.gap - GAP_STEP)
+    local t = s.typeIdx and TYPES[s.typeIdx]
+    local gapMin = t and t.gapMin or 0
+    if s.gap - GAP_STEP < gapMin - 1e-9 then return say(g:getID(), string.format('gap %.2f m is as close as this one goes', s.gap)) end
+    s.gap = s.gap - GAP_STEP
     if s.typeIdx then place(u, s.typeIdx) else say(g:getID(), string.format('gap %.2f m', s.gap)) end
   end))
   missionCommands.addCommandForGroup(gid, 'Farther (gap +5 cm)', root, withUnit(un, function(u)
