@@ -51,29 +51,32 @@ CHOCK_WHEELS[#CHOCK_WHEELS + 1] = { along = NOSE.along, across = 0, r = NOSE.r, 
 -- the wall, just clear of the tyres (drawn wheel centre about -2.39, collision wheel 0.76 long): moving
 -- forward the wheel line reaches it after about 0.3 m
 local TYRE_SPOTS = pair(-2.388, 1.55, 0.38)
--- the wall either side of the gear leg's lower part: front face at -1.57, rear face at -1.76 (the leg
--- runs from -1.64 at the wall's top to -1.709 at its lower end), so the jet has 5-8 cm either way and
--- a degree of pitch can't put a wall inside the leg line when it spawns
-local LEG_SPOTS = pair(-1.665, 0.975, 0.095, ' leg')
+-- (a wall either side of the gear leg's lower part, faces at -1.57 / -1.76 across +-0.975, was tried as a
+-- Cargo on 2026-11-13: the leg went through it and the main gear collapsed within 0.2 s. Not offered again.)
 
 -- orient: 'along' keeps the object's length along the wheel's travel; default lies a long object across.
 -- gap / behind: what an entry starts with when picked (Closer / Farther / Toggle change it from there).
--- gapMin: how far Closer may go (a wall must not start inside the leg line or the wheel line).
+-- gapMin: how far Closer may go.
+--
+-- Seen so far (DCS 2.9.31, 2026-11-13): deck-equipment statics never collide with the jet (a 0.8 m wall at
+-- the tyres and at the gear legs was driven through). Cargo statics do, once <DCS>\Data\<shape>.csv is
+-- there (run the CATCC installer): the thin Cargo wall across the wheel's path gave a small bounce (about
+-- 0.1 s of contact, gear fine).
 local TYPES = {
-  -- our own (Mods/tech/CATCC-Chocks): a yellow block 0.36 long, 0.30 wide, 0.18 high, sloped both faces
-  { type = 'CATCC_Chock', category = 'ADEquipment', label = 'CATCC chock', orient = 'along', gap = 0.03, behind = true, wheels = CHOCK_WHEELS },
-  -- our own wall, 0.10 thick, 0.50 wide, 0.80 high: tall enough to meet the jet's collision lines
-  { type = 'CATCC_Wall', category = 'ADEquipment', label = 'wall at tyres', orient = 'along', gap = 0.03, gapMin = -0.20, behind = true, wheels = TYRE_SPOTS },
-  { type = 'CATCC_Wall', category = 'ADEquipment', label = 'wall at gear legs', orient = 'along', gap = 0, behind = true, wheels = LEG_SPOTS },
-  -- the same wall as a Cargo (needs <DCS>\Data\CATCC_Wall.csv: run the CATCC installer once)
+  -- the chock as deck equipment (Mods/tech/CATCC-Chocks: a yellow block 0.36 long, 0.30 wide, 0.18 high,
+  -- sloped both faces): looks only, for checking where it sits
+  { type = 'CATCC_Chock', category = 'ADEquipment', label = 'CATCC chock (looks only)', orient = 'along', gap = 0.03, behind = true, wheels = CHOCK_WHEELS },
+  -- the same chock as a Cargo. Closer walks each pair in toward the wheel's own contact (about 20 cm in)
+  { type = 'CATCC_Chock_Cargo', category = 'Cargos', label = 'cargo chock', orient = 'along', gap = 0.03, gapMin = -0.35, behind = true, wheels = CHOCK_WHEELS, mass = 500 },
+  -- longer and wider than the thin wall (the user's idea after its bounce): 0.40 long, 0.80 wide, 0.80 high
+  { type = 'CATCC_Block_Cargo', category = 'Cargos', label = 'cargo block at tyres', orient = 'along', gap = 0.03, gapMin = -0.20, behind = true, wheels = TYRE_SPOTS, mass = 500 },
+  -- the thin wall that gave the bounce (0.10 thick, 0.50 wide, 0.80 high), for comparison
   { type = 'CATCC_Wall_Cargo', category = 'Cargos', label = 'cargo wall at tyres', orient = 'along', gap = 0.03, gapMin = -0.20, behind = true, wheels = TYRE_SPOTS, mass = 500 },
-  { type = 'CATCC_Wall_Cargo', category = 'Cargos', label = 'cargo wall at gear legs', orient = 'along', gap = 0, behind = true, wheels = LEG_SPOTS, mass = 500 },
-  -- a stock cargo that pushed the jet before (far too big for a chock; kept for comparison)
-  { type = 'trunks_small_cargo', category = 'Cargos', label = 'logs (small)' },
 }
 local GAP0, GAP_STEP, GAP_MAX = 0.30, 0.05, 1.0
 local SAY_S = 8
 local OWN_CHOCKS_ARG = 23 -- the Hornet's drawn wheel chocks (main and nose gear)
+local GEAR_ARGS = { 0, 5, 3 } -- nose, left, right gear (1 = down): a collapsed gear doesn't show in the jet's life
 
 local function say(gid, text)
   trigger.action.outTextForGroup(gid, 'CATCC test: ' .. text, SAY_S)
@@ -81,6 +84,17 @@ local function say(gid, text)
 end
 
 local function heading(v) return (atan2(v.z, v.x)) % TWO_PI end
+
+-- the gear's draw arguments, nose/left/right
+local function gearText(unit)
+  if not unit.getDrawArgumentValue then return '?' end
+  local out = {}
+  for _, a in ipairs(GEAR_ARGS) do
+    local ok, v = pcall(unit.getDrawArgumentValue, unit, a)
+    out[#out + 1] = (ok and type(v) == 'number') and string.format('%.2f', v) or '?'
+  end
+  return table.concat(out, '/')
+end
 
 -- the carrier the jet sits on: the nearest ship within 250 m horizontally
 local function carrierUnder(p)
@@ -214,8 +228,8 @@ local function place(unit, idx)
     if o then s.blockers[#s.blockers + 1] = name end
   end
   local fwd, stb = toShip(ship, p)
-  s.ref = { ship = ship:getName(), fwd = fwd, stb = stb, life = unit:getLife(), moved = 0, at = timer.getTime() }
-  s.lastMoved, s.lastLife = 0, unit:getLife()
+  s.ref = { ship = ship:getName(), fwd = fwd, stb = stb, up = p.y - ship:getPoint().y, life = unit:getLife(), moved = 0, at = timer.getTime() }
+  s.lastMoved, s.lastLife, s.lastUp = 0, unit:getLife(), 0
   -- report what went out: size, height above the ship (a static that ignores the deck ends up in the sea),
   -- and how high the jet's origin sits above the blocker's base (= above the deck)
   local h, up = '?', '?'
@@ -228,6 +242,7 @@ local function place(unit, idx)
     'height above ship origin %s m (deck is about 20.15), jet origin %s m above it. Life %.1f/%.1f',
     t.label, #s.blockers, s.gap, lenX, lenZ, box.max.y - box.min.y, across and 'lying across' or 'end on',
     h, up, unit:getLife(), unit:getLife0()))
+  say(gid, 'gear nose/left/right ' .. gearText(unit) .. ' (1 = down)')
 end
 
 -- the Hornet's own wheel chocks (ground crew): say when they go on or come off, and how far the jet
@@ -272,19 +287,22 @@ local function monitor(unit)
   if not s.ref or #s.blockers == 0 then return end
   local ship = Unit.getByName(s.ref.ship)
   if not ship then return end
-  local fwd, stb = toShip(ship, unit:getPoint())
+  local P = unit:getPoint()
+  local fwd, stb = toShip(ship, P)
   local df, ds = fwd - s.ref.fwd, stb - s.ref.stb
   local moved = math.sqrt(df * df + ds * ds)
   local life = unit:getLife()
-  if math.abs(moved - s.lastMoved) >= 0.05 or math.abs(life - s.lastLife) >= 0.01 then
-    s.lastMoved, s.lastLife = moved, life
+  -- height against the ship (its heave cancels): a jet that drops has lost a gear or sunk into the deck
+  local up = P.y - ship:getPoint().y - s.ref.up
+  if math.abs(moved - s.lastMoved) >= 0.05 or math.abs(life - s.lastLife) >= 0.01 or math.abs(up - s.lastUp) >= 0.05 then
+    s.lastMoved, s.lastLife, s.lastUp = moved, life, up
     local alive = 0
     for _, n in ipairs(s.blockers) do
       local o = StaticObject.getByName(n)
       if o and o:isExist() then alive = alive + 1 end
     end
-    say(gid, string.format('moved %.2f m (%.2f fwd, %.2f stbd) since placed; life %.1f/%.1f; blockers standing %d/%d',
-      moved, df, ds, life, unit:getLife0(), alive, #s.blockers))
+    say(gid, string.format('moved %.2f m (%.2f fwd, %.2f stbd) since placed, height %+.2f m, gear %s; life %.1f/%.1f; blockers standing %d/%d',
+      moved, df, ds, up, gearText(unit), life, unit:getLife0(), alive, #s.blockers))
   end
 end
 

@@ -9,8 +9,14 @@
 -- CATCC_Wall_Cargo   TEST: the same wall as a Cargo, declared the way ED's modules add cargos (C-130-Assets
 --                    db_C130_Cargos.lua add_cargo). The stock statics that pushed the jet (logs, barrels)
 --                    are Cargos. A Cargo needs <DCS>\Data\<shape>.csv (sling-load aerodynamics; DCS logs
---                    "The file with cargo parameters doesn't exist" without it): the installer copies
---                    pilot\Data\CATCC_Wall.csv there.
+--                    "The file with cargo parameters doesn't exist" without it, and nothing collides):
+--                    the installer copies pilot\Data\CATCC_*.csv there.
+-- CATCC_Chock_Cargo  TEST: the chock as a Cargo.
+-- CATCC_Block_Cargo  TEST: a block 0.40 long x 0.80 wide x 0.80 high, a Cargo.
+--
+-- Seen in DCS 2.9.31 (2026-11-13): the deck-equipment statics never collide with the jet (walls at the
+-- tyres and at the gear legs were driven straight through). The Cargo wall does: across the wheel's path
+-- a small bounce; at the gear leg the leg went through it and the main gear collapsed within 0.2 s.
 local function deck_static(name, displayName, shape)
   local u = {}
   u.shape_table_data =
@@ -68,3 +74,5 @@ end
 deck_static('CATCC_Chock', _('CATCC Wheel Chock'), 'CATCC_Chock')
 deck_static('CATCC_Wall', _('CATCC Test Wall'), 'CATCC_Wall')
 cargo_static('CATCC_Wall_Cargo', _('CATCC Test Wall (cargo)'), 'CATCC_Wall', 500)
+cargo_static('CATCC_Chock_Cargo', _('CATCC Wheel Chock (cargo)'), 'CATCC_Chock', 500)
+cargo_static('CATCC_Block_Cargo', _('CATCC Test Block (cargo)'), 'CATCC_Block', 500)
