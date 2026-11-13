@@ -1,6 +1,10 @@
--- CATCC wheel chocks: a static object (yellow block with a collision shell) that PriFly puts at a
--- jet's wheels, linked to the carrier, so the jet can't taxi until the taxi instruction.
--- Every PC in the session needs it (the server and each pilot): the CATCC pilot installer copies it.
+-- PARKED EXPERIMENT (2026-11-13): only installed with install.ps1 -Experiments.
+-- CATCC wheel chocks: static objects (a yellow chock, a wall, a block; as deck equipment and as
+-- Cargo) put at a jet's wheels, linked to the carrier, to stop it taxiing by collision. It did not
+-- work: deck-equipment statics never collide with the jet, and Cargo statics damage what touches
+-- them (collapsed main gear) instead of stopping it. Results in Database/db_catcc_chocks.lua and
+-- Scripts/CATCC/chocktest.lua. What holds a jet now: its own chocks, kept in by the pilot hook.
+-- Every PC in a session would need this mod (the server and each pilot).
 -- The model is built by catcc-dcs/chock-model/build_chock.py (Blender + ED's EDM exporter).
 declare_plugin('CATCC-Chocks', {
   installed = true,

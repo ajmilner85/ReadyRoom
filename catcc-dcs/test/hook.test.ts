@@ -172,11 +172,11 @@ describe('CATCC DCS hook', () => {
     expect(t.find((x) => x.label === 'idleClosed')?.payload).toBe('true');
   });
 
-  it('installs the F10 chock test only when Config/CATCC-test.lua turns it on, room or not, and again after a mission reset', () => {
+  it('installs the F10 chock test only when Config/CATCC-test.lua turns it on, room or not, again after a mission reset, and again for the next mission', () => {
     const installed = (run: { label: string; payload: string }[]) =>
       run.filter((x) => x.label.startsWith('log') && x.payload.startsWith('chock test menu installed')).length;
     expect(installed(t)).toBe(0);
-    expect(installed(runHarness(true))).toBe(2);
+    expect(installed(runHarness(true))).toBe(3);
   });
 
   it('announces mission stop', () => {

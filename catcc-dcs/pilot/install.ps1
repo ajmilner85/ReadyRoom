@@ -5,16 +5,19 @@
 #   powershell -ExecutionPolicy Bypass -File catcc-dcs\pilot\install.ps1 -Uninstall
 #
 # What it does:
-#   1. copies Mods\aircraft\CATCC-Pilot (the gate cockpit device, added to every aircraft),
-#      Mods\tech\CATCC-Chocks (PriFly's wheel chock static object) and
-#      Scripts\Hooks\CATCC-pilot-hook.lua into Saved Games\DCS (or DCS.openbeta), and the cargo
-#      parameter files of our Cargo statics (Data\CATCC_*.csv) into the DCS folder's Data;
+#   1. copies Mods\aircraft\CATCC-Pilot (the gate cockpit device, added to every aircraft) and
+#      Scripts\Hooks\CATCC-pilot-hook.lua into Saved Games\DCS (or DCS.openbeta);
 #   2. with -Server, writes Saved Games\...\Config\CATCC-pilot.lua (default server: the squadron's);
 #   3. patches the deck crew's launch sequence (CoreMods\tech\USS_Nimitz\scripts\common.xml) so the
 #      shooter, once you're ready on the catapult and before the run-up signal, waits while the gate
 #      says you're held. Removes any earlier CATCC patch (the 30 s test, the old after-salute gate);
-#   4. routes the Hornet's F8 "Wheel chocks > Remove" through PriFly (Mods\aircraft\FA-18C\comm.lua).
-# DCS updates replace common.xml: run this again after an update. Restart DCS afterwards.
+#   4. routes the Hornet's F8 "Wheel chocks > Remove" and "Salute!" through PriFly
+#      (Mods\aircraft\FA-18C\comm.lua): while PriFly holds your chocks they wait for the taxi instruction;
+#   5. lets the pilot hook reach the F8 menu: Saved Games\...\Config\autoexec.cfg gets "userhooks" in
+#      net.allow_unsafe_api and "server" in net.allow_dostring_in (what DCS asks for, API\Sim_ControlAPI.md).
+# -Experiments also installs what was tried and parked (the chock static objects with their cargo
+# parameter files in the DCS folder's Data, the native chock-flag module); without it they are removed.
+# DCS updates replace common.xml and comm.lua: run this again after an update. Restart DCS afterwards.
 
 param(
   [switch]$Uninstall,
@@ -22,6 +25,8 @@ param(
   [int]$Port = 10310,
   [string]$DcsPath = 'C:\Program Files\Eagle Dynamics\DCS World',
   [string]$SavedGames,
+  # also install the parked experiments (chock statics, cargo csv files, native chock-flag module)
+  [switch]$Experiments,
   # testing against copies outside Program Files
   [switch]$NoElevate
 )
@@ -34,6 +39,7 @@ $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIden
 if (-not $isAdmin -and -not $NoElevate) {
   $argv = @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-NoExit', '-File', "`"$PSCommandPath`"", '-DcsPath', "`"$DcsPath`"", '-Port', $Port)
   if ($Uninstall) { $argv += '-Uninstall' }
+  if ($Experiments) { $argv += '-Experiments' }
   if ($Server) { $argv += @('-Server', "`"$Server`"") }
   if (-not $SavedGames) {
     foreach ($d in 'DCS', 'DCS.openbeta') {
@@ -56,9 +62,10 @@ if (-not $SavedGames) {
 if (-not $SavedGames -or -not (Test-Path $SavedGames)) { throw "Saved Games\DCS not found (pass -SavedGames)" }
 $here = Split-Path -Parent $PSCommandPath
 $modDst = Join-Path $SavedGames 'Mods\aircraft\CATCC-Pilot'
-$chocksDst = Join-Path $SavedGames 'Mods\tech\CATCC-Chocks' # PriFly's wheel chock static: every PC in a session needs it
+$chocksDst = Join-Path $SavedGames 'Mods\tech\CATCC-Chocks' # parked experiment (chock static objects): only with -Experiments
 $hookDst = Join-Path $SavedGames 'Scripts\Hooks\CATCC-pilot-hook.lua'
-$dataDst = Join-Path $DcsPath 'Data' # DCS wants <shape>.csv here for every Cargo static (ours: the test wall)
+$dataDst = Join-Path $DcsPath 'Data' # DCS wants <shape>.csv here for every Cargo static (parked experiment)
+$autoexec = Join-Path $SavedGames 'Config\autoexec.cfg'
 $xml =Join-Path $DcsPath 'CoreMods\tech\USS_Nimitz\scripts\common.xml'
 if (-not (Test-Path $xml)) { throw "Not found: $xml (pass -DcsPath)" }
 $comm = Join-Path $DcsPath 'Mods\aircraft\FA-18C\comm.lua' # the Hornet's F8 radio menu
@@ -82,6 +89,11 @@ if ($Uninstall) {
   if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
   if (Test-Path $hookDst) { Remove-Item -Force $hookDst }
   if (Test-Path $dataDst) { Get-ChildItem $dataDst -Filter 'CATCC_*.csv' | Remove-Item -Force }
+  if (Test-Path $autoexec) {
+    $auto = [System.IO.File]::ReadAllText($autoexec, $enc)
+    $auto2 = [regex]::Replace($auto, '(?m)^[^\r\n]*-- CATCC[^\r\n]*\r?\n?', '')
+    if ($auto2 -ne $auto) { [System.IO.File]::WriteAllText($autoexec, $auto2, $enc) }
+  }
   Write-Host "CATCC pilot mod removed; common.xml and the Hornet's comm.lua back to stock. Restart DCS."
   exit 0
 }
@@ -90,13 +102,20 @@ if ($Uninstall) {
 New-Item -ItemType Directory -Force (Split-Path $modDst) | Out-Null
 if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
 Copy-Item -Recurse (Join-Path $here 'Mods\aircraft\CATCC-Pilot') $modDst
-New-Item -ItemType Directory -Force (Split-Path $chocksDst) | Out-Null
-if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
-Copy-Item -Recurse (Join-Path $here 'Mods\tech\CATCC-Chocks') $chocksDst
 New-Item -ItemType Directory -Force (Split-Path $hookDst) | Out-Null
 Copy-Item -Force (Join-Path $here 'Scripts\Hooks\CATCC-pilot-hook.lua') $hookDst
-if ((Test-Path $dataDst) -and (Test-Path (Join-Path $here 'Data'))) {
-  Get-ChildItem (Join-Path $here 'Data') -Filter 'CATCC_*.csv' | ForEach-Object { Copy-Item -Force $_.FullName $dataDst }
+# the parked experiments: the native chock-flag module (bin), the chock statics and their cargo csv files
+if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
+if (Test-Path $dataDst) { Get-ChildItem $dataDst -Filter 'CATCC_*.csv' | Remove-Item -Force }
+if ($Experiments) {
+  New-Item -ItemType Directory -Force (Split-Path $chocksDst) | Out-Null
+  Copy-Item -Recurse (Join-Path $here 'Mods\tech\CATCC-Chocks') $chocksDst
+  if ((Test-Path $dataDst) -and (Test-Path (Join-Path $here 'Data'))) {
+    Get-ChildItem (Join-Path $here 'Data') -Filter 'CATCC_*.csv' | ForEach-Object { Copy-Item -Force $_.FullName $dataDst }
+  }
+} else {
+  $bin = Join-Path $modDst 'bin'
+  if (Test-Path $bin) { Remove-Item -Recurse -Force $bin }
 }
 
 # 2. config
@@ -134,6 +153,7 @@ $text = $text.Substring(0, $end) + $gate + $text.Substring($end)
 # 4. the Hornet's F8 "Wheel chocks > Remove" asks the pilot hook first (PriFly holds the chocks until it
 #    gives a taxi instruction). Looked up when pressed, so without the mod's hook it is the stock request.
 $chocksDone = $false
+$saluteDone = $false
 if ($null -ne $commText) {
   $canchor = "submenu = menus['Wheel chocks']}"
   $ca = $commText.IndexOf($canchor)
@@ -160,13 +180,66 @@ if ($null -ne $commText) {
       "if G.print then G.print('CATCC: Hornet wheel chocks menu routed through PriFly') end end end " +
       "-- CATCC: PriFly holds the chocks until it gives the taxi instruction"
     $commText = $commText.Substring(0, $eol) + $cnl + $line + $commText.Substring($eol)
-    [System.IO.File]::WriteAllText($comm, $commText, $enc)
     $chocksDone = $true
+    # The F8 "Salute!" item (the deck crew pulls the chocks on the pilot's salutes): while PriFly holds
+    # the chocks (S.sal, set by the hook; no word for 15 s: stock) the salute isn't sent, it is counted
+    # for the hook, which tells PriFly the pilot is ready to taxi. The line goes right after the item,
+    # so the item is the last one in the ground crew menu at that point.
+    $sanchor = 'sendMessage.new(Message.wMsgLeaderGroundGestureSalut, true)}'
+    $sa = $commText.IndexOf($sanchor)
+    if ($sa -ge 0 -and $commText.IndexOf($sanchor, $sa + 1) -lt 0) {
+      $seol = $commText.IndexOf("`n", $sa)
+      if ($seol -lt 0) { $seol = $commText.Length }
+      if ($seol -gt 0 -and $commText[$seol - 1] -eq "`r") { $seol = $seol - 1 }
+      $sline = "do local G = getfenv(0); local it = g_crew_items[#g_crew_items]; " +
+        "if G and it and it.command then " +
+        "local orig = it.command; " +
+        "local S = G.CATCC_CHOCKS or { held = false, at = 0, asked = 0, pending = false }; G.CATCC_CHOCKS = S; " +
+        "S.salPatched = true; " +
+        "local clock = G.os and G.os.clock; " +
+        "it.command = { perform = function(self, p) " +
+        "if S.sal and (not clock or clock() - (S.at or 0) < 15) then S.salAsked = (S.salAsked or 0) + 1; return end; " +
+        "return orig:perform(p) end }; " +
+        "if G.print then G.print('CATCC: Hornet salute menu item routed through PriFly') end end end " +
+        "-- CATCC: PriFly holds the salute (the deck crew's chocks) until it gives the taxi instruction"
+      $commText = $commText.Substring(0, $seol) + $cnl + $sline + $commText.Substring($seol)
+      $saluteDone = $true
+    } else {
+      Write-Warning "Hornet comm.lua: the Salute! item wasn't found exactly once; the F8 salute is not routed through PriFly."
+    }
+    [System.IO.File]::WriteAllText($comm, $commText, $enc)
   } else {
     Write-Warning "Hornet comm.lua: the Wheel chocks menu wasn't found exactly once; chocks not routed through PriFly."
   }
 }
 
+# 5. the pilot hook reaches the F8 menu's Lua state with net.dostring_in("server", ...). DCS allows that
+#    only when autoexec.cfg says so (API\Sim_ControlAPI.md): net.allow_unsafe_api must list "userhooks"
+#    and net.allow_dostring_in must list "server". Add what is missing (a new line is marked CATCC).
+function Add-AutoexecEntry([string]$text, [string]$name, [string]$value) {
+  $m = [regex]::Match($text, '(?m)^[ \t]*' + [regex]::Escape($name) + '[ \t]*=[ \t]*\{([^}]*)\}')
+  if (-not $m.Success) {
+    $anl = if ($text.Contains("`r`n") -or $text.Length -eq 0) { "`r`n" } else { "`n" }
+    if ($text.Length -gt 0 -and -not $text.EndsWith("`n")) { $text += $anl }
+    return $text + $name + ' = {"' + $value + '"} -- CATCC: the pilot hook reaches the F8 menu' + $anl
+  }
+  $list = $m.Groups[1].Value
+  if ($list -match ('["'']' + [regex]::Escape($value) + '["'']')) { return $text }
+  $kept = $list.TrimEnd()
+  $sep = if ($kept.Trim().Length -eq 0) { '' } elseif ($kept.EndsWith(',')) { ' ' } else { ', ' }
+  $new = $kept + $sep + '"' + $value + '"' + $list.Substring($kept.Length)
+  return $text.Substring(0, $m.Groups[1].Index) + $new + $text.Substring($m.Groups[1].Index + $m.Groups[1].Length)
+}
+$autoDone = ''
+New-Item -ItemType Directory -Force (Split-Path $autoexec) | Out-Null
+$auto = if (Test-Path $autoexec) { [System.IO.File]::ReadAllText($autoexec, $enc) } else { '' }
+$auto2 = Add-AutoexecEntry (Add-AutoexecEntry $auto 'net.allow_unsafe_api' 'userhooks') 'net.allow_dostring_in' 'server'
+if ($auto2 -ne $auto) {
+  [System.IO.File]::WriteAllText($autoexec, $auto2, $enc)
+  $autoDone = '; autoexec.cfg now lets the hook reach the F8 menu'
+}
+
 $srv = if ($Server) { "${Server}:$Port" } else { 'the squadron server (default)' }
-$chk = if ($chocksDone) { '; Hornet chocks routed through PriFly' } else { '' }
-Write-Host "CATCC pilot mod installed in $SavedGames (server: $srv); launch gate added to common.xml$chk. Restart DCS."
+$chk = if ($chocksDone -and $saluteDone) { '; Hornet chocks and salute routed through PriFly' } elseif ($chocksDone) { '; Hornet chocks routed through PriFly' } else { '' }
+$exp = if ($Experiments) { '; parked experiments installed' } else { '' }
+Write-Host "CATCC pilot mod installed in $SavedGames (server: $srv); launch gate added to common.xml$chk$autoDone$exp. Restart DCS."

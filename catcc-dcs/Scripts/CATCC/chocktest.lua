@@ -3,9 +3,11 @@
 -- Installed by the CATCC hook when Saved Games\DCS\Config\CATCC-test.lua returns { chockTest = true }.
 -- Adds F10 > "CATCC chock test" for every player.
 --
--- 1. Ship chock flags: ON / OFF. The carrier keeps a wheel-chock flag per parking spot; the deck crew's
---    chocks (flag on) arrest a Hornet in full afterburner. ON asks the pilot mod (CATCC-pilot-hook.lua,
---    catcc_chocks.dll) to set every spot's flag, every frame; it reads CATCC_CT.shipFlag from here.
+-- 1. PriFly hold: ON / OFF / follow PriFly. Stands in for PriFly holding this jet's chocks (ON) and for
+--    the taxi instruction (OFF), so the hold can be tried with nobody in PriFly. The pilot mod
+--    (CATCC-pilot-hook.lua) reads CATCC_CT.hold from here. While held it keeps the jet's own chocks in:
+--    with the Supercarrier deck crew on, the salute never reaches the crew (they pull the chocks on
+--    it); with the deck crew off, it asks the Hornet's ground crew for chocks.
 -- 2. The Hornet's own wheel chocks (draw argument 23) are watched all the time: on screen and in dcs.log
 --    ("CATCC chock test: ...") when they go on or come off, and how far the jet moves while they are on.
 -- 3. PARKED (2026-11-13, the user's call: not the right approach, and it would be worse in multiplayer):
@@ -17,6 +19,8 @@
 --        bounce, a wall at the gear leg or a 0.4 m block at the tyres collapsed the main gear in well
 --        under a second and the jet sank onto the deck; the jet's life stayed 20/20 throughout;
 --      - a chock-height shell (0.18 m) touches nothing: see the geometry below.
+--    Also tried and dropped (2026-11-13): the carrier's chock flag per parking spot, set on every frame
+--    through a native module. It stayed set and did nothing (pilot/experiments/native-chock-flags.lua).
 --    The code and its menu stay for reference: set CATCC_CT_SHOW_BLOCKERS = true before this file runs.
 --
 -- Hornet geometry, aircraft frame (along = metres forward of the origin, across = to the right):
@@ -33,8 +37,16 @@
 -- starboard, offsets.angle = heading relative to the carrier (radians); checked against the
 -- Supercarrier population template mission.
 
--- shipFlag: 'on' / 'off', read by the pilot mod (net.dostring_in) for the ship chock flag test
-CATCC_CT = { players = {}, menus = {}, shipFlag = nil }
+-- This Lua state outlives a mission, so the CATCC hook installs this file again at every mission start:
+-- what an earlier install left behind (its event handler, its timers) stops here.
+if CATCC_CT and CATCC_CT.handler and world and world.removeEventHandler then
+  pcall(world.removeEventHandler, CATCC_CT.handler)
+end
+CATCC_CT_GEN = (CATCC_CT_GEN or 0) + 1
+local GEN = CATCC_CT_GEN
+local function live() return GEN == CATCC_CT_GEN end
+-- hold: 'on' / 'off' / nil, read by the pilot mod (net.dostring_in) as PriFly's hold on the chocks
+CATCC_CT = { players = {}, menus = {}, hold = nil }
 local CT = CATCC_CT
 local SHOW_BLOCKERS = CATCC_CT_SHOW_BLOCKERS == true -- the parked collision experiments' menu
 
@@ -318,6 +330,7 @@ local function monitor(unit)
 end
 
 local function tick(_, t)
+  if not live() then return nil end
   for name in pairs(CT.players) do
     local u = Unit.getByName(name)
     if u then pcall(monitor, u) end
@@ -343,16 +356,20 @@ local function addMenu(unit)
   playerState(unit) -- watched from now on (the Hornet's own chocks), blockers or not
   local un = unit:getName()
   local root = missionCommands.addSubMenuForGroup(gid, 'CATCC chock test')
-  missionCommands.addCommandForGroup(gid, 'Ship chock flags: ON', root, withUnit(un, function(u)
-    CT.shipFlag = 'on'
-    say(g:getID(), "ship chock flags ON: the pilot mod now sets the carrier's chock flag on every parking spot, every frame. " ..
-      'Are the chocks drawn? Add power: any movement is reported here')
-  end))
-  missionCommands.addCommandForGroup(gid, 'Ship chock flags: OFF', root, withUnit(un, function(u)
-    CT.shipFlag = 'off'
-    say(g:getID(), 'ship chock flags OFF: the pilot mod clears them once and leaves them alone')
-  end))
+  local function hold(label, v, text)
+    missionCommands.addCommandForGroup(gid, label, root, withUnit(un, function(u)
+      CT.hold = v
+      say(g:getID(), text)
+    end))
+  end
+  hold('PriFly hold: ON', 'on', 'PriFly hold ON (test): the pilot mod keeps your chocks in. Deck crew on: your salute is ' ..
+    'held back from the crew. Deck crew off: the ground crew is asked for chocks. Add power: any movement is reported here')
+  hold('PriFly hold: OFF (taxi instruction)', 'off', 'PriFly hold OFF (test), as after a taxi instruction: your salute ' ..
+    'works again, and chocks the mod asked for come off')
+  hold('PriFly hold: follow PriFly', nil, 'test switch out: the pilot mod follows PriFly again')
   if not SHOW_BLOCKERS then return end
+  -- the parked collision experiments, in a submenu of their own (an F10 menu holds 10 items)
+  root = missionCommands.addSubMenuForGroup(gid, 'Blockers (parked)', root)
   for i, t in ipairs(TYPES) do
     missionCommands.addCommandForGroup(gid, 'Place: ' .. t.label, root, withUnit(un, function(u) place(u, i) end))
   end
@@ -392,11 +409,13 @@ end
 
 local handler = {}
 function handler:onEvent(e)
+  if not live() then return end
   if e and e.id == world.event.S_EVENT_BIRTH and e.initiator and e.initiator.getPlayerName and e.initiator:getPlayerName() then
     pcall(addMenu, e.initiator)
   end
 end
 world.addEventHandler(handler)
+CT.handler = handler
 scan()
-timer.scheduleFunction(function(_, t) pcall(scan) return t + 10 end, nil, timer.getTime() + 10)
+timer.scheduleFunction(function(_, t) if not live() then return nil end pcall(scan) return t + 10 end, nil, timer.getTime() + 10)
 timer.scheduleFunction(tick, nil, timer.getTime() + 1)

@@ -300,4 +300,10 @@ callbacks.onSimulationStop()
 tick()
 drain(good, 'stop')
 
+-- 6. the next mission in the same Lua state (CATCC_CT is still there, its F10 menu is not): the chock
+--    test is installed again
+callbacks.onSimulationStart()
+tick(6)
+tick(6)
+
 return table.concat(transcript, '\n')

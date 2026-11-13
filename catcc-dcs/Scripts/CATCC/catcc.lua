@@ -251,14 +251,15 @@ local function installSampler()
   return true
 end
 
--- the F10 chock test (Config/CATCC-test.lua): installed whenever a mission runs, room or not, and again
--- if the mission environment resets; checked every 5 s
-local lastChockTestAt, chockTestWarned = -1e9, false
+-- the F10 chock test (Config/CATCC-test.lua): installed at every mission start, room or not (the Lua
+-- state it lives in outlives a mission, its F10 menu doesn't), and again if that state resets;
+-- checked every 5 s
+local lastChockTestAt, chockTestWarned, chockTestInstalled = -1e9, false, false
 local function chockTest(t)
   if not cfg.chockTest or t - lastChockTestAt < 5 then return end
   lastChockTestAt = t
   local ok, present = pcall(dostring, 'return type(CATCC_CT)')
-  if ok and present == 'table' then return end
+  if chockTestInstalled and ok and present == 'table' then return end
   local fh = io.open(writedir .. 'Scripts/CATCC/chocktest.lua', 'r')
   if not fh then
     if not chockTestWarned then chockTestWarned = true; warn('chockTest is on but Scripts/CATCC/chocktest.lua is missing') end
@@ -267,7 +268,9 @@ local function chockTest(t)
   local ct = fh:read('*a')
   fh:close()
   local ok2, r = pcall(dostring, ct .. '\nreturn (type(CATCC_CT) == "table") and "CATCC_OK" or "CATCC_FAIL"')
-  if ok2 and r == 'CATCC_OK' then info('chock test menu installed (F10 > CATCC chock test)')
+  if ok2 and r == 'CATCC_OK' then
+    chockTestInstalled = true
+    info('chock test menu installed (F10 > CATCC chock test)')
   elseif not chockTestWarned then chockTestWarned = true; warn('chock test install failed: ' .. tostring(r)) end
 end
 
@@ -672,7 +675,7 @@ function handler.onSimulationStart()
   missionRunning = true
   lastEnvAt = -1e9
   samplerInstalled = false
-  lastChockTestAt, chockTestWarned = -1e9, false
+  lastChockTestAt, chockTestWarned, chockTestInstalled = -1e9, false, false
   broadcast(missionMessage())
 end
 

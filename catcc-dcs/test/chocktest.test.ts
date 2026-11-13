@@ -1,6 +1,7 @@
 // The CATCC chock test (mission environment) under fengari with a mocked DCS scripting API: the F10
-// menu places statics at the Hornet's wheels, linked to the carrier, at the right carrier-frame offsets,
-// reports movement, height, gear and life while they're out, and watches the Hornet's own chocks.
+// menu's PriFly hold switch (read by the pilot mod), the watch on the Hornet's own chocks, and the
+// parked collision blockers (statics at the Hornet's wheels, linked to the carrier, at the right
+// carrier-frame offsets; movement, height, gear and life reported while they're out).
 import fs from 'node:fs';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
@@ -66,13 +67,22 @@ coalition = {
 Group = { Category = { AIRPLANE = 0, HELICOPTER = 1, GROUND = 2, SHIP = 3 } }
 StaticObject = { getByName = function(n) return statics[n] end }
 Unit = { getByName = function(n) if n == 'Volt 1-1' then return JET elseif n == 'CVN' then return CV end end }
-local cmds, order, timers = {}, {}, {}
+local cmds, order, timers, perMenu = {}, {}, {}, {}
 missionCommands = {
-  addSubMenuForGroup = function(gid, name) return { name } end,
-  addCommandForGroup = function(gid, name, parent, fn) cmds[name] = fn; order[#order + 1] = name end,
+  addSubMenuForGroup = function(gid, name, parent)
+    if parent then perMenu[parent[1]] = (perMenu[parent[1]] or 0) + 1 end
+    return { name }
+  end,
+  addCommandForGroup = function(gid, name, parent, fn)
+    cmds[name] = fn; order[#order + 1] = name
+    perMenu[parent[1]] = (perMenu[parent[1]] or 0) + 1
+  end,
 }
 timer = { getTime = function() return 0 end, scheduleFunction = function(fn, arg, t) timers[#timers + 1] = fn end }
-world = { event = { S_EVENT_BIRTH = 15 }, addEventHandler = function() end }
+local handlers = {}
+world = { event = { S_EVENT_BIRTH = 15 },
+  addEventHandler = function(h) handlers[#handlers + 1] = h end,
+  removeEventHandler = function(h) for i = #handlers, 1, -1 do if handlers[i] == h then table.remove(handlers, i) end end end }
 trigger = { action = { outTextForGroup = function(gid, text) rec('say ' .. gid .. ' ' .. text) end } }
 local logged = {}
 env = { info = function(s) logged[#logged + 1] = s end }
@@ -80,6 +90,9 @@ env = { info = function(s) logged[#logged + 1] = s end }
 CATCC_CT_SHOW_BLOCKERS = %SHOW%
 assert(load(CT_SRC, 'chocktest'))()
 rec('menu ' .. table.concat(order, ' | '))
+local biggest = 0
+for _, n in pairs(perMenu) do if n > biggest then biggest = n end end
+rec('biggest menu ' .. biggest)
 local function tick() timers[2](nil, 1) end
 `;
 
@@ -131,12 +144,28 @@ rec('logged ' .. #logged .. ' ' .. tostring(logged[1]))
 return table.concat(out, '\\n')
 `;
 
-// the menu as installed: the ship chock flag switch only
-const flagSwitch = `
-cmds['Ship chock flags: ON']()
-rec('flag ' .. tostring(CATCC_CT.shipFlag))
-cmds['Ship chock flags: OFF']()
-rec('flag ' .. tostring(CATCC_CT.shipFlag))
+// the menu as installed: the PriFly hold switch only
+const holdSwitch = `
+rec('hold ' .. tostring(CATCC_CT.hold))
+cmds['PriFly hold: ON']()
+rec('hold ' .. tostring(CATCC_CT.hold))
+cmds['PriFly hold: OFF (taxi instruction)']()
+rec('hold ' .. tostring(CATCC_CT.hold))
+cmds['PriFly hold: follow PriFly']()
+rec('hold ' .. tostring(CATCC_CT.hold))
+-- the next mission: the Lua state is the same one, the F10 menu is gone. The hook installs the file
+-- again: a fresh switch and menu, and the first install's handler and timers stop
+cmds['PriFly hold: ON']()
+local firstTimers = #timers
+order = {}
+assert(load(CT_SRC, 'chocktest'))()
+rec('again hold ' .. tostring(CATCC_CT.hold) .. ' menu ' .. table.concat(order, ' | '))
+rec('handlers ' .. #handlers)
+local stopped = 0
+for i = 1, firstTimers do if timers[i](nil, 1) == nil then stopped = stopped + 1 end end
+local running = 0
+for i = firstTimers + 1, #timers do if timers[i](nil, 1) ~= nil then running = running + 1 end end
+rec('timers stopped ' .. stopped .. ' of ' .. firstTimers .. ', running ' .. running)
 return table.concat(out, '\\n')
 `;
 
@@ -175,15 +204,22 @@ const chockSpots = (gap: number) => {
 
 describe('CATCC chock test (mission environment)', () => {
   const out = run(mocks.replace('%SHOW%', 'true') + blockers);
-  const plain = run(mocks.replace('%SHOW%', 'nil') + flagSwitch);
-  it('offers only the ship chock flag switch unless the parked blockers are asked for, and the switch sets what the pilot mod reads', () => {
-    expect(plain.find((l) => l.startsWith('menu '))).toBe('menu Ship chock flags: ON | Ship chock flags: OFF');
-    expect(plain.filter((l) => l.startsWith('flag '))).toEqual(['flag on', 'flag off']);
-    expect(plain.some((l) => l.includes('ship chock flags ON'))).toBe(true);
+  const plain = run(mocks.replace('%SHOW%', 'nil') + holdSwitch);
+  const HOLD_MENU = 'PriFly hold: ON | PriFly hold: OFF (taxi instruction) | PriFly hold: follow PriFly';
+  it('offers only the PriFly hold switch unless the parked blockers are asked for, and the switch sets what the pilot mod reads', () => {
+    expect(plain.find((l) => l.startsWith('menu '))).toBe('menu ' + HOLD_MENU);
+    expect(plain.filter((l) => l.startsWith('hold '))).toEqual(['hold nil', 'hold on', 'hold off', 'hold nil']);
+    expect(plain.some((l) => l.includes('PriFly hold ON (test)'))).toBe(true);
   });
-  it('fits the F10 menu (10 items at most)', () => {
+  it('starts afresh when the hook installs it again for the next mission (the Lua state outlives a mission)', () => {
+    expect(plain).toContain('again hold nil menu ' + HOLD_MENU);
+    expect(plain).toContain('handlers 1');
+    expect(plain).toContain('timers stopped 2 of 2, running 2');
+  });
+  it('fits the F10 menu (10 items at most in any one menu)', () => {
     const menu = out.find((l) => l.startsWith('menu '))!.slice(5).split(' | ');
-    expect(menu.length).toBeLessThanOrEqual(10);
+    expect(Number(out.find((l) => l.startsWith('biggest menu '))!.slice(13))).toBeLessThanOrEqual(10);
+    expect(Number(plain.find((l) => l.startsWith('biggest menu '))!.slice(13))).toBeLessThanOrEqual(10);
     expect(menu).toContain('Place: cargo chock');
     expect(menu).toContain('Place: cargo block at tyres');
   });

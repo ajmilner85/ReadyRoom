@@ -1,3 +1,10 @@
+// PARKED EXPERIMENT (2026-11-13): not loaded by the pilot hook any more, and only installed with
+// install.ps1 -Experiments. The carrier's per-spot chock flag turned out to do nothing for a player's
+// jet: set on every frame it stayed set, no chocks were drawn and the jet taxied away, with the taxi
+// deck crew on and off; and with the deck crew's chocks in, the flags read 0. What the hook did with
+// this module is kept in pilot/experiments/native-chock-flags.lua. What holds a jet now: its own
+// chocks, kept in by the pilot hook (see "chocks held by PriFly" there).
+//
 // CATCC pilot mod: native Lua module (catcc_chocks.dll) that holds the carrier's own wheel chocks.
 //
 // Loaded by the pilot GUI hook with package.loadlib(path, 'luaopen_catcc_chocks'). It does not link
