@@ -125,6 +125,10 @@ clockNow = clockNow + 16
 remove:perform({}); salute:perform({})
 -- what the hook asks for itself
 S.place(); S.remove()
+-- the pilot's own Place request ends the hook's quiet window (his crew's answer is voiced)
+S.quietUntil = clockNow + 20
+menus['Wheel chocks'].items[1].command:perform({})
+rec('quiet after own place ' .. tostring(S.quietUntil))
 return table.concat(out, '\\n')
 `;
 
@@ -178,7 +182,10 @@ describe.skipIf(!windows)('CATCC pilot mod installer', () => {
     expect(out.slice(6, 8)).toEqual(['sent CHOCKS false', 'sent SALUTE true']);
   });
   it('gives the hook a way to ask the ground crew for chocks and to have them removed', () => {
-    expect(out.slice(8)).toEqual(['tuned to the ground crew', 'sent CHOCKS true', 'tuned to the ground crew', 'sent CHOCKS false']);
+    expect(out.slice(8, 12)).toEqual(['tuned to the ground crew', 'sent CHOCKS true', 'tuned to the ground crew', 'sent CHOCKS false']);
+  });
+  it('ends the hook\'s quiet window when the pilot asks for chocks himself (his crew\'s answer is voiced)', () => {
+    expect(out.slice(12)).toEqual(['sent CHOCKS true', 'quiet after own place nil']);
   });
   it('lets the hook reach the F8 menu: autoexec.cfg gets what DCS asks for, existing entries kept', () => {
     const cfg = t.read('sg/Config/autoexec.cfg');

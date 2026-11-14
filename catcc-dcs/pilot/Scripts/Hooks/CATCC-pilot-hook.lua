@@ -357,7 +357,7 @@ local PLACE_SETTLE_S, PLACE_RETRY_S, PLACE_TRIES = 0, 45, 3
 -- every radio call through speech.make(message) (Scripts/Speech/speech.lua, loaded in the same Lua state
 -- as the F8 menu); while S.quietUntil runs, those two calls come back empty. The pilot's own requests
 -- (chocks out on the taxi instruction) are voiced as stock. Installed once, again if speech is reloaded.
-local QUIET_S = 20
+local QUIET_S, QUIET_AFTER_IN_S = 20, 2
 local QUIET_CREW = 'local quiet = "no speech module"; ' ..
   'local sp = (package and package.loaded and package.loaded.speech) or speech; ' ..
   'if type(sp) == "table" and type(sp.make) == "function" and Message then ' ..
@@ -445,8 +445,14 @@ local function groundChocks(t, chock, onDeck, hornet)
   end
   if inNow then
     if gc.askedAt and not gc.ours then
-      gc.ours = true
+      gc.ours, gc.inAt = true, t
       say('ground crew chocks in: PriFly holds them until your taxi instruction')
+    end
+    -- their "chocks placed" call has had time to come: the quiet window ends, so whatever the pilot asks
+    -- for himself from here on is voiced (his own F8 Place request ends it too: comm.lua)
+    if gc.inAt and t - gc.inAt >= QUIET_AFTER_IN_S then
+      gc.inAt = nil
+      menuDo('if CATCC_CHOCKS then CATCC_CHOCKS.quietUntil = nil end return "ok"')
     end
     gc.still = nil
     return

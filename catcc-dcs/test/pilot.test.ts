@@ -392,6 +392,8 @@ frames(8, 0.5)
 holdList('', '"Ace"')
 frames(8, 0.5)
 rec('asked ' .. count('ground crew asked: place') .. ' chocks ' .. args[23])
+-- chocks in for a while: the quiet window is over, anything the pilot asks for is voiced
+radio(501); radio(502)
 -- taxi instruction: the chocks this mod asked for come out, voiced
 realTime = realTime + 25
 holdList('', '')
@@ -653,7 +655,7 @@ describe('CATCC pilot hook: ground crew chocks while PriFly holds a jet with non
     expect(out).toContain('asked at once 1');
   });
   it('silences the crew\'s radio calls for its own request, and voices the removal on the taxi instruction', () => {
-    expect(out.filter((l) => l.startsWith('radio '))).toEqual(['radio 501 silent', 'radio 502 silent', 'radio 501 voiced', 'radio 503 voiced']);
+    expect(out.filter((l) => l.startsWith('radio '))).toEqual(['radio 501 silent', 'radio 502 silent', 'radio 501 voiced', 'radio 502 voiced', 'radio 501 voiced', 'radio 503 voiced']);
   });
   it('asks the Hornet\'s ground crew once, on a carrier under way too, and knows the chocks as its own', () => {
     expect(out).toContain('asked 1 chocks 1');

@@ -182,6 +182,7 @@ if ($null -ne $commText) {
       "local S = G.CATCC_CHOCKS or { held = false, at = 0, asked = 0, pending = false }; G.CATCC_CHOCKS = S; " +
       "local clock = G.os and G.os.clock; " +
       "S.place = function() if tune then tune(nil) end; place:perform({}) end; " +
+      "pl.command = { perform = function(self, p) S.quietUntil = nil; return place:perform(p) end }; " +
       "S.remove = function() if tune then tune(nil) end; orig:perform({}) end; " +
       "it.command = { perform = function(self, p) " +
       "if S.held and (not clock or clock() - (S.at or 0) < 15) then S.asked = (S.asked or 0) + 1; S.pending = true; return end; " +
