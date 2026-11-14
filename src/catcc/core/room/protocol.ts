@@ -187,6 +187,8 @@ export type ClientMsg =
   | { t: 'auth'; token: string }
   | { t: 'plan'; src: string; carrier: string; plan: CarrierPlan }
   | { t: 'assign'; src: string; trackId: string; assignment: Assignment | null }
+  /** commit (or clear, with target null) an intercept assignment: one interceptor track -> one target track */
+  | { t: 'intercept'; src: string; interceptor: string; target: string | null }
   | { t: 'subscribe'; src: string }
   | { t: 'claim'; src: string; seat: SeatKey }
   | { t: 'release'; src: string; seat: SeatKey }
@@ -208,6 +210,8 @@ export type ServerMsg =
   | { t: 'plans'; src: string; plans: Record<string, CarrierPlan> }
   | { t: 'env'; src: string; env: HookEnv }
   | { t: 'assignments'; src: string; assignments: Record<string, Assignment> }
+  /** committed intercept assignments, keyed by interceptor track id -> target track id */
+  | { t: 'intercepts'; src: string; intercepts: Record<string, string> }
   | { t: 'owners'; src: string; owners: Record<string, Ownership> }
   | { t: 'ops'; src: string; ops: Record<string, OpsState> }
   | { t: 'orders'; src: string; orders: Record<string, OrderStatus> }

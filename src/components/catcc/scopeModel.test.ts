@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../catcc/core/geo.ts';
 import type { WireTrack } from '../../catcc/core/room/protocol.ts';
-import { buildPicture, inAltBlock, phaseOf, shortType, tagRows, type Trail } from './scopeModel.ts';
+import { buildPicture, inAltBlock, phaseOf, proximityClusters, shortType, specificEnergyFt, tagRows, type ScopeTrack, type Trail } from './scopeModel.ts';
 
 const CV = { lat: 26.2, lon: 56.8 };
 function at(brg: number, rng: number) {
@@ -160,5 +160,25 @@ describe('altitude filter block', () => {
     expect(inAltBlock({ alt: 18000, vs: -2000 }, f)).toBe(true);
     expect(inAltBlock({ alt: 18000, vs: 2000 }, f)).toBe(false);
     expect(inAltBlock({ alt: 9000 }, f)).toBe(false);
+  });
+});
+
+const tk = (id: string, x: number, y: number, extra: Partial<ScopeTrack> = {}): ScopeTrack => ({ id, p: [x, y], ...extra }) as ScopeTrack;
+
+describe('proximityClusters', () => {
+  it('groups tracks within the join distance and separates distant ones', () => {
+    const cs = proximityClusters([tk('a', 0, 0), tk('b', 2, 0), tk('c', 20, 0)], 3);
+    expect(cs.length).toBe(2);
+    expect(cs.find((c) => c.some((m) => m.id === 'c'))!.length).toBe(1);
+  });
+  it('single-linkage: a chain of hops within range is one cluster even when the ends are far apart', () => {
+    expect(proximityClusters([tk('a', 0, 0), tk('b', 2.5, 0), tk('c', 5, 0)], 3).length).toBe(1);
+  });
+});
+
+describe('specificEnergyFt', () => {
+  it('adds the speed height-equivalent to altitude, so faster at the same height means more energy', () => {
+    expect(specificEnergyFt({ alt: 10000, gs: 0 })).toBeCloseTo(10000, 0);
+    expect(specificEnergyFt({ alt: 10000, gs: 400 })).toBeGreaterThan(specificEnergyFt({ alt: 10000, gs: 200 }));
   });
 });

@@ -32,6 +32,8 @@ export interface RoomState {
   plans: Record<string, CarrierPlan>;
   env?: HookEnv;
   assignments: Record<string, Assignment>;
+  /** interceptor track id → target track id (committed intercept assignments) */
+  intercepts: Record<string, string>;
   /** flight key → owner seat and pending handoff */
   owners: Record<string, Ownership>;
   /** carrier hull → shared ops state */
@@ -52,7 +54,7 @@ export interface RoomState {
 const HISTORY_S = 40;
 
 export function useCatccRoom(preferredSrc?: string) {
-  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, owners: {}, ops: {}, orders: {}, launch: {}, tracks: [], mt: 0 });
+  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, intercepts: {}, owners: {}, ops: {}, orders: {}, launch: {}, tracks: [], mt: 0 });
   const history = useRef(new Map<string, Trail[]>());
   const wsRef = useRef<WebSocket | null>(null);
   const srcRef = useRef<string | undefined>(preferredSrc);
@@ -108,6 +110,9 @@ export function useCatccRoom(preferredSrc?: string) {
             break;
           case 'env':
             if (m.src === srcRef.current) setState((s) => ({ ...s, env: m.env }));
+            break;
+          case 'intercepts':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, intercepts: m.intercepts }));
             break;
           case 'assignments':
             if (m.src === srcRef.current) setState((s) => ({ ...s, assignments: m.assignments }));
@@ -181,7 +186,7 @@ export function useCatccRoom(preferredSrc?: string) {
     (src: string) => {
       srcRef.current = src;
       history.current.clear();
-      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, owners: {}, ops: {}, orders: {}, launch: {}, env: undefined }));
+      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, intercepts: {}, owners: {}, ops: {}, orders: {}, launch: {}, env: undefined }));
       send({ t: 'subscribe', src });
     },
     [send],
@@ -193,11 +198,15 @@ export function useCatccRoom(preferredSrc?: string) {
     (trackId: string, assignment: Assignment | null) => send({ t: 'assign', src: srcRef.current, trackId, assignment }),
     [send],
   );
+  const setIntercept = useCallback(
+    (interceptor: string, target: string | null) => send({ t: 'intercept', src: srcRef.current, interceptor, target }),
+    [send],
+  );
   const handoff = useCallback((key: string, from: SeatKey, to: SeatKey | null) => send({ t: 'handoff', src: srcRef.current, key, from, to }), [send]);
   const accept = useCallback((key: string) => send({ t: 'accept', src: srcRef.current, key }), [send]);
   const setOps = useCallback((carrier: string, patch: Partial<OpsState> | Record<string, unknown>) => send({ t: 'ops', src: srcRef.current, carrier, patch }), [send]);
   const clearLaunch = useCallback((carrier: string, trackId: string, clear: boolean) => send({ t: 'launch', src: srcRef.current, carrier, trackId, clear }), [send]);
   const clearError = useCallback(() => setState((s) => ({ ...s, error: undefined })), []);
 
-  return { state, history: history.current, selectSource, claim, release, setPlan, assign, handoff, accept, setOps, clearLaunch, clearError };
+  return { state, history: history.current, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, setOps, clearLaunch, clearError };
 }

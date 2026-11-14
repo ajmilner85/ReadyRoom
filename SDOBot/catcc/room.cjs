@@ -4841,6 +4841,8 @@ var Source = class {
   seats = /* @__PURE__ */ new Map();
   plans = {};
   assignments = {};
+  /** interceptor track id → target track id (committed intercept assignments) */
+  intercepts = {};
   owners = {};
   ops = {};
   /** the last ship order sent to DCS per ship (carrier hull or escort track id) and its answer */
@@ -4880,7 +4882,7 @@ var Source = class {
   }
   // ---------------------------------------------------------------- persistence
   snapshot() {
-    return { plans: this.plans, ops: this.ops, assignments: this.assignments, owners: this.owners, seats: [...this.seats.values()].map((x) => ({ ...x, away: void 0 })) };
+    return { plans: this.plans, ops: this.ops, assignments: this.assignments, intercepts: this.intercepts, owners: this.owners, seats: [...this.seats.values()].map((x) => ({ ...x, away: void 0 })) };
   }
   /** something shared changed: save it shortly (debounced) */
   dirty() {
@@ -4902,10 +4904,11 @@ var Source = class {
     if (!name || name === this.mission) return;
     if (this.mission) {
       await this.flush();
-      for (const o of [this.plans, this.ops, this.assignments, this.owners]) for (const k of Object.keys(o)) delete o[k];
+      for (const o of [this.plans, this.ops, this.assignments, this.intercepts, this.owners]) for (const k of Object.keys(o)) delete o[k];
       this.broadcastPlans();
       this.broadcastOps();
       this.broadcastAssignments();
+      this.broadcastIntercepts();
       this.broadcastOwners();
     }
     this.mission = name;
@@ -4920,6 +4923,7 @@ var Source = class {
     fill(this.plans, st.plans);
     fill(this.ops, st.ops);
     fill(this.assignments, st.assignments);
+    fill(this.intercepts, st.intercepts);
     fill(this.owners, st.owners);
     for (const h of st.seats ?? []) {
       const k = seatId(h);
@@ -4940,6 +4944,7 @@ var Source = class {
     this.broadcastPlans();
     this.broadcastOps();
     this.broadcastAssignments();
+    this.broadcastIntercepts();
     this.broadcastOwners();
     this.broadcastSeats();
   }
@@ -5034,6 +5039,14 @@ var Source = class {
       }
     }
     if (dropped) this.broadcastAssignments();
+    let iDropped = false;
+    for (const [interceptor, target] of Object.entries(this.intercepts)) {
+      if (!live.has(interceptor) || !live.has(target)) {
+        delete this.intercepts[interceptor];
+        iDropped = true;
+      }
+    }
+    if (iDropped) this.broadcastIntercepts();
     this.updateLaunch();
     const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...t.g ? [t.g] : []]));
     let gone = false;
@@ -5249,6 +5262,9 @@ var Source = class {
   assignmentsMsg() {
     return JSON.stringify({ t: "assignments", src: this.cfg.id, assignments: this.assignments });
   }
+  interceptsMsg() {
+    return JSON.stringify({ t: "intercepts", src: this.cfg.id, intercepts: this.intercepts });
+  }
   broadcastPlans() {
     this.dirty();
     const m = this.plansMsg();
@@ -5257,6 +5273,11 @@ var Source = class {
   broadcastAssignments() {
     this.dirty();
     const m = this.assignmentsMsg();
+    for (const c of this.subscribers) send(c, m);
+  }
+  broadcastIntercepts() {
+    this.dirty();
+    const m = this.interceptsMsg();
     for (const c of this.subscribers) send(c, m);
   }
   /** Open to all until someone holds a seat on this carrier (or MC); then seat holders only. */
@@ -5408,6 +5429,7 @@ var RoomService = class {
         send(c, src.seatsMsg());
         send(c, src.plansMsg());
         send(c, src.assignmentsMsg());
+        send(c, src.interceptsMsg());
         send(c, src.ownersMsg());
         send(c, src.opsMsg());
         send(c, src.ordersMsg());
@@ -5439,6 +5461,17 @@ var RoomService = class {
         if (a) src.assignments[msg.trackId] = a;
         else delete src.assignments[msg.trackId];
         src.broadcastAssignments();
+        return;
+      }
+      case "intercept": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        if (typeof msg.interceptor !== "string" || msg.interceptor.length > 32) return send(c, { t: "error", error: "invalid interceptor" });
+        if (msg.target !== null && (typeof msg.target !== "string" || msg.target.length > 32)) return send(c, { t: "error", error: "invalid target" });
+        if (!src.mayEdit(c.user.userId, "*")) return send(c, { t: "error", error: "claim a seat to assign intercepts" });
+        if (msg.target) src.intercepts[msg.interceptor] = msg.target;
+        else delete src.intercepts[msg.interceptor];
+        src.broadcastIntercepts();
         return;
       }
       case "handoff": {

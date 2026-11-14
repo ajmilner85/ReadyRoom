@@ -10,6 +10,7 @@ export interface PersistedState {
   plans?: Record<string, CarrierPlan>;
   ops?: Record<string, OpsState>;
   assignments?: Record<string, Assignment>;
+  intercepts?: Record<string, string>;
   owners?: Record<string, Ownership>;
   seats?: SeatHolder[];
 }

@@ -5,7 +5,7 @@
 import { aeqd, type Projection } from '../../catcc/core/geometry/projection.ts';
 import { predictConflict, type Cpa } from '../../catcc/core/geometry/maneuver.ts';
 import { defaultMarshalRadial, type ShipRef } from '../../catcc/core/geometry/procedures.ts';
-import { angDiff, bearingOf, dir, len, type Pt } from '../../catcc/core/geometry/vec.ts';
+import { angDiff, bearingOf, dir, len, sub, type Pt } from '../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../catcc/core/geo.ts';
 import type { WireTrack } from '../../catcc/core/room/protocol.ts';
 
@@ -175,12 +175,42 @@ export function buildPicture(
 }
 
 /** Lead = lowest element number in the callsign (x-1), else lowest id. */
-function leadOf(members: ScopeTrack[]): ScopeTrack {
+export function leadOf(members: ScopeTrack[]): ScopeTrack {
   const el = (t: ScopeTrack) => {
     const m = /-(\d+)$/.exec(t.cs ?? '');
     return m ? Number(m[1]) : 99;
   };
   return [...members].sort((a, b) => el(a) - el(b) || a.id.localeCompare(b.id))[0];
+}
+
+/** Specific energy (ft): altitude plus the height equivalent of the aircraft's speed (½V²/g). */
+export function specificEnergyFt(t: { alt: number; gs?: number }): number {
+  const vfps = (t.gs ?? 0) * 1.68781; // kt → ft/s
+  return t.alt + (vfps * vfps) / (2 * 32.174);
+}
+
+/** Single-linkage proximity clusters (NM): two tracks join when within `nm` of each other. */
+export function proximityClusters(tracks: ScopeTrack[], nm: number): ScopeTrack[][] {
+  const n = tracks.length;
+  const parent = Array.from({ length: n }, (_, i) => i);
+  const find = (i: number): number => {
+    while (parent[i] !== i) {
+      parent[i] = parent[parent[i]];
+      i = parent[i];
+    }
+    return i;
+  };
+  for (let i = 0; i < n; i++)
+    for (let j = i + 1; j < n; j++)
+      if (Math.hypot(tracks[i].p[0] - tracks[j].p[0], tracks[i].p[1] - tracks[j].p[1]) <= nm) parent[find(i)] = find(j);
+  const byRoot = new Map<number, ScopeTrack[]>();
+  for (let i = 0; i < n; i++) {
+    const r = find(i);
+    const arr = byRoot.get(r);
+    if (arr) arr.push(tracks[i]);
+    else byRoot.set(r, [tracks[i]]);
+  }
+  return [...byRoot.values()];
 }
 
 /**
@@ -321,6 +351,20 @@ export const stackLabel = (hull: string | undefined, id: string): string => `${h
 export const STACK_IDS = ['A', 'B', 'C', 'D', 'F', 'G', 'J', 'K'];
 
 export const defaultStack = (ship: ShipRef) => ({ id: 'A', r: Math.round(defaultMarshalRadial(ship)), base: 6 });
+
+/**
+ * A steadied course for a track, so course-sensitive geometry (e.g. intercept solutions) does not
+ * jump as the radar updates: the bearing of the net displacement over the last few trail dots
+ * (~10–18 s). Falls back to the instantaneous course when the trail is too short or the motion too
+ * small to be meaningful.
+ */
+export function smoothedCourse(t: ScopeTrack, dots = 3): number {
+  const old = t.trail[Math.min(t.trail.length, dots) - 1];
+  if (!old) return norm360(t.crs ?? t.hdg ?? 0);
+  const d = sub(t.p, old);
+  if (len(d) < 0.08) return norm360(t.crs ?? t.hdg ?? 0);
+  return bearingOf(d);
+}
 
 /** 30 s of travel, capped at 2.5 NM (handoff §5.2). */
 export function velocityEnd(t: ScopeTrack): Pt | undefined {

@@ -13,12 +13,13 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import { antennaFtOf, BLIND_ALTS, coverageNm, radarOf } from '../../../catcc/core/sensors/radar.ts';
 import type { Assignment, CarrierPlan } from '../../../catcc/core/room/protocol.ts';
 import type { RoomState } from '../useCatccRoom.ts';
-import { STACK_IDS, defaultStack, fuelK, groupFormations, phaseOf, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
+import { STACK_IDS, defaultStack, fuelK, groupFormations, leadOf, phaseOf, proximityClusters, specificEnergyFt, stackLabel, type Carrier, type Formation, type Phase, type Picture } from '../scopeModel.ts';
+import type { ScopeTrack } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
 import { HandoffRow } from '../Handoff.tsx';
 import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { finalPicture, patternIds } from '../final/finalModel.ts';
-import { DeckPanel, DonorsPanel } from './SidePanels.tsx';
+import { DeckPanel, DonorsPanel, InterceptPanel } from './SidePanels.tsx';
 import { phaseOf as radarPhase, scanPeriodS } from './sweep.ts';
 import { HelmPanel } from '../bridge/Helm.tsx';
 import { clockOf, PimPanel, PIM_BOX_NM, routeEtas, WaypointsPanel, WindIndicator, WodPanel, type WindMode } from '../bridge/Nav.tsx';
@@ -83,15 +84,28 @@ export interface RadarViewProps {
   mayEdit: boolean;
   sendPlan: (carrier: string, plan: CarrierPlan) => void;
   assign: (trackId: string, a: Assignment | null) => void;
+  setIntercept: (interceptor: string, target: string | null) => void;
   uiOpen: boolean;
   conflict: ConflictCfg;
   setConflict: (c: ConflictCfg) => void;
   setUiOpen: (b: boolean) => void;
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic: picIn, offH, mayEdit, sendPlan, assign, uiOpen, setUiOpen, conflict, setConflict }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic: picIn, offH, mayEdit, sendPlan, assign, setIntercept, uiOpen, setUiOpen, conflict, setConflict }) => {
   const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
   const [tool, setTool] = useState<Tool>(pre.tool);
+  // intercept tool: committed assignments come from the room (state.intercepts); `locks` are the
+  // working, uncommitted interceptor→target pairs, CDC-local. Changing tool clears the working
+  // solution (the locks) but leaves committed assignments in place.
+  const [locks, setLocks] = useState<Record<string, string>>({});
+  useEffect(() => {
+    if (tool !== 'int') setLocks({});
+  }, [tool]);
+  const committed = useMemo(() => state.intercepts ?? {}, [state.intercepts]);
+  // intercept target groups: the member ids currently treated as one target, per interceptor. A
+  // group is tracked as one until its elements separate by > 3 NM, then it splits.
+  const groupRef = useRef<Record<string, Set<string>>>({});
+  const [splitNotes, setSplitNotes] = useState<{ id: string; title: string; goTo?: [number, number] }[]>([]);
   // layers are kept per seat; the CATCC seats fall back to the layers saved before there were seats
   const legacy = (k: string, d: Record<string, boolean>) => {
     try {
@@ -145,6 +159,59 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const cfMode = sui?.conflicts ?? 'on';
   const showCf = cfMode === 'on' || (cfMode === 'toggle' && cfOn.on);
   const pic = useMemo(() => (showCf ? picIn : { ...picIn, conflicts: [] }), [picIn, showCf]);
+  // ------------------------------------------------ intercept target groups (split tracking)
+  const acLabel = (t?: ScopeTrack) => (t ? t.bd ?? t.cs ?? t.pi ?? t.id : '?');
+  // the element (same side+group, single-linkage within 3 NM) currently holding a target track
+  const elementOf = useCallback(
+    (targetId: string): ScopeTrack[] => {
+      const t = pic.air.find((x) => x.id === targetId);
+      if (!t) return [];
+      const flight = pic.air.filter((x) => x.sd === t.sd && (x.g ?? x.id) === (t.g ?? t.id));
+      return proximityClusters(flight, 3).find((c) => c.some((m) => m.id === targetId)) ?? [t];
+    },
+    [pic.air],
+  );
+  // every aircraft covered by an intercept (the whole targeted element), so the tracker can tell what is still untargetted
+  const coveredAc = useMemo(() => {
+    const s = new Set<string>();
+    for (const target of [...Object.values(committed), ...Object.values(locks)]) for (const m of elementOf(target)) s.add(m.id);
+    return s;
+  }, [committed, locks, elementOf]);
+  // watch each targeted group for a split (> 3 NM between elements); keep the largest element (tie →
+  // greatest total energy), retarget to its lead, and raise a notification so the controller reassesses
+  useEffect(() => {
+    const byId = new Map(pic.air.map((t) => [t.id, t]));
+    const active: Record<string, string> = { ...committed, ...locks };
+    for (const k of Object.keys(groupRef.current)) if (!(k in active)) delete groupRef.current[k];
+    const added: { id: string; title: string; goTo?: [number, number] }[] = [];
+    for (const [interceptor, target] of Object.entries(active)) {
+      const tgt = byId.get(target);
+      if (!tgt) continue;
+      const group = groupRef.current[interceptor];
+      if (!group) {
+        groupRef.current[interceptor] = new Set(elementOf(target).map((m) => m.id));
+        continue;
+      }
+      const live = [...group].map((id) => byId.get(id)).filter((x): x is ScopeTrack => !!x);
+      const clusters = live.length > 1 ? proximityClusters(live, 3) : [live];
+      if (clusters.length <= 1) {
+        groupRef.current[interceptor] = new Set(live.map((m) => m.id));
+        continue;
+      }
+      // split: keep the largest element, tiebreak on greatest total specific energy
+      const energy = (c: ScopeTrack[]) => c.reduce((s, m) => s + specificEnergyFt(m), 0);
+      const pick = clusters.slice().sort((a, b) => b.length - a.length || energy(b) - energy(a))[0];
+      groupRef.current[interceptor] = new Set(pick.map((m) => m.id));
+      const keep = pick.find((m) => m.id === target) ?? leadOf(pick);
+      if (keep.id !== target) {
+        if (interceptor in committed) setIntercept(interceptor, keep.id);
+        else setLocks((l) => ({ ...l, [interceptor]: keep.id }));
+      }
+      added.push({ id: `split:${interceptor}:${Math.round(state.mt)}`, title: `${acLabel(tgt)} group split — tracking ${acLabel(keep)} (${pick.length})`, goTo: keep.p as [number, number] });
+    }
+    if (added.length) setSplitNotes((prev) => [...prev, ...added.filter((a) => !prev.some((p) => p.id === a.id))]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [state.mt, committed, locks]);
   const lefts = sui?.left ?? ['info', 'strips'];
   const rights = sui?.right ?? ['dep', 'marshal', 'coord', 'notes'];
   const [ltab, setLtab] = useState<'info' | 'strips'>(lefts.includes('strips') ? 'strips' : 'info');
@@ -428,6 +495,11 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
     const at = new Date(Date.parse(`${state.env.date ?? '1970-01-01'}T00:00:00Z`) + (state.env.start + pim.etaS) * 1000);
     notes.push({ id: `b:${pim.etaS}:${pim.brc}`, k: 'info', kind: 'BRC CHANGE', t: tLocal, title: `${r3(pim.brc)} at ${hhmm(at)}` });
   }
+  // intercept target-group splits, while their interceptor is still active
+  {
+    const activeInt = new Set([...Object.keys(committed), ...Object.keys(locks)]);
+    for (const sn of splitNotes) if (activeInt.has(sn.id.split(':')[1])) notes.push({ id: sn.id, k: 'warn', kind: 'GROUP SPLIT', t: tLocal, title: sn.title, goTo: sn.goTo });
+  }
   const shown = notes.filter((n) => !acked[n.id]);
 
   // ------------------------------------------------ comms scripts fields
@@ -555,6 +627,10 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         plans={plans}
         assignments={assignments}
         onAssign={(id, a) => assign(id, a)}
+        intercepts={committed}
+        locks={locks}
+        onLock={(interceptor, target) => setLocks((l) => ({ ...l, [interceptor]: target }))}
+        onUnlock={(interceptor) => setLocks((l) => { const rest = { ...l }; delete rest[interceptor]; return rest; })}
         placement={placement}
         coordLines={coordLines}
         coordPreview={coordPreview}
@@ -630,6 +706,24 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         {rights.includes('csg') && <FormationPanel pic={pic} ops={ops} setOps={setOps} readOnly={!mayEditOps} cmds={cmds} orders={state.orders} />}
         {rights.includes('blights') && <LightsPanel title="Lights" items={BRIDGE_LIGHTS} ops={ops} setOps={setOps} readOnly={!mayEditOps} />}
         {rights.includes('deck') && <DeckPanel pic={pic} />}
+        {sui?.tools.includes('int') && (
+          <InterceptPanel
+            air={pic.air}
+            focusSide={focus?.track.sd ?? 'blue'}
+            covered={coveredAc}
+            committed={committed}
+            locks={locks}
+            onCommit={(interceptor, target) => {
+              setIntercept(interceptor, target);
+              setLocks((l) => { const rest = { ...l }; delete rest[interceptor]; return rest; });
+              if (hookedId === interceptor) setHookedId(null);
+            }}
+            onClearLock={(interceptor) => setLocks((l) => { const rest = { ...l }; delete rest[interceptor]; return rest; })}
+            onClear={(interceptor) => setIntercept(interceptor, null)}
+            onGoTo={(p) => setGoTo({ p, nonce: Date.now() })}
+            readOnly={!mayEdit}
+          />
+        )}
         {rights.includes('donors') && <DonorsPanel donors={donors} alt={blind.alt} />}
         {ship && (rights.includes('dep') || rights.includes('marshal') || rights.includes('coord')) && (
           <RadialsPanel

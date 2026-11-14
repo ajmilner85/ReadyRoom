@@ -1,11 +1,28 @@
 /**
  * Turn-then-direct flight model for the hooked-aircraft tools (handoff §5.6), plus EAT and CPA.
  */
-import { D2R, angDiff, bearingTo, dir, dist, signedDiff, type Pt } from './vec.ts';
+import { add, D2R, angDiff, bearingTo, dir, dist, dot, mul, signedDiff, sub, type Pt } from './vec.ts';
 
 /** Turn radius in NM for a true airspeed (kt) and bank angle: R(ft) = V² / (11.26 tan φ). */
 export function turnRadiusNm(tasKt: number, bankDeg = 30): number {
   return (tasKt * tasKt) / (11.26 * Math.tan(bankDeg * D2R)) / 6076.12;
+}
+
+/**
+ * Radius (NM) of an energy-sustaining max-rate turn at a true airspeed. The load factor a fighter can
+ * hold varies with speed: lift-limited (∝ V²) below the corner speed, then the thrust-limited
+ * sustained g (Ps = 0) falls off above it — so the turn is tightest near corner, wider slow or fast.
+ * A generic fast-jet envelope (corner ~420 KTAS, 7.5 g structural), adequate to depict intercept
+ * geometry, not type-specific performance. R = V² / (g·√(n²−1)).
+ */
+export function sustainedTurnRadiusNm(tasKt: number): number {
+  const Vc = 420; // corner speed, KTAS
+  const gMax = 7.5; // structural limit
+  const gLift = gMax * Math.min(1, (tasKt / Vc) ** 2); // lift limit (low speed)
+  const gThrust = Math.max(2, gMax - 0.012 * Math.max(0, tasKt - Vc)); // sustained limit (above corner)
+  const n = Math.max(1.5, Math.min(gLift, tasKt <= Vc ? gMax : gThrust));
+  const vFps = Math.max(tasKt, 60) * 1.68781;
+  return (vFps * vFps) / (32.174 * Math.sqrt(Math.max(0.1, n * n - 1))) / 6076.12;
 }
 
 export interface FlyResult {
@@ -479,4 +496,263 @@ export function marshalRoute(p0: Pt, h0: number, tasKt: number, radial: number, 
     FALLBACKS.n++;
   }
   return { path: res.st.path, dist: res.st.dist, transitNm: res.transitNm, entryNm: res.st.dist - res.transitNm, entryIdx: res.entryIdx, entry, fix };
+}
+
+// ---------------------------------------------------------------- intercept (vector to a rejoin)
+
+/** Interceptor longitudinal response: how fast it can change groundspeed, kt/s. */
+export interface AccelRates {
+  accel: number;
+  decel: number;
+}
+
+export interface InterceptInput {
+  /** interceptor position (scope NM), current heading (deg true) and current groundspeed (kt) */
+  p0: Pt;
+  h0: number;
+  v0: number;
+  /** commanded groundspeed to fly, kt */
+  vSet: number;
+  rates: AccelRates;
+  /** interceptee position, course (deg true) and groundspeed (kt) */
+  pe: Pt;
+  crsE: number;
+  gsE: number;
+  /** how far short of the contact the interceptor is vectored (the visual-rejoin point), NM */
+  standoffNm: number;
+}
+
+export interface InterceptSolution {
+  /** false when the interceptee cannot be caught at the commanded speed */
+  ok: boolean;
+  /** collision / merge point (where the interceptor would arrive abeam the contact) */
+  merge: Pt;
+  /** rejoin point: standoffNm short of the merge on the interceptor's inbound leg */
+  rejoin: Pt;
+  /** p0 -> rejoin, the commanded leg (drawn solid) */
+  solid: Pt[];
+  /** rejoin -> merge, the visual-closure continuation (drawn dashed) */
+  dashed: Pt[];
+  /** inbound heading into the merge, deg true */
+  steerHdg: number;
+  /** track distance to the rejoin point, NM */
+  distNm: number;
+  /** time to the rejoin point, s */
+  eteS: number;
+  /** time to the merge, s */
+  mergeS: number;
+}
+
+interface AccelFlight {
+  path: Pt[];
+  /** cumulative distance at each vertex, NM */
+  cum: number[];
+  /** cumulative time at each vertex, s */
+  time: number[];
+  dist: number;
+  timeS: number;
+  hdg: number;
+}
+
+const clampN = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
+
+/**
+ * Fly to a fixed point at the turn-rate limit while accelerating/decelerating toward vSet: turn the
+ * shorter way until pointing at T, then straight. Time-stepped (dt 0.5 s) so a changing speed (hence
+ * a changing turn radius) is integrated honestly, recording cumulative distance and time at every
+ * vertex so the path can later be split at a distance short of T.
+ */
+function flyAccel(inp: { p0: Pt; h0: number; v0: number; vSet: number; rates: AccelRates }, T: Pt): AccelFlight {
+  const dt = 0.5;
+  let p: Pt = [inp.p0[0], inp.p0[1]];
+  let h = ((inp.h0 % 360) + 360) % 360;
+  let v = inp.v0;
+  let t = 0;
+  let total = 0;
+  const path: Pt[] = [[p[0], p[1]]];
+  const cum = [0];
+  const time = [0];
+  for (let i = 0; i < 8000; i++) {
+    const vNmS = v / 3600;
+    const rg = dist(p, T);
+    if (rg <= Math.max(vNmS * dt, 0.05)) {
+      total += rg;
+      t += rg / Math.max(vNmS, 1e-6);
+      h = bearingTo(p, T);
+      path.push([T[0], T[1]]);
+      cum.push(total);
+      time.push(t);
+      break;
+    }
+    const dv = inp.vSet - v;
+    const rate = dv >= 0 ? inp.rates.accel : inp.rates.decel;
+    v += clampN(dv, -rate * dt, rate * dt);
+    const R = sustainedTurnRadiusNm(v);
+    const maxTurn = ((v / 3600) / R) / D2R * dt; // deg this step
+    h = ((h + clampN(signedDiff(bearingTo(p, T), h), -maxTurn, maxTurn)) % 360 + 360) % 360;
+    const step = (v / 3600) * dt;
+    const d = dir(h);
+    p = [p[0] + d[0] * step, p[1] + d[1] * step];
+    total += step;
+    t += dt;
+    path.push([p[0], p[1]]);
+    cum.push(total);
+    time.push(t);
+  }
+  return { path, cum, time, dist: total, timeS: t, hdg: h };
+}
+
+/** The point (and arrival time) a given distance along a flown path. */
+function splitAt(fl: AccelFlight, cut: number): { pt: Pt; idx: number; timeS: number } {
+  if (cut <= 0) return { pt: fl.path[0], idx: 1, timeS: 0 };
+  for (let i = 1; i < fl.cum.length; i++) {
+    if (fl.cum[i] >= cut) {
+      const seg = fl.cum[i] - fl.cum[i - 1] || 1e-9;
+      const f = (cut - fl.cum[i - 1]) / seg;
+      const a = fl.path[i - 1];
+      const b = fl.path[i];
+      return { pt: [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f], idx: i, timeS: fl.time[i - 1] + (fl.time[i] - fl.time[i - 1]) * f };
+    }
+  }
+  return { pt: fl.path[fl.path.length - 1], idx: fl.path.length - 1, timeS: fl.timeS };
+}
+
+/**
+ * Lead-collision intercept to a rejoin: the interceptor flies a turn-rate-limited, accel/decel-aware
+ * path to where the (constant-velocity) interceptee will be, truncated `standoffNm` short so the
+ * solid leg ends at the rejoin point and a dashed leg continues to the merge. A moving target makes
+ * this a fixed point — the realised arrival time re-predicts the interceptee's position — seeded by
+ * the analytic constant-speed collision triangle. `ok` is false when the contact simply outruns the
+ * commanded speed (no positive collision time).
+ */
+export function interceptSolve(inp: InterceptInput): InterceptSolution {
+  const ev = mul(dir(inp.crsE), inp.gsE / 3600); // interceptee velocity, NM/s
+  const predict = (ts: number): Pt => add(inp.pe, mul(ev, ts));
+
+  // analytic lead-collision seed: |R0 + ev·t| = s·t  (constant commanded speed, straight line)
+  const R0 = sub(inp.pe, inp.p0);
+  const s = inp.vSet / 3600;
+  const a = dot(ev, ev) - s * s;
+  const b = 2 * dot(R0, ev);
+  const c = dot(R0, R0);
+  let t0 = NaN;
+  if (Math.abs(a) < 1e-9) {
+    if (b < 0) t0 = -c / b;
+  } else {
+    const disc = b * b - 4 * a * c;
+    if (disc >= 0) {
+      const sq = Math.sqrt(disc);
+      const roots = [(-b - sq) / (2 * a), (-b + sq) / (2 * a)].filter((r) => r > 0).sort((x, y) => x - y);
+      if (roots.length) t0 = roots[0];
+    }
+  }
+  const reachable = Number.isFinite(t0) && t0 > 0 && t0 < 4000;
+
+  let C = predict(reachable ? t0 : 120);
+  let fl = flyAccel(inp, C);
+  let ok = reachable;
+  for (let k = 0; k < 12; k++) {
+    const Cn = predict(fl.timeS);
+    const moved = dist(Cn, C);
+    C = Cn;
+    fl = flyAccel(inp, C);
+    if (fl.timeS > 3600) {
+      ok = false;
+      break;
+    }
+    if (moved < 0.05) break;
+  }
+  if (!ok) return { ok: false, merge: C, rejoin: inp.p0, solid: [], dashed: [], steerHdg: fl.hdg, distNm: fl.dist, eteS: fl.timeS, mergeS: fl.timeS };
+
+  const cut = fl.dist - inp.standoffNm;
+  if (cut <= 0) {
+    // already within the standoff: the whole (turning) run-in is visual closure — all dashed, no
+    // commanded leg and no rejoin point, but the flown path is kept so the turn still shows
+    return { ok: true, merge: C, rejoin: inp.p0, solid: [], dashed: fl.path, steerHdg: fl.hdg, distNm: 0, eteS: 0, mergeS: fl.timeS };
+  }
+  const sp = splitAt(fl, cut);
+  const E = sp.pt;
+  const solid = [...fl.path.slice(0, sp.idx), E];
+  return { ok: true, merge: C, rejoin: E, solid, dashed: [E, C], steerHdg: bearingTo(E, C), distNm: cut, eteS: sp.timeS, mergeS: fl.timeS };
+}
+
+// ---------------------------------------------------------------- stern conversion (rejoin to the six)
+
+export interface SternInput {
+  /** the visual point (where the stern conversion begins) and the interceptor's heading there */
+  p0: Pt;
+  h0: number;
+  /** interceptor speed through the conversion, kt */
+  vKt: number;
+  /** interceptee position (now), course (deg true) and groundspeed (kt) */
+  pe: Pt;
+  crsE: number;
+  gsE: number;
+  /** seconds from now until the interceptor reaches p0, so the interceptee can be projected forward */
+  t0S: number;
+  /** roll out this far behind the interceptee, NM */
+  trailNm: number;
+}
+
+export interface SternSolution {
+  /** false if the interceptor could not settle into the stern within the integration window */
+  ok: boolean;
+  /** visual point -> 1 NM astern, a pursuit curve into the six */
+  path: Pt[];
+  /** the rollout point (trailNm behind the interceptee) and the heading there (the interceptee's) */
+  end: Pt;
+  endHdg: number;
+  /** time from the visual point to the rollout, s */
+  timeS: number;
+}
+
+/**
+ * Stern conversion from the visual point: a turn-rate-limited pursuit curve onto a point trailNm
+ * behind the (moving) interceptee, rolling out on its heading — the counterturn into the six that a
+ * controller calls once the interceptor is visual. A pursuit curve to a trailing point naturally
+ * carves into the stern (the lead needed to aim at the trail point falls to zero as the interceptor
+ * settles behind), which is the displacement-turn idea without needing a separately flown offset.
+ *
+ * Flown at the commanded speed with the energy-sustaining max-rate turn radius (so a fast interceptor
+ * still turns tightly rather than orbiting). Integrated forward in time (dt 0.5 s) so the target's
+ * motion is honest; no fixed point needed. A guard truncates the path at the closest approach if the
+ * pursuit would overshoot and orbit (e.g. a very fast interceptor onto a slow close contact).
+ */
+export function sternConversion(inp: SternInput): SternSolution {
+  const dt = 0.5;
+  const vNmS = inp.vKt / 3600;
+  const R = sustainedTurnRadiusNm(inp.vKt);
+  const maxTurn = (vNmS / R) / D2R * dt; // deg per step
+  const ev = mul(dir(inp.crsE), inp.gsE / 3600); // interceptee velocity, NM/s
+  const trail = mul(dir(inp.crsE), -inp.trailNm); // offset from the interceptee to the trail point
+  const trailAt = (ts: number): Pt => add(add(inp.pe, mul(ev, ts)), trail);
+  let p: Pt = [inp.p0[0], inp.p0[1]];
+  let h = ((inp.h0 % 360) + 360) % 360;
+  let t = 0;
+  const path: Pt[] = [[p[0], p[1]]];
+  let minD = Infinity;
+  let minIdx = 0;
+  for (let i = 0; i < 4000; i++) {
+    const F = trailAt(inp.t0S + t);
+    const rg = dist(p, F);
+    if (rg <= Math.max(vNmS * dt * 1.5, 0.05)) {
+      path.push([F[0], F[1]]);
+      return { ok: true, path, end: F, endHdg: inp.crsE, timeS: t + rg / Math.max(vNmS, 1e-6) };
+    }
+    if (rg < minD) {
+      minD = rg;
+      minIdx = path.length - 1;
+    } else if (rg > minD + 1.5) {
+      // overshot the stern and pulling away — stop at the closest approach rather than orbit
+      const trimmed = path.slice(0, minIdx + 1);
+      return { ok: true, path: trimmed, end: trimmed[trimmed.length - 1], endHdg: inp.crsE, timeS: t };
+    }
+    const df = signedDiff(bearingTo(p, F), h);
+    h = ((h + clampN(df, -maxTurn, maxTurn)) % 360 + 360) % 360;
+    const d = dir(h);
+    p = [p[0] + d[0] * vNmS * dt, p[1] + d[1] * vNmS * dt];
+    t += dt;
+    path.push([p[0], p[1]]);
+  }
+  return { ok: false, path, end: trailAt(inp.t0S + t), endHdg: inp.crsE, timeS: t };
 }

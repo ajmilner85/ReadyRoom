@@ -30,6 +30,8 @@ export const IcBra = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="5" cy="18"
 export const IcMarshal = ({ size = 20 }: P) => S(size, 1.8, <><path d="M4 6h10M4 11h10M4 16h10" /><path d="M18 4v16M15.5 17.5L18 20l2.5-2.5" /></>);
 export const IcCpa = ({ size = 20 }: P) => S(size, 1.8, <><path d="M3 19L12 12M21 19L12 12" /><circle cx="12" cy="12" r="3" /><path d="M12 3v4" /></>);
 export const IcVec = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="6" cy="18" r="2.2" /><path d="M7.6 16.4L19 5M19 5h-5M19 5v5" /></>);
+/** intercept / rejoin: interceptor turning onto a lead-collision line to a contact's track, crossed at the merge */
+export const IcIntercept = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="4" cy="19" r="1.9" /><path d="M5.5 17.6L15 8" /><path d="M9 3l7 2.4-2.4 7" /><path d="M13.4 7.6l3 3M16.4 7.6l-3 3" /></>);
 /** plot waypoint: a route through two marked points, with a plus */
 export const IcWp = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="6" cy="17" r="2.2" /><circle cx="15" cy="8" r="2.2" /><path d="M7.6 15.4L13.4 9.6" strokeDasharray="2 2" /><path d="M19 15v6M16 18h6" /></>);
 export const IcLayers = ({ size = 20 }: P) => S(size, 1.8, <><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>);

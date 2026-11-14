@@ -9,7 +9,7 @@ import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 're
 import { BLIND_ALTS } from '../../../catcc/core/sensors/radar.ts';
 import type { Station } from '../../../catcc/core/room/ops.ts';
 import { sectorWidth, stationCentre } from '../../../catcc/core/geometry/formation.ts';
-import { cpa as cpaOf, eat as eatOf, fly, marshalRoute, marshalTimeS, turnRadiusNm, type Cpa } from '../../../catcc/core/geometry/maneuver.ts';
+import { cpa as cpaOf, eat as eatOf, fly, interceptSolve, marshalRoute, marshalTimeS, sternConversion, turnRadiusNm, type Cpa } from '../../../catcc/core/geometry/maneuver.ts';
 import {
   arrivalPath,
   departurePath,
@@ -21,7 +21,7 @@ import {
   type RadialCheck,
 } from '../../../catcc/core/geometry/procedures.ts';
 import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
-import { maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
+import { accelRatesKtS, maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
 import { magVar } from '../../../catcc/core/env/magvar.ts';
 import { orderedPath, trendPath, trendTurnLimit, turnTo } from '../../../catcc/core/geometry/shipTurn.ts';
 import { add, bearingOf, D2R, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
@@ -124,10 +124,10 @@ const DonorBeam: React.FC<{ x: number; y: number; r: number; scanS: number; phas
     </g>
   );
 };
-import { inAltBlock, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { inAltBlock, smoothedCourse, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
-import { IcBra, IcBulls, IcCpa, IcComms, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
+import { IcBra, IcBulls, IcCpa, IcComms, IcIntercept, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
 
@@ -148,6 +148,12 @@ export interface ScopeProps {
   plans: Record<string, CarrierPlan>;
   assignments: Map<string, Assignment>;
   onAssign: (trackId: string, a: Assignment) => void;
+  /** committed intercept assignments (interceptor id → target id) and local working locks */
+  intercepts: Record<string, string>;
+  locks: Record<string, string>;
+  /** lock the hooked interceptor to a target (working), or release a lock */
+  onLock: (interceptor: string, target: string) => void;
+  onUnlock: (interceptor: string) => void;
   placement: Placement;
   /** resolved coordination lines toward each other carrier, and the one being placed */
   coordLines: Record<string, CoordGeom>;
@@ -240,6 +246,34 @@ const msS = (t: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 const zs = (a: Pt, k: number) => `translate(${f2(a[0])} ${f2(a[1])}) scale(${k.toFixed(4)}) translate(${f2(-a[0])} ${f2(-a[1])})`;
+// --- segment / rectangle intersection, for keeping floating labels off lines and other boxes
+interface Box { x: number; y: number; w: number; h: number }
+const segSeg = (p1: Pt, p2: Pt, p3: Pt, p4: Pt): boolean => {
+  const d = (a: Pt, b: Pt, c: Pt) => (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+  return d(p3, p4, p1) > 0 !== d(p3, p4, p2) > 0 && d(p1, p2, p3) > 0 !== d(p1, p2, p4) > 0;
+};
+const segHitsBox = (a: Pt, b: Pt, r: Box): boolean => {
+  const inside = (p: Pt) => p[0] >= r.x && p[0] <= r.x + r.w && p[1] >= r.y && p[1] <= r.y + r.h;
+  if (inside(a) || inside(b)) return true;
+  const c: Pt = [r.x + r.w, r.y];
+  const d: Pt = [r.x + r.w, r.y + r.h];
+  const e: Pt = [r.x, r.y + r.h];
+  const f: Pt = [r.x, r.y];
+  return segSeg(a, b, f, c) || segSeg(a, b, c, d) || segSeg(a, b, d, e) || segSeg(a, b, e, f);
+};
+const boxHitsBox = (a: Box, b: Box): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
+/** A spot for a label of half-size (hw,hh) near `anchor` that clears every box, searched outward. */
+const clearSpot = (anchor: Pt, hw: number, hh: number, boxes: Box[], gap: number): Pt => {
+  const dirs = [90, 135, 45, 180, 0, 225, 315, 270]; // prefer below the anchor (south = +y)
+  for (const m of [1, 1.35, 1.75, 2.2, 2.8, 3.5, 4.4]) {
+    for (const a of dirs) {
+      const c: Pt = [anchor[0] + Math.cos((a * Math.PI) / 180) * gap * m, anchor[1] + Math.sin((a * Math.PI) / 180) * gap * m];
+      const box: Box = { x: c[0] - hw, y: c[1] - hh, w: hw * 2, h: hh * 2 };
+      if (!boxes.some((b) => boxHitsBox(box, b))) return c;
+    }
+  }
+  return [anchor[0], anchor[1] + gap * 4.4];
+};
 const HELO_HOLD: HoldSpec = { legNm: 2, turnNm: 0.5 };
 /** view width, NM: 5 NM (edge to centre) at the closest, MAX_RANGE_NM at the widest */
 const clampW = (w: number) => Math.max(2 * MIN_RANGE_NM, Math.min(2 * MAX_RANGE_NM, w));
@@ -610,6 +644,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const [asg, setAsg] = useState<{ id: string; ang: number } | null>(null);
   const [bra, setBra] = useState<{ a: Pt | string; b: Pt | string | null } | null>(null);
   const [probe, setProbe] = useState<{ a: string; b: string | null } | null>(null);
+  // intercept tool: a sticky offset of the data tag relative to the interceptor, so the tag rides
+  // with the (moving) interceptor and only re-places when it would be obscured
+  const intTagPos = useRef<{ key: string; ox: number; oy: number } | null>(null);
   const dragged = useRef(false);
   const prevPlaces = useRef<Map<string, TagPlace>>(new Map());
 
@@ -631,10 +668,18 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     setBra(null);
     setProbe(null);
   }, [tool]);
-  // Escape drops the hook (and any half-drawn BRA ruler / CPA probe)
+  // Escape drops the hook (and any half-drawn BRA ruler / CPA probe); for intercepts it first
+  // releases the target lock, then the hook (same two-step as right click)
+  const escRef = useRef({ tool, hookedId, locks: props.locks, onUnlock: props.onUnlock });
+  escRef.current = { tool, hookedId, locks: props.locks, onUnlock: props.onUnlock };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return;
+      const r = escRef.current;
+      if (r.tool === 'int' && r.hookedId && r.locks[r.hookedId]) {
+        r.onUnlock(r.hookedId);
+        return;
+      }
       onHook(null);
       props.onCancelPlacement();
       setBra(null);
@@ -989,11 +1034,35 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     }
     return null;
   };
-  const toolActive = tool === 'marshal' || tool === 'vec';
+  // a track in a tight (collapsible) formation is targeted as the whole group: resolve to its lead
+  const repOf = (id: string): string => pic.formations.find((f) => f.collapsible && f.members.some((m) => m.id === id))?.lead.id ?? id;
+  // one interceptor → one target intercept: the lead-collision vector to the visual point (10 NM short)
+  // plus the stern conversion into the six. `spdOverride` is the wheel-set commanded speed (active only).
+  const makeIntercept = (interceptor: ScopeTrack, tgt: ScopeTrack, spdOverride?: number) => {
+    const tgtGs = tgt.gs ?? 0;
+    const crsE = smoothedCourse(tgt);
+    const hdg = interceptor.crs ?? interceptor.hdg ?? 0;
+    // default commanded speed: a brisk MIL-power intercept (≥ ~420 kt, with ≥ 80 kt margin over the
+    // contact for real closure), not the interceptor's current loiter speed; the wheel overrides it
+    const spd = spdOverride ?? Math.max(240, Math.min(900, Math.round(Math.max(interceptor.gs ?? 350, tgtGs + 80, 420) / 10) * 10));
+    const sol = interceptSolve({ p0: interceptor.p, h0: hdg, v0: Math.max(80, interceptor.gs ?? spd), vSet: spd, rates: accelRatesKtS(interceptor.ty), pe: tgt.p, crsE, gsE: tgtGs, standoffNm: 10 });
+    const stern = sol.ok ? sternConversion({ p0: sol.rejoin, h0: sol.steerHdg, vKt: spd, pe: tgt.p, crsE, gsE: tgtGs, t0S: sol.eteS, trailNm: 1 }) : null;
+    return { interceptor, tgt, sol, stern, spd };
+  };
+  const toolActive = tool === 'marshal' || tool === 'vec' || tool === 'int';
   const hk = useMemo(() => {
-    if (!hooked || !cur || placement.placing || !toolActive) return null;
-    const spd = vspd ?? Math.max(150, Math.min(650, Math.round((hooked.gs ?? 300) / 10) * 10));
+    if (!hooked || placement.placing || !toolActive) return null;
     const hdg = hooked.crs ?? hooked.hdg ?? 0;
+    // intercept: the interceptee is the locked target, else the track under the cursor; vector the
+    // hooked aircraft to a rejoin 10 NM short of a lead-collision, at the commanded speed (wheel)
+    if (tool === 'int') {
+      const tgtId = props.locks[hooked.id] ?? (acHov ? repOf(acHov) : undefined);
+      const tgt = tgtId && tgtId !== hooked.id ? pic.air.find((t) => t.id === tgtId) : undefined;
+      if (!tgt) return null;
+      return { kind: 'int' as const, ...makeIntercept(hooked, tgt, vspd ?? undefined), locked: !!props.locks[hooked.id] };
+    }
+    if (!cur) return null;
+    const spd = vspd ?? Math.max(150, Math.min(650, Math.round((hooked.gs ?? 300) / 10) * 10));
     const st = tool === 'marshal' ? hitStack(cur) : null;
     if (st) {
       const ang = asg && asg.id === st.id ? asg.ang : st.def;
@@ -1010,7 +1079,27 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const fl = fly(hooked.p, hdg, cur, turnRadiusNm(spd));
     return { kind: 'vec' as const, fl, spd, brg: bearingOf(sub(cur, hooked.p)), rng: len(sub(cur, hooked.p)) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hooked, cur, vspd, asg, stacks, tool, placement.placing, nowS, assignments, hull]);
+  }, [hooked, cur, vspd, asg, stacks, tool, placement.placing, nowS, assignments, hull, acHov, pic.air, props.locks]);
+
+  // every committed / locked intercept (interceptor → target), as geometry to draw alongside the
+  // active one. The active pair is flagged so the renderer can give it the full tag.
+  const intList = useMemo(() => {
+    if (tool !== 'int') return [] as { key: string; committed: boolean; active: boolean; ic: ReturnType<typeof makeIntercept> }[];
+    const out: { key: string; committed: boolean; active: boolean; ic: ReturnType<typeof makeIntercept> }[] = [];
+    const seen = new Set<string>();
+    const add = (interceptorId: string, targetId: string, committed: boolean) => {
+      if (seen.has(interceptorId)) return;
+      seen.add(interceptorId);
+      const a = pic.air.find((t) => t.id === interceptorId);
+      const b = pic.air.find((t) => t.id === targetId);
+      if (!a || !b) return;
+      const active = interceptorId === hookedId;
+      out.push({ key: interceptorId, committed, active, ic: makeIntercept(a, b, active ? vspd ?? undefined : undefined) });
+    };
+    for (const [i, t] of Object.entries(props.locks)) add(i, t, false);
+    for (const [i, t] of Object.entries(props.intercepts)) add(i, t, true);
+    return out;
+  }, [tool, props.locks, props.intercepts, pic.air, hookedId, vspd]);
 
   // ------------------------------------------------ input
   const svgPoint = (e: { clientX: number; clientY: number }): Pt | null => {
@@ -1042,7 +1131,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       window.removeEventListener('keydown', onKey);
       window.removeEventListener('keyup', onKey);
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   /**
@@ -1071,6 +1159,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       e.preventDefault();
       const L = latest.current;
       const up = e.deltaY < 0 ? 1 : -1;
+      // intercept: the wheel sets the commanded speed, even over a formation (the group is targeted as
+      // one, so cycling its members would be wrong) — this takes priority over formation cycling
+      if (L.hooked && !L.placing && L.hk && L.hk.kind === 'int') {
+        setVspd(Math.max(240, Math.min(900, L.hk.spd + up * 10)));
+        return;
+      }
       if (L.fmHov && !L.placing) {
         const f = L.formations.find((x) => x.id === L.fmHov);
         if (f) {
@@ -1083,7 +1177,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         if (L.hk.kind === 'marshal') {
           const st = L.hk.st;
           setAsg({ id: st.id, ang: Math.max(st.base, Math.min(st.base + 12, L.hk.ang + up)) });
-        } else setVspd(Math.max(150, Math.min(650, L.hk.spd + up * 10)));
+        } else setVspd(Math.max(150, Math.min(L.hk.kind === 'int' ? 900 : 650, L.hk.spd + up * 10)));
         return;
       }
       // the current render's conversion (track-up turns it)
@@ -1179,6 +1273,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       if (!t) return;
       if (!probe || probe.b) setProbe({ a: t.id, b: null });
       else if (t.id !== probe.a) setProbe({ a: probe.a, b: t.id });
+      return;
+    }
+    if (tool === 'int') {
+      const t = nearestTrack(q);
+      if (!t) return;
+      if (!hookedId || t.id === hookedId) return void onHook(t.id === hookedId ? null : t.id); // hook / unhook the interceptor
+      if (props.locks[hookedId]) return void onHook(t.id); // this interceptor is locked: start a new one on the clicked track
+      props.onLock(hookedId, repOf(t.id)); // lock the hooked interceptor to this target (its group lead)
       return;
     }
     if (hk?.kind === 'marshal' && hooked) {
@@ -1803,7 +1905,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const hkTag = (() => {
     if (!hk || !hooked) return null;
     const label = hooked.bd ?? hooked.cs ?? hooked.pi ?? hooked.id;
-    const at = hk.kind === 'marshal' ? hk.route.fix : cur!;
+    const intLabel = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
+    // the intercept tag sits at the midpoint of the commanded leg
+    const intAt = hk.kind === 'int' ? (hk.sol.ok && hk.sol.solid.length ? hk.sol.solid[Math.floor(hk.sol.solid.length / 2)] : cur!) : cur!;
+    const at = hk.kind === 'marshal' ? hk.route.fix : intAt;
     const q = toPx(at);
     const BH = box.w * asp;
     const rows =
@@ -1813,9 +1918,113 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             `ANGELS ${hk.ang} · FIX ${hms(hk.fixS)} · ${hk.route.entry.toUpperCase()}`,
             `EAT ${hms(hk.eatS).slice(0, 5)} · ${hk.spd} KT → HOLD ${hk.holdKias} KIAS`,
           ]
+        : hk.kind === 'int'
+        ? hk.sol.ok
+          ? [
+              `${label} → ${intLabel(hk.tgt)}`,
+              `STEER ${r3(hk.sol.steerHdg)} · ${hk.sol.distNm.toFixed(1)} NM FOR INTERCEPT`,
+              `ANGELS ${(hk.tgt.alt / 1000).toFixed(1)} · ${hk.spd} KT`,
+              `VISUAL ${msS(hk.sol.eteS)}`,
+              `INTERCEPT ${msS(hk.stern ? hk.sol.eteS + hk.stern.timeS : hk.sol.mergeS)}`,
+            ]
+          : [`${label} → ${intLabel(hk.tgt)}`, 'NO INTERCEPT AT THIS SPEED', `SCROLL TO RAISE · ${hk.spd} KT`]
         : [`BRG ${r3(hk.brg)} · RNG ${hk.rng.toFixed(1)}`, `HDG ${r3(hk.fl.hdg)} · TRK DIST ${hk.fl.dist.toFixed(1)}`, `ETE ${msS((hk.fl.dist / hk.spd) * 3600)} · ${hk.spd} KT`];
-    return { x: Math.min(box.w - 230, Math.max(8, q[0] + 16)), y: Math.min(BH - 60, Math.max(8, q[1] + 14)), rows };
+    // marshal / vector: a simple offset from the anchor
+    if (hk.kind !== 'int') {
+      return { x: Math.min(box.w - 230, Math.max(8, q[0] + 16)), y: Math.min(BH - 60, Math.max(8, q[1] + 14)), rows };
+    }
+    // intercept: the tag rides with the interceptor, offset to a direction that clears the
+    // interceptor and interceptee (symbols + radar tags) and, when a solution exists, the geometry.
+    const maxChars = Math.max(...rows.map((r) => r.length));
+    const W = (maxChars * 6.7 + 16) * sTg;
+    const H = (rows.length * 15 + 8) * sTg;
+    const segs: [Pt, Pt][] = [];
+    const addPoly = (poly: Pt[]) => {
+      const px = poly.map(toPx);
+      for (let i = 1; i < px.length; i++) segs.push([px[i - 1], px[i]]);
+    };
+    if (hk.sol.ok) {
+      addPoly(hk.sol.solid);
+      addPoly(hk.sol.dashed);
+      addPoly([hk.tgt.p, hk.stern ? add(hk.stern.end, mul(dir(hk.stern.endHdg), 1)) : hk.sol.merge]);
+      if (hk.stern) addPoly(hk.stern.path);
+    }
+    // either contact's symbol and radar-tag box, reconstructed from the deconflicted layout (CDC is north-up)
+    const boxes: Box[] = [];
+    const f = zkT * KX;
+    const s = Math.SQRT1_2;
+    for (const t of [hooked, hk.tgt]) {
+      const c = toPx(t.p);
+      boxes.push({ x: c[0] - 12, y: c[1] - 12, w: 24, h: 24 }); // symbol + leader root
+      const pl = places.get(t.id);
+      const ti = tagItems.find((x) => x.t.id === t.id);
+      if (!pl || !ti) continue;
+      const g = tagGeom(ti.rows);
+      const rx = pl.q[0] > 0 ? pl.q[0] * pl.L * s + 0.05 : pl.q[0] * pl.L * s - 0.05 - g.w;
+      const ty = pl.q[1] * pl.L * s + 0.32;
+      boxes.push({ x: c[0] + rx * f - 2, y: c[1] + (ty - 0.85) * f - 2, w: g.w * f + 4, h: g.h * f + 4 });
+    }
+    const hits = (bx: number, by: number): boolean => {
+      if (bx < 4 || by < 4 || bx + W > box.w - 4 || by + H > BH - 4) return true; // keep fully in view
+      const r: Box = { x: bx, y: by, w: W, h: H };
+      return segs.some(([a, b]) => segHitsBox(a, b, r)) || boxes.some((bb) => boxHitsBox(bb, r));
+    };
+    const A = toPx(hooked.p); // the interceptor: the tag's anchor
+    const key = `${hookedId}:${hk.tgt.id}`;
+    // stabilise: keep the last offset relative to the interceptor while it is still clear
+    const prev = intTagPos.current;
+    if (prev && prev.key === key && !hits(A[0] + prev.ox, A[1] + prev.oy)) return { x: A[0] + prev.ox, y: A[1] + prev.oy, rows };
+    // candidate box centres around the interceptor: preferred directions first, growing outward
+    const base = Math.hypot(W, H) / 2 + 14;
+    let chosen: { ox: number; oy: number } | null = null;
+    for (const m of [1, 1.3, 1.7, 2.2, 2.9]) {
+      for (const ang of [45, 90, 135, 0, 180, 315, 225, 270]) {
+        const a = (ang * Math.PI) / 180;
+        const ox = Math.cos(a) * base * m - W / 2;
+        const oy = Math.sin(a) * base * m - H / 2;
+        if (!hits(A[0] + ox, A[1] + oy)) {
+          chosen = { ox, oy };
+          break;
+        }
+      }
+      if (chosen) break;
+    }
+    const ch = chosen ?? { ox: base - W / 2, oy: base - H / 2 };
+    intTagPos.current = { key, ...ch };
+    const clampX = (x: number) => Math.min(box.w - W - 6, Math.max(6, x));
+    const clampY = (y: number) => Math.min(BH - H - 6, Math.max(6, y));
+    return { x: clampX(A[0] + ch.ox), y: clampY(A[1] + ch.oy), rows };
   })();
+  // One intercept's geometry. `full` draws the collision reference (grey run-in, dashed closure,
+  // merge cross); `dim` fades a committed intercept that is not the active one.
+  const renderIntercept = (ic: ReturnType<typeof makeIntercept>, opts: { full: boolean; dim: boolean; key: string }) => {
+    const { sol, stern, tgt } = ic;
+    if (!sol.ok) return null;
+    return (
+      <g key={opts.key} fill="none" stroke="#E45BEA" strokeLinejoin="round" style={{ pointerEvents: 'none', opacity: opts.dim ? 0.45 : 1 }}>
+        {opts.full && <path style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} d={pts([tgt.p, stern ? add(stern.end, mul(dir(stern.endHdg), 1)) : sol.merge])} stroke="#93A1B0" strokeDasharray="5 4" />}
+        <path style={{ strokeWidth: 'calc(1.8px * var(--lw, 1))' }} d={pts(sol.solid)} />
+        {opts.full && <path style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} d={pts(sol.dashed)} strokeDasharray="6 4" />}
+        {stern && <path style={{ strokeWidth: 'calc(1.8px * var(--lw, 1))' }} d={pts(stern.path)} />}
+        {sol.distNm > 0.5 && (
+          <g transform={`translate(${f2(sol.rejoin[0])} ${f2(sol.rejoin[1])}) rotate(${(sol.steerHdg + 180).toFixed(1)}) scale(${(zkO * 0.6).toFixed(4)})`}>
+            <path d="M-0.95 0Q0 -1.15 0.95 0Q0 1.15 -0.95 0Z" fill="#0E1116" style={{ strokeWidth: 'calc(1.7px * var(--lw, 1))' }} />
+            <circle cx="0" cy="0" r="0.276" fill="#E45BEA" stroke="none" />
+          </g>
+        )}
+        {opts.full && (
+          <g transform={`translate(${f2(sol.merge[0])} ${f2(sol.merge[1])}) rotate(${(sol.steerHdg + 45).toFixed(1)}) scale(${zkO.toFixed(4)})`}>
+            <path style={{ strokeWidth: 'calc(1.9px * var(--lw, 1))' }} d="M-0.6 0L0.6 0M0 -0.6L0 0.6" />
+          </g>
+        )}
+        {stern && (
+          <g transform={`translate(${f2(stern.end[0])} ${f2(stern.end[1])}) rotate(${stern.endHdg.toFixed(1)}) scale(${zkO.toFixed(4)})`}>
+            <path d="M0 -0.72L0.5 0.42L0 0.14L-0.5 0.42Z" fill="#E45BEA" stroke="none" />
+          </g>
+        )}
+      </g>
+    );
+  };
   // Assigned routes and tags only for the aircraft hovered on the scope (or its formation) or in
   // the strips list: showing every assignment at once clutters the marshal area.
   const showIds = new Set<string>(props.showAssigned ?? []);
@@ -1942,6 +2151,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     ['marshal', 'Assign marshal level / EAT', <IcMarshal key="m" />],
     ['cpa', 'CPA probe', <IcCpa key="c" />],
     ['vec', 'Vector / heading line', <IcVec key="v" />],
+    ['int', 'Intercept: hook the interceptor, hover a contact (scroll = speed)', <IcIntercept key="i" />],
     ['wp', 'Plot waypoint: click the chart to add one to the route', <IcWp key="w" />],
   ];
   const fitDefs: [Exclude<Fit, null>, string, string][] = [
@@ -2381,13 +2591,31 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               `${r3(bearingOf(d))}° / ${Math.round(len(d))}${altD != null ? ` / ${altD >= 0 ? '+' : ''}${altD.toFixed(1)}K` : ''}`,
             ];
             const w = Math.max(...rows.map((r) => r.length)) * 0.54 + 0.9;
+            // float the label clear of every aircraft tag/symbol and connect it to the ruler midpoint
+            // with a leader (scope-NM; CDC/CATCC are north-up). Half-sizes and boxes in scope NM.
+            const mid = mul(add(braA.p, b.p), 0.5);
+            const hw = (w * zkT) / 2;
+            const hh = 1.1 * zkT;
+            const s = Math.SQRT1_2;
+            const obstacles: Box[] = [];
+            for (const ti of tagItems) {
+              obstacles.push({ x: ti.t.p[0] - 0.9 * zkH, y: ti.t.p[1] - 0.9 * zkH, w: 1.8 * zkH, h: 1.8 * zkH }); // symbol
+              const pl = places.get(ti.t.id);
+              if (!pl) continue;
+              const g = tagGeom(ti.rows);
+              const rx = pl.q[0] > 0 ? pl.q[0] * pl.L * s + 0.05 : pl.q[0] * pl.L * s - 0.05 - g.w;
+              const ty = pl.q[1] * pl.L * s + 0.32;
+              obstacles.push({ x: ti.t.p[0] + rx * zkT, y: ti.t.p[1] + (ty - 0.85) * zkT, w: g.w * zkT, h: g.h * zkT });
+            }
+            const box = clearSpot(mid, hw, hh, obstacles, Math.max(hw, hh) + 0.5 * zkT);
             return (
               <g>
                 <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(braA.p[0])} y1={f2(braA.p[1])} x2={f2(b.p[0])} y2={f2(b.p[1])} stroke="#FFD7A8" />
-                <g className="zs nr" transform={`translate(${f2(braA.p[0])} ${f2(braA.p[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`}>
-                  <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x="-0.3" y="0.77" width={f2(w)} height="2.2" rx="0.25" fill="#151A21" stroke="#FFD7A8" />
+                <line style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x1={f2(mid[0])} y1={f2(mid[1])} x2={f2(box[0])} y2={f2(box[1])} stroke="#FFD7A8" strokeDasharray="2 2" opacity={0.7} />
+                <g className="zs nr" transform={`translate(${f2(box[0])} ${f2(box[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`}>
+                  <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(-w / 2)} y="-1.1" width={f2(w)} height="2.2" rx="0.25" fill="#151A21" stroke="#FFD7A8" />
                   {rows.map((r, i) => (
-                    <text key={i} x="0.2" y={f2(1.67 + i)} className="tg" style={{ fill: '#FFD7A8' }}>
+                    <text key={i} x={f2(-w / 2 + 0.5)} y={f2(-0.2 + i)} className="tg" style={{ fill: '#FFD7A8' }}>
                       {r}
                     </text>
                   ))}
@@ -2461,8 +2689,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           onMouseMove={onMove}
           onMouseLeave={onLeave}
           onContextMenu={(e) => {
-            // right click drops the hook
             e.preventDefault();
+            // intercept: first right click releases the target lock, the next drops the interceptor hook
+            if (tool === 'int' && hookedId && props.locks[hookedId]) {
+              props.onUnlock(hookedId);
+              return;
+            }
             onHook(null);
             if (placement.placing) props.onCancelPlacement();
             setBra(null);
@@ -2644,6 +2876,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               <path style={{ strokeWidth: 'calc(1.6px * var(--lw, 1))' }} d={pts(hk.fl.path)} strokeDasharray="6 4" />
             </g>
           )}
+          {tool === 'int' && (
+            <>
+              {intList.map((item) => renderIntercept(item.ic, { full: item.key === hookedId, dim: item.committed && item.key !== hookedId, key: item.key }))}
+              {hk && hk.kind === 'int' && !hk.locked && renderIntercept(hk, { full: true, dim: false, key: 'active' })}
+            </>
+          )}
           {adTags.map((a) => (
             <g key={`ad${a.id}`} fill="none" stroke="rgba(228,91,234,.6)" strokeLinejoin="round" style={{ pointerEvents: 'none' }}>
               <path style={{ strokeWidth: 'calc(2px * var(--lw, 1))' }} d={fixHashAt(a.st.r, a.a.angels)} />
@@ -2672,9 +2910,11 @@ export const Scope: React.FC<ScopeProps> = (props) => {
         <div aria-hidden="true" style={{ position: 'absolute', inset: 0, pointerEvents: 'none', overflow: 'hidden' }}>
           {hkTag && (
             <div style={{ transform: `scale(${sTg.toFixed(3)})`, transformOrigin: '0 0', position: 'absolute', left: hkTag.x, top: hkTag.y, background: 'rgba(11,14,18,.9)', border: '1px solid #E45BEA', borderRadius: 2, padding: '3px 7px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, lineHeight: '15px', color: '#F2B3F5', whiteSpace: 'nowrap' }}>
-              <div style={{ color: '#FFFFFF' }}>{hkTag.rows[0]}</div>
-              <div>{hkTag.rows[1]}</div>
-              <div>{hkTag.rows[2]}</div>
+              {hkTag.rows.map((r, i) => (
+                <div key={i} style={{ color: i === 0 ? '#FFFFFF' : undefined, marginTop: /^(VISUAL|INTERCEPT)/.test(r) ? (/^VISUAL/.test(r) ? 3 : 0) : 0, letterSpacing: /^(VISUAL|INTERCEPT)/.test(r) ? '.04em' : undefined }}>
+                  {r}
+                </div>
+              ))}
             </div>
           )}
           {adTags.map((a) => (

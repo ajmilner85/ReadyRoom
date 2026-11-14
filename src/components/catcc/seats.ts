@@ -110,7 +110,7 @@ const U_MARSHAL = ui(['select', 'bra', 'marshal', 'cpa', 'vec'], ['r50', 'cca', 
 const U_APPROACH = ui(['select', 'bra', 'cpa', 'vec'], ['cca', 'app'], ['info', 'strips'], ['marshal', 'deck', 'notes'], { comms: true });
 const U_FINAL = ui(['select', 'bra', 'cpa'], ['cca', 'app'], ['info', 'strips'], ['deck', 'notes'], { comms: true });
 /** CDC: the air picture across the theatre and the sensors feeding it */
-const U_CDC = ui(['select', 'bra', 'cpa', 'vec'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true, conflicts: 'toggle' });
+const U_CDC = ui(['select', 'bra', 'cpa', 'vec', 'int'], ['thr', 'fit', 'bulls', 'cca'], ['info', 'strips'], ['donors', 'notes'], { ringsFar: true, conflicts: 'toggle' });
 /** Bridge: conning the ship; no traffic control */
 // the Bridge: steering and the CSG on the right; the wind and lights under the info panel; waypoints,
 // PIM and wind over deck in the dock under the chart (the sidebars had run out of room)

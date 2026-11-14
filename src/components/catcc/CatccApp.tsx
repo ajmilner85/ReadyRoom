@@ -44,7 +44,7 @@ const CatccApp: React.FC = () => {
   const seatDef = resolveSeat(layout, seatWant);
   const mod = seatDef.view;
   const [optsOpen, setOptsOpen] = useState(false);
-  const { state, history, selectSource, claim, release, setPlan, assign, handoff, accept, setOps, clearLaunch } = useCatccRoom(params.get('src') ?? undefined);
+  const { state, history, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, setOps, clearLaunch } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
   const [uiOpen, setUiOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
@@ -368,6 +368,7 @@ const CatccApp: React.FC = () => {
           mayEdit={mayEdit}
           sendPlan={setPlan}
           assign={assign}
+          setIntercept={setIntercept}
           uiOpen={uiOpen}
           setUiOpen={setUiOpen}
           conflict={conflict}

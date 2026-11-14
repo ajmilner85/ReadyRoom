@@ -50,6 +50,27 @@ const MAX_ENDURANCE_KIAS: [RegExp, number][] = [
 ];
 export const maxEnduranceKias = (type: string | undefined): number => MAX_ENDURANCE_KIAS.find(([re]) => !!type && re.test(type))?.[1] ?? 250;
 
+/**
+ * Ballpark longitudinal response (accel / decel of groundspeed, kt/s) by DCS type, for the intercept
+ * vector. Acceleration is MILITARY power only (no afterburner — a burner mode could be added later);
+ * deceleration assumes idle plus speedbrake, which is why fighters slow much faster than they speed
+ * up. Fighters are briskest, attack jets less, props / early-warning and big-wing tankers sluggish,
+ * helos slowest. Not performance-exact; unlisted types use the fighter figure.
+ */
+const ACCEL_KT_S: [RegExp, [number, number]][] = [
+  [/^(FA-18|F\/A-18|EA.18G|EA-18G|F-14|F-16|F-15|F-35|Rafale|M-2000|F-5|F-4)/i, [4, 7]],
+  [/^(A-4E|T-45)/i, [3.5, 5.5]],
+  [/^(A-10|AV8B|Harrier)/i, [3, 5]],
+  [/^(S-3B|E-2|C2A|C-2A)/i, [2.5, 3.5]],
+  [/^(KC135|KC130|KC-?130|C-130|E-3|B-?52|tanker)/i, [1.8, 2.5]],
+  [/^(SH-60|MH-60|UH-60|SH60|MH60|H-60|CH-47|Ka-|Mi-)/i, [1.5, 2]],
+];
+export const accelRatesKtS = (type: string | undefined): { accel: number; decel: number } => {
+  const m = type ? ACCEL_KT_S.find(([re]) => re.test(type)) : undefined;
+  const [accel, decel] = m?.[1] ?? [4, 7];
+  return { accel, decel };
+};
+
 /** Fuel in pounds, or undefined when the type's capacity is unknown. */
 export function fuelLb(type: string, fraction: number | undefined): number | undefined {
   const kg = INTERNAL_FUEL_KG[type];
