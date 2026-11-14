@@ -1,0 +1,354 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CATCC Approach Final</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1116}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.pnl{border:1px solid #262F3A;border-radius:8px;background:#151A21;padding:12px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:3px 0}
+.kv>span:first-child{color:#93A1B0}
+.btn{height:32px;padding:0 12px;border:1px solid #374250;border-radius:5px;background:transparent;color:#E6EDF3;font-family:'Saira',sans-serif;font-size:12.5px;cursor:pointer}
+.seg{display:flex;gap:2px;background:#0E1116;border:1px solid #262F3A;border-radius:6px;padding:2px}
+.seg>button{border:0;height:28px;padding:0 10px;border-radius:4px;font-family:'Saira',sans-serif;font-size:12.5px;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:.95}50%{opacity:.3}}
+.blink{animation:pulse 1.2s ease-in-out infinite}
+.par *{vector-effect:non-scaling-stroke}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: #0E1116; color: #E6EDF3; font-family: 'Saira', system-ui, sans-serif">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px; border-bottom: 1px solid #262F3A; background: #151A21">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 28px; height: 28px; border-radius: 5px; background: #F15822; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15h15l3-4H8L6 8H3z"></path><path d="M3 19c2 0 2-1.5 4.5-1.5S10 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"></path></svg>
+      </div>
+      <select aria-label="Ship" style="background: #0E1116; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; padding: 5px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">
+        <option>CVN-73 · Warfighter</option>
+        <option>CVN-71 · Rough Rider</option>
+      </select>
+    </div>
+    <nav aria-label="Location" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="CDC.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">CDC</a>
+      <a href="Main.dc.html" aria-current="page" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 13px; font-weight: 600">CATCC</a>
+      <a href="Boss.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">PriFly</a>
+      <a href="Bridge.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">Bridge</a>
+      <a href="LSO.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">LSO</a>
+    </nav>
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap" aria-label="Seats">
+      <sc-for list="{{seats}}" as="p" hint-placeholder-count="1">
+        <button onClick="{{p.click}}" title="{{p.title}}" aria-label="{{p.title}}" aria-pressed="{{p.on}}" style="display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px 0 4px; border-radius: 19px; border: 1px {{p.bs}} {{p.bc}}; background: {{p.bg}}; cursor: {{p.cur}}; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace">
+          <span style="width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box; border: 1.5px {{p.as}} {{p.ab}}; background: {{p.af}}; color: {{p.afg}}; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600">{{p.init}}</span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15">
+            <span style="font-size: 10px; letter-spacing: .1em; color: {{p.lfg}}">{{p.label}}</span>
+            <span style="font-size: 11.5px; color: {{p.whoFg}}">{{p.who}}</span>
+          </span>
+        </button>
+      </sc-for>
+      <sc-if value="{{viewOnly}}" hint-placeholder-val="{{false}}">
+        <span class="mono" style="font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid #374250; color: #93A1B0">VIEW ONLY</span>
+      </sc-if>
+    </div>
+    <div class="seg" aria-label="CATCC view">
+      <a href="Main.dc.html" style="text-decoration: none; height: 28px; line-height: 28px; padding: 0 10px; border-radius: 4px; color: #93A1B0; font-size: 12.5px">Radar</a>
+      <a href="Final.dc.html" aria-current="page" style="text-decoration: none; height: 28px; line-height: 28px; padding: 0 10px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 12.5px; font-weight: 600">Approach / Final</a>
+    </div>
+    <div style="padding: 4px 10px; border-radius: 4px; background: rgba(241,88,34,.15); border: 1px solid #F15822; color: #FFB08F; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: .1em">CASE III · CV-1</div>
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 14px; font-family: 'IBM Plex Mono', monospace" aria-label="Time">
+      <div style="text-align: right; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">LOCAL · UTC+4</div>
+        <div style="font-size: 17px; font-weight: 600">18:12:30</div>
+      </div>
+      <div style="width: 1px; background: #374250"></div>
+      <div style="text-align: left; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">ZULU</div>
+        <div style="font-size: 17px; font-weight: 600">14:12:30Z</div>
+      </div>
+    </div>
+    <button onClick="{{openOpts}}" aria-label="Options" title="Options" style="height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; padding: 0; background: #0E1116; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; min-height: 0">
+    <main aria-label="Precision approach displays" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px; padding: 10px; box-sizing: border-box">
+      <div style="display: flex; align-items: center; gap: 8px; flex-wrap: wrap">
+        <span class="lbl">Range</span>
+        <div class="seg"><sc-for list="{{ranges}}" as="r" hint-placeholder-count="3"><button onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="background: {{r.bg}}; color: {{r.fg}}">{{r.label}}</button></sc-for></div>
+        <div style="width: 1px; height: 24px; background: #374250"></div>
+        <button onClick="{{toggleGhost}}" aria-pressed="{{ghostOn}}" class="btn" style="height: 30px; background: {{ghostBg}}; border-color: {{ghostBc}}">Bolter slot · 211</button>
+        <div style="flex: 1"></div>
+        <span class="mono" style="font-size: 11.5px; color: #93A1B0">FB 336 · GS 3.5° · closure 125 KT · downwind 165 KT</span>
+      </div>
+        <section aria-label="Elevation display" style="flex: 1; min-height: 0; position: relative; background: #0B0E12; border: 1px solid #262F3A; border-radius: 8px; overflow: hidden">
+          <span class="lbl" style="position: absolute; left: 10px; top: 8px; z-index: 2">Elevation</span>
+          <svg class="par" viewBox="0 0 1000 400" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+            <path d="{{el.grid}}" stroke="rgba(147,161,176,.12)" fill="none"></path>
+            <path d="{{el.fan}}" stroke="rgba(147,161,176,.28)" fill="none" stroke-dasharray="4 4"></path>
+            <path d="{{el.lim}}" stroke="rgba(231,176,79,.4)" fill="none" stroke-dasharray="6 4"></path>
+            <path d="{{el.prof}}" stroke="rgba(201,211,221,.45)" fill="none" stroke-dasharray="2 4"></path>
+            <path d="{{el.tol}}" stroke="rgba(95,208,104,.35)" fill="none"></path>
+            <path d="{{el.cl}}" stroke="#5FD068" stroke-width="1.6" fill="none"></path>
+            <g display="{{gd}}">
+              <path d="{{el.dw}}" stroke="rgba(147,161,176,.6)" fill="none" stroke-dasharray="5 4"></path>
+              <path d="{{el.win}}" stroke="#5FD068" stroke-width="5" stroke-opacity=".45" fill="none"></path>
+              <path d="{{el.gBad}}" stroke="#FF8A85" stroke-width="1.4" fill="none" stroke-dasharray="5 4"></path>
+              <path d="{{el.gMar}}" stroke="#E7B04F" stroke-width="1.4" fill="none" stroke-dasharray="5 4"></path>
+              <path d="{{el.gOk}}" stroke="#5FD068" stroke-width="1.8" fill="none" stroke-dasharray="5 4"></path>
+            </g>
+          </svg>
+          <div style="position: absolute; inset: 0; pointer-events: none">
+            <sc-for list="{{el.labels}}" as="l" hint-placeholder-count="8">
+              <span class="mono" style="position: absolute; left: {{l.x}}%; top: {{l.y}}%; transform: {{l.tf}}; font-size: 10.5px; color: {{l.c}}; white-space: nowrap; letter-spacing: .04em">{{l.t}}</span>
+            </sc-for>
+            <sc-for list="{{el.blips}}" as="b" hint-placeholder-count="3">
+              <span style="position: absolute; left: {{b.x}}%; top: {{b.y}}%; width: {{b.s}}px; height: {{b.s}}px; margin: {{b.m}}px 0 0 {{b.m}}px; background: {{b.c}}; border: 1px solid {{b.bc}}; border-radius: {{b.r}}; box-sizing: border-box; opacity: {{b.o}}"></span>
+              <span class="mono" style="position: absolute; left: {{b.x}}%; top: {{b.y}}%; transform: translate(9px, -18px); font-size: 11px; line-height: 13px; color: {{b.c}}; background: rgba(11,14,18,.72); padding: 1px 3px; white-space: nowrap; opacity: {{b.o}}">{{b.t1}}<br>{{b.t2}}</span>
+            </sc-for>
+          </div>
+        </section>
+        <section aria-label="Azimuth display" style="flex: 1; min-height: 0; position: relative; background: #0B0E12; border: 1px solid #262F3A; border-radius: 8px; overflow: hidden">
+          <span class="lbl" style="position: absolute; left: 10px; top: 8px; z-index: 2">Azimuth</span>
+          <svg class="par" viewBox="0 0 1000 400" preserveAspectRatio="none" style="position: absolute; inset: 0; width: 100%; height: 100%" aria-hidden="true">
+            <path d="{{az.grid}}" stroke="rgba(147,161,176,.12)" fill="none"></path>
+            <path d="{{az.fan}}" stroke="rgba(147,161,176,.28)" fill="none" stroke-dasharray="4 4"></path>
+            <path d="{{az.lim}}" stroke="rgba(231,176,79,.4)" fill="none" stroke-dasharray="6 4"></path>
+            <path d="{{az.prof}}" stroke="rgba(201,211,221,.45)" fill="none" stroke-dasharray="2 4"></path>
+            <path d="{{az.tol}}" stroke="rgba(95,208,104,.35)" fill="none"></path>
+            <path d="{{az.cl}}" stroke="#5FD068" stroke-width="1.6" fill="none"></path>
+            <g display="{{gd}}">
+              <path d="{{az.dw}}" stroke="rgba(147,161,176,.6)" fill="none" stroke-dasharray="5 4"></path>
+              <path d="{{az.win}}" stroke="#5FD068" stroke-width="5" stroke-opacity=".45" fill="none"></path>
+              <path d="{{az.gBad}}" stroke="#FF8A85" stroke-width="1.4" fill="none" stroke-dasharray="5 4"></path>
+              <path d="{{az.gMar}}" stroke="#E7B04F" stroke-width="1.4" fill="none" stroke-dasharray="5 4"></path>
+              <path d="{{az.gOk}}" stroke="#5FD068" stroke-width="1.8" fill="none" stroke-dasharray="5 4"></path>
+            </g>
+          </svg>
+          <div style="position: absolute; inset: 0; pointer-events: none">
+            <sc-for list="{{az.labels}}" as="l" hint-placeholder-count="8">
+              <span class="mono" style="position: absolute; left: {{l.x}}%; top: {{l.y}}%; transform: {{l.tf}}; font-size: 10.5px; color: {{l.c}}; white-space: nowrap; letter-spacing: .04em">{{l.t}}</span>
+            </sc-for>
+            <sc-for list="{{az.blips}}" as="b" hint-placeholder-count="3">
+              <span style="position: absolute; left: {{b.x}}%; top: {{b.y}}%; width: {{b.s}}px; height: {{b.s}}px; margin: {{b.m}}px 0 0 {{b.m}}px; background: {{b.c}}; border: 1px solid {{b.bc}}; border-radius: {{b.r}}; box-sizing: border-box; opacity: {{b.o}}"></span>
+              <span class="mono" style="position: absolute; left: {{b.x}}%; top: {{b.y}}%; transform: translate(9px, -18px); font-size: 11px; line-height: 13px; color: {{b.c}}; background: rgba(11,14,18,.72); padding: 1px 3px; white-space: nowrap; opacity: {{b.o}}">{{b.t1}}<br>{{b.t2}}</span>
+            </sc-for>
+          </div>
+        </section>
+    </main>
+
+    <aside aria-label="Deck, landing aids and sequence" style="flex: 0 0 344px; width: 344px; border-left: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; box-sizing: border-box; overflow-y: auto">
+      <section class="pnl" style="border-color: #E0524E; background: rgba(224,82,78,.08)">
+        <div style="display: flex; justify-content: space-between; align-items: baseline">
+          <span class="lbl" style="color: #FF8A85">Deck</span><span class="mono" style="font-size: 11.5px; color: #FF8A85">205 ¾ NM in 2:31</span>
+        </div>
+        <div style="font-size: 26px; font-weight: 700; letter-spacing: .04em; color: #FF8A85; line-height: 1.15" class="blink">FOUL · 216 CLEARING</div>
+        <div class="kv"><span>Wind over deck</span><span>27 KT · 2° R of angle</span></div>
+        <div class="kv"><span>Arresting gear</span><span>F/A-18E · 44,000</span></div>
+        <div class="kv"><span>Lens</span><span>3.5° · HTR 13.5 FT</span></div>
+      </section>
+
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px"><span class="lbl">ICLS</span>
+          <div class="seg"><sc-for list="{{icls}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="height: 24px; font-size: 11px; background: {{o.bg}}; color: {{o.fg}}">{{o.k}}</button></sc-for></div></div>
+        <div class="kv"><span>Channel · glideslope</span><span>CH 13 · 3.5°</span></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin: 10px 0 4px"><span class="lbl">ACLS · SPN-46</span>
+          <div class="seg"><sc-for list="{{acls}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="height: 24px; font-size: 11px; background: {{o.bg}}; color: {{o.fg}}">{{o.k}}</button></sc-for></div></div>
+        <div class="kv"><span>Link 4</span><span>373.000</span></div>
+        <sc-for list="{{locks}}" as="k" hint-placeholder-count="2">
+          <div style="display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 4px 0">
+            <span class="mono" style="font-size: 12px"><b>{{k.id}}</b> <span style="color: {{k.sc}}">{{k.st}}</span></span>
+            <div class="seg"><sc-for list="{{k.modes}}" as="m" hint-placeholder-count="4"><button onClick="{{m.pick}}" aria-pressed="{{m.on}}" style="height: 24px; font-size: 11px; padding: 0 7px; background: {{m.bg}}; color: {{m.fg}}">{{m.k}}</button></sc-for></div>
+          </div>
+        </sc-for>
+      </section>
+
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 6px"><span class="lbl">Bolter slot · 211</span><span class="mono" style="font-size: 11.5px; color: #E7B04F">STATE 4.1</span></div>
+        <div style="font-size: 18px; font-weight: 700; color: #7FD397">Turn between {{slot.win}}</div>
+        <div class="mono" style="font-size: 12px; color: #93A1B0; margin-bottom: 8px">{{slot.when}}</div>
+        <div style="position: relative; height: 34px; margin: 6px 0 14px; border-top: 1px solid #374250">
+          <sc-for list="{{slot.marks}}" as="m" hint-placeholder-count="6">
+            <span style="position: absolute; left: {{m.x}}%; top: -5px; width: 2px; height: 10px; margin-left: -1px; background: {{m.c}}"></span>
+            <span class="mono" style="position: absolute; left: {{m.x}}%; top: {{m.ty}}px; transform: translateX(-50%); font-size: 10.5px; color: {{m.c}}; white-space: nowrap">{{m.t}}</span>
+          </sc-for>
+          <span style="position: absolute; left: {{slot.wl}}%; width: {{slot.ww}}%; top: -3px; height: 6px; background: rgba(95,208,104,.35); border-radius: 2px"></span>
+        </div>
+        <sc-for list="{{slot.opts}}" as="o" hint-placeholder-count="4">
+          <div class="mono" style="display: grid; grid-template-columns: 50px 84px 1fr; gap: 6px; font-size: 12px; padding: 3px 0">
+            <span style="color: {{o.c}}; font-weight: 600">{{o.k}}</span><span>¾ {{o.t}}</span><span style="color: {{o.c}}">{{o.gap}}</span>
+          </div>
+        </sc-for>
+      </section>
+
+      <section class="pnl">
+        <div class="lbl" style="margin-bottom: 6px">Sequence</div>
+        <sc-for list="{{seq}}" as="q" hint-placeholder-count="4">
+          <div style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 6px 8px; margin-top: 4px; border: 1px solid {{q.bc}}; border-radius: 5px; background: #1A212A">
+            <div class="mono" style="font-size: 12px">
+              <div><b>{{q.id}}</b> <span style="color: #93A1B0">{{q.cs}}</span> <span style="color: {{q.fc}}">{{q.fuel}}</span></div>
+              <div style="color: #93A1B0">{{q.where}} · {{q.owner}}</div>
+            </div>
+            <button onClick="{{q.act}}" class="btn" style="height: 26px; font-size: 11.5px; border-color: {{q.abc}}; color: {{q.afg}}">{{q.btn}}</button>
+          </div>
+        </sc-for>
+      </section>
+    </aside>
+  </div>
+
+  <sc-if value="{{optsOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0; background: rgba(5,7,10,.55); z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 70px">
+      <div role="dialog" aria-label="Options" style="width: min(460px, calc(100% - 32px)); background: #151A21; border: 1px solid #374250; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 14px">
+        <div style="display: flex; align-items: center; margin-bottom: 12px"><div style="font-weight: 700; font-size: 15px; flex: 1">Options</div><button class="btn" onClick="{{closeOpts}}">Done</button></div>
+        <div class="lbl" style="margin-bottom: 6px">Staffing</div>
+        <div class="seg" style="margin-bottom: 10px">
+          <sc-for list="{{staffOpts}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="flex: 1; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button></sc-for>
+        </div>
+        <div class="mono" style="font-size: 11.5px; color: #93A1B0; line-height: 1.6">
+          <sc-for list="{{staffRows}}" as="r" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px"><span style="color: #E6EDF3">{{r.loc}}</span><span>{{r.seats}}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"staffing":{"editor":"enum","options":["Condensed","Expanded"],"default":"Condensed"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+
+  seatVals(loc, onSeat) {
+    const s = this.state, mode = s.staff || this.props.staffing || 'Condensed';
+    const C = { CDC: [['strike', 'STRIKE']], CATCC: [['catcc', 'CATCC']], PriFly: [['boss', 'AIR BOSS']], Bridge: [['ood', 'OOD']], LSO: [['lso', 'LSO']] };
+    const E = { CDC: [['aw', 'AIR WARFARE'], ['strike', 'STRIKE'], ['suw', 'SURFACE WARFARE']],
+      CATCC: [['airops', 'AIR OPS'], ['dep', 'DEPARTURE'], ['marshal', 'MARSHAL'], ['app', 'APPROACH'], ['final', 'FINAL']],
+      PriFly: [['boss', 'AIR BOSS'], ['mini', 'MINI BOSS · TWR']], Bridge: [['ood', 'OFFICER OF THE DECK']],
+      LSO: [['clso', 'CONTROLLING LSO'], ['blso', 'BACKUP LSO'], ['writer', 'WRITER']] };
+    // Who holds what at start (mockup): "me" = this user (100); others show board · callsign.
+    const SEED = { strike: { b: '305', cs: 'Ghost' }, aw: { b: '305', cs: 'Ghost' }, suw: null,
+      catcc: 'me', airops: { b: '201', cs: 'Juno' }, dep: { b: '201', cs: 'Juno' }, marshal: 'me', app: 'me', final: null,
+      boss: { b: '210', cs: 'Mako' }, mini: null, ood: { b: '207', cs: 'Skip' }, lso: { b: '214', cs: 'Paddles' }, clso: { b: '214', cs: 'Paddles' }, blso: null, writer: null };
+    const held = Object.assign({}, SEED, s.held || {}), act = s.seat || this.defSeat || null;
+    const list = (mode === 'Expanded' ? E : C)[loc];
+    const set = (k, v, a) => { this.setState({ held: Object.assign({}, s.held || {}, { [k]: v }), seat: a }); if (onSeat && a) onSeat(a); };
+    const seats = list.map(([k, label]) => {
+      const h = held[k], mine = h === 'me', on = mine && (act === k || (!act && list.length === 1));
+      if (!h) return { label, who: 'Open', init: '+', on: 'false', click: () => set(k, 'me', k), title: 'Take ' + label,
+        bs: 'dashed', bc: '#374250', bg: 'transparent', cur: 'pointer', as: 'dashed', ab: '#5E6A78', af: 'transparent', afg: '#93A1B0', whoFg: '#93A1B0', lfg: '#93A1B0' };
+      if (mine) return { label, who: '100 · You', init: '100', on: on ? 'true' : 'false',
+        click: () => on ? set(k, null, null) : (this.setState({ seat: k }), onSeat && onSeat(k)),
+        title: on ? 'You hold ' + label + ' · click to release' : 'Show the ' + label + ' view',
+        bs: 'solid', bc: '#F15822', bg: on ? 'rgba(241,88,34,.2)' : 'transparent', cur: 'pointer', as: 'solid', ab: '#F15822', af: on ? '#F15822' : 'transparent', afg: on ? '#0E1116' : '#FFB08F', whoFg: '#FFB08F', lfg: on ? '#FFB08F' : '#93A1B0' };
+      return { label, who: h.b + ' · ' + h.cs, init: h.b, on: 'false', click: () => {}, title: label + ' held by ' + h.b + ' ' + h.cs,
+        bs: 'solid', bc: '#374250', bg: '#1A212A', cur: 'default', as: 'solid', ab: '#3E9BD4', af: '#1F3A52', afg: '#CFE6F6', whoFg: '#C9D3DD', lfg: '#93A1B0' };
+    });
+    const nm = l => l.map(x => x[1].charAt(0) + x[1].slice(1).toLowerCase()).join(' · ');
+    return {
+      seats, viewOnly: !list.some(([k]) => held[k] === 'me'), staffMode: mode,
+      optsOpen: !!s.optsOpen, openOpts: () => this.setState({ optsOpen: true }), closeOpts: () => this.setState({ optsOpen: false }),
+      staffOpts: ['Condensed', 'Expanded'].map(m => ({ label: m === 'Condensed' ? 'Condensed · 1 seat per location' : 'Expanded · all seats', on: mode === m ? 'true' : 'false',
+        bg: mode === m ? '#222C37' : 'transparent', fg: mode === m ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ staff: m, seat: null }) })),
+      staffRows: Object.keys(C).map(L => ({ loc: L, seats: nm((mode === 'Expanded' ? E : C)[L]) }))
+    };
+  }
+
+
+  constructor(p) { super(p); this.state = { range: null, ghost: true, icls: 'ON', acls: 'UP', mode: { '205': 'II', '203': 'I' }, ho: {} }; this.defSeat = 'app'; }
+  renderVals() {
+    const s = this.state;
+    const SV = this.seatVals('CATCC', k => this.setState({ range: k === 'final' ? 12 : 24 }));
+    const act = s.seat || (SV.staffMode === 'Expanded' ? 'app' : 'catcc');
+    const RG = s.range || (act === 'final' ? 12 : 24);
+    const AMAX = { 6: 1500, 12: 3000, 24: 7000 }[RG], LMAX = { 6: 1.2, 12: 2.6, 24: 4 }[RG];
+    const X = r => 60 + r / RG * 920, Ye = a => 370 - a / AMAX * 330, Ya = l => 200 + l / LMAX * 170;   // l < 0 = left of course (top)
+    const px = (x, y) => [(x / 10).toFixed(2), (y / 4).toFixed(2)];
+    const f = n => n.toFixed(1), TAN = Math.tan(3.5 * Math.PI / 180) * 6076;
+    // ---- scenario (ship-relative): ranges in NM from the ramp, closure on final 125 kt, downwind opening 165 kt, 180° turn 75 s
+    const VF = 125, VD = 165, TT = 75, R0 = 2.5, BALL = 0.75;
+    const tBall = X0 => (X0 - R0) / VD * 3600 + TT + (X0 - BALL) / VF * 3600;
+    const T205 = (6 - BALL) / VF * 3600, T203 = 7.5 / 235 * 3600 + (10 - BALL) / VF * 3600, GAP = 60;
+    const a = 1 / VD * 3600 + 1 / VF * 3600, b = -R0 / VD * 3600 + TT - BALL / VF * 3600;   // tBall = a·X + b
+    const xLo = (T205 + GAP - b) / a, xHi = (T203 - GAP - b) / a;
+    const NOW = 18 * 3600 + 12 * 60 + 30, hms = t => { t = Math.round(t); return [Math.floor(t / 3600) % 24, Math.floor(t / 60) % 60, t % 60].map(n => String(n).padStart(2, '0')).join(':'); };
+    const ms = t => { const n = Math.round(Math.abs(t)); return (t < 0 ? '−' : '') + Math.floor(n / 60) + ':' + String(n % 60).padStart(2, '0'); };
+    const OPTS = [['NOW', R0], ['4 NM', 4], ['6 NM', 6], ['8 NM', 8]].map(([k, x0]) => { const t = tBall(x0), g1 = t - T205, g2 = T203 - t;
+      const ok = g1 >= GAP && g2 >= GAP, bad = g1 < 30 || g2 < 30;
+      return { k, x0, t, g1, g2, cls: ok ? 'ok' : (bad ? 'bad' : 'mar'), c: ok ? '#7FD397' : (bad ? '#FF8A85' : '#E7B04F'),
+        gap: g1 < 0 ? ms(-g1) + ' ahead of 205' : (g2 < 0 ? ms(-g2) + ' behind 203' : '+' + ms(g1) + ' / −' + ms(g2)) }; });
+    // ---- elevation
+    let grid = '', lab = [];
+    const step = RG === 24 ? 2 : (RG === 12 ? 1 : 0.5);
+    for (let r = step; r <= RG; r += step) grid += 'M' + f(X(r)) + ' 40V370';
+    const altStep = AMAX > 4000 ? 1000 : 500;
+    for (let al = altStep; al < AMAX; al += altStep) grid += 'M60 ' + f(Ye(al)) + 'H980';
+    const gsEnd = Math.min(RG, AMAX / TAN);
+    const el = { grid, fan: '', lim: '', dw: '', win: '', gBad: '', gMar: '', gOk: '',
+      cl: 'M' + f(X(0)) + ' ' + f(Ye(0)) + 'L' + f(X(gsEnd)) + ' ' + f(Ye(gsEnd * TAN)),
+      tol: 'M' + f(X(0)) + ' ' + f(Ye(0)) + 'L' + f(X(gsEnd)) + ' ' + f(Ye(gsEnd * Math.tan(4 * Math.PI / 180) * 6076)) + 'M' + f(X(0)) + ' ' + f(Ye(0)) + 'L' + f(X(gsEnd)) + ' ' + f(Ye(gsEnd * Math.tan(3 * Math.PI / 180) * 6076)) };
+    // Case III profile: A6 at 21 DME, 4,000 fpm/250 kt to platform, 2,000 fpm to 1,200 by ~12 DME, level, GS at 3.2 NM
+    const prof = [[21, 6000], [20, 5000], [12.1, 1200], [1200 / TAN, 1200]];
+    el.prof = 'M' + prof.filter(p => p[0] <= RG + 9).map(p => f(X(Math.min(p[0], RG))) + ' ' + f(Ye(Math.min(p[1], AMAX)))).join('L');
+    el.lim = [[6000, 'STACK BASE · A6'], [5000, 'PLATFORM'], [1200, "1,200'"]].filter(x => x[0] < AMAX).map(([al]) => 'M60 ' + f(Ye(al)) + 'H980').join('');
+    [[6000, 'STACK BASE · A6'], [5000, 'PLATFORM · 5,000'], [1200, "1,200'"]].filter(x => x[0] < AMAX).forEach(([al, t]) => { const p = px(975, Ye(al)); lab.push({ x: p[0], y: p[1], tf: 'translate(-100%, -120%)', c: '#E7B04F', t }); });
+    const DM = [[BALL, '¾ BALL'], [1200 / TAN, 'GS INTCP'], [6, 'FINAL'], [10, 'DIRTY UP'], [20, 'PLATFORM']].filter(d => d[0] <= RG);
+    DM.forEach(([r, t]) => { el.grid += 'M' + f(X(r)) + ' 30V375'; const p = px(X(r), 22); lab.push({ x: p[0], y: p[1], tf: 'translate(-50%, 0)', c: '#C9D3DD', t }); });
+    for (let r = 0; r <= RG; r += (RG === 24 ? 4 : (RG === 12 ? 2 : 1))) { const p = px(X(r), 392); lab.push({ x: p[0], y: p[1], tf: 'translate(-50%, -100%)', c: '#7D8896', t: r + (r ? '' : ' NM') }); }
+    el.labels = lab;
+    const blip = (x, y, c, t1, t2, o, sq) => ({ x: px(x, y)[0], y: px(x, y)[1], c, bc: 'rgba(0,0,0,.5)', s: 10, m: -5, r: sq ? '0' : '50%', t1, t2, o: o || 1 });
+    const A = [['205', 6, 1210, 0.04, '#5FD068', '205 F18E 4.8', '012 · ON GP'], ['203', 17.5, 3600, -0.15, '#5FD068', '203 F18F 5.9', '036 · ON PROFILE'], ['211', R0, 1200, -2.0, '#93A1B0', '211 F18E 4.1', 'BOLTER · DOWNWIND']];
+    el.blips = A.filter(q => q[1] <= RG).map(q => blip(X(q[1]), Ye(q[2]), q[4], q[5], q[6], q[0] === '211' ? 0.6 : 1, true));
+    // ---- azimuth (plan, lateral exaggerated)
+    let ag = 'M60 200H980';
+    for (let r = step; r <= RG; r += step) ag += 'M' + f(X(r)) + ' 30V370';
+    const fan = [1, 2, 5].map(dg => { const t = Math.tan(dg * Math.PI / 180), rr = Math.min(RG, LMAX / t);
+      return 'M' + f(X(0)) + ' 200L' + f(X(rr)) + ' ' + f(Ya(-rr * t)) + 'M' + f(X(0)) + ' 200L' + f(X(rr)) + ' ' + f(Ya(rr * t)); }).join('');
+    const az = { grid: ag, fan, lim: '', prof: '', tol: '', cl: 'M' + f(X(0)) + ' 200H' + f(X(RG)) };
+    const DW = -2.0;
+    az.dw = 'M' + f(X(0.3)) + ' ' + f(Ya(DW)) + 'H' + f(X(Math.min(RG, 9)));
+    az.win = 'M' + f(X(xLo)) + ' ' + f(Ya(DW)) + 'H' + f(X(Math.min(RG, xHi)));
+    const turn = x0 => 'M' + f(X(x0)) + ' ' + f(Ya(DW)) + 'C' + f(X(x0 + 1.25)) + ' ' + f(Ya(DW)) + ' ' + f(X(x0 + 1.25)) + ' 200 ' + f(X(x0)) + ' 200H' + f(X(BALL));
+    ['ok', 'mar', 'bad'].forEach(c => { az['g' + c.charAt(0).toUpperCase() + c.slice(1)] = OPTS.filter(o => o.cls === c && o.x0 <= RG).map(o => turn(o.x0)).join(''); });
+    const alab = [];
+    DM.forEach(([r, t]) => { const p = px(X(r), 22); alab.push({ x: p[0], y: p[1], tf: 'translate(-50%, 0)', c: '#C9D3DD', t }); });
+    [[1, '1°'], [2, '2°'], [5, '5°']].forEach(([dg, t]) => { const tn = Math.tan(dg * Math.PI / 180), rr = Math.min(RG, LMAX / tn); const p = px(X(rr) - 4, Ya(-rr * tn)); alab.push({ x: p[0], y: p[1], tf: 'translate(-100%, 2px)', c: '#7D8896', t }); });
+    alab.push({ x: '0.8', y: '6', tf: 'none', c: '#7D8896', t: 'L' }); alab.push({ x: '0.8', y: '90', tf: 'none', c: '#7D8896', t: 'R' });
+    for (let r = 0; r <= RG; r += (RG === 24 ? 4 : (RG === 12 ? 2 : 1))) { const p = px(X(r), 392); alab.push({ x: p[0], y: p[1], tf: 'translate(-50%, -100%)', c: '#7D8896', t: r + (r ? '' : ' NM') }); }
+    if (s.ghost) OPTS.filter(o => o.x0 <= RG).forEach(o => { const p = px(X(o.x0), Ya(DW)); alab.push({ x: p[0], y: p[1], tf: 'translate(-50%, -150%)', c: o.c, t: o.k === 'NOW' ? 'NOW' : o.k.replace(' NM', '') }); });
+    az.labels = alab;
+    az.blips = A.filter(q => q[1] <= RG).map(q => blip(X(q[1]), Ya(q[3]), q[4], q[5], q[0] === '211' ? 'DOWNWIND · 165' : (q[0] === '205' ? 'ON CL · ACLS' : '0.15 L'), 1, true));
+    // ---- right panel
+    const span = 420, mx = t => (t / span * 100).toFixed(1);
+    const slot = { win: xLo.toFixed(1) + '–' + xHi.toFixed(1) + ' NM', when: 'in ' + ms((xLo - R0) / VD * 3600) + '–' + ms((xHi - R0) / VD * 3600) + ' · ¾ ' + hms(NOW + tBall(xLo)) + '–' + hms(NOW + tBall(xHi)).slice(3),
+      marks: [{ x: mx(T205), c: '#E6EDF3', t: '205', ty: 8 }, { x: mx(T203), c: '#E6EDF3', t: '203', ty: 8 }].concat(OPTS.map(o => ({ x: mx(Math.min(span, o.t)), c: o.c, t: o.k === 'NOW' ? 'NOW' : o.k.replace(' NM', ''), ty: -20 }))),
+      wl: mx(tBall(xLo)), ww: (((tBall(xHi) - tBall(xLo)) / span) * 100).toFixed(1),
+      opts: OPTS.map(o => ({ k: o.k, t: hms(NOW + o.t), gap: o.gap, c: o.c })) };
+    const tog = (cur, k, key) => ({ k, on: cur === k ? 'true' : 'false', bg: cur === k ? '#222C37' : 'transparent', fg: cur === k ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ [key]: k }) });
+    const locks = [['205', 'LOCK-ON', '#7FD397'], ['203', 'ACQUIRING', '#E7B04F']].map(([id, st, sc]) => ({ id, st, sc,
+      modes: ['I', 'IA', 'II', 'III'].map(m => ({ k: m, on: s.mode[id] === m ? 'true' : 'false', bg: s.mode[id] === m ? '#222C37' : 'transparent', fg: s.mode[id] === m ? '#E6EDF3' : '#93A1B0',
+        pick: () => this.setState({ mode: Object.assign({}, s.mode, { [id]: m }) }) })) }));
+    const SEQ = [['205', 'BULLET 1-2', '4.8', '¾ in ' + ms(T205), 'FINAL', 'Handoff LSO', 'lso'], ['211', 'CHARGER 3-2', '4.1', 'BOLTER · DOWNWIND', 'FINAL', 'Slot', null],
+      ['203', 'BULLET 1-1', '5.9', '17.5 NM · ¾ in ' + ms(T203), 'APPROACH', 'Handoff FINAL', 'final'], ['101', 'CHARGER 1-1', '6.8', 'COMMENCE 18:15', 'MARSHAL', 'Accept', 'app']];
+    const seq = SEQ.map(([id, cs, fuel, where, own, btn, to]) => { const done = s.ho[id]; return { id, cs, fuel, fc: +fuel < 4.5 ? '#E7B04F' : '#E6EDF3', where,
+      owner: done ? (to === 'app' ? 'APPROACH' : 'HANDOFF → ' + to.toUpperCase() + ' · PENDING') : own, btn: done ? (to === 'app' ? 'Accepted' : 'Recall') : btn,
+      bc: id === '101' && !done ? '#E7B04F' : '#262F3A', abc: id === '101' && !done ? '#E7B04F' : '#374250', afg: id === '101' && !done ? '#E7B04F' : '#E6EDF3',
+      act: () => this.setState({ ho: Object.assign({}, s.ho, { [id]: !done }) }) }; });
+    return Object.assign(SV, {
+      el, az, slot, locks, seq, gd: s.ghost ? 'inline' : 'none', ghostOn: s.ghost ? 'true' : 'false', ghostBg: s.ghost ? 'rgba(95,208,104,.12)' : 'transparent', ghostBc: s.ghost ? '#5FD068' : '#374250',
+      toggleGhost: () => this.setState({ ghost: !s.ghost }),
+      ranges: [6, 12, 24].map(r => ({ label: r + ' NM', on: RG === r ? 'true' : 'false', bg: RG === r ? '#222C37' : 'transparent', fg: RG === r ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ range: r }) })),
+      icls: ['ON', 'OFF'].map(k => tog(s.icls, k, 'icls')), acls: ['UP', 'DOWN'].map(k => tog(s.acls, k, 'acls'))
+    });
+  }
+
+}
+</script>
+</body>
+</html>

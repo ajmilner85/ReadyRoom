@@ -1,0 +1,1796 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CATCC Radar</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1116}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.scope text{font-family:'IBM Plex Mono',ui-monospace,monospace;fill:#93A1B0;font-size:calc(0.8px * var(--z, 1))}
+.scope .tg{font-size:calc(0.9px * var(--z, 1));fill:var(--tagc, #E6EDF3)}
+.scope .ldr{stroke:var(--tagc, #E6EDF3)}
+.scope .zs text{font-size:0.8px}
+.scope .zs .tg{font-size:0.9px}
+.scope .tgr{fill:#FF8A85}
+.scope .tgb{fill:#6FB6E6}
+.scope .tgo{fill:#FFB08F}
+.scope .geo{font-size:calc(0.72px * var(--z, 1));fill:#7D8896}
+.scope *{vector-effect:non-scaling-stroke}
+svg.scope{stroke-width:calc(1px * var(--lw, 1))}
+.uirng{width:100%;accent-color:#F15822;margin:0}
+.lrow{display:grid;grid-template-columns:minmax(0,1fr) 52px 52px;align-items:center;min-height:28px;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+.lrow>*:nth-child(n+2){justify-self:center}
+.lcb{width:30px;height:26px;display:flex;align-items:center;justify-content:center;background:transparent;border:0;border-radius:4px;cursor:pointer;padding:0}
+.lcb:hover{background:#1A212A}
+.lcb>span{width:14px;height:14px;border-radius:3px;border:1.5px solid;box-sizing:border-box}
+.frow{display:grid;grid-template-columns:minmax(0,1fr) 62px 30px 30px;gap:6px;align-items:center;padding:3px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#E6EDF3}
+.frow>span:nth-child(n+3){justify-self:center}
+.fch{min-width:20px;height:18px;line-height:18px;padding:0 3px;box-sizing:border-box;text-align:center;border-radius:3px;background:#0E1116;border:1px solid #374250;font-size:11px;font-weight:600}
+.scope .hit{stroke:rgba(0,0,0,.5);stroke-width:1px}
+.ring{fill:none;stroke:rgba(64,168,91,.22);stroke-width:calc(1px * var(--lw, 1))}
+.tick line{stroke:rgba(64,168,91,.4)}
+.scope .rg text{fill:#5E9A6C}
+.grid line{stroke:rgba(147,161,176,.14);stroke-width:calc(1px * var(--lw, 1))}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.blink{animation:blink 1s steps(2,end) infinite}
+.tbtn{width:40px;height:40px;border-radius:6px;border:1px solid transparent;display:flex;align-items:center;justify-content:center;cursor:pointer;padding:0;background:transparent}
+.tbtn:hover{border-color:#374250}
+.ovb{display:flex;align-items:center;gap:8px;width:100%;background:transparent;border:0;padding:6px 6px;border-radius:4px;cursor:pointer;font-family:'IBM Plex Mono',monospace;font-size:11.5px;text-align:left}
+.ovb:hover{background:#1A212A}
+.kv{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:3px 0;font-family:'IBM Plex Mono',monospace;font-size:12px;color:#E6EDF3}
+.kv span:first-child{color:#93A1B0}
+.pnl{border:1px solid #262F3A;border-radius:8px;padding:10px;background:#1A212A}
+.srow{display:grid;grid-template-columns:34px 34px 40px 1fr 34px;gap:4px;align-items:center;padding:4px 6px;border-radius:4px;font-family:'IBM Plex Mono',monospace;font-size:11.5px}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: #0E1116; color: #E6EDF3; font-family: 'Saira', system-ui, sans-serif">
+
+  <!-- ── Top bar ── -->
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 16px; padding: 8px 16px; border-bottom: 1px solid #262F3A; background: #151A21">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 28px; height: 28px; border-radius: 5px; background: #F15822; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15h15l3-4H8L6 8H3z"></path><path d="M3 19c2 0 2-1.5 4.5-1.5S10 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"></path></svg>
+      </div>
+      <select aria-label="Ship" style="background: #0E1116; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; padding: 5px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">
+        <option>CVN-73 · Warfighter</option>
+        <option>CVN-71 · Rough Rider</option>
+      </select>
+    </div>
+    <nav aria-label="Location" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="CDC.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">CDC</a>
+      <a href="Main.dc.html" aria-current="page" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 13px; font-weight: 600">CATCC</a>
+      <a href="Boss.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">PriFly</a>
+      <a href="Bridge.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">Bridge</a>
+      <a href="LSO.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">LSO</a>
+    </nav>
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap" aria-label="Seats">
+      <sc-for list="{{seats}}" as="p" hint-placeholder-count="1">
+        <button onClick="{{p.click}}" title="{{p.title}}" aria-label="{{p.title}}" aria-pressed="{{p.on}}" style="display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px 0 4px; border-radius: 19px; border: 1px {{p.bs}} {{p.bc}}; background: {{p.bg}}; cursor: {{p.cur}}; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace">
+          <span style="width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box; border: 1.5px {{p.as}} {{p.ab}}; background: {{p.af}}; color: {{p.afg}}; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600">{{p.init}}</span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15">
+            <span style="font-size: 10px; letter-spacing: .1em; color: {{p.lfg}}">{{p.label}}</span>
+            <span style="font-size: 11.5px; color: {{p.whoFg}}">{{p.who}}</span>
+          </span>
+        </button>
+      </sc-for>
+      <sc-if value="{{viewOnly}}" hint-placeholder-val="{{false}}">
+        <span class="mono" style="font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid #374250; color: #93A1B0">VIEW ONLY</span>
+      </sc-if>
+    </div>
+    <div class="seg" aria-label="CATCC view" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="Main.dc.html" aria-current="page" style="text-decoration: none; height: 28px; line-height: 28px; padding: 0 10px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 12.5px; font-weight: 600">Radar</a>
+      <a href="Final.dc.html" style="text-decoration: none; height: 28px; line-height: 28px; padding: 0 10px; border-radius: 4px; color: #93A1B0; font-size: 12.5px">Approach / Final</a>
+    </div>
+    <div style="padding: 4px 10px; border-radius: 4px; background: rgba(241,88,34,.15); border: 1px solid #F15822; color: #FFB08F; font-family: 'IBM Plex Mono', monospace; font-size: 12px; font-weight: 600; letter-spacing: .1em">CASE III · CV-1</div>
+    <div style="flex: 1"></div>
+    <div style="display: flex; align-items: center; gap: 6px; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; color: #93A1B0">
+      <span style="width: 8px; height: 8px; border-radius: 50%; background: #40A85B"></span>LotATC feed · live
+    </div>
+    <div style="display: flex; gap: 14px; font-family: 'IBM Plex Mono', monospace" aria-label="Time">
+      <div style="text-align: right; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">LOCAL · UTC+4</div>
+        <div style="font-size: 17px; font-weight: 600">18:12:30</div>
+      </div>
+      <div style="width: 1px; background: #374250"></div>
+      <div style="text-align: left; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">ZULU</div>
+        <div style="font-size: 17px; font-weight: 600">14:12:30Z</div>
+      </div>
+    </div>
+    <button onClick="{{toggleRef}}" aria-expanded="{{refExp}}" aria-label="Reference" title="Reference: minimums, approaches, CV NATOPS" style="height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: {{refBg}}; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M4 4h6a2 2 0 0 1 2 2v14a2 2 0 0 0-2-2H4z"></path><path d="M20 4h-6a2 2 0 0 0-2 2v14a2 2 0 0 1 2-2h6z"></path></svg>
+      Reference
+    </button>
+    <button onClick="{{openUi}}" aria-label="Display settings" title="Display settings" style="height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; padding: 0; background: {{uiBtnBg}}; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+    </button>
+    <button aria-label="Open another display" title="Pop out to another monitor / device" style="height: 36px; display: flex; align-items: center; gap: 6px; padding: 0 10px; background: #0E1116; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="2" y="4" width="13" height="10" rx="1.5"></rect><rect x="16" y="9" width="6" height="11" rx="1.2"></rect><path d="M6 18h5"></path></svg>
+      Displays
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; flex-wrap: wrap; min-height: 0">
+
+    <!-- ── Left sidebar: info panels ── -->
+    <aside aria-label="Left sidebar" style="flex: 0 0 344px; width: 344px; border-right: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; overflow-y: auto; box-sizing: border-box">
+      <div role="tablist" aria-label="Sidebar" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px; flex: none">
+        <sc-for list="{{ltabs}}" as="t" hint-placeholder-count="2">
+          <button role="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="flex: 1; height: 30px; border: 0; border-radius: 4px; background: {{t.bg}}; color: {{t.fg}}; font-family: 'Saira', sans-serif; font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px">{{t.label}}<span class="mono" style="font-size: 10.5px; font-weight: 500; color: #93A1B0">{{t.n}}</span></button>
+        </sc-for>
+      </div>
+      <sc-if value="{{tabInfo}}" hint-placeholder-val="{{true}}">
+
+      <section class="pnl" aria-label="Ship data">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+          <div>
+            <div style="font-size: 26px; font-weight: 700; letter-spacing: .05em; line-height: 1">CVN-73</div>
+            <div class="mono" style="font-size: 10.5px; color: #93A1B0; letter-spacing: .1em; margin-top: 4px">GEORGE WASHINGTON · WARFIGHTER</div>
+          </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px">
+          <div><div class="lbl">BRC</div><div class="mono" style="font-size: 20px; font-weight: 600">345</div></div>
+          <div><div class="lbl">FB</div><div class="mono" style="font-size: 20px; font-weight: 600">336</div></div>
+          <div><div class="lbl">Speed</div><div class="mono" style="font-size: 20px; font-weight: 600">24<span style="font-size: 11px; color: #93A1B0"> KT</span></div></div>
+        </div>
+        <div class="kv"><span>Wind over deck</span><span>347 / 31 KT</span></div>
+        <div class="kv"><span>Winds down angle</span><span>29 KT · 2 STBD</span></div>
+        <div class="kv"><span>True wind</span><span>280 / 12 KT</span></div>
+        <div class="kv"><span>Next PIM turn</span><span>BRC 020 @ 18:45</span></div>
+      </section>
+
+      <section class="pnl" aria-label="Weather">
+        <div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; margin-bottom: 8px">
+          <div><div class="lbl">Visibility</div><div class="mono" style="font-size: 20px; font-weight: 600; line-height: 1.15">4</div><div class="mono" style="font-size: 10.5px; color: #93A1B0">NM · −RA</div></div>
+          <div><div class="lbl">Ceiling</div><div class="mono" style="font-size: 20px; font-weight: 600; line-height: 1.15; color: #FFB08F">800</div><div class="mono" style="font-size: 10.5px; color: #93A1B0">BKN · FT</div></div>
+          <div><div class="lbl">Altimeter</div><div class="mono" style="font-size: 20px; font-weight: 600; line-height: 1.15">29.94</div><div class="mono" style="font-size: 10.5px; color: #93A1B0">1014 hPa</div></div>
+        </div>
+        <div class="kv"><span>Clouds</span><span>BKN 008 · OVC 045</span></div>
+        <div class="kv"><span>Temp / dew</span><span>24° / 19°</span></div>
+        <div class="kv"><span>Wind 2K / 10K</span><span>285/18 · 300/34</span></div>
+      </section>
+
+      <section class="pnl" aria-label="Light and case">
+        <svg viewBox="0 0 260 132" style="width: 100%; height: auto; display: block" role="img" aria-label="Sun elevation from noon today to noon tomorrow. Now 18:12, sun 10 degrees below the horizon, inside the Case III night window from 17:59 to 05:56.">
+          <!-- sky bands: day / civil / nautical / astronomical / night -->
+          <rect x="10" y="14" width="240" height="44" fill="rgba(111,143,179,.10)"></rect>
+          <rect x="10" y="58" width="240" height="8.5" fill="rgba(61,88,120,.30)"></rect>
+          <rect x="10" y="66.5" width="240" height="6.7" fill="rgba(38,58,84,.38)"></rect>
+          <rect x="10" y="73.2" width="240" height="5.3" fill="rgba(24,38,58,.45)"></rect>
+          <!-- Case III window: SS+30 to SR-30 -->
+          <rect x="69.8" y="14" width="119.5" height="88" fill="rgba(241,88,34,.07)"></rect>
+          <line x1="69.8" y1="14" x2="69.8" y2="108" stroke="rgba(241,88,34,.55)" stroke-width="0.8" stroke-dasharray="2 2"></line>
+          <line x1="189.3" y1="14" x2="189.3" y2="108" stroke="rgba(241,88,34,.55)" stroke-width="0.8" stroke-dasharray="2 2"></line>
+          <rect x="69.8" y="104" width="119.5" height="4" rx="2" fill="#F15822"></rect>
+          <text x="129.5" y="116" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="7.5" fill="#FFB08F" letter-spacing=".6">CASE III · 17:59 – 05:56</text>
+          <!-- horizon + thresholds -->
+          <line x1="10" y1="58" x2="250" y2="58" stroke="#5E6A78" stroke-width="1"></line>
+          <line x1="10" y1="66.5" x2="250" y2="66.5" stroke="rgba(147,161,176,.35)" stroke-width="0.6" stroke-dasharray="1.5 2"></line>
+          <line x1="10" y1="73.2" x2="250" y2="73.2" stroke="rgba(147,161,176,.35)" stroke-width="0.6" stroke-dasharray="1.5 2"></line>
+          <g font-family="IBM Plex Mono, monospace" font-size="6" fill="#7D8896">
+            <text x="252" y="60">0°</text><text x="252" y="68.5">−6</text><text x="252" y="75.2">−12</text>
+          </g>
+          <!-- sun path -->
+          <path d="M10.0 23.9 L12.5 23.9 L15.0 24.1 L17.5 24.3 L20.0 24.6 L22.5 24.9 L25.0 25.4 L27.5 25.9 L30.0 26.6 L32.5 27.4 L35.0 28.3 L37.5 29.4 L40.0 30.6 L42.5 32.1 L45.0 33.7 L47.5 35.6 L50.0 37.8 L52.5 40.3 L55.0 43.2 L57.5 46.5 L60.0 50.3 L62.5 54.7 L65.0 59.6 L67.5 64.3 L70.0 68.4 L72.5 72.0 L75.0 75.2 L77.5 78.1 L80.0 80.5 L82.5 82.7 L85.0 84.6 L87.5 86.3 L90.0 87.8 L92.5 89.1 L95.0 90.2 L97.5 91.2 L100.0 92.0 L102.5 92.8 L105.0 93.4 L107.5 94.0 L110.0 94.5 L112.5 94.9 L115.0 95.3 L117.5 95.6 L120.0 95.9 L122.5 96.1 L125.0 96.2 L127.5 96.3 L130.0 96.3 L132.5 96.3 L135.0 96.2 L137.5 96.0 L140.0 95.8 L142.5 95.5 L145.0 95.2 L147.5 94.8 L150.0 94.3 L152.5 93.8 L155.0 93.2 L157.5 92.5 L160.0 91.7 L162.5 90.8 L165.0 89.8 L167.5 88.6 L170.0 87.3 L172.5 85.7 L175.0 84.0 L177.5 82.0 L180.0 79.7 L182.5 77.1 L185.0 74.1 L187.5 70.8 L190.0 67.0 L192.5 62.7 L195.0 57.9 L197.5 53.1 L200.0 48.9 L202.5 45.3 L205.0 42.1 L207.5 39.4 L210.0 37.0 L212.5 34.9 L215.0 33.1 L217.5 31.5 L220.0 30.2 L222.5 29.0 L225.0 28.0 L227.5 27.1 L230.0 26.4 L232.5 25.7 L235.0 25.2 L237.5 24.8 L240.0 24.4 L242.5 24.2 L245.0 24.0 L247.5 23.9 L250.0 23.9" fill="none" stroke="#C9D3DD" stroke-width="1.6" stroke-linejoin="round"></path>
+          <!-- sunset / sunrise -->
+          <circle cx="64.8" cy="58" r="2" fill="#E7B04F"></circle>
+          <circle cx="194.3" cy="58" r="2" fill="#E7B04F"></circle>
+          <g font-family="IBM Plex Mono, monospace" font-size="8" fill="#E6EDF3">
+            <text x="64.8" y="10" text-anchor="middle">↓ 17:29</text>
+            <text x="194.3" y="10" text-anchor="middle">↑ 06:26</text>
+          </g>
+          <line x1="64.8" y1="13" x2="64.8" y2="56" stroke="rgba(231,176,79,.35)" stroke-width="0.6"></line>
+          <line x1="194.3" y1="13" x2="194.3" y2="56" stroke="rgba(231,176,79,.35)" stroke-width="0.6"></line>
+          <!-- moonrise -->
+          <path d="M111.7 53.5 a4 4 0 1 0 3.2 6.4 a3.2 3.2 0 1 1 -3.2 -6.4 z" fill="#C9D3DD"></path>
+          <text x="118" y="54" font-family="IBM Plex Mono, monospace" font-size="6.5" fill="#93A1B0">22:10 · 34%</text>
+          <!-- now -->
+          <line x1="72.1" y1="18" x2="72.1" y2="100" stroke="#F15822" stroke-width="1"></line>
+          <circle cx="72.1" cy="71.5" r="5.5" fill="rgba(241,88,34,.25)"></circle>
+          <circle cx="72.1" cy="71.5" r="2.8" fill="#F15822" stroke="#0E1116" stroke-width="1"></circle>
+          <rect x="74.5" y="18" width="26" height="10" rx="2" fill="#F15822"></rect>
+          <text x="87.5" y="25.5" text-anchor="middle" font-family="IBM Plex Mono, monospace" font-size="7" font-weight="600" fill="#0E1116">NOW</text>
+          <!-- hour axis -->
+          <g font-family="IBM Plex Mono, monospace" font-size="6.5" fill="#7D8896" text-anchor="middle">
+            <text x="10" y="128">12</text><text x="70" y="128">18</text><text x="130" y="128">00</text><text x="190" y="128">06</text><text x="250" y="128">12</text>
+          </g>
+        </svg>
+        <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: 6px; gap: 8px">
+          <div>
+            <div style="font-size: 18px; font-weight: 700; letter-spacing: .04em; line-height: 1.1">NIGHT</div>
+            <div class="mono" style="font-size: 11px; color: #FFB08F">CASE III <span style="color: #93A1B0">· SUN −10.3°</span></div>
+          </div>
+          <div style="text-align: right">
+            <div class="mono" style="font-size: 10.5px; color: #93A1B0; letter-spacing: .08em">DAY OPS IN</div>
+            <div class="mono" style="font-size: 18px; font-weight: 600; line-height: 1.1">11:44</div>
+          </div>
+        </div>
+      </section>
+
+
+
+      </sc-if>
+      <sc-if value="{{tabStrips}}" hint-placeholder-val="{{false}}">
+        <sc-for list="{{strips}}" as="g" hint-placeholder-count="4">
+          <div style="display: flex; justify-content: space-between; align-items: baseline; margin: 2px 2px -4px">
+            <span class="lbl">{{g.t}}</span><span class="mono" style="font-size: 10.5px; color: #6B7683">{{g.n}}</span>
+          </div>
+          <sc-for list="{{g.items}}" as="f" hint-placeholder-count="2">
+            <article onClick="{{f.pick}}" aria-label="{{f.aria}}" style="padding: 8px 10px 9px 11px; border-radius: 6px; border: 1px solid {{f.bc}}; box-shadow: inset 3px 0 0 {{f.ac}}; background: {{f.bg}}; cursor: pointer">
+              <div style="display: flex; align-items: baseline; gap: 7px; margin-bottom: 7px">
+                <span style="font-size: 14px; font-weight: 700; letter-spacing: .03em; white-space: nowrap">{{f.cs}}</span>
+                <span class="mono" style="font-size: 10.5px; color: #7D8896; white-space: nowrap">{{f.type}}</span>
+                <span style="flex: 1"></span>
+                <span class="mono" title="Track owner" style="font-size: 10px; font-weight: 600; letter-spacing: .06em; padding: 1px 5px; border-radius: 3px; background: {{f.obg}}; color: {{f.ofg}}">{{f.own}}</span>
+                <span class="mono" style="font-size: 10.5px; color: #7D8896">BRA</span>
+                <span class="mono" style="font-size: 12.5px; font-weight: 600; white-space: nowrap">{{f.bra}}</span>
+              </div>
+              <div class="mono" style="display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; font-size: 12.5px">
+                <sc-for list="{{f.mem}}" as="w" hint-placeholder-count="2">
+                  <span style="justify-self: start; padding: 1px 6px; border-radius: 4px; border: 1px solid {{w.bc}}; white-space: nowrap"><b style="font-weight: 600; color: #E6EDF3">{{w.b}}</b> <span style="color: {{w.c}}; font-weight: 600">{{w.fu}}</span></span>
+                </sc-for>
+              </div>
+              <sc-if value="{{f.ho}}" hint-placeholder-val="{{false}}">
+                <div style="display: flex; align-items: center; gap: 8px; margin-top: 8px; padding-top: 7px; border-top: 1px solid #2E3743">
+                  <span class="mono blink" style="flex: 1; font-size: 11.5px; color: #6FB6E6">HANDOFF ← STRIKE</span>
+                  <button onClick="{{f.accept}}" style="height: 26px; padding: 0 10px; border-radius: 4px; border: 1px solid #3E9BD4; background: rgba(62,155,212,.16); color: #CFE6F6; font-family: 'Saira', sans-serif; font-size: 12px; cursor: pointer">Accept</button>
+                </div>
+              </sc-if>
+            </article>
+          </sc-for>
+        </sc-for>
+      </sc-if>
+    </aside>
+
+    <!-- ── Scope ── -->
+    <main style="flex: 999 1 560px; min-width: 0; position: relative; background: #0B0E12; min-height: 640px; display: flex; flex-direction: column">
+      <div ref="{{setBox}}" style="position: relative; flex: 1; min-height: 560px">
+        <svg class="scope" viewBox="{{vb}}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; --z: {{zk}}; --lw: {{lw}}">
+
+          <!-- Lat / lon frame (fills the scope; height follows the panel) -->
+          <g display="{{d.latlon}}">
+            <rect style="stroke-width: calc(1px * var(--lw, 1))" x="{{fr.x0}}" y="{{fr.y0}}" width="{{fr.w}}" height="{{fr.h}}" fill="none" stroke="rgba(147,161,176,.4)"></rect>
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{fr.ticks}}" stroke="rgba(147,161,176,.6)" fill="none"></path>
+            <g class="geo">
+              <text x="{{fr.lx}}" y="132.3" display="{{latD.m1440}}" class="geo">24°00'N</text><text x="{{fr.rx}}" y="132.3" display="{{latD.m1440}}" text-anchor="end" class="geo">24°00'N</text>
+              <text x="{{fr.lx}}" y="122.3" display="{{latD.m1450}}" class="geo">24°10'N</text><text x="{{fr.rx}}" y="122.3" display="{{latD.m1450}}" text-anchor="end" class="geo">24°10'N</text>
+              <text x="{{fr.lx}}" y="112.3" display="{{latD.m1460}}" class="geo">24°20'N</text><text x="{{fr.rx}}" y="112.3" display="{{latD.m1460}}" text-anchor="end" class="geo">24°20'N</text>
+              <text x="{{fr.lx}}" y="102.3" display="{{latD.m1470}}" class="geo">24°30'N</text><text x="{{fr.rx}}" y="102.3" display="{{latD.m1470}}" text-anchor="end" class="geo">24°30'N</text>
+              <text x="{{fr.lx}}" y="92.3" display="{{latD.m1480}}" class="geo">24°40'N</text><text x="{{fr.rx}}" y="92.3" display="{{latD.m1480}}" text-anchor="end" class="geo">24°40'N</text>
+              <text x="{{fr.lx}}" y="82.3" display="{{latD.m1490}}" class="geo">24°50'N</text><text x="{{fr.rx}}" y="82.3" display="{{latD.m1490}}" text-anchor="end" class="geo">24°50'N</text>
+              <text x="{{fr.lx}}" y="72.3" display="{{latD.m1500}}" class="geo">25°00'N</text><text x="{{fr.rx}}" y="72.3" display="{{latD.m1500}}" text-anchor="end" class="geo">25°00'N</text>
+              <text x="{{fr.lx}}" y="62.3" display="{{latD.m1510}}" class="geo">25°10'N</text><text x="{{fr.rx}}" y="62.3" display="{{latD.m1510}}" text-anchor="end" class="geo">25°10'N</text>
+              <text x="{{fr.lx}}" y="52.3" display="{{latD.m1520}}" class="geo">25°20'N</text><text x="{{fr.rx}}" y="52.3" display="{{latD.m1520}}" text-anchor="end" class="geo">25°20'N</text>
+              <text x="{{fr.lx}}" y="42.3" display="{{latD.m1530}}" class="geo">25°30'N</text><text x="{{fr.rx}}" y="42.3" display="{{latD.m1530}}" text-anchor="end" class="geo">25°30'N</text>
+              <text x="{{fr.lx}}" y="32.3" display="{{latD.m1540}}" class="geo">25°40'N</text><text x="{{fr.rx}}" y="32.3" display="{{latD.m1540}}" text-anchor="end" class="geo">25°40'N</text>
+              <text x="{{fr.lx}}" y="22.3" display="{{latD.m1550}}" class="geo">25°50'N</text><text x="{{fr.rx}}" y="22.3" display="{{latD.m1550}}" text-anchor="end" class="geo">25°50'N</text>
+              <text x="{{fr.lx}}" y="12.3" display="{{latD.m1560}}" class="geo">26°00'N</text><text x="{{fr.rx}}" y="12.3" display="{{latD.m1560}}" text-anchor="end" class="geo">26°00'N</text>
+              <text x="{{fr.lx}}" y="2.3" display="{{latD.m1570}}" class="geo">26°10'N</text><text x="{{fr.rx}}" y="2.3" display="{{latD.m1570}}" text-anchor="end" class="geo">26°10'N</text>
+              <text x="{{fr.lx}}" y="-7.7" display="{{latD.m1580}}" class="geo">26°20'N</text><text x="{{fr.rx}}" y="-7.7" display="{{latD.m1580}}" text-anchor="end" class="geo">26°20'N</text>
+              <text x="{{fr.lx}}" y="-17.7" display="{{latD.m1590}}" class="geo">26°30'N</text><text x="{{fr.rx}}" y="-17.7" display="{{latD.m1590}}" text-anchor="end" class="geo">26°30'N</text>
+              <text x="{{fr.lx}}" y="-27.7" display="{{latD.m1600}}" class="geo">26°40'N</text><text x="{{fr.rx}}" y="-27.7" display="{{latD.m1600}}" text-anchor="end" class="geo">26°40'N</text>
+              <text x="{{fr.lx}}" y="-37.7" display="{{latD.m1610}}" class="geo">26°50'N</text><text x="{{fr.rx}}" y="-37.7" display="{{latD.m1610}}" text-anchor="end" class="geo">26°50'N</text>
+              <text x="{{fr.lx}}" y="-47.7" display="{{latD.m1620}}" class="geo">27°00'N</text><text x="{{fr.rx}}" y="-47.7" display="{{latD.m1620}}" text-anchor="end" class="geo">27°00'N</text>
+              <text x="{{fr.lx}}" y="-57.7" display="{{latD.m1630}}" class="geo">27°10'N</text><text x="{{fr.rx}}" y="-57.7" display="{{latD.m1630}}" text-anchor="end" class="geo">27°10'N</text>
+              <text x="{{fr.lx}}" y="-67.7" display="{{latD.m1640}}" class="geo">27°20'N</text><text x="{{fr.rx}}" y="-67.7" display="{{latD.m1640}}" text-anchor="end" class="geo">27°20'N</text>
+              <text x="{{fr.lx}}" y="-77.7" display="{{latD.m1650}}" class="geo">27°30'N</text><text x="{{fr.rx}}" y="-77.7" display="{{latD.m1650}}" text-anchor="end" class="geo">27°30'N</text>
+              <text x="{{fr.lx}}" y="-87.7" display="{{latD.m1660}}" class="geo">27°40'N</text><text x="{{fr.rx}}" y="-87.7" display="{{latD.m1660}}" text-anchor="end" class="geo">27°40'N</text>
+              <text x="{{fr.lx}}" y="-97.7" display="{{latD.m1670}}" class="geo">27°50'N</text><text x="{{fr.rx}}" y="-97.7" display="{{latD.m1670}}" text-anchor="end" class="geo">27°50'N</text>
+              <text x="{{fr.lx}}" y="-107.7" display="{{latD.m1680}}" class="geo">28°00'N</text><text x="{{fr.rx}}" y="-107.7" display="{{latD.m1680}}" text-anchor="end" class="geo">28°00'N</text>
+              <text x="{{fr.lx}}" y="-117.7" display="{{latD.m1690}}" class="geo">28°10'N</text><text x="{{fr.rx}}" y="-117.7" display="{{latD.m1690}}" text-anchor="end" class="geo">28°10'N</text>
+              <text x="{{fr.lx}}" y="-127.7" display="{{latD.m1700}}" class="geo">28°20'N</text><text x="{{fr.rx}}" y="-127.7" display="{{latD.m1700}}" text-anchor="end" class="geo">28°20'N</text>
+              <text x="{{fr.lx}}" y="-137.7" display="{{latD.m1710}}" class="geo">28°30'N</text><text x="{{fr.rx}}" y="-137.7" display="{{latD.m1710}}" text-anchor="end" class="geo">28°30'N</text>
+              <text x="-96.93" y="{{fr.ty}}" display="{{lonD.m3300}}" text-anchor="middle" class="geo">055°00'E</text><text x="-96.93" y="{{fr.by}}" display="{{lonD.m3300}}" text-anchor="middle" class="geo">055°00'E</text>
+              <text x="-87.95" y="{{fr.ty}}" display="{{lonD.m3310}}" text-anchor="middle" class="geo">055°10'E</text><text x="-87.95" y="{{fr.by}}" display="{{lonD.m3310}}" text-anchor="middle" class="geo">055°10'E</text>
+              <text x="-78.98" y="{{fr.ty}}" display="{{lonD.m3320}}" text-anchor="middle" class="geo">055°20'E</text><text x="-78.98" y="{{fr.by}}" display="{{lonD.m3320}}" text-anchor="middle" class="geo">055°20'E</text>
+              <text x="-70.00" y="{{fr.ty}}" display="{{lonD.m3330}}" text-anchor="middle" class="geo">055°30'E</text><text x="-70.00" y="{{fr.by}}" display="{{lonD.m3330}}" text-anchor="middle" class="geo">055°30'E</text>
+              <text x="-61.03" y="{{fr.ty}}" display="{{lonD.m3340}}" text-anchor="middle" class="geo">055°40'E</text><text x="-61.03" y="{{fr.by}}" display="{{lonD.m3340}}" text-anchor="middle" class="geo">055°40'E</text>
+              <text x="-52.05" y="{{fr.ty}}" display="{{lonD.m3350}}" text-anchor="middle" class="geo">055°50'E</text><text x="-52.05" y="{{fr.by}}" display="{{lonD.m3350}}" text-anchor="middle" class="geo">055°50'E</text>
+              <text x="-43.08" y="{{fr.ty}}" display="{{lonD.m3360}}" text-anchor="middle" class="geo">056°00'E</text><text x="-43.08" y="{{fr.by}}" display="{{lonD.m3360}}" text-anchor="middle" class="geo">056°00'E</text>
+              <text x="-34.10" y="{{fr.ty}}" display="{{lonD.m3370}}" text-anchor="middle" class="geo">056°10'E</text><text x="-34.10" y="{{fr.by}}" display="{{lonD.m3370}}" text-anchor="middle" class="geo">056°10'E</text>
+              <text x="-25.13" y="{{fr.ty}}" display="{{lonD.m3380}}" text-anchor="middle" class="geo">056°20'E</text><text x="-25.13" y="{{fr.by}}" display="{{lonD.m3380}}" text-anchor="middle" class="geo">056°20'E</text>
+              <text x="-16.16" y="{{fr.ty}}" display="{{lonD.m3390}}" text-anchor="middle" class="geo">056°30'E</text><text x="-16.16" y="{{fr.by}}" display="{{lonD.m3390}}" text-anchor="middle" class="geo">056°30'E</text>
+              <text x="-7.18" y="{{fr.ty}}" display="{{lonD.m3400}}" text-anchor="middle" class="geo">056°40'E</text><text x="-7.18" y="{{fr.by}}" display="{{lonD.m3400}}" text-anchor="middle" class="geo">056°40'E</text>
+              <text x="1.79" y="{{fr.ty}}" display="{{lonD.m3410}}" text-anchor="middle" class="geo">056°50'E</text><text x="1.79" y="{{fr.by}}" display="{{lonD.m3410}}" text-anchor="middle" class="geo">056°50'E</text>
+              <text x="10.77" y="{{fr.ty}}" display="{{lonD.m3420}}" text-anchor="middle" class="geo">057°00'E</text><text x="10.77" y="{{fr.by}}" display="{{lonD.m3420}}" text-anchor="middle" class="geo">057°00'E</text>
+              <text x="19.74" y="{{fr.ty}}" display="{{lonD.m3430}}" text-anchor="middle" class="geo">057°10'E</text><text x="19.74" y="{{fr.by}}" display="{{lonD.m3430}}" text-anchor="middle" class="geo">057°10'E</text>
+              <text x="28.72" y="{{fr.ty}}" display="{{lonD.m3440}}" text-anchor="middle" class="geo">057°20'E</text><text x="28.72" y="{{fr.by}}" display="{{lonD.m3440}}" text-anchor="middle" class="geo">057°20'E</text>
+              <text x="37.70" y="{{fr.ty}}" display="{{lonD.m3450}}" text-anchor="middle" class="geo">057°30'E</text><text x="37.70" y="{{fr.by}}" display="{{lonD.m3450}}" text-anchor="middle" class="geo">057°30'E</text>
+              <text x="46.67" y="{{fr.ty}}" display="{{lonD.m3460}}" text-anchor="middle" class="geo">057°40'E</text><text x="46.67" y="{{fr.by}}" display="{{lonD.m3460}}" text-anchor="middle" class="geo">057°40'E</text>
+              <text x="55.64" y="{{fr.ty}}" display="{{lonD.m3470}}" text-anchor="middle" class="geo">057°50'E</text><text x="55.64" y="{{fr.by}}" display="{{lonD.m3470}}" text-anchor="middle" class="geo">057°50'E</text>
+              <text x="64.62" y="{{fr.ty}}" display="{{lonD.m3480}}" text-anchor="middle" class="geo">058°00'E</text><text x="64.62" y="{{fr.by}}" display="{{lonD.m3480}}" text-anchor="middle" class="geo">058°00'E</text>
+              <text x="73.59" y="{{fr.ty}}" display="{{lonD.m3490}}" text-anchor="middle" class="geo">058°10'E</text><text x="73.59" y="{{fr.by}}" display="{{lonD.m3490}}" text-anchor="middle" class="geo">058°10'E</text>
+              <text x="82.57" y="{{fr.ty}}" display="{{lonD.m3500}}" text-anchor="middle" class="geo">058°20'E</text><text x="82.57" y="{{fr.by}}" display="{{lonD.m3500}}" text-anchor="middle" class="geo">058°20'E</text>
+              <text x="91.55" y="{{fr.ty}}" display="{{lonD.m3510}}" text-anchor="middle" class="geo">058°30'E</text><text x="91.55" y="{{fr.by}}" display="{{lonD.m3510}}" text-anchor="middle" class="geo">058°30'E</text>
+              <text x="100.52" y="{{fr.ty}}" display="{{lonD.m3520}}" text-anchor="middle" class="geo">058°40'E</text><text x="100.52" y="{{fr.by}}" display="{{lonD.m3520}}" text-anchor="middle" class="geo">058°40'E</text>
+            </g>
+          </g>
+
+          <!-- Lat / lon grid -->
+          <g display="{{d.grid}}" class="grid">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{fr.grid}}" stroke="rgba(147,161,176,.14)" fill="none"></path>
+          </g>
+
+          <!-- Range rings + compass rose -->
+          <g display="{{d.rings}}" class="rg">
+            <circle cx="0" cy="0" r="10" class="ring"></circle>
+            <circle cx="0" cy="0" r="20" class="ring"></circle>
+            <circle cx="0" cy="0" r="30" class="ring"></circle>
+            <circle cx="0" cy="0" r="40" class="ring"></circle>
+            <text x="-4.23" y="9.06" text-anchor="middle">10 NM</text>
+            <text x="-8.45" y="18.13" text-anchor="middle">20 NM</text>
+            <text x="-12.68" y="27.19" text-anchor="middle">30 NM</text>
+            <text x="-16.9" y="36.25" text-anchor="middle">40 NM</text>
+            <g class="tick">
+              <g class="zs" transform="translate(0 -30) scale({{zk}}) translate(-0 30)"><line x1="0" y1="-29" x2="0" y2="-31"></line></g><g class="zs" transform="translate(15 -25.98) scale({{zk}}) translate(-15 25.98)"><line x1="14.5" y1="-25.11" x2="15.5" y2="-26.85"></line></g><g class="zs" transform="translate(25.98 -15) scale({{zk}}) translate(-25.98 15)"><line x1="25.11" y1="-14.5" x2="26.85" y2="-15.5"></line></g><g class="zs" transform="translate(30 0) scale({{zk}}) translate(-30 -0)"><line x1="29" y1="0" x2="31" y2="0"></line></g><g class="zs" transform="translate(25.98 15) scale({{zk}}) translate(-25.98 -15)"><line x1="25.11" y1="14.5" x2="26.85" y2="15.5"></line></g><g class="zs" transform="translate(15 25.98) scale({{zk}}) translate(-15 -25.98)"><line x1="14.5" y1="25.11" x2="15.5" y2="26.85"></line></g><g class="zs" transform="translate(0 30) scale({{zk}}) translate(-0 -30)"><line x1="0" y1="29" x2="0" y2="31"></line></g><g class="zs" transform="translate(-15 25.98) scale({{zk}}) translate(15 -25.98)"><line x1="-14.5" y1="25.11" x2="-15.5" y2="26.85"></line></g><g class="zs" transform="translate(-25.98 15) scale({{zk}}) translate(25.98 -15)"><line x1="-25.11" y1="14.5" x2="-26.85" y2="15.5"></line></g><g class="zs" transform="translate(-30 0) scale({{zk}}) translate(30 -0)"><line x1="-29" y1="0" x2="-31" y2="0"></line></g><g class="zs" transform="translate(-25.98 -15) scale({{zk}}) translate(25.98 15)"><line x1="-25.11" y1="-14.5" x2="-26.85" y2="-15.5"></line></g><g class="zs" transform="translate(-15 -25.98) scale({{zk}}) translate(15 25.98)"><line x1="-14.5" y1="-25.11" x2="-15.5" y2="-26.85"></line></g>
+            </g>
+            <text x="0" y="-27" text-anchor="middle">000</text><text x="13.65" y="-23.34" text-anchor="middle">030</text><text x="23.64" y="-13.35" text-anchor="middle">060</text><text x="27.3" y="0.3" text-anchor="middle">090</text><text x="23.64" y="13.95" text-anchor="middle">120</text><text x="0" y="27.6" text-anchor="middle">180</text><text x="-13.65" y="23.94" text-anchor="middle">210</text><text x="-23.64" y="13.95" text-anchor="middle">240</text><text x="-27.3" y="0.3" text-anchor="middle">270</text><text x="-23.64" y="-13.35" text-anchor="middle">300</text><text x="-13.65" y="-23.34" text-anchor="middle">330</text>
+          </g>
+
+          <!-- CCAs (own + CVN-71) -->
+          <g style="stroke-width: calc(1.2px * var(--lw, 1))" display="{{d.cca}}" fill="none" stroke-dasharray="10 5">
+            <circle cx="0" cy="0" r="50" stroke="rgba(64,168,91,.75)"></circle>
+          </g>
+          <g style="stroke-width: calc(1.2px * var(--lw, 1))" display="{{d2.cca}}" fill="none" stroke-dasharray="10 5">
+            <circle cx="37.09" cy="-14.98" r="50" stroke="rgba(62,155,212,.55)"></circle>
+          </g>
+          <g display="{{d2.rings}}" fill="none" stroke="rgba(62,155,212,.22)" style="stroke-width: calc(1px * var(--lw, 1))">
+            <circle cx="37.09" cy="-14.98" r="10"></circle><circle cx="37.09" cy="-14.98" r="20"></circle><circle cx="37.09" cy="-14.98" r="30"></circle><circle cx="37.09" cy="-14.98" r="40"></circle>
+          </g>
+
+        </svg>
+
+        <svg class="scope" viewBox="{{vb}}" preserveAspectRatio="xMidYMid meet" aria-hidden="true" style="position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; --z: {{zk}}; --lw: {{lw}}">
+          <!-- Coordination line: between the two CCA intersections -->
+          <g display="{{d.coord}}">
+            <line style="stroke-width: calc(1.3px * var(--lw, 1))" x1="1.32" y1="-49.95" x2="35.77" y2="34.97" stroke="rgba(111,182,230,.8)" stroke-dasharray="2 3"></line>
+            <g class="zs" transform="{{zt.coord}} rotate(67.9 20.37 -3)">
+              <rect style="stroke-width: calc(1px * var(--lw, 1))" x="13.4" y="-3.72" width="13.94" height="1.44" rx="0.72" fill="#0F1A24" stroke="rgba(111,182,230,.9)"></rect>
+              <text x="20.37" y="-2.7" text-anchor="middle" class="tg tgb">COORD · CVN-73 │ CVN-71</text>
+            </g>
+          </g>
+
+          <!-- BRC -->
+          <g display="{{d.brc}}">
+            <g transform="rotate(345)">
+              <line style="stroke-width: calc(1px * var(--lw, 1))" x1="0.1735" y1="-1.4" x2="0.1735" y2="-9" stroke="rgba(230,237,243,.45)"></line>
+              <g class="zs" transform="translate(0.173 -9) scale({{zk}}) translate(-0.173 9)"><path style="stroke-width: calc(1px * var(--lw, 1))" d="M-0.1765 -8.35 L0.1735 -9 L0.5235 -8.35" fill="none" stroke="rgba(230,237,243,.45)" stroke-linejoin="round" stroke-linecap="round"></path></g>
+            </g>
+            <text x="-1.5" y="-9.4" style="fill:#93A1B0">BRC 345</text>
+          </g>
+
+          <!-- Final bearing -->
+          <g display="{{d.fb}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="0" y1="0" x2="-4.47" y2="-10.05" stroke="rgba(230,237,243,.45)" stroke-dasharray="2 3"></line>
+            <line style="stroke-width: calc(1.2px * var(--lw, 1))" x1="0.31" y1="0.69" x2="6.1" y2="13.7" stroke="rgba(230,237,243,.55)"></line>
+            <g style="stroke-width: calc(1px * var(--lw, 1))" stroke="rgba(230,237,243,.7)">
+              <g class="zs" transform="translate(1.22 2.74) scale({{zk}}) translate(-1.22 -2.74)"><line x1="0.95" y1="2.86" x2="1.49" y2="2.62"></line></g>
+              <g class="zs" transform="translate(2.44 5.48) scale({{zk}}) translate(-2.44 -5.48)"><line x1="2.17" y1="5.6" x2="2.71" y2="5.36"></line></g>
+              <g class="zs" transform="translate(4.07 9.14) scale({{zk}}) translate(-4.07 -9.14)"><line x1="3.8" y1="9.26" x2="4.34" y2="9.02"></line></g>
+            </g>
+            <text x="-5" y="-10.6" text-anchor="end" style="fill:#C9D3DD">FB 336</text>
+          </g>
+
+          <!-- Bolter / downwind with 4, 6, 8 NM turn-ins -->
+          <g style="stroke-width: calc(1px * var(--lw, 1))" display="{{d.bolter}}" fill="none" stroke="rgba(222,154,31,.75)">
+            <path d="M0 0 L-1.63 -3.65 C-2.17 -4.87 -4.0 -4.06 -3.46 -2.84 L1.43 8.12" stroke-dasharray="3 3"></path>
+            <path d="M-0.2 4.47 C0.34 5.69 2.17 4.88 1.63 3.66"></path>
+            <path d="M0.61 6.29 C1.15 7.51 2.98 6.7 2.44 5.48" stroke-dasharray="2 2"></path>
+            <path d="M1.43 8.12 C1.97 9.34 3.8 8.53 3.26 7.31" stroke-dasharray="2 2"></path>
+            
+            
+            
+            <g class="zs" transform="translate(-0.2 4.47) scale({{zk}}) translate(0.2 -4.47)"><circle cx="-0.2" cy="4.47" r="0.25" fill="#DE9A1F" stroke="none"></circle><text x="-0.95" y="4.75" text-anchor="end" stroke="none" style="fill:#E7B04F">4</text></g>
+            <g class="zs" transform="translate(0.61 6.29) scale({{zk}}) translate(-0.61 -6.29)"><circle cx="0.61" cy="6.29" r="0.25" fill="#DE9A1F" stroke="none"></circle><text x="-0.14" y="6.57" text-anchor="end" stroke="none" style="fill:#E7B04F">6</text></g>
+            <g class="zs" transform="translate(1.43 8.12) scale({{zk}}) translate(-1.43 -8.12)"><circle cx="1.43" cy="8.12" r="0.25" fill="#DE9A1F" stroke="none"></circle><text x="0.68" y="8.4" text-anchor="end" stroke="none" style="fill:#E7B04F">8</text></g>
+          </g>
+
+          <!-- Helicopter restrictions during fixed-wing launch/recovery (CV NATOPS Fig 4-3), bearings relative to BRC -->
+          <g display="{{d.sar}}">
+            <g transform="rotate(345)">
+              <circle style="stroke-width: calc(1px * var(--lw, 1))" cx="0" cy="0" r="10" fill="none" stroke="rgba(222,154,31,.35)" stroke-dasharray="3 3"></circle>
+              <circle style="stroke-width: calc(1px * var(--lw, 1))" cx="0" cy="0" r="5" fill="none" stroke="rgba(222,154,31,.5)"></circle>
+              <circle style="stroke-width: calc(1px * var(--lw, 1))" cx="0" cy="0" r="1" fill="rgba(222,154,31,.16)" stroke="rgba(222,154,31,.7)"></circle>
+              <path style="stroke-width: calc(0.8px * var(--lw, 1))" d="M-0.342 -0.94 L-1.71 -4.7 A5 5 0 0 1 1.71 -4.7 L0.342 -0.94 A1 1 0 0 0 -0.342 -0.94 Z" fill="rgba(222,154,31,.14)" stroke="rgba(222,154,31,.6)"></path>
+              <path style="stroke-width: calc(0.8px * var(--lw, 1))" d="M0.5 0.866 L1.5 2.598 A3 3 0 0 1 -0.521 2.954 L-0.174 0.985 A1 1 0 0 0 0.5 0.866 Z" fill="rgba(222,154,31,.14)" stroke="rgba(222,154,31,.6)"></path>
+              <g text-anchor="middle" style="font-size:calc(0.7px * var(--z, 1))">
+                <text x="0" y="-7.4" style="fill:#E7B04F">200′</text>
+                <text x="-3.2" y="0.25" style="fill:#E7B04F">300′</text>
+                <text x="3.2" y="0.25" style="fill:#E7B04F">400′</text>
+                <text x="-7.6" y="0.25" style="fill:#E7B04F">400′</text>
+                <text x="7.6" y="0.25" style="fill:#E7B04F">400′</text>
+                <text x="0" y="7.6" style="fill:#E7B04F">400′</text>
+              </g>
+            </g>
+          </g>
+
+          <!-- CV approaches, drawn relative to FB (CV NATOPS Figs 6-3, 6-4, 6-5). Frame: FB up, astern = +y. -->
+          <g display="{{d.arr}}">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.arr}}" fill="none" stroke="rgba(147,161,176,.55)" stroke-dasharray="6 4"></path>
+          </g>
+          <g display="{{d.cv1}}">
+            
+            <g transform="rotate(336)">
+              <g class="zs" transform="translate(0 1.3) scale({{zk}}) translate(0 -1.3)"><path style="stroke-width: calc(1px * var(--lw, 1))" d="M-0.35 2 L0 1.3 L0.35 2" fill="none" stroke="rgba(230,237,243,.7)"></path></g>
+              <g style="stroke-width: calc(1px * var(--lw, 1))" stroke="rgba(230,237,243,.7)"><g class="zs" transform="translate(0 10) scale({{zk}}) translate(0 -10)"><line x1="-0.45" y1="10" x2="0.45" y2="10"></line></g><g class="zs" transform="translate(0 6) scale({{zk}}) translate(0 -6)"><line x1="-0.45" y1="6" x2="0.45" y2="6"></line></g><g class="zs" transform="translate(0 3) scale({{zk}}) translate(0 -3)"><path d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3"></path></g></g>
+            </g>
+          </g>
+          <g display="{{d.cv2}}" transform="rotate(336)">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="M2 -3.46 L3 -5.2 A0.6 0.6 0 0 1 4.04 -4.6 L3.04 -2.86 A0.6 0.6 0 0 1 2 -3.46 Z" fill="none" stroke="rgba(201,211,221,.7)"></path>
+            <path style="stroke-width: calc(1.8px * var(--lw, 1))" d="M2 -3.46 L0 0 L-5 8.66 C-7 12.1 0 14 0 10" fill="none" stroke="rgba(201,211,221,.75)" stroke-linecap="round" stroke-dasharray="0.1 3"></path>
+            <path style="stroke-width: calc(1.1px * var(--lw, 1))" d="M0 10 L0 1.3" fill="none" stroke="rgba(201,211,221,.6)"></path>
+            <g style="stroke-width: calc(1px * var(--lw, 1))" stroke="rgba(201,211,221,.7)"><g class="zs" transform="translate(-2 3.465) scale({{zk}}) translate(2 -3.465)"><line x1="-2.39" y1="3.24" x2="-1.61" y2="3.69"></line></g><g class="zs" transform="translate(2 -3.465) scale({{zk}}) translate(-2 3.465)"><line x1="1.61" y1="-3.69" x2="2.39" y2="-3.24"></line></g><g class="zs" transform="translate(0 3) scale({{zk}}) translate(0 -3)"><path d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3"></path></g></g>
+            <text x="-6.4" y="7.4" style="fill:#C9D3DD">CV-2</text>
+            <text x="2.6" y="-2.6" style="fill:#93A1B0">IAF</text>
+          </g>
+          <g display="{{d.cv3}}" transform="rotate(336)">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="M6.58 2.39 L8.46 3.08 A0.5 0.5 0 0 1 8.12 4.02 L6.24 3.33 A0.5 0.5 0 0 1 6.58 2.39 Z" fill="none" stroke="rgba(201,211,221,.7)"></path>
+            <path style="stroke-width: calc(1.1px * var(--lw, 1))" d="M6.58 2.39 L2.82 1.03 A3 3 0 0 1 0 3 L0 1.3" fill="none" stroke="rgba(201,211,221,.7)"></path>
+            <g class="zs" transform="translate(0 3) scale({{zk}}) translate(0 -3)"><path style="stroke-width: calc(1px * var(--lw, 1))" d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3" stroke="rgba(201,211,221,.7)"></path></g>
+            <text x="6.4" y="1.7" style="fill:#C9D3DD">CV-3 IAF</text>
+          </g>
+
+          <!-- Recovery tanker: 250 KT holding pattern aligned with BRC (30° bank, 1-min legs) -->
+          <g display="{{d.tanker}}" transform="rotate(345)">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="M0 2.1 L0 -2.1 A1.6 1.6 0 0 0 -3.2 -2.1 L-3.2 2.1 A1.6 1.6 0 0 0 0 2.1 Z" fill="none" stroke="rgba(147,161,176,.7)" stroke-dasharray="4 3"></path>
+            <g class="zs" transform="translate(0 -0.3) scale({{zk}}) translate(0 0.3)"><path d="M0 0 l-0.35 0.6 h0.7 Z" fill="rgba(147,161,176,.8)" transform="translate(0 -0.6)"></path></g>
+          </g>
+
+          <!-- Radial placement: blocked sectors -->
+          <g display="{{rad.nogoD}}">
+            <path d="{{rad.bow}}" fill="rgba(222,154,31,.07)"></path>
+            <path style="stroke-width: calc(0.6px * var(--lw, 1))" d="{{rad.nogo}}" fill="rgba(224,82,78,.10)" stroke="rgba(224,82,78,.35)"></path>
+          </g>
+
+          <!-- Departure radials (from the Radials manager): climb on BRC, 7 DME arc, out to the CCA edge -->
+          <g display="{{d.dep}}">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.arcs}}" fill="none" stroke="rgba(147,161,176,.55)" stroke-dasharray="3 3"></path>
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.lines}}" fill="none" stroke="rgba(147,161,176,.55)" stroke-dasharray="6 4"></path>
+            
+            
+            
+            
+            
+            
+          </g>
+          <!-- Candidate radial preview while the Radials manager is open -->
+          <g display="{{rad.candD}}">
+            <path style="stroke-width: calc(1.4px * var(--lw, 1))" d="{{rad.cand}}" fill="none" stroke="{{rad.candC}}" stroke-dasharray="2 2"></path>
+          </g>
+
+          <!-- Marshal stacks. A: CV-1 on 145R, left-hand. FB recip is 156R, 11° off, so CV-1 uses the 30° turn at 20 DME. -->
+          <g display="{{d.marshal}}">
+            <!-- Emergency marshal: 150° relative to expected FB, right-hand -->
+            <g transform="rotate(126)">
+              <path style="stroke-width: calc(1px * var(--lw, 1))" d="M0 -21 L0 -25.2 A2.65 2.65 0 0 0 -5.3 -25.2 L-5.3 -21 A2.65 2.65 0 0 0 0 -21 Z" fill="none" stroke="rgba(147,161,176,.55)" stroke-dasharray="6 4"></path>
+              <g class="zs" transform="translate(0 -21) scale({{zk}}) translate(0 21)"><line style="stroke-width: calc(1.2px * var(--lw, 1))" x1="-0.5" y1="-21" x2="0.5" y2="-21" stroke="rgba(222,154,31,.8)"></line></g>
+            </g>
+            <!-- Helicopter marshal: 110° relative to expected FB, 5 NM at 1,000 ft, right-hand 2 NM legs -->
+            <g transform="rotate(86)">
+              <path style="stroke-width: calc(1px * var(--lw, 1))" d="M0 -5 L0 -7 A0.5 0.5 0 0 0 -1 -7 L-1 -5 A0.5 0.5 0 0 0 0 -5 Z" fill="none" stroke="rgba(147,161,176,.55)" stroke-dasharray="6 4"></path>
+            </g>
+            <!-- Stacks added in the Radials manager -->
+            <path style="stroke-width: calc(2.2px * var(--lw, 1))" d="{{rad.hl}}" fill="none" stroke="#E6EDF3" stroke-dasharray="6 4"></path>
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.dimStack}}" fill="none" stroke="rgba(94,106,120,.55)" stroke-dasharray="6 4"></path>
+            <path style="stroke-width: calc(1.4px * var(--lw, 1))" d="{{rad.fixes}}" fill="none" stroke="#F15822"></path>
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.holds}}" fill="none" stroke="rgba(147,161,176,.55)" stroke-dasharray="6 4"></path>
+          </g>
+
+          <!-- Other carrier (CVN-71): same carrier-relative geometry, ship at 37.09 -14.98 on BRC 020 (own BRC 345 + 35°). All in blue. -->
+          <g transform="translate(37.09 -14.98) rotate(35)">
+            <g display="{{d2.brc}}">
+            <g transform="rotate(345)">
+              <line style="stroke-width: calc(1px * var(--lw, 1))" x1="0.1735" y1="-1.4" x2="0.1735" y2="-9" stroke="rgba(62,155,212,.45)"></line>
+              <g class="zs" transform="translate(0.173 -9) scale({{zk}}) translate(-0.173 9)"><path style="stroke-width: calc(1px * var(--lw, 1))" d="M-0.1765 -8.35 L0.1735 -9 L0.5235 -8.35" fill="none" stroke="rgba(62,155,212,.45)" stroke-linejoin="round" stroke-linecap="round"></path></g>
+            </g>
+            
+          </g>
+            <g display="{{d2.fb}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="0" y1="0" x2="-4.47" y2="-10.05" stroke="rgba(62,155,212,.45)" stroke-dasharray="2 3"></line>
+            <line style="stroke-width: calc(1.2px * var(--lw, 1))" x1="0.31" y1="0.69" x2="6.1" y2="13.7" stroke="rgba(62,155,212,.55)"></line>
+            <g style="stroke-width: calc(1px * var(--lw, 1))" stroke="rgba(62,155,212,.7)">
+              <g class="zs" transform="translate(1.22 2.74) scale({{zk}}) translate(-1.22 -2.74)"><line x1="0.95" y1="2.86" x2="1.49" y2="2.62"></line></g>
+              <g class="zs" transform="translate(2.44 5.48) scale({{zk}}) translate(-2.44 -5.48)"><line x1="2.17" y1="5.6" x2="2.71" y2="5.36"></line></g>
+              <g class="zs" transform="translate(4.07 9.14) scale({{zk}}) translate(-4.07 -9.14)"><line x1="3.8" y1="9.26" x2="4.34" y2="9.02"></line></g>
+            </g>
+            
+          </g>
+            <g style="stroke-width: calc(1px * var(--lw, 1))" display="{{d2.bolter}}" fill="none" stroke="rgba(62,155,212,.75)">
+            <path d="M0 0 L-1.63 -3.65 C-2.17 -4.87 -4.0 -4.06 -3.46 -2.84 L1.43 8.12" stroke-dasharray="3 3"></path>
+            <path d="M-0.2 4.47 C0.34 5.69 2.17 4.88 1.63 3.66"></path>
+            <path d="M0.61 6.29 C1.15 7.51 2.98 6.7 2.44 5.48" stroke-dasharray="2 2"></path>
+            <path d="M1.43 8.12 C1.97 9.34 3.8 8.53 3.26 7.31" stroke-dasharray="2 2"></path>
+            
+            
+            
+            <g class="zs" transform="translate(-0.2 4.47) scale({{zk}}) translate(0.2 -4.47)"><circle cx="-0.2" cy="4.47" r="0.25" fill="#5AAEE3" stroke="none"></circle></g>
+            <g class="zs" transform="translate(0.61 6.29) scale({{zk}}) translate(-0.61 -6.29)"><circle cx="0.61" cy="6.29" r="0.25" fill="#5AAEE3" stroke="none"></circle></g>
+            <g class="zs" transform="translate(1.43 8.12) scale({{zk}}) translate(-1.43 -8.12)"><circle cx="1.43" cy="8.12" r="0.25" fill="#5AAEE3" stroke="none"></circle></g>
+          </g>
+            <g display="{{d2.sar}}">
+            <g transform="rotate(345)">
+              <circle style="stroke-width: calc(1px * var(--lw, 1))" cx="0" cy="0" r="10" fill="none" stroke="rgba(62,155,212,.35)" stroke-dasharray="3 3"></circle>
+              <circle style="stroke-width: calc(1px * var(--lw, 1))" cx="0" cy="0" r="5" fill="none" stroke="rgba(62,155,212,.5)"></circle>
+              <circle style="stroke-width: calc(1px * var(--lw, 1))" cx="0" cy="0" r="1" fill="rgba(62,155,212,.16)" stroke="rgba(62,155,212,.7)"></circle>
+              <path style="stroke-width: calc(0.8px * var(--lw, 1))" d="M-0.342 -0.94 L-1.71 -4.7 A5 5 0 0 1 1.71 -4.7 L0.342 -0.94 A1 1 0 0 0 -0.342 -0.94 Z" fill="rgba(62,155,212,.14)" stroke="rgba(62,155,212,.6)"></path>
+              <path style="stroke-width: calc(0.8px * var(--lw, 1))" d="M0.5 0.866 L1.5 2.598 A3 3 0 0 1 -0.521 2.954 L-0.174 0.985 A1 1 0 0 0 0.5 0.866 Z" fill="rgba(62,155,212,.14)" stroke="rgba(62,155,212,.6)"></path>
+              <g text-anchor="middle" style="font-size:calc(0.7px * var(--z, 1))">
+                
+                
+                
+                
+                
+                
+              </g>
+            </g>
+          </g>
+            <g display="{{d2.arr}}">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.arr}}" fill="none" stroke="rgba(62,155,212,.55)" stroke-dasharray="6 4"></path>
+          </g>
+            <g display="{{d2.cv1}}">
+            
+            <g transform="rotate(336)">
+              <g class="zs" transform="translate(0 1.3) scale({{zk}}) translate(0 -1.3)"><path style="stroke-width: calc(1px * var(--lw, 1))" d="M-0.35 2 L0 1.3 L0.35 2" fill="none" stroke="rgba(62,155,212,.7)"></path></g>
+              <g style="stroke-width: calc(1px * var(--lw, 1))" stroke="rgba(62,155,212,.7)"><g class="zs" transform="translate(0 10) scale({{zk}}) translate(0 -10)"><line x1="-0.45" y1="10" x2="0.45" y2="10"></line></g><g class="zs" transform="translate(0 6) scale({{zk}}) translate(0 -6)"><line x1="-0.45" y1="6" x2="0.45" y2="6"></line></g><g class="zs" transform="translate(0 3) scale({{zk}}) translate(0 -3)"><path d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3"></path></g></g>
+            </g>
+          </g>
+            <g display="{{d2.cv2}}" transform="rotate(336)">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="M2 -3.46 L3 -5.2 A0.6 0.6 0 0 1 4.04 -4.6 L3.04 -2.86 A0.6 0.6 0 0 1 2 -3.46 Z" fill="none" stroke="rgba(62,155,212,.7)"></path>
+            <path style="stroke-width: calc(1.8px * var(--lw, 1))" d="M2 -3.46 L0 0 L-5 8.66 C-7 12.1 0 14 0 10" fill="none" stroke="rgba(62,155,212,.75)" stroke-linecap="round" stroke-dasharray="0.1 3"></path>
+            <path style="stroke-width: calc(1.1px * var(--lw, 1))" d="M0 10 L0 1.3" fill="none" stroke="rgba(62,155,212,.6)"></path>
+            <g style="stroke-width: calc(1px * var(--lw, 1))" stroke="rgba(62,155,212,.7)"><g class="zs" transform="translate(-2 3.465) scale({{zk}}) translate(2 -3.465)"><line x1="-2.39" y1="3.24" x2="-1.61" y2="3.69"></line></g><g class="zs" transform="translate(2 -3.465) scale({{zk}}) translate(-2 3.465)"><line x1="1.61" y1="-3.69" x2="2.39" y2="-3.24"></line></g><g class="zs" transform="translate(0 3) scale({{zk}}) translate(0 -3)"><path d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3"></path></g></g>
+            
+            
+          </g>
+            <g display="{{d2.cv3}}" transform="rotate(336)">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="M6.58 2.39 L8.46 3.08 A0.5 0.5 0 0 1 8.12 4.02 L6.24 3.33 A0.5 0.5 0 0 1 6.58 2.39 Z" fill="none" stroke="rgba(62,155,212,.7)"></path>
+            <path style="stroke-width: calc(1.1px * var(--lw, 1))" d="M6.58 2.39 L2.82 1.03 A3 3 0 0 1 0 3 L0 1.3" fill="none" stroke="rgba(62,155,212,.7)"></path>
+            <g class="zs" transform="translate(0 3) scale({{zk}}) translate(0 -3)"><path style="stroke-width: calc(1px * var(--lw, 1))" d="M-0.3 2.7 L0.3 3.3 M0.3 2.7 L-0.3 3.3" stroke="rgba(62,155,212,.7)"></path></g>
+            
+          </g>
+            <g display="{{d2.tanker}}" transform="rotate(345)">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="M0 2.1 L0 -2.1 A1.6 1.6 0 0 0 -3.2 -2.1 L-3.2 2.1 A1.6 1.6 0 0 0 0 2.1 Z" fill="none" stroke="rgba(62,155,212,.7)" stroke-dasharray="4 3"></path>
+            <g class="zs" transform="translate(0 -0.3) scale({{zk}}) translate(0 0.3)"><path d="M0 0 l-0.35 0.6 h0.7 Z" fill="rgba(62,155,212,.8)" transform="translate(0 -0.6)"></path></g>
+          </g>
+            <g display="{{d2.dep}}">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.arcs}}" fill="none" stroke="rgba(62,155,212,.55)" stroke-dasharray="3 3"></path>
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.lines}}" fill="none" stroke="rgba(62,155,212,.55)" stroke-dasharray="6 4"></path>
+            
+            
+            
+            
+            
+            
+          </g>
+            <g display="{{d2.marshal}}">
+            
+            <g transform="rotate(126)">
+              <path style="stroke-width: calc(1px * var(--lw, 1))" d="M0 -21 L0 -25.2 A2.65 2.65 0 0 0 -5.3 -25.2 L-5.3 -21 A2.65 2.65 0 0 0 0 -21 Z" fill="none" stroke="rgba(62,155,212,.55)" stroke-dasharray="6 4"></path>
+              <g class="zs" transform="translate(0 -21) scale({{zk}}) translate(0 21)"><line style="stroke-width: calc(1.2px * var(--lw, 1))" x1="-0.5" y1="-21" x2="0.5" y2="-21" stroke="rgba(62,155,212,.8)"></line></g>
+            </g>
+            
+            <g transform="rotate(86)">
+              <path style="stroke-width: calc(1px * var(--lw, 1))" d="M0 -5 L0 -7 A0.5 0.5 0 0 0 -1 -7 L-1 -5 A0.5 0.5 0 0 0 0 -5 Z" fill="none" stroke="rgba(62,155,212,.55)" stroke-dasharray="6 4"></path>
+            </g>
+            <path style="stroke-width: calc(1.4px * var(--lw, 1))" d="{{rad.fixes}}" fill="none" stroke="#5AAEE3"></path>
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.holds}}" fill="none" stroke="rgba(62,155,212,.55)" stroke-dasharray="6 4"></path>
+          </g>
+          </g>
+
+          <!-- BRA ruler -->
+          <g display="{{d.bra}}">
+            <line style="stroke-width: calc(1.3px * var(--lw, 1))" x1="-3.09" y1="0.83" x2="-39.13" y2="-8.32" stroke="#FFD7A8"></line>
+            <g class="zs" transform="translate(-3.09 0.83) scale({{zk}}) translate(3.09 -0.83)"><rect style="stroke-width: calc(1px * var(--lw, 1))" x="-3.4" y="1.6" width="8.4" height="2.2" rx="0.25" fill="#151A21" stroke="#FFD7A8"></rect>
+            <text x="-2.9" y="2.5" class="tg" style="fill:#FFD7A8">115 → 106</text>
+            <text x="-2.9" y="3.5" class="tg" style="fill:#FFD7A8">284° / 37 / +10.8K</text>
+          </g></g>
+
+          <!-- Conflict 106 × 412: each projection runs along the aircraft's own track (heading, groundspeed) to CPA + 10 s -->
+          <g style="--lw: 1">
+            <line style="stroke-width: calc(1.1px * var(--lw, 1))" x1="-39.13" y1="-8.32" x2="-30.61" y2="-6.82" stroke="#E0524E" stroke-dasharray="3 2"></line>
+            <line style="stroke-width: calc(1.1px * var(--lw, 1))" x1="-23.18" y1="-6.21" x2="-32.73" y2="-8.77" stroke="#E0524E" stroke-dasharray="3 2"></line>
+            <line style="stroke-width: calc(1.5px * var(--lw, 1))" x1="-31.76" y1="-7.02" x2="-31.44" y2="-8.43" stroke="#FF8A85"></line>
+            <g class="zs" transform="translate(-31.76 -7.02) scale({{zk}}) translate(31.76 7.02)"><circle cx="-31.76" cy="-7.02" r="0.3" fill="#FF8A85"></circle></g>
+            <g class="zs" transform="translate(-31.44 -8.43) scale({{zk}}) translate(31.44 8.43)"><circle cx="-31.44" cy="-8.43" r="0.3" fill="#FF8A85"></circle></g>
+            <g class="zs" transform="translate(-39.13 -8.32) scale({{zk}}) translate(39.13 8.32)"><circle style="stroke-width: calc(1.5px * var(--lw, 1))" cx="-39.13" cy="-8.32" r="1.3" fill="none" stroke="#E0524E" class="blink"></circle></g>
+            <g class="zs" transform="translate(-23.18 -6.21) scale({{zk}}) translate(23.18 6.21)"><circle style="stroke-width: calc(1.5px * var(--lw, 1))" cx="-23.18" cy="-6.21" r="1.3" fill="none" stroke="#E0524E" class="blink"></circle></g>
+          </g>
+
+        </svg>
+
+        <!-- Label overlay: data-driven labels drawn in HTML, positioned from scope coordinates -->
+        <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden">
+          <sc-for list="{{ovFlags}}" as="g" hint-placeholder-count="2">
+            <div style="position: absolute; left: {{g.x}}px; top: {{g.y}}px; width: {{g.w}}px; height: 16px; margin-left: {{g.ml}}px; margin-top: -8px; transform-origin: 50% 50%; transform: rotate({{g.rot}}deg) scale({{sFl}})">
+              <svg width="{{g.w}}" height="16" style="position: absolute; inset: 0; overflow: visible"><path style="stroke-width: calc(1px * var(--lw, 1))" d="{{g.d}}" fill="#151A21" stroke="{{g.sc}}"></path></svg>
+              <span style="position: absolute; left: 0; top: 0; width: {{g.tw}}px; height: 16px; line-height: 16px; text-align: center; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; color: {{g.tc}}; transform: rotate({{g.tr}}deg)">{{g.t}}</span>
+            </div>
+          </sc-for>
+          <sc-for list="{{offs}}" as="o" hint-placeholder-count="0">
+            <svg width="12" height="12" viewBox="0 0 12 12" style="position: absolute; left: {{o.x}}px; top: {{o.y}}px; margin: -6px 0 0 -6px; transform: rotate({{o.rot}}deg) scale({{sH}}); overflow: visible"><path d="M11 6 L1.5 0.8 L1.5 11.2 Z" fill="{{o.c}}"></path><circle style="stroke-width: calc(1.5px * var(--lw, 1))" cx="5.5" cy="6" r="11" fill="none" stroke="#E0524E" display="{{o.ring}}" class="blink"></circle></svg>
+          </sc-for>
+          <div style="display: {{cpaTag.d}}; transform: scale({{sTg}}); transform-origin: 0 0; position: absolute; left: {{cpaTag.x}}px; top: {{cpaTag.y}}px; height: 20px; line-height: 18px; padding: 0 8px; box-sizing: border-box; background: #0E1116; border: 1px solid #E0524E; border-radius: 2px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; color: #FF8A85; white-space: nowrap">CPA 1.4 NM / 700 FT · 1:04</div>
+          <sc-for list="{{ovLabels}}" as="l" hint-placeholder-count="1">
+            <span style="position: absolute; left: {{l.x}}px; top: {{l.y}}px; transform: translate(4px, -50%); font-family: 'IBM Plex Mono', monospace; font-size: {{l.fs}}px; font-weight: 600; color: {{l.c}}; white-space: nowrap">{{l.t}}</span>
+          </sc-for>
+        </div>
+
+        <svg class="scope" viewBox="{{vb}}" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Radar scope centered on CVN-73, Case III recovery in progress" onClick="{{onScopeClick}}" onMouseDown="{{onScopeDown}}" onWheel="{{onWheel}}" onMouseMove="{{onScopeMove}}" onMouseLeave="{{onScopeLeave}}" style="position: absolute; inset: 0; width: 100%; height: 100%; cursor: {{scopeCur}}; --z: {{zk}}; --lw: 1; --tagc: {{trk}}">
+          <!-- History trails (always on) -->
+          <g fill="none" stroke="{{trkTrail}}" stroke-width="{{trailPx}}" stroke-linecap="square">
+            <path d="M-19.45 33.69h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M-19.90 34.47h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M-20.35 35.25h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path><path d="M-20.80 36.03h0.001" vector-effect="non-scaling-stroke" opacity=".3"></path><path d="M-21.25 36.80h0.001" vector-effect="non-scaling-stroke" opacity=".2"></path>
+            <g stroke="#B8433F"><path d="M-40.02 -8.48h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M-40.90 -8.63h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M-41.79 -8.79h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path><path d="M-42.68 -8.95h0.001" vector-effect="non-scaling-stroke" opacity=".3"></path><path d="M-43.56 -9.10h0.001" vector-effect="non-scaling-stroke" opacity=".2"></path>
+            <path d="M-22.31 -5.98h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M-21.44 -5.75h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M-20.57 -5.51h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path><path d="M-19.70 -5.28h0.001" vector-effect="non-scaling-stroke" opacity=".3"></path><path d="M-18.84 -5.05h0.001" vector-effect="non-scaling-stroke" opacity=".2"></path></g>
+            <path d="M9.34 15.38h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M9.93 15.66h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M10.52 15.93h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path><path d="M11.11 16.21h0.001" vector-effect="non-scaling-stroke" opacity=".3"></path><path d="M11.60 16.60h0.001" vector-effect="non-scaling-stroke" opacity=".2"></path>
+            <path d="M2.60 5.85h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M2.77 6.21h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M2.93 6.58h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path><path d="M3.09 6.94h0.001" vector-effect="non-scaling-stroke" opacity=".3"></path>
+            <path d="M22.34 19.54h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M23.13 19.68h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M23.91 19.82h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path><path d="M24.70 19.96h0.001" vector-effect="non-scaling-stroke" opacity=".3"></path><path d="M25.49 20.10h0.001" vector-effect="non-scaling-stroke" opacity=".2"></path>
+            <path d="M-2.93 0.25h0.001" vector-effect="non-scaling-stroke" opacity=".8"></path><path d="M-2.78 -0.33h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M-2.62 -0.91h0.001" vector-effect="non-scaling-stroke" opacity=".45"></path>
+            <path d="M12.40 17.70h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M12.74 18.20h0.001" vector-effect="non-scaling-stroke" opacity=".35"></path>
+            <path d="M8.51 21.39h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M8.16 20.90h0.001" vector-effect="non-scaling-stroke" opacity=".35"></path>
+            <path d="M31.90 -5.00h0.001" vector-effect="non-scaling-stroke" opacity=".6"></path><path d="M32.30 -5.50h0.001" vector-effect="non-scaling-stroke" opacity=".35"></path>
+          </g>
+
+          <!-- Velocity vectors: 30 s of travel, capped at 2.5 NM -->
+          <g style="stroke-width: calc(1.8px * var(--lw, 1))" stroke-linecap="round">
+            <line x1="-39.13" y1="-8.32" x2="-36.67" y2="-7.89" stroke="#FF8A85"></line>
+            <line x1="-23.18" y1="-6.21" x2="-25.60" y2="-6.86" stroke="#FF8A85"></line>
+            <line x1="8.75" y1="15.11" x2="6.86" y2="14.23" stroke="{{trk}}"></line>
+            <line x1="-19" y1="32.91" x2="-17.75" y2="30.75" stroke="{{trk}}"></line>
+            <line x1="2.44" y1="5.48" x2="1.95" y2="4.38" stroke="{{trk}}"></line>
+            <line x1="21.55" y1="19.4" x2="19.09" y2="18.97" stroke="{{trk}}"></line>
+            <line x1="-3.09" y1="0.83" x2="-2.55" y2="2.84" stroke="{{trk}}"></line>
+            <line x1="12.05" y1="17.2" x2="10.86" y2="15.49" stroke="{{trk}}"></line>
+            <line x1="8.85" y1="21.88" x2="10.04" y2="23.59" stroke="{{trk}}"></line>
+            <line x1="2.6" y1="-0.6" x2="3.07" y2="-0.77" stroke="{{trk}}"></line>
+            <line x1="31.5" y1="-4.5" x2="29.89" y2="-2.58" stroke="#6FB6E6"></line>
+            <line x1="40" y1="-22" x2="40.63" y2="-20.28" stroke="#6FB6E6"></line>
+          </g>
+
+          <!-- Ship -->
+          <!-- Carrier outline, bow up, traced from the user's reference. Origin sits on the landing-area centreline, so the FB line runs straight down the angled deck. -->
+          <g transform="{{zt.ship}} rotate(345)"><path style="stroke-width: calc(1.3px * var(--lw, 1))" d="M0.287 -1.4 L0.06 -1.4 L-0.011 -0.703 L-0.178 -0.488 L-0.166 1.06 L-0.029 1.102 L0.001 1.4 L0.316 1.4 L0.465 1.013 L0.477 -0.429 L0.328 -0.727 Z" fill="#0B0E12" stroke="#E6EDF3" stroke-linejoin="miter"></path></g>
+          <g transform="translate(37.09 -14.98) {{zt.s71}} rotate(20) scale(0.9)"><path style="stroke-width: calc(1.3px * var(--lw, 1))" d="M0.287 -1.4 L0.06 -1.4 L-0.011 -0.703 L-0.178 -0.488 L-0.166 1.06 L-0.029 1.102 L0.001 1.4 L0.316 1.4 L0.465 1.013 L0.477 -0.429 L0.328 -0.727 Z" fill="#0B0E12" stroke="#3E9BD4" stroke-linejoin="miter"></path></g>
+          <text x="38.4" y="-14.3" class="tg tgb">CVN-71</text>
+
+          <!-- Targets + tags (Row 1: side, type, fuel · Row 2: alt, speed · Row 3: remarks) -->
+          <g class="zs" transform="{{zt.a106}}">
+          <!-- 106: hooked, in conflict -->
+          <rect x="-39.53" y="-8.72" width="0.8" height="0.8" fill="#FF8A85" class="hit"></rect>
+          
+          
+          
+          
+          <rect style="stroke-width: calc(1.4px * var(--lw, 1))" x="-40.03" y="-9.22" width="1.8" height="1.8" display="{{d.hook}}" fill="none" stroke="#E45BEA"></rect>
+          <rect x="-48.51" y="-8.92" width="9.98" height="4.12" fill="transparent" style="cursor: pointer" onClick="{{hook106}}"></rect>
+          </g>
+          <g class="zs" transform="{{zt.a412}}">
+          <!-- 412: in conflict -->
+          <rect x="-23.58" y="-6.61" width="0.8" height="0.8" fill="#FF8A85" class="hit"></rect>
+          
+          
+          
+          
+          </g>
+          <g class="zs" transform="{{zt.a203}}">
+          <!-- 203: commenced from A, in the 30° correction turn toward FB -->
+          <rect x="8.35" y="14.71" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect>
+          
+          
+          
+          </g>
+          <g class="zs" transform="{{zt.a205}}">
+          <!-- 205 -->
+          <rect x="2.04" y="5.08" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect>
+          
+          
+          
+          </g>
+          <!-- 101 / 102 holding on 145R -->
+          <g class="zs" transform="{{zt.a101}}"><rect x="11.65" y="16.8" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect></g>
+          <g class="zs" transform="{{zt.a102}}"><rect x="8.45" y="21.48" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect>
+          
+          
+          
+          
+          
+          
+          </g>
+          <g class="zs" transform="{{zt.a104}}">
+          <!-- 104 inbound to A8 -->
+          <rect x="21.15" y="19" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect>
+          
+          
+          </g>
+          <g class="zs" transform="{{zt.a115}}">
+          <!-- 115 tanker -->
+          <circle cx="-3.09" cy="0.83" r="0.45" fill="{{trk}}" class="hit"></circle>
+          
+          
+          </g>
+          <g class="zs" transform="{{zt.a610}}">
+          <!-- 610 plane guard -->
+          <path d="M2.6 -1.2 L3.2 -0.6 L2.6 0 L2 -0.6 Z" fill="{{trk}}" class="hit"></path>
+          
+          
+          </g>
+
+          <!-- VOLT 3 formation: collapsed under the lead, or expanded member by member -->
+          <g class="zs" transform="{{zt.f1}}" display="{{fmD.col}}"><rect x="-19.4" y="32.51" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect><rect style="stroke-width: calc(1px * var(--lw, 1))" x="-19.75" y="32.16" width="1.5" height="1.5" fill="none" stroke="{{trk}}" stroke-dasharray="2 2"></rect></g>
+          <g display="{{fmD.ex}}">
+            <g class="zs" transform="{{zt.f1}}"><rect x="-19.40" y="32.51" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect><rect style="stroke-width: calc(1.2px * var(--lw, 1))" x="-19.70" y="32.21" width="1.4" height="1.4" fill="none" stroke="#E6EDF3" display="{{fmD.s1}}"></rect></g>
+            <g class="zs" transform="{{zt.f2}}"><rect x="-19.69" y="32.52" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect><rect style="stroke-width: calc(1.2px * var(--lw, 1))" x="-19.99" y="32.22" width="1.4" height="1.4" fill="none" stroke="#E6EDF3" display="{{fmD.s2}}"></rect></g>
+            <g class="zs" transform="{{zt.f3}}"><rect x="-19.26" y="32.77" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect><rect style="stroke-width: calc(1.2px * var(--lw, 1))" x="-19.56" y="32.47" width="1.4" height="1.4" fill="none" stroke="#E6EDF3" display="{{fmD.s3}}"></rect></g>
+            <g class="zs" transform="{{zt.f4}}"><rect x="-19.12" y="33.02" width="0.8" height="0.8" fill="{{trk}}" class="hit"></rect><rect style="stroke-width: calc(1.2px * var(--lw, 1))" x="-19.42" y="32.72" width="1.4" height="1.4" fill="none" stroke="#E6EDF3" display="{{fmD.s4}}"></rect></g>
+          </g>
+          <g class="zs" transform="{{zt.f1}}"><circle style="stroke-width: calc(1px * var(--lw, 1))" cx="-19.0" cy="32.91" r="1.6" fill="none" stroke="rgba(230,237,243,.5)" stroke-dasharray="3 3" display="{{fmD.ring}}"></circle><rect x="-20.6" y="31.31" width="3.2" height="3.2" fill="transparent" style="cursor: pointer" onClick="{{fmClick}}"></rect></g>
+          <!-- CVN-71 traffic (dimmed) -->
+          <g opacity=".85">
+            <g class="zs" transform="{{zt.a302}}"><rect x="31.1" y="-4.9" width="0.8" height="0.8" fill="#3E9BD4" class="hit"></rect>
+            
+            
+            </g><g class="zs" transform="{{zt.a305}}"><rect x="39.6" y="-22.4" width="0.8" height="0.8" fill="#3E9BD4" class="hit"></rect>
+            
+            
+            </g>
+          </g>
+          <!-- Data tags: 45° leaders (NE/SE/SW/NW); tag starts (east) or ends (west) at the leader end, first row centred on it -->
+          <g class="zs" transform="{{zt.t106}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="-39.62" y1="-7.83" x2="-40.83" y2="-6.62" stroke="#FF8A85"></line>
+            <rect style="stroke-width: calc(1.1px * var(--lw, 1))" x="-48.51" y="-7.15" width="7.63" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" stroke="#E0524E" ></rect>
+            <text x="-47.66" y="-6.30" class="tg tgr">106 F18E 7.4</text>
+            <text x="-47.81" y="-5.30" text-anchor="end" class="tg tgr">↓</text><text x="-47.66" y="-5.30" class="tg tgr">168 420</text>
+          </g>
+          <g class="zs" transform="{{zt.t412}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="-22.69" y1="-5.72" x2="-21.48" y2="-4.51" stroke="#FF8A85"></line>
+            <rect style="stroke-width: calc(1.1px * var(--lw, 1))" x="-21.43" y="-5.04" width="7.63" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" stroke="#E0524E" ></rect>
+            <text x="-20.58" y="-4.19" class="tg tgr">412 F35C 9.8</text>
+            <text x="-20.73" y="-3.19" text-anchor="end" class="tg tgr">↑</text><text x="-20.58" y="-3.19" class="tg tgr">142 480</text>
+          </g>
+          <g class="zs" transform="{{zt.t203}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="8.26" y1="15.60" x2="7.05" y2="16.81" class="ldr"></line>
+            <rect x="-0.63" y="16.28" width="7.63" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="0.22" y="17.13" class="tg">203 F18F 5.9</text>
+            <text x="0.07" y="18.13" text-anchor="end" class="tg">↓</text><text x="0.22" y="18.13" class="tg">036 250</text>
+          </g>
+          <g class="zs" transform="{{zt.t205}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="2.93" y1="4.99" x2="4.14" y2="3.78" class="ldr"></line>
+            <rect x="4.19" y="3.25" width="7.62" height="3.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="4.49" y="4.10" class="tg">205 F18E 4.8</text>
+            <text x="4.49" y="5.10" class="tg">012 145</text>
+            <text x="4.49" y="6.10" class="tg">RMK ICLS ONLY</text>
+          </g>
+          <g class="zs" transform="{{zt.t101}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="12.54" y1="16.71" x2="13.75" y2="15.50" class="ldr"></line>
+            <rect x="13.80" y="14.97" width="7.08" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="14.10" y="15.82" class="tg">101 F18E 6.8</text>
+            <text x="14.10" y="16.82" class="tg">060 250</text>
+          </g>
+          <g class="zs" transform="{{zt.t102}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="8.36" y1="22.37" x2="7.15" y2="23.58" class="ldr"></line>
+            <rect x="0.02" y="23.05" width="7.08" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="0.32" y="23.90" class="tg">102 F18E 7.1</text>
+            <text x="0.32" y="24.90" class="tg">070 250</text>
+          </g>
+          <g class="zs" transform="{{zt.t104}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="22.04" y1="19.89" x2="23.25" y2="21.10" class="ldr"></line>
+            <rect x="23.30" y="20.57" width="7.63" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="24.15" y="21.42" class="tg">104 F18E 6.1</text>
+            <text x="24.00" y="22.42" text-anchor="end" class="tg">↓</text><text x="24.15" y="22.42" class="tg">090 300</text>
+          </g>
+          <g class="zs" transform="{{zt.t115}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="-3.58" y1="0.34" x2="-4.79" y2="-0.87" class="ldr"></line>
+            <rect x="-11.38" y="-1.40" width="6.54" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="-11.08" y="-0.55" class="tg">115 S3B 6.0</text>
+            <text x="-11.08" y="0.45" class="tg">060 250</text>
+          </g>
+          <g class="zs" transform="{{zt.t610}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="3.09" y1="-1.09" x2="4.30" y2="-2.30" class="ldr"></line>
+            <rect x="4.35" y="-2.83" width="6.54" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="4.65" y="-1.98" class="tg">610 H60 2.4</text>
+            <text x="4.65" y="-0.98" class="tg">002 060</text>
+          </g>
+          <g class="zs" transform="{{zt.tf}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="-18.51" y1="32.42" x2="-17.30" y2="31.21" class="ldr"></line>
+            <rect x="-17.25" y="30.68" width="8.4" height="3.35" rx="0.2" fill="rgba(11,14,18,.72)"></rect>
+            <g display="{{fmD.t0}}"><text x="-16.95" y="31.53" class="tg">401 F18C 6.2</text><text x="-16.95" y="32.53" class="tg">200 350</text><text x="-16.95" y="33.53" class="tg">FLT ×4 · LOW 5.9</text></g>
+            <g display="{{fmD.t1}}"><text x="-16.95" y="31.53" class="tg">401 F18C 6.2</text><text x="-16.95" y="32.53" class="tg">200 350</text><text x="-16.95" y="33.53" class="tg">VOLT 3-1 · 1/4</text></g>
+            <g display="{{fmD.t2}}"><text x="-16.95" y="31.53" class="tg">405 F18C 5.9</text><text x="-16.95" y="32.53" class="tg">200 350</text><text x="-16.95" y="33.53" class="tg">VOLT 3-2 · 2/4</text></g>
+            <g display="{{fmD.t3}}"><text x="-16.95" y="31.53" class="tg">410 F18C 6.1</text><text x="-16.95" y="32.53" class="tg">200 350</text><text x="-16.95" y="33.53" class="tg">VOLT 3-3 · 3/4</text></g>
+            <g display="{{fmD.t4}}"><text x="-16.95" y="31.53" class="tg">414 F18C 6.0</text><text x="-16.95" y="32.53" class="tg">200 350</text><text x="-16.95" y="33.53" class="tg">VOLT 3-4 · 4/4</text></g>
+          </g>
+          <g class="zs" transform="{{zt.t302}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="31.99" y1="-4.99" x2="33.20" y2="-6.20" stroke="#6FB6E6"></line>
+            <rect x="33.25" y="-6.73" width="7.63" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="34.10" y="-5.88" class="tg tgb">302 F18E 6.2</text>
+            <text x="33.95" y="-4.88" text-anchor="end" class="tg tgb">↓</text><text x="34.10" y="-4.88" class="tg tgb">110 330</text>
+          </g>
+          <g class="zs" transform="{{zt.t305}}">
+            <line style="stroke-width: calc(1px * var(--lw, 1))" x1="39.51" y1="-22.49" x2="38.30" y2="-23.70" stroke="#6FB6E6"></line>
+            <rect x="31.71" y="-24.23" width="6.54" height="2.35" rx="0.2" fill="rgba(11,14,18,.72)" ></rect>
+            <text x="32.01" y="-23.38" class="tg tgb">305 E2D 8.0</text>
+            <text x="32.01" y="-22.38" class="tg tgb">180 220</text>
+          </g>
+          <!-- Hooked aircraft: marshal assignment (cursor over a stack) or vector helper (anywhere else). Magenta keeps orange/red for alerts. -->
+          <g display="{{rad.hk.on}}" fill="none" stroke="#E45BEA" stroke-linejoin="round">
+            <path style="stroke-width: calc(1px * var(--lw, 1))" d="{{rad.hk.lv}}" stroke="rgba(228,91,234,.5)"></path>
+            <path style="stroke-width: calc(1.4px * var(--lw, 1))" d="{{rad.hk.hold}}" stroke-dasharray="6 4"></path>
+            <path style="stroke-width: calc(2.2px * var(--lw, 1))" d="{{rad.hk.fix}}"></path>
+            <path style="stroke-width: calc(1.6px * var(--lw, 1))" d="{{rad.hk.path}}" stroke-dasharray="{{rad.hk.dash}}"></path>
+          </g>
+          <g display="{{rad.ad.on}}" fill="none" stroke="rgba(228,91,234,.6)" stroke-linejoin="round">
+            <path style="stroke-width: calc(2px * var(--lw, 1))" d="{{rad.ad.fix}}"></path>
+            <path style="stroke-width: calc(1.2px * var(--lw, 1))" d="{{rad.ad.path}}" stroke-dasharray="4 3"></path>
+          </g>
+
+          <!-- CPA label (top layer) -->
+          <g class="zs" transform="{{zt.cpa}}">
+              <rect style="stroke-width: calc(1px * var(--lw, 1))" x="-37.95" y="-10.95" width="12.7" height="1.45" rx="0.2" fill="#0E1116" stroke="#E0524E"></rect>
+              <text x="-31.6" y="-9.95" text-anchor="middle" class="tgr">CPA 1.4 NM / 700 FT · 1:04</text>
+            </g>
+        </svg>
+        <div aria-hidden="true" style="position: absolute; inset: 0; pointer-events: none; overflow: hidden">
+          <div style="display: {{hkTag.d}}; transform: scale({{sTg}}); transform-origin: 0 0; position: absolute; left: {{hkTag.x}}px; top: {{hkTag.y}}px; background: rgba(11,14,18,.9); border: 1px solid #E45BEA; border-radius: 2px; padding: 3px 7px; font-family: 'IBM Plex Mono', monospace; font-size: 11px; line-height: 15px; color: #F2B3F5; white-space: nowrap">
+            <div style="color: #FFFFFF">{{hkTag.r0}}</div><div>{{hkTag.r1}}</div><div>{{hkTag.r2}}</div>
+          </div>
+          <div style="display: {{adTag.d}}; transform: scale({{sTg}}); transform-origin: 0 0; position: absolute; left: {{adTag.x}}px; top: {{adTag.y}}px; background: rgba(11,14,18,.85); border: 1px solid rgba(228,91,234,.6); border-radius: 2px; padding: 1px 6px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; line-height: 15px; color: #F2B3F5; white-space: nowrap">{{adTag.t}}</div>
+        </div>
+
+        <!-- Frequencies -->
+        <div style="position: absolute; top: 12px; left: 12px; display: flex; flex-direction: column; align-items: flex-start; gap: 6px">
+          <button class="tbtn" onClick="{{toggleFreq}}" aria-expanded="{{freqExp}}" aria-label="Frequencies" title="Frequencies" style="background: {{freqBg}}; color: {{freqFg}}; border-color: #374250">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="10" r="1.6" fill="currentColor" stroke="none"></circle><path d="M12 12v9"></path><path d="M8.5 6.5a5 5 0 0 0 0 7M15.5 6.5a5 5 0 0 1 0 7"></path><path d="M5.6 3.6a9 9 0 0 0 0 12.8M18.4 3.6a9 9 0 0 1 0 12.8"></path></svg>
+          </button>
+          <sc-if value="{{freqOpen}}" hint-placeholder-val="{{false}}">
+            <section aria-label="Frequencies" style="width: 270px; background: rgba(21,26,33,.97); border: 1px solid #374250; border-radius: 8px; padding: 8px 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5)">
+              <div class="frow" style="color: #6B7683; font-size: 9.5px; letter-spacing: .1em;"><span>COM</span><span></span><span style="text-align: center">PRI</span><span style="text-align: center">AUX</span></div>
+              <div class="frow"><span style="color: #93A1B0">Strike</span><span style="text-align: right">262.000</span><span class="fch">2</span><span style="color: #4A5562">—</span></div>
+              <div class="frow"><span style="color: #93A1B0">Departure</span><span style="text-align: right">252.000</span><span class="fch">8</span><span style="color: #4A5562">—</span></div>
+              <div class="frow"><span style="color: #93A1B0">Marshal</span><span style="text-align: right">252.000</span><span class="fch">8</span><span style="color: #4A5562">—</span></div>
+              <div class="frow"><span style="color: #93A1B0">Approach</span><span style="text-align: right">252.000</span><span class="fch">8</span><span style="color: #4A5562">—</span></div>
+              <div class="frow"><span style="color: #93A1B0">Tower</span><span style="text-align: right">252.000</span><span class="fch">8</span><span style="color: #4A5562">—</span></div>
+              <div class="frow"><span style="color: #93A1B0">Paddles</span><span style="text-align: right">256.750</span><span style="color: #4A5562">—</span><span style="color: #4A5562">—</span></div>
+              <div class="frow" style="color: #6B7683; font-size: 9.5px; letter-spacing: .1em; margin-top: 6px; padding-top: 8px; border-top: 1px solid #262F3A;"><span>NAV</span><span></span></div>
+              <div class="frow"><span style="color: #93A1B0">TACAN</span><span style="text-align: right">73X</span><span></span><span></span></div>
+              <div class="frow"><span style="color: #93A1B0">ICLS</span><span style="text-align: right">CH 13</span><span></span><span></span></div>
+              <div class="frow"><span style="color: #93A1B0">Link 4 · ACLS</span><span style="text-align: right">373.000</span><span></span><span></span></div>
+            </section>
+          </sc-if>
+        </div>
+
+        <!-- Floating toolbar -->
+        <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; flex-direction: column; align-items: flex-end; gap: 6px">
+          <div role="toolbar" aria-label="Radar tools" style="display: flex; align-items: center; gap: 4px; padding: 4px; background: rgba(21,26,33,.96); border: 1px solid #374250; border-radius: 8px; box-shadow: 0 6px 20px rgba(0,0,0,.45)">
+            <sc-for list="{{tools}}" as="t" hint-placeholder-count="5">
+              <button class="tbtn" aria-label="{{t.label}}" title="{{t.label}}" onClick="{{t.pick}}" style="background: {{t.bg}}; color: {{t.fg}}">
+                <sc-if value="{{t.isSel}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 3l13 8-6 1.5L9 19z"></path></svg></sc-if>
+                <sc-if value="{{t.isBra}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="5" cy="18" r="2"></circle><circle cx="19" cy="6" r="2"></circle><path d="M6.6 16.6L17.4 7.4M9 18.5l1.2-1.2M12 16l1.2-1.2M15 13.5l1.2-1.2"></path></svg></sc-if>
+                <sc-if value="{{t.isMsh}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 6h10M4 11h10M4 16h10"></path><path d="M18 4v16M15.5 17.5L18 20l2.5-2.5"></path></svg></sc-if>
+                <sc-if value="{{t.isCpa}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M3 19L12 12M21 19L12 12"></path><circle cx="12" cy="12" r="3"></circle><path d="M12 3v4"></path></svg></sc-if>
+                <sc-if value="{{t.isVec}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="6" cy="18" r="2.2"></circle><path d="M7.6 16.4L19 5M19 5h-5M19 5v5"></path></svg></sc-if>
+              </button>
+            </sc-for>
+            <div style="width: 1px; height: 26px; background: #374250; margin: 0 4px"></div>
+            <button class="tbtn" aria-label="Layers" title="Layers" aria-expanded="{{layersExp}}" onClick="{{toggleLayers}}" style="background: {{layersBg}}; color: {{layersFg}}">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5z"></path><path d="M3 13l9 5 9-5"></path></svg>
+            </button>
+            <a href="Comms.dc.html" class="tbtn" aria-label="Comms scripts" title="Comms scripts" style="color: #E6EDF3; text-decoration: none">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 5h16v10H9l-5 4z"></path><path d="M8 9h8M8 12h5"></path></svg>
+            </a>
+            <div style="width: 1px; height: 26px; background: #374250; margin: 0 4px"></div>
+            <button class="tbtn" aria-label="Zoom out" title="Zoom out" onClick="{{zoomOut}}" style="color: #E6EDF3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5L20 20M7.5 10.5h6"></path></svg></button>
+            <span class="mono" title="Range (NM, edge to centre)" style="font-size: 11px; color: #93A1B0; min-width: 44px; text-align: center">RNG <span style="color: #E6EDF3; font-size: 13px">{{rng}}</span></span>
+            <button class="tbtn" aria-label="Zoom in" title="Zoom in" onClick="{{zoomIn}}" style="color: #E6EDF3"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.5"></circle><path d="M15.5 15.5L20 20M7.5 10.5h6M10.5 7.5v6"></path></svg></button>
+            <div style="width: 1px; height: 26px; background: #374250; margin: 0 4px"></div>
+            <sc-for list="{{zoomFits}}" as="z" hint-placeholder-count="3">
+              <button onClick="{{z.go}}" title="{{z.title}}" style="height: 32px; padding: 0 9px; border-radius: 5px; border: 1px solid {{z.bc}}; background: {{z.bg}}; color: {{z.fg}}; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; cursor: pointer">{{z.label}}</button>
+            </sc-for>
+          </div>
+
+          <sc-if value="{{layersOpen}}" hint-placeholder-val="{{true}}">
+            <section aria-label="Layers" style="width: 290px; background: rgba(21,26,33,.97); border: 1px solid #374250; border-radius: 8px; padding: 10px; box-shadow: 0 10px 30px rgba(0,0,0,.5)">
+              <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+                <span class="lbl">Layers</span>
+                <button onClick="{{toggleAll}}" style="background: #222C37; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; padding: 3px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 10.5px; cursor: pointer">{{allLabel}}</button>
+              </div>
+              <div class="lrow" style="margin-top: 4px"><span></span><span class="mono" style="font-size: 9.5px; color: #93A1B0; letter-spacing: .06em">CVN-73</span><span class="mono" style="font-size: 9.5px; color: #6FB6E6; letter-spacing: .06em">CVN-71</span></div>
+              <sc-for list="{{overlays}}" as="g" hint-placeholder-count="6">
+                <div class="lbl" style="font-size: 9.5px; color: #6B7683; margin: 8px 0 2px 2px">{{g.t}}</div>
+                <sc-for list="{{g.items}}" as="o" hint-placeholder-count="2">
+                  <div class="lrow" style="color: {{o.fg}}">
+                    <span style="padding-left: 6px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{o.label}}</span>
+                    <button class="lcb" onClick="{{o.toggle}}" aria-pressed="{{o.on}}" aria-label="{{o.aria}}"><span style="border-color: {{o.sw}}; background: {{o.fill}}"></span></button>
+                    <sc-if value="{{o.has2}}" hint-placeholder-val="{{true}}"><button class="lcb" onClick="{{o.toggle2}}" aria-pressed="{{o.on2}}" aria-label="{{o.aria2}}"><span style="border-color: #3E9BD4; background: {{o.fill2}}"></span></button></sc-if>
+                  </div>
+                </sc-for>
+              </sc-for>
+            </section>
+          </sc-if>
+        </div>
+
+        <div class="mono" style="position: absolute; left: 12px; bottom: 12px; font-size: 11px; color: #93A1B0; display: flex; align-items: center; gap: 8px">
+          <span style="display: inline-block; width: 90px; height: 6px; border: 1px solid #93A1B0; border-top: 0"></span>10 NM
+        </div>
+        <div class="mono" style="position: absolute; right: 12px; bottom: 12px; font-size: 11.5px; color: #E6EDF3; background: rgba(21,26,33,.94); border: 1px solid #262F3A; border-radius: 4px; padding: 4px 8px">CURSOR 248° / 31.2 NM · 25°59.1'N 056°20.7'E</div>
+      </div>
+
+    </main>
+
+    <!-- ── Right sidebar: radials + notifications ── -->
+    <aside aria-label="Radials and notifications" style="flex: 0 0 344px; width: 344px; border-left: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; overflow-y: auto; box-sizing: border-box">
+      <section class="pnl" aria-label="Departure and marshal radials" style="display: flex; flex-direction: column; gap: 10px">
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+            <span class="lbl">Departure radials</span>
+            <button onClick="{{armDep}}" style="height: 28px; padding: 0 10px; border-radius: 5px; font-family: 'Saira', sans-serif; font-size: 12px; cursor: pointer; background: {{bD.bg}}; border: 1px solid {{bD.bc}}; color: {{bD.fg}}">{{bD.label}}</button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{depChips}}" as="c" hint-placeholder-count="2">
+              <div style="border-radius: 5px; background: {{c.bg}}; border: 1px solid {{c.bc}}">
+                <div class="mono" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 4px 0 0; font-size: 12.5px">
+                  <button onClick="{{c.pick}}" aria-label="{{c.pickAria}}" aria-pressed="{{c.pressed}}" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 0 0 8px; border: 0; background: transparent; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; cursor: pointer; text-align: left">
+                    <span style="width: 74px; color: {{c.fg}}">{{c.name}}</span>
+                    <span style="font-weight: 600">{{c.r}}</span>
+                    <span style="color: #93A1B0">{{c.alt}}</span>
+                  </button>
+                  <span style="flex: 1"></span>
+                  <sc-if value="{{c.canEdit}}" hint-placeholder-val="{{true}}"><button onClick="{{c.edit}}" aria-label="{{c.editAria}}" title="Edit" style="width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: #93A1B0; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13.5 6.5l4 4"></path></svg></button></sc-if>
+                  <sc-if value="{{c.canRemove}}" hint-placeholder-val="{{true}}"><button onClick="{{c.remove}}" aria-label="{{c.aria}}" title="Remove" style="width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: #93A1B0; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></sc-if>
+                </div>
+                <sc-if value="{{c.sel}}" hint-placeholder-val="{{false}}">
+                  <div class="mono" style="display: flex; align-items: center; gap: 6px; padding: 0 6px 6px 8px; font-size: 11.5px">
+                    <sc-if value="{{c.isStack}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 4px"><span style="color: #93A1B0">Base</span><button onClick="{{c.baseDn}}" aria-label="Lower base altitude" style="width: 22px; height: 22px; border: 1px solid #374250; border-radius: 4px; background: #1A212A; color: #E6EDF3; cursor: pointer; padding: 0">−</button><span style="min-width: 30px; text-align: center; color: #E6EDF3">{{c.alt}}</span><button onClick="{{c.baseUp}}" aria-label="Raise base altitude" style="width: 22px; height: 22px; border: 1px solid #374250; border-radius: 4px; background: #1A212A; color: #E6EDF3; cursor: pointer; padding: 0">+</button></span></sc-if>
+                    <span style="flex: 1; color: {{rStatusFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{rStatus}}</span>
+                    <button onClick="{{c.cancel}}" style="height: 24px; padding: 0 8px; border: 1px solid #374250; border-radius: 4px; background: transparent; color: #E6EDF3; cursor: pointer; font-family: 'Saira', sans-serif; font-size: 11.5px">Cancel</button>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <div style="height: 1px; background: #262F3A"></div>
+        <div>
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px">
+            <span class="lbl">Marshal</span>
+            <button onClick="{{armM}}" style="height: 28px; padding: 0 10px; border-radius: 5px; font-family: 'Saira', sans-serif; font-size: 12px; cursor: pointer; background: {{bM.bg}}; border: 1px solid {{bM.bc}}; color: {{bM.fg}}">{{bM.label}}</button>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 4px">
+            <sc-for list="{{mRows}}" as="m" hint-placeholder-count="2">
+              <div style="border-radius: 5px; background: {{m.bg}}; border: 1px solid {{m.bc}}">
+                <div class="mono" style="display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 4px 0 0; font-size: 12.5px">
+                  <button onClick="{{m.pick}}" aria-label="{{m.pickAria}}" aria-pressed="{{m.pressed}}" style="display: flex; align-items: center; gap: 8px; height: 28px; padding: 0 0 0 8px; border: 0; background: transparent; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px; cursor: pointer; text-align: left">
+                    <span style="width: 74px; color: {{m.fg}}">{{m.name}}</span>
+                    <span style="font-weight: 600">{{m.r}}</span>
+                    <span style="color: #93A1B0">{{m.alt}}</span>
+                  </button>
+                  <span style="flex: 1"></span>
+                  <sc-if value="{{m.canExp}}" hint-placeholder-val="{{true}}"><button onClick="{{m.toggleExp}}" aria-expanded="{{m.expA}}" aria-label="{{m.expAria}}" title="Levels" style="width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: #93A1B0; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="transform: rotate({{m.chev}}deg)"><path d="M6 9l6 6 6-6"></path></svg></button></sc-if>
+                  <sc-if value="{{m.canEdit}}" hint-placeholder-val="{{true}}"><button onClick="{{m.edit}}" aria-label="{{m.editAria}}" title="Edit" style="width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: #93A1B0; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20h4L19 9l-4-4L4 16z"></path><path d="M13.5 6.5l4 4"></path></svg></button></sc-if>
+                  <sc-if value="{{m.canRemove}}" hint-placeholder-val="{{true}}"><button onClick="{{m.remove}}" aria-label="{{m.aria}}" title="Remove" style="width: 24px; height: 24px; border: 0; border-radius: 4px; background: transparent; color: #93A1B0; cursor: pointer; padding: 0; display: flex; align-items: center; justify-content: center"><svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button></sc-if>
+                </div>
+                <sc-if value="{{m.sel}}" hint-placeholder-val="{{false}}">
+                  <div class="mono" style="display: flex; align-items: center; gap: 6px; padding: 0 6px 6px 8px; font-size: 11.5px">
+                    <sc-if value="{{m.isStack}}" hint-placeholder-val="{{false}}"><span style="display: inline-flex; align-items: center; gap: 4px"><span style="color: #93A1B0">Base</span><button onClick="{{m.baseDn}}" aria-label="Lower base altitude" style="width: 22px; height: 22px; border: 1px solid #374250; border-radius: 4px; background: #1A212A; color: #E6EDF3; cursor: pointer; padding: 0">−</button><span style="min-width: 30px; text-align: center; color: #E6EDF3">{{m.alt}}</span><button onClick="{{m.baseUp}}" aria-label="Raise base altitude" style="width: 22px; height: 22px; border: 1px solid #374250; border-radius: 4px; background: #1A212A; color: #E6EDF3; cursor: pointer; padding: 0">+</button></span></sc-if>
+                    <span style="flex: 1; color: {{rStatusFg}}; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{rStatus}}</span>
+                    <button onClick="{{m.cancel}}" style="height: 24px; padding: 0 8px; border: 1px solid #374250; border-radius: 4px; background: transparent; color: #E6EDF3; cursor: pointer; font-family: 'Saira', sans-serif; font-size: 11.5px">Cancel</button>
+                  </div>
+                </sc-if>
+                <sc-if value="{{m.exp}}" hint-placeholder-val="{{false}}">
+                  <div style="padding: 0 4px 5px">
+                    <div class="srow" style="color: #6B7683; font-size: 10px; letter-spacing: .06em"><span>ANG</span><span>DME</span><span>EAT</span><span>A/C</span><span>ST</span></div>
+                    <sc-for list="{{m.levels}}" as="r" hint-placeholder-count="6">
+                      <div class="srow" style="background: {{r.bg}}; color: {{r.fg}}; border: 1px solid {{r.bc}}">
+                        <span>{{r.a}}</span><span>{{r.d}}</span><span>{{r.eat}}</span><span>{{r.ac}}</span><span>{{r.st}}</span>
+                      </div>
+                    </sc-for>
+                  </div>
+                </sc-if>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+        <sc-if value="{{rStatusShow}}" hint-placeholder-val="{{false}}"><div class="mono" style="font-size: 12px; color: {{rStatusFg}}">{{rStatus}}</div></sc-if>
+      </section>
+
+      <div style="display: flex; justify-content: space-between; align-items: center">
+        <span class="lbl">Notifications</span>
+        <span class="mono" style="font-size: 11px; color: #93A1B0">{{noteCount}}</span>
+      </div>
+      <sc-for list="{{notes}}" as="n" hint-placeholder-count="5">
+        <article style="display: flex; align-items: center; gap: 8px; padding: 8px; border-radius: 6px; border: 1px solid {{n.bc}}; background: {{n.bg}}">
+          <button aria-label="Go to on scope" title="Go to on scope" style="width: 30px; height: 30px; display: flex; align-items: center; justify-content: center; padding: 0; background: transparent; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; cursor: pointer; flex: 0 0 30px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="7"></circle><circle cx="12" cy="12" r="2" fill="currentColor"></circle><path d="M12 2v3M12 19v3M2 12h3M19 12h3"></path></svg></button>
+          <div style="flex: 1; min-width: 0">
+            <div style="display: flex; align-items: baseline; gap: 6px">
+              <span class="mono" style="font-size: 10.5px; letter-spacing: .1em; font-weight: 600; color: {{n.fg}}">{{n.kind}}</span>
+              <span class="mono" style="font-size: 10.5px; color: #93A1B0">{{n.t}}</span>
+            </div>
+            <div style="font-size: 13.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis">{{n.title}}</div>
+            <sc-if value="{{n.full}}" hint-placeholder-val="{{false}}"><div class="mono" style="font-size: 11.5px; color: #FFC2BF">{{n.body}}</div></sc-if>
+          </div>
+          <button onClick="{{n.ack}}" style="height: 30px; padding: 0 10px; background: transparent; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; font-family: 'Saira', sans-serif; font-size: 12px; cursor: pointer">{{n.ackL}}</button>
+        </article>
+      </sc-for>
+    </aside>
+  </div>
+
+  <!-- Display settings: preview follows the sliders; the scope only changes on Apply -->
+  <sc-if value="{{uiOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0; background: rgba(5,7,10,.55); z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 70px">
+      <div role="dialog" aria-label="Display settings" style="width: min(560px, calc(100% - 32px)); background: #151A21; border: 1px solid #374250; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); overflow: hidden">
+        <div style="display: flex; align-items: center; padding: 12px 14px; border-bottom: 1px solid #262F3A">
+          <div style="font-weight: 700; font-size: 15px; flex: 1">Options</div>
+          <button onClick="{{uiCancel}}" aria-label="Close" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer; padding: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+        </div>
+        <div style="padding: 12px 14px 4px">
+          <div class="lbl" style="margin-bottom: 6px">Staffing · applies to every location</div>
+          <div style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px; margin-bottom: 8px">
+            <sc-for list="{{staffOpts}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="flex: 1; height: 28px; border: 0; border-radius: 4px; background: {{o.bg}}; color: {{o.fg}}; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">{{o.label}}</button></sc-for>
+          </div>
+          <div class="mono" style="font-size: 11.5px; color: #93A1B0; line-height: 1.6; padding-bottom: 10px; border-bottom: 1px solid #262F3A">
+            <sc-for list="{{staffRows}}" as="r" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px"><span style="color: #E6EDF3">{{r.loc}}</span><span>{{r.seats}}</span></div></sc-for>
+          </div>
+          <div class="lbl" style="margin: 12px 0 0">Display</div>
+          <sc-for list="{{uiRows}}" as="u" hint-placeholder-count="4">
+            <div style="display: grid; grid-template-columns: minmax(0, 1fr) 236px; gap: 14px; align-items: center; padding: 10px 0; border-bottom: 1px solid #262F3A">
+              <div>
+                <div style="display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 8px">
+                  <span style="font-size: 13.5px; font-weight: 600">{{u.label}}</span>
+                  <span class="mono" style="font-size: 11.5px; color: {{u.vc}}">{{u.val}}</span>
+                </div>
+                <input class="uirng" type="range" min="1" max="5" step="1" value="{{u.v}}" onInput="{{u.set}}" aria-label="{{u.label}}">
+                <div class="mono" style="display: flex; justify-content: space-between; font-size: 10px; color: #6B7683; padding: 2px 3px 0"><span>1</span><span>2</span><span>3</span><span>4</span><span>5</span></div>
+              </div>
+              <div style="position: relative; height: 72px; background: #0B0E12; border: 1px solid #262F3A; border-radius: 6px; overflow: hidden">
+                <sc-if value="{{u.isH}}" hint-placeholder-val="{{true}}">
+                  <sc-for list="{{u.dots}}" as="q" hint-placeholder-count="8">
+                    <div style="position: absolute; left: {{q.x}}px; top: {{q.y}}px; width: {{q.w}}px; height: {{q.w}}px; margin: {{q.m}}px 0 0 {{q.m}}px; background: {{q.c}}; opacity: {{q.o}}; border-radius: {{q.r}}; transform: rotate({{q.rot}}deg); box-shadow: 0 0 0 1px rgba(0,0,0,.5)"></div>
+                  </sc-for>
+                </sc-if>
+                <sc-if value="{{u.isT}}" hint-placeholder-val="{{false}}">
+                  <div style="position: absolute; left: 24px; top: 46px; width: 7px; height: 7px; background: #5FD068"></div>
+                  <div style="position: absolute; left: 31px; top: 36px; width: 14px; height: 1px; background: #5FD068; transform: rotate(-45deg); transform-origin: 0 0"></div>
+                  <div class="mono" style="position: absolute; left: 42px; top: {{u.ty}}px; font-size: {{u.fs}}px; line-height: 1.12; color: #5FD068; background: rgba(11,14,18,.72); padding: 1px 3px; white-space: nowrap">106 F18E 7.4<br>↓168 420<br>RMK ICLS ONLY</div>
+                </sc-if>
+                <sc-if value="{{u.isL}}" hint-placeholder-val="{{false}}">
+                  <svg width="236" height="72" style="position: absolute; inset: 0">
+                    <path d="M-20 70 A 120 120 0 0 1 200 -10" fill="none" stroke="rgba(64,168,91,.5)" stroke-width="{{u.w1}}"></path>
+                    <path d="M18 60 L70 22 L150 22 Q170 22 178 40" fill="none" stroke="rgba(147,161,176,.8)" stroke-width="{{u.w1}}" stroke-dasharray="6 4"></path>
+                    <path d="M150 58 L214 30" fill="none" stroke="#E45BEA" stroke-width="{{u.w2}}"></path>
+                    <path d="M40 66 L90 50" fill="none" stroke="#5FD068" stroke-width="{{u.w3}}" stroke-linecap="round"></path>
+                  </svg>
+                </sc-if>
+                <sc-if value="{{u.isO}}" hint-placeholder-val="{{false}}">
+                  <div class="mono" style="position: absolute; left: 12px; top: 10px; font-size: {{u.fs}}px; color: #93A1B0">BRC 345</div>
+                  <div class="mono" style="position: absolute; left: 12px; top: 40px; font-size: {{u.fs}}px; color: #5E9A6C">20 NM</div>
+                  <div class="mono" style="position: absolute; left: 96px; top: 40px; font-size: {{u.fg}}px; color: #7D8896">26°20'N</div>
+                  <div class="mono" style="position: absolute; left: 120px; top: 10px; transform: scale({{u.sc}}); transform-origin: 0 0; height: 16px; line-height: 16px; padding: 0 11px 0 6px; font-size: 10.5px; color: #E6EDF3; background: #151A21; border: 1px solid #93A1B0; clip-path: polygon(0 0, calc(100% - 7px) 0, 100% 50%, calc(100% - 7px) 100%, 0 100%)">DR 285</div>
+                </sc-if>
+              </div>
+            </div>
+          </sc-for>
+        </div>
+        <div style="display: flex; gap: 8px; padding: 12px 14px">
+          <button onClick="{{uiReset}}" style="height: 32px; padding: 0 12px; border: 1px solid #374250; border-radius: 5px; background: transparent; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">Reset</button>
+          <div style="flex: 1"></div>
+          <button onClick="{{uiCancel}}" style="height: 32px; padding: 0 14px; border: 1px solid #374250; border-radius: 5px; background: transparent; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">Cancel</button>
+          <button onClick="{{uiApply}}" style="height: 32px; padding: 0 16px; border: 1px solid #F15822; border-radius: 5px; background: #F15822; color: #0E1116; font-family: 'Saira', sans-serif; font-size: 12.5px; font-weight: 700; cursor: pointer">Apply</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <!-- Reference popup -->
+  <sc-if value="{{refOpen}}" hint-placeholder-val="{{false}}">
+    <div role="dialog" aria-label="Reference" style="position: absolute; top: 58px; right: 16px; width: min(600px, calc(100% - 32px)); max-height: calc(100% - 76px); display: flex; flex-direction: column; background: #151A21; border: 1px solid #374250; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); z-index: 20; overflow: hidden">
+      <div style="display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-bottom: 1px solid #262F3A; flex-wrap: wrap">
+        <div style="font-weight: 700; font-size: 15px">Reference</div>
+        <div style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+          <sc-for list="{{refTabs}}" as="t" hint-placeholder-count="4">
+            <button onClick="{{t.pick}}" style="border: 0; padding: 5px 10px; border-radius: 4px; background: {{t.bg}}; color: {{t.fg}}; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">{{t.label}}</button>
+          </sc-for>
+        </div>
+        <div style="flex: 1"></div>
+        <button aria-label="Open in new window" title="Open in new window" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer; padding: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M14 4h6v6M20 4l-9 9M18 14v6H4V6h6"></path></svg></button>
+        <button onClick="{{toggleRef}}" aria-label="Close" style="width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; background: transparent; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer; padding: 0"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"></path></svg></button>
+      </div>
+      <div style="overflow-y: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px">
+
+        <sc-if value="{{refIs.min}}" hint-placeholder-val="{{true}}">
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <div class="mono" style="font-size: 12px; padding: 8px 10px; border-radius: 6px; background: rgba(64,168,91,.12); border: 1px solid #2F6B40; color: #A9E2B9">Current over CVN-73: 800 ft / 4 NM. Above all published minima.</div>
+            <div class="lbl">Approach weather minimums · ceiling (ft) – visibility (SM) · Fig 6-6</div>
+            <div style="border: 1px solid #262F3A; border-radius: 6px; overflow: hidden">
+              <div class="mono" style="display: grid; grid-template-columns: 96px 1fr 110px; gap: 8px; padding: 6px 10px; background: #1A212A; font-size: 10.5px; letter-spacing: .08em; color: #93A1B0"><span>AIRCRAFT</span><span>APPROACH</span><span>MINIMUMS</span></div>
+              <sc-for list="{{minRows}}" as="m" hint-placeholder-count="11">
+                <div class="mono" style="display: grid; grid-template-columns: 96px 1fr 110px; gap: 8px; padding: 5px 10px; border-top: 1px solid #262F3A; font-size: 12px"><span style="color: #93A1B0">{{m.ac}}</span><span>{{m.ap}}</span><span style="font-weight: 600">{{m.min}}</span></div>
+              </sc-for>
+            </div>
+            <div class="lbl">Chart minimums · CV-1 / CV-2</div>
+            <div style="border: 1px solid #262F3A; border-radius: 6px; overflow: hidden">
+              <div class="mono" style="display: grid; grid-template-columns: 1fr 140px 120px; gap: 8px; padding: 6px 10px; background: #1A212A; font-size: 10.5px; letter-spacing: .08em; color: #93A1B0"><span>CATEGORY</span><span>JET</span><span>TURBOPROP</span></div>
+              <div class="mono" style="display: grid; grid-template-columns: 1fr 140px 120px; gap: 8px; padding: 5px 10px; border-top: 1px solid #262F3A; font-size: 12px"><span style="color: #93A1B0">ICLS</span><span>360-3/4</span><span>300 (300-3/4)</span></div>
+              <div class="mono" style="display: grid; grid-template-columns: 1fr 140px 120px; gap: 8px; padding: 5px 10px; border-top: 1px solid #262F3A; font-size: 12px"><span style="color: #93A1B0">ICLS/ILM w/ SPN-42/46 · S-PALS</span><span>260-1/2</span><span>200 (200-1/2)</span></div>
+              <div class="mono" style="display: grid; grid-template-columns: 1fr 140px 120px; gap: 8px; padding: 5px 10px; border-top: 1px solid #262F3A; font-size: 12px"><span style="color: #93A1B0">S-ASR / S-TAC</span><span>600-1-1/4 · 540</span><span>400-1 · 340</span></div>
+            </div>
+            <div class="mono" style="font-size: 11px; color: #93A1B0">PALS Mode I aircraft without an operating ILM may be certified to 200-1/2. Avg deck elev 60 ft.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{refIs.app}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <div class="pnl"><div style="font-weight: 600">CV-1 TACAN · jet / turboprop</div><div class="mono" style="font-size: 12px; color: #C9D3DD; margin-top: 4px">Marshal on reciprocal of FB. Platform 5000. 1200 ft by 10 DME, FB inbound through 6 DME to FAF 3 DME.<br>Bolter/waveoff: no instructions by 4 DME / 2 min, turn downwind, report abeam. No COMM, turn to FB at 4 DME.</div></div>
+            <div class="pnl"><div style="font-weight: 600">CV-2 TACAN overhead · jet / turboprop</div><div class="mono" style="font-size: 12px; color: #C9D3DD; margin-top: 4px">Marshal as assigned, IAF 4 DME on 030 relative. Overhead, outbound 210 relative descending. Level left turn not before 10 DME at 1/3 marshal altitude, onto FB at 10 DME, 1200 ft. FAF 3 DME.</div></div>
+            <div class="pnl"><div style="font-weight: 600">CV-3 TACAN · helicopter</div><div class="mono" style="font-size: 12px; color: #C9D3DD; margin-top: 4px">IAF on 110 relative. Inbound 290 to 3 DME, 3 DME arc to FB, FAF 3 DME at 500 ft. Minima: S-ASR 260-1/2, S-TAC 300-3/4.<br>Missed approach: no instructions by 4 DME / 2 min, turn downwind, report abeam. No COMM, reenter FB through 3 DME FAF.</div></div>
+            <div class="mono" style="font-size: 11px; color: #93A1B0">Courses are relative to FB. Turn on the CV-1, CV-2 and CV-3 layers to draw each one on the scope.</div>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{refIs.helo}}" hint-placeholder-val="{{false}}">
+          <div class="mono" style="display: flex; flex-direction: column; gap: 6px; font-size: 12px; color: #C9D3DD">
+            <div style="font-family: 'Saira', sans-serif; font-weight: 600; font-size: 14px; color: #E6EDF3">Helicopter restrictions during fixed-wing launch/recovery · Fig 4-3</div>
+            <span>No helicopter operations within the shaded areas without Air Officer approval:</span>
+            <span>· Within 1 NM of the ship.</span>
+            <span>· 340°–020° relative, 1 to 5 NM ahead.</span>
+            <span>· 150°–190° relative, 1 to 3 NM astern.</span>
+            <span>Altitude limits: 200′ ahead, 300′ to port and 400′ to starboard inside 5 NM. 400′ from 5 to 10 NM.</span>
+          </div>
+        </sc-if>
+
+        <sc-if value="{{refIs.docs}}" hint-placeholder-val="{{false}}">
+          <div style="display: flex; flex-direction: column; gap: 8px">
+            <a href="/_blob/26e7ff69bcae6a88bd063dd996e6f3be" target="_blank" rel="noopener" class="pnl" style="text-decoration: none; color: #E6EDF3; display: flex; justify-content: space-between; align-items: center"><span><span style="font-weight: 600">CV NATOPS</span><span class="mono" style="display: block; font-size: 11px; color: #93A1B0">NAVAIR 00-80T-105 · Jul 2009 · PDF · 5.6 MB</span></span><span class="mono" style="font-size: 11px; color: #FFB08F">Open ↗</span></a>
+            <a href="#" class="pnl" style="text-decoration: none; color: #E6EDF3; display: flex; justify-content: space-between; align-items: center"><span><span style="font-weight: 600">CVW-14 kneeboard · Case III</span><span class="mono" style="display: block; font-size: 11px; color: #93A1B0">Squadron differences from NATOPS</span></span><span class="mono" style="font-size: 11px; color: #FFB08F">[add file]</span></a>
+            <a href="#" class="pnl" style="text-decoration: none; color: #E6EDF3; display: flex; justify-content: space-between; align-items: center"><span><span style="font-weight: 600">Comms plan</span><span class="mono" style="display: block; font-size: 11px; color: #93A1B0">Frequencies, buttons, TACAN/ICLS</span></span><span class="mono" style="font-size: 11px; color: #FFB08F">[add file]</span></a>
+          </div>
+        </sc-if>
+      </div>
+    </div>
+  </sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"staffing":{"editor":"enum","options":["Condensed","Expanded"],"default":"Condensed"},"tracks":{"editor":"enum","options":["Green","White"],"default":"Green"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  seatVals(loc, onSeat) {
+    const s = this.state, mode = s.staff || this.props.staffing || 'Condensed';
+    const C = { CDC: [['strike', 'STRIKE']], CATCC: [['catcc', 'CATCC']], PriFly: [['boss', 'AIR BOSS']], Bridge: [['ood', 'OOD']], LSO: [['lso', 'LSO']] };
+    const E = { CDC: [['aw', 'AIR WARFARE'], ['strike', 'STRIKE'], ['suw', 'SURFACE WARFARE']],
+      CATCC: [['airops', 'AIR OPS'], ['dep', 'DEPARTURE'], ['marshal', 'MARSHAL'], ['app', 'APPROACH'], ['final', 'FINAL']],
+      PriFly: [['boss', 'AIR BOSS'], ['mini', 'MINI BOSS · TWR']], Bridge: [['ood', 'OFFICER OF THE DECK']],
+      LSO: [['clso', 'CONTROLLING LSO'], ['blso', 'BACKUP LSO'], ['writer', 'WRITER']] };
+    // Who holds what at start (mockup): "me" = this user (100); others show board · callsign.
+    const SEED = { strike: { b: '305', cs: 'Ghost' }, aw: { b: '305', cs: 'Ghost' }, suw: null,
+      catcc: 'me', airops: { b: '201', cs: 'Juno' }, dep: { b: '201', cs: 'Juno' }, marshal: 'me', app: 'me', final: null,
+      boss: { b: '210', cs: 'Mako' }, mini: null, ood: { b: '207', cs: 'Skip' }, lso: { b: '214', cs: 'Paddles' }, clso: { b: '214', cs: 'Paddles' }, blso: null, writer: null };
+    const held = Object.assign({}, SEED, s.held || {}), act = s.seat || this.defSeat || null;
+    const list = (mode === 'Expanded' ? E : C)[loc];
+    const set = (k, v, a) => { this.setState({ held: Object.assign({}, s.held || {}, { [k]: v }), seat: a }); if (onSeat && a) onSeat(a); };
+    const seats = list.map(([k, label]) => {
+      const h = held[k], mine = h === 'me', on = mine && (act === k || (!act && list.length === 1));
+      if (!h) return { label, who: 'Open', init: '+', on: 'false', click: () => set(k, 'me', k), title: 'Take ' + label,
+        bs: 'dashed', bc: '#374250', bg: 'transparent', cur: 'pointer', as: 'dashed', ab: '#5E6A78', af: 'transparent', afg: '#93A1B0', whoFg: '#93A1B0', lfg: '#93A1B0' };
+      if (mine) return { label, who: '100 · You', init: '100', on: on ? 'true' : 'false',
+        click: () => on ? set(k, null, null) : (this.setState({ seat: k }), onSeat && onSeat(k)),
+        title: on ? 'You hold ' + label + ' · click to release' : 'Show the ' + label + ' view',
+        bs: 'solid', bc: '#F15822', bg: on ? 'rgba(241,88,34,.2)' : 'transparent', cur: 'pointer', as: 'solid', ab: '#F15822', af: on ? '#F15822' : 'transparent', afg: on ? '#0E1116' : '#FFB08F', whoFg: '#FFB08F', lfg: on ? '#FFB08F' : '#93A1B0' };
+      return { label, who: h.b + ' · ' + h.cs, init: h.b, on: 'false', click: () => {}, title: label + ' held by ' + h.b + ' ' + h.cs,
+        bs: 'solid', bc: '#374250', bg: '#1A212A', cur: 'default', as: 'solid', ab: '#3E9BD4', af: '#1F3A52', afg: '#CFE6F6', whoFg: '#C9D3DD', lfg: '#93A1B0' };
+    });
+    const nm = l => l.map(x => x[1].charAt(0) + x[1].slice(1).toLowerCase()).join(' · ');
+    return {
+      seats, viewOnly: !list.some(([k]) => held[k] === 'me'), staffMode: mode,
+      optsOpen: !!s.optsOpen, openOpts: () => this.setState({ optsOpen: true }), closeOpts: () => this.setState({ optsOpen: false }),
+      staffOpts: ['Condensed', 'Expanded'].map(m => ({ label: m === 'Condensed' ? 'Condensed · 1 seat per location' : 'Expanded · all seats', on: mode === m ? 'true' : 'false',
+        bg: mode === m ? '#222C37' : 'transparent', fg: mode === m ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ staff: m, seat: null }) })),
+      staffRows: Object.keys(C).map(L => ({ loc: L, seats: nm((mode === 'Expanded' ? E : C)[L]) }))
+    };
+  }
+
+  constructor(p){
+    super(p);
+    this.state = {
+      tool: 'marshal', layersOpen: false, radialsOpen: false, acked: {}, dep: [285, 30], newDep: 45, marsh: [{ id: 'A', r: 145, base: 6 }], newMr: 170,
+      asp: 0.75,
+      zfit: 'r50',
+      ov: { cca:true, coord:true, rings:true, latlon:true, grid:false, brc:true, fb:true, marshal:true, arr:true, bolter:false, dep:true, tanker:true, sar:false, cv1:false, cv2:false, cv3:false },
+      ov2: { cca:true, rings:false, brc:true, fb:true, marshal:true, arr:true, bolter:false, dep:true, tanker:false, sar:false, cv1:false, cv2:false, cv3:false }
+    };
+  }
+  setBox(el) {
+    if (this._ro) { this._ro.disconnect(); this._ro = null; }
+    if (el && typeof ResizeObserver !== 'undefined') {
+      this._ro = new ResizeObserver(es => {
+        const r = es[0].contentRect;
+        if (r.width > 0 && r.height > 0) {
+          const a = Math.min(2, Math.max(0.4, r.height / r.width));
+          if (Math.abs(a - this.state.asp) > 0.003 || Math.abs(r.width - (this.state.boxW || 0)) > 1) this.setState({ asp: a, boxW: r.width });
+        }
+      });
+      this._ro.observe(el);
+    }
+  }
+  componentWillUnmount() { if (this._ro) this._ro.disconnect(); }
+  frame(asp, W, cx, cy, bw) {
+    // View: W NM wide centred on (cx, cy); height follows the panel. Lat/lon frame sits just inside the view edges.
+    const f = n => (Math.round(n * 100) / 100).toString();
+    // z: NM per 'reference pixel'. Symbols and text are sized in z, so they keep the same screen size whatever the panel width.
+    const z = W / 97 * 860 / Math.max(300, bw || 860), H = W * asp, vx = cx - W / 2, vy = cy - H / 2;
+    const x0 = vx + 0.5 * z, x1 = vx + W - 0.5 * z, y0 = vy + 0.5 * z, y1 = vy + H - 0.5 * z;
+    const SLAT = 26 * 60 + 12, SLON = 56 * 60 + 48, K = 0.8975;
+    const majS = W > 160 ? 30 : 10, minS = W > 160 ? 10 : (W < 40 ? 1 : 2);
+    let ticks = '', grid = '';
+    for (let m = Math.ceil(SLAT - y1); m <= Math.floor(SLAT - y0); m++) {
+      const maj = m % majS === 0; if (m % minS && !maj) continue;
+      const y = f(-(m - SLAT)), L = f((maj ? 1.4 : 0.6) * z);
+      ticks += 'M' + f(x0) + ' ' + y + 'h' + L + 'M' + f(x1) + ' ' + y + 'h-' + L;
+      if (maj) grid += 'M' + f(x0) + ' ' + y + 'H' + f(x1);
+    }
+    for (let m = Math.ceil(SLON + x0 / K); m <= Math.floor(SLON + x1 / K); m++) {
+      const maj = m % majS === 0; if (m % minS && !maj) continue;
+      const x = f((m - SLON) * K), L = f((maj ? 1.4 : 0.6) * z);
+      ticks += 'M' + x + ' ' + f(y0) + 'v' + L + 'M' + x + ' ' + f(y1) + 'v-' + L;
+      if (maj) grid += 'M' + x + ' ' + f(y0) + 'V' + f(y1);
+    }
+    const latD = {}, lonD = {};
+    for (let m = 1440; m < 1720; m += 10) { const y = -(m - SLAT); latD['m' + m] = (m % majS === 0 && y > y0 + 1.5 * z && y < y1 - 2.5 * z) ? 'inline' : 'none'; }
+    for (let m = 3300; m < 3530; m += 10) { const x = (m - SLON) * K; lonD['m' + m] = (m % majS === 0 && x > x0 + 3 * z && x < x1 - 3 * z) ? 'inline' : 'none'; }
+    return { vb: f(vx) + ' ' + f(vy) + ' ' + f(W) + ' ' + f(H), vx, vy, z, latD, lonD,
+      fr: { x0: f(x0), w: f(x1 - x0), y0: f(y0), h: f(y1 - y0), ticks, grid, lx: f(x0 + 1.8 * z), rx: f(x1 - 1.8 * z), ty: f(y0 + 2.4 * z), by: f(y1 - 1.7 * z) } };
+  }
+  radials(s, ZK = 1) {
+    // CV NATOPS: departure radials >= 20° apart in IMC and clear of reserved radials (5.13.1).
+    // Marshal: emergency 150° and helo 110° relative to expected FB (6.4.1.2-3). Bow-on caution (6.4.1.9).
+    const BRC = 345, FB = 336, EMR = (FB + 150) % 360, HEL = (FB + 110) % 360;
+    const D = Math.PI / 180, f = n => (Math.round(n * 100) / 100).toString();
+    const P = (b, r) => [r * Math.sin(b * D), -r * Math.cos(b * D)], pt = q => f(q[0]) + ' ' + f(q[1]);
+    const ad = (a, b) => Math.abs(((a - b) % 360 + 540) % 360 - 180);
+    const r3 = n => String(((Math.round(n) % 360) + 360) % 360).padStart(3, '0');
+    const dep = s.dep, marsh = s.marsh, placing = s.placing || null, hov = placing ? s.hov : null, editing = placing ? (s.editing || null) : null;
+    const reserved = marsh.filter(m => !(editing && editing.k === 'm' && editing.id === m.id)).map(m => ({ r: m.r, n: 'stack ' + m.id })).concat([{ r: EMR, n: 'emergency marshal' }, { r: HEL, n: 'helo marshal' }]);
+    const depCheck = b => {
+      for (const r of dep) if (!(editing && editing.k === 'dep' && editing.r === r) && ad(b, r) < 20) return { err: ad(b, r) + '° from ' + r3(r) + 'R' };
+      for (const x of reserved) if (ad(b, x.r) < 20) return { err: 'Reserved · ' + x.n };
+      return {};
+    };
+    const mrCheck = b => {
+      for (const r of dep) if (ad(b, r) < 20) return { err: ad(b, r) + '° from DEP ' + r3(r) + 'R' };
+      for (const m of marsh) if (!(editing && editing.k === 'm' && editing.id === m.id) && ad(b, m.r) < 10) return { err: 'Too close to stack ' + m.id };
+      if (ad(b, BRC) < 90) return { warn: 'Bow-on recovery' };
+      return {};
+    };
+    const check = b => placing === 'dep' ? depCheck(b) : mrCheck(b);
+
+    // scope geometry
+    // Jet departure (5.13.3.4.1), ported from the squadron's Case III departure animation:
+    // climb out on the BRC, 3 NM turn onto the 10 NM arc, arc, lead turn onto the radial.
+    // Radials too close to the BRC for the arc get an S-turn; the intercept angle is searched (45° down) so the second turn rolls out on the radial.
+    const add = (a, b) => [a[0] + b[0], a[1] + b[1]], mul = (a, k) => [a[0] * k, a[1] * k], dir = h => [Math.sin(h * D), -Math.cos(h * D)];
+    const depPath = r => {
+      const R = 3, Dm = 10, th = ((r - BRC) % 360 + 540) % 360 - 180, sg = th < 0 ? -1 : 1, a = Math.abs(th) * D, B = BRC * D;
+      const o = [[0, 0]], ap = (x, y) => o.push([x, y]);
+      const line = (p, q, n) => { for (let i = 1; i <= n; i++) ap(p[0] + (q[0] - p[0]) * i / n, p[1] + (q[1] - p[1]) * i / n); };
+      const ts = Math.sqrt(Math.max(0, (Dm - R) * (Dm - R) - R * R)), C1 = [R, ts], P7 = [0, ts];
+      line([0, 0], P7, 1);
+      const b1 = Math.atan2(C1[0], C1[1]), b2 = a - Math.asin(R / (Dm + R));
+      const turnR = (C, fr, to, N) => { for (let i = 1; i <= N; i++) { const ps = fr + (to - fr) * i / N; ap(C[0] - R * Math.cos(ps), C[1] + R * Math.sin(ps)); } };
+      const turnL = (C, fr, to, N) => { for (let i = 1; i <= N; i++) { const ps = fr + (to - fr) * i / N; ap(C[0] + R * Math.cos(ps), C[1] - R * Math.sin(ps)); } };
+      if (b2 >= b1) {
+        turnR(C1, 0, b1 + Math.PI / 2, 24);
+        const na = Math.max(1, Math.ceil((b2 - b1) / (1 * D)));
+        for (let i = 1; i <= na; i++) { const b = b1 + (b2 - b1) * i / na; ap(Dm * Math.sin(b), Dm * Math.cos(b)); }
+        const C2 = [(Dm + R) * Math.sin(b2), (Dm + R) * Math.cos(b2)];
+        turnL(C2, b2 + Math.PI / 2, a, 24);
+      } else if (a > 0.3 * D) {
+        let sol = null;
+        for (let al = 45 * D; al > 0.2 * D && !sol; al -= 0.5 * D) {
+          const h = a + al, P1 = [C1[0] - R * Math.cos(h), C1[1] + R * Math.sin(h)];
+          const L1 = [P1[0] - R * Math.cos(h), P1[1] + R * Math.sin(h)], d1 = [Math.sin(h), Math.cos(h)];
+          const L2 = [-R * Math.cos(a), R * Math.sin(a)], d2 = [Math.sin(a), Math.cos(a)];
+          const det = -d1[0] * d2[1] + d2[0] * d1[1]; if (Math.abs(det) < 1e-9) continue;
+          const rx = L2[0] - L1[0], ry = L2[1] - L1[1], t = (-rx * d2[1] + d2[0] * ry) / det, u = (d1[0] * ry - d1[1] * rx) / det;
+          if (t >= 0 && u > 0) sol = { h, P1, t, C2: [L1[0] + t * d1[0], L1[1] + t * d1[1]] };
+        }
+        if (sol) {
+          turnR(C1, 0, sol.h, 16);
+          const E = [sol.P1[0] + sol.t * Math.sin(sol.h), sol.P1[1] + sol.t * Math.cos(sol.h)];
+          if (sol.t > 0.01) line(sol.P1, E, 1);
+          turnL(sol.C2, sol.h, a, 16);
+        }
+      }
+      const Lp = o[o.length - 1], rem = Math.max(1, 50 - Math.hypot(Lp[0], Lp[1]));
+      line(Lp, [Lp[0] + Math.sin(a) * rem, Lp[1] + Math.cos(a) * rem], 1);
+      return 'M' + o.map(([x, y]) => { x *= sg; const E = x * Math.cos(B) + y * Math.sin(B), N = -x * Math.sin(B) + y * Math.cos(B); return f(E) + ' ' + f(-N); }).join('L');
+    };
+    const rad = { arcs: '', lines: dep.map(depPath).join('') };
+    for (let i = 0; i < 6; i++) {
+      const r = dep[i];
+      if (r === undefined) { rad['h' + i] = { tf: 'translate(0 0)', tt: 'translate(0 0)', d: 'none', t: '' }; continue; }
+      const h = P(r, 30), flip = (r % 360) > 180;
+      const tf = 'translate(' + f(h[0]) + ' ' + f(h[1]) + ') rotate(' + f(r - 90) + ')';
+      rad['h' + i] = { tf, tt: tf + (flip ? ' rotate(180 1.55 0)' : ''), d: 'inline', t: r3(r) };
+    }
+    const extra = marsh.filter(m => m.id !== 'A');
+    rad.mx = extra.map(m => 'M' + pt(P(m.r, 20)) + 'L' + pt(P(m.r, 30))).join('');
+    // CV-1 arrival per stack (6.4.7.3): inbound on the marshal radial; at 20 DME a 30° turn toward the FB
+    // (gradual if within 10° of the FB reciprocal), intercept leg, 1.5 NM turn onto the FB.
+    const REC = (FB + 180) % 360, AR2 = 1.5, crs = (a, b) => a[0] * b[1] - a[1] * b[0];
+    const arrival = m => {
+      const fix = P(m.r, m.base + 15), K1 = P(m.r, 20), h1 = (m.r + 180) % 360;
+      const diff = ((m.r - REC) % 360 + 540) % 360 - 180, ab = Math.abs(diff);
+      if (ab < 1) return { dot: 'M' + pt(fix) + 'L' + pt(P(REC, 12)), fin: 'M' + pt(P(REC, 12)) + 'L' + pt(P(REC, 0.75)) };
+      const off = ab <= 10 ? 2 * ab : 30, left = diff < 0, hi = left ? h1 - off : h1 + off;
+      const d1 = dir(h1), d2 = dir(hi), d3 = dir(FB), v = dir(REC);
+      const t = -crs(K1, v) / crs(d2, v);
+      const K2 = add(K1, mul(d2, t)), lam = K2[0] * v[0] + K2[1] * v[1];
+      const e1 = AR2 * Math.tan(off / 2 * D), s1 = left ? 0 : 1;
+      const F1a = add(K1, mul(d1, -e1)), F1b = add(K1, mul(d2, e1));
+      const head = 'M' + pt(fix) + 'L' + pt(F1a) + 'A' + AR2 + ' ' + AR2 + ' 0 0 ' + s1 + ' ' + pt(F1b);
+      // Which does the 30° leg reach first: the FB astern of the ship, or the 12 DME circle?
+      const A12 = 12, bb = K1[0] * d2[0] + K1[1] * d2[1], cc = K1[0] * K1[0] + K1[1] * K1[1] - A12 * A12, disc = bb * bb - cc;
+      const tx = disc >= 0 ? -bb - Math.sqrt(disc) : -1;
+      const hitsFB = t > 0 && lam > 2, hitsArc = tx > 0;
+      const brg0 = q => ((Math.atan2(q[0], -q[1]) / D) % 360 + 360) % 360;
+      const bX0 = hitsArc ? brg0(add(K1, mul(d2, tx))) : 0;
+      const remain = left ? ((REC - bX0) % 360 + 360) % 360 : ((bX0 - REC) % 360 + 360) % 360;
+      // arc only when the leg reaches 12 DME before the FB, with real arc left to fly (>20°)
+      if (hitsFB && (!hitsArc || t <= tx || remain < 20 || remain > 300)) {
+        const al = ad(hi, FB), e2 = AR2 * Math.tan(al / 2 * D);
+        const F2a = add(K2, mul(d2, -e2)), F2b = add(K2, mul(d3, e2));
+        return { dot: head + 'L' + pt(F2a) + 'A' + AR2 + ' ' + AR2 + ' 0 0 ' + (1 - s1) + ' ' + pt(F2b), fin: 'M' + pt(F2b) + 'L' + pt(P(REC, 1.3)) };
+      }
+      // Not established by 12 DME: fly the 30° leg to 12 DME, then the 12 DME arc to the FB (6.4.7.3 b).
+      if (!hitsArc) return { dot: head + 'L' + pt(P(REC, 12)), fin: 'M' + pt(P(REC, 12)) + 'L' + pt(P(REC, 1.3)) };
+      const X = add(K1, mul(d2, tx));
+      const cw = left;                                   // left turn moves the jet to larger bearings: clockwise round the arc
+      const brg = q => ((Math.atan2(q[0], -q[1]) / D) % 360 + 360) % 360;
+      const bX = brg(X), lead = 1.5 / A12 / D, bY = cw ? bX + lead : bX - lead, Y = P(bY, A12);
+      const Xpre = add(X, mul(d2, -1.5));
+      // turn off the arc onto the FB: radius AR2, tangent to the arc (inside) and to the FB line
+      const mside = dir(cw ? REC - 90 : REC + 90), tf = Math.sqrt((A12 - AR2) * (A12 - AR2) - AR2 * AR2);
+      const C = add(mul(v, tf), mul(mside, AR2)), Ta = mul(C, A12 / (A12 - AR2)), Tf = mul(v, tf);
+      const bTa = brg(Ta), span = cw ? ((bTa - bY) % 360 + 360) % 360 : ((bY - bTa) % 360 + 360) % 360;
+      const hd = cw ? dir(bTa + 90) : dir(bTa - 90), rgt = [-hd[1], hd[0]], toC = [C[0] - Ta[0], C[1] - Ta[1]];
+      const sw2 = (toC[0] * rgt[0] + toC[1] * rgt[1]) > 0 ? 1 : 0;
+      return { dot: head + 'L' + pt(Xpre) + 'Q' + pt(X) + ' ' + pt(Y) + 'A' + A12 + ' ' + A12 + ' 0 ' + (span > 180 ? 1 : 0) + ' ' + (cw ? 1 : 0) + ' ' + pt(Ta) + 'A' + AR2 + ' ' + AR2 + ' 0 0 ' + sw2 + ' ' + pt(Tf),
+               fin: 'M' + pt(Tf) + 'L' + pt(P(REC, 1.3)) };
+    };
+    const arrStr = m => { const a = arrival(m); return a.dot + a.fin.replace(/^M/, 'L'); };
+    // Lowest holding pattern per stack (6.4.1.1): left-hand 6-min racetrack, inbound leg over the fix.
+    // 250 KT: 1-min legs (4.2 NM), 2-min turns (radius 2.65 NM).
+    const rot = (q, b) => { const c = Math.cos(b * D), sn = Math.sin(b * D); return [q[0] * c - q[1] * sn, q[0] * sn + q[1] * c]; };
+    const fixOf = m => { const c = P(m.r, m.base + 15), n = [Math.cos(m.r * D) * 0.55 * ZK, Math.sin(m.r * D) * 0.55 * ZK]; return 'M' + pt([c[0] - n[0], c[1] - n[1]]) + 'L' + pt([c[0] + n[0], c[1] + n[1]]); };
+    const holdOf = m => { const a = m.base + 15, b = a + 4.2, g = q => pt(rot(q, m.r));
+      return 'M' + g([0, -a]) + 'L' + g([0, -b]) + 'A2.65 2.65 0 0 1 ' + g([5.3, -b]) + 'L' + g([5.3, -a]) + 'A2.65 2.65 0 0 1 ' + g([0, -a]) + 'Z'; };
+    // While a stack is being moved, its current depiction is dimmed and a full preview follows the cursor.
+    const edM = editing && editing.k === 'm' ? marsh.find(m => m.id === editing.id) : null;
+    const liveM = marsh.filter(m => m !== edM);
+    rad.fixes = liveM.map(fixOf).join('');
+    rad.holds = liveM.map(holdOf).join('');
+    rad.arr = liveM.map(arrStr).join('');
+    rad.dimStack = edM ? holdOf(edM) + fixOf(edM) + arrStr(edM) : '';
+    // Highlight (click in the sidebar): the selected departure radial or stack drawn bright on the scope.
+    const hl = s.hl || null, hlM = hl && hl.k === 'm' ? marsh.find(m => m.id === hl.id) : null;
+    const rHold = (b, a, len, rr) => { const g = q => pt(rot(q, b)), w = 2 * rr;   // right-hand racetrack, inbound leg over the fix
+      return 'M' + g([0, -a]) + 'L' + g([0, -(a + len)]) + 'A' + rr + ' ' + rr + ' 0 0 0 ' + g([-w, -(a + len)]) + 'L' + g([-w, -a]) + 'A' + rr + ' ' + rr + ' 0 0 0 ' + g([0, -a]) + 'Z'; };
+    const tick = (b, a) => { const c = P(b, a), n = [Math.cos(b * D) * 0.55 * ZK, Math.sin(b * D) * 0.55 * ZK]; return 'M' + pt([c[0] - n[0], c[1] - n[1]]) + 'L' + pt([c[0] + n[0], c[1] + n[1]]); };
+    rad.hl = hl && hl.k === 'dep' && dep.includes(hl.id) ? depPath(hl.id)
+      : hl && hl.k === 'e' ? rHold(EMR, 21, 4.2, 2.65) + tick(EMR, 21)
+      : hl && hl.k === 'h' ? rHold(HEL, 5, 2, 0.5) + tick(HEL, 5)
+      : (hlM && hlM !== edM ? holdOf(hlM) + fixOf(hlM) + arrStr(hlM) : '');
+    for (let i = 0; i < 4; i++) {
+      const m = extra[i];
+      if (!m) { rad['m' + i] = { x: '0', y: '0', d: 'none', t: '' }; continue; }
+      const q = P(m.r, 31);
+      rad['m' + i] = { x: f(q[0]), y: f(q[1]), d: 'inline', t: m.id + ' · ' + r3(m.r) + 'R' };
+    }
+    // placement mode: blocked sectors, candidate under the cursor
+    const wedge = (a, half, r0, r1) => { const a1 = a - half, a2 = a + half;
+      return 'M' + pt(P(a1, r0)) + 'L' + pt(P(a1, r1)) + 'A' + r1 + ' ' + r1 + ' 0 0 1 ' + pt(P(a2, r1)) + 'L' + pt(P(a2, r0)) + 'A' + r0 + ' ' + r0 + ' 0 0 0 ' + pt(P(a1, r0)) + 'Z'; };
+    rad.nogoD = placing ? 'inline' : 'none';
+    const depO = dep.filter(r => !(editing && editing.k === 'dep' && editing.r === r));
+    const marO = marsh.filter(m => !(editing && editing.k === 'm' && editing.id === m.id));
+    rad.nogo = placing === 'dep'
+      ? depO.map(r => wedge(r, 20, 7, 50)).concat(reserved.map(x => wedge(x.r, 20, 7, 50))).join('')
+      : placing === 'm' ? dep.map(r => wedge(r, 20, 7, 50)).concat(marO.map(m => wedge(m.r, 10, 7, 50))).join('') : '';
+    rad.bow = placing === 'm' ? wedge(BRC, 90, 7, 50) : '';
+    const hc = hov == null ? null : check(hov);
+    const hOk = hc && !hc.err;
+    rad.candD = hov != null ? 'inline' : 'none';
+    rad.candC = hOk ? (hc.warn ? '#E7B04F' : '#7FD397') : '#FF8A85';
+    if (hov != null) {
+      const cl = P(hov, 36);
+      const pm = Object.assign({ id: '?', base: 6 }, edM || {}, { r: hov });
+      rad.cand = placing === 'dep' ? depPath(hov) : holdOf(pm) + fixOf(pm) + arrStr(pm);
+      rad.candLx = f(cl[0] + 0.7); rad.candLy = f(cl[1]); rad.candT = r3(hov) + 'R';
+    } else { rad.cand = ''; rad.candLx = '0'; rad.candLy = '0'; rad.candT = ''; }
+    // Hooked aircraft (mockup: 106). Cursor over a stack (not the helo stack): marshal assignment, wheel picks the level.
+    // Anywhere else: vector helper to the cursor, wheel sets the airspeed. Turns flown at 30° bank for the airspeed.
+    const HK = { id: '106', p: [-39.13, -8.32], h: 100 };
+    const stacks = marsh.map(m => ({ id: m.id, r: m.r, base: m.base, rh: false, def: m.id === 'A' ? 9 : m.base, last: m.id === 'A' ? 17 * 60 : 0 }))
+      .concat([{ id: 'E', r: EMR, base: 6, rh: true, def: 6, last: 0 }]);
+    const hitStack = q => { if (!q) return null;
+      for (const st of stacks) { const l = rot(q, -st.r), al = -l[1], x = st.rh ? -l[0] : l[0];
+        if (al >= st.base + 13 && al <= st.base + 15 + 12 + 6.5 && x >= -1.5 && x <= 6.8) return st; }
+      return null; };
+    const fly = (p0, h0, T, R) => { const o = [p0.slice()]; let p = p0.slice(), h = h0, turned = 0, dist = 0; const ds = 0.1;
+      for (let i = 0; i < 6000; i++) {
+        const dx = T[0] - p[0], dy = T[1] - p[1], rg = Math.hypot(dx, dy);
+        if (rg < 0.05) break;
+        const b = Math.atan2(dx, -dy) / D, df = ((b - h) % 360 + 540) % 360 - 180;
+        if (Math.abs(df) < 0.5 || turned > 360) { o.push(T.slice()); dist += rg; h = b; break; }
+        const st = Math.min(Math.abs(df), ds / R / D); h += Math.sign(df) * st; turned += st;
+        const dd = dir(h); p = [p[0] + dd[0] * ds, p[1] + dd[1] * ds]; dist += ds; o.push(p.slice());
+      }
+      return { d: 'M' + o.map(pt).join('L'), dist, hdg: ((h % 360) + 360) % 360 }; };
+    const spd = s.vspd || 420, TR = spd * spd / (11.26 * Math.tan(30 * D)) / 6076.12, NOW = 18 * 3600 + 12 * 60 + 30;
+    const hms = t => { t = Math.round(t); return [Math.floor(t / 3600) % 24, Math.floor(t / 60) % 60, t % 60].map(n => String(n).padStart(2, '0')).join(':'); };
+    const ms = t => { t = Math.round(t); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+    const assign = (st, ang) => { const fd = ang + 15, fx = P(st.r, fd), fl = fly(HK.p, HK.h, fx, TR), tf = NOW + fl.dist / spd * 3600;
+      const eat = Math.max(Math.ceil(tf / 60) * 60, st.last ? 18 * 3600 + st.last + 60 : 0);
+      return { fd, fx, fl, tf, eat, hold: st.rh ? rHold(st.r, fd, 4.2, 2.65) : holdOf({ r: st.r, base: ang }), fix: fixOf({ r: st.r, base: ang }) }; };
+    const cur = s.hooked === HK.id && !placing ? (s.cur || null) : null, ovS = hitStack(cur);
+    const hk = { on: 'none', path: '', hold: '', fix: '', lv: '', tag: null, dash: 'none' };
+    if (cur && ovS) {
+      const ang = s.asg && s.asg.id === ovS.id ? s.asg.ang : ovS.def, A = assign(ovS, ang);
+      let lv = ''; for (let a = ovS.base; a <= ovS.base + 12; a++) if (a !== ang) lv += fixOf({ r: ovS.r, base: a });
+      Object.assign(hk, { on: 'inline', path: A.fl.d, hold: A.hold, fix: A.fix, lv,
+        tag: { at: A.fx, r0: HK.id + ' → ' + ovS.id + ang + ' · ' + A.fd + ' DME', r1: 'ANGELS ' + ang + ' · FIX ' + hms(A.tf), r2: 'EAT ' + hms(A.eat).slice(0, 5) + ' · ' + spd + ' KT' } });
+    } else if (cur) {
+      const fl = fly(HK.p, HK.h, cur, TR), dx = cur[0] - HK.p[0], dy = cur[1] - HK.p[1];
+      Object.assign(hk, { on: 'inline', path: fl.d, dash: '6 4',
+        tag: { at: cur, r0: 'BRG ' + r3(Math.atan2(dx, -dy) / D) + ' · RNG ' + Math.hypot(dx, dy).toFixed(1), r1: 'HDG ' + r3(fl.hdg) + ' · TRK DIST ' + fl.dist.toFixed(1), r2: 'ETE ' + ms(fl.dist / spd * 3600) + ' · ' + spd + ' KT' } });
+    }
+    rad.hk = hk; rad.hitStack = hitStack;
+    // Last assignment stays drawn (dimmer) once the aircraft is unhooked.
+    const adS = s.asgd ? stacks.find(x => x.id === s.asgd.id) : null;
+    if (adS && s.hooked !== HK.id) { const A = assign(adS, s.asgd.ang);
+      rad.ad = { on: 'inline', path: A.fl.d, fix: A.fix, at: A.fx, t: HK.id + ' · ' + adS.id + s.asgd.ang + ' · EAT ' + hms(A.eat).slice(0, 5) };
+    } else rad.ad = { on: 'none', path: '', fix: '', at: null, t: '' };
+    const bearingAt = e => {
+      const svg = e.currentTarget, m = svg.getScreenCTM(); if (!m) return null;
+      const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY;
+      const v = q.matrixTransform(m.inverse());
+      if (Math.hypot(v.x, v.y) < 3) return null;
+      return ((Math.round(Math.atan2(v.x, -v.y) / D / 5) * 5) % 360 + 360) % 360;
+    };
+    const onScopeMove = e => { if (!placing) return; const b = bearingAt(e); if (b !== s.hov) this.setState({ hov: b }); };
+    const onScopeLeave = () => { if (placing) this.setState({ hov: null }); };
+    const onScopeClick = e => {
+      if (!placing) { if (s.hooked) this.setState({ hooked: null }); return; }
+      const b = bearingAt(e); if (b == null) return;
+      if (check(b).err) return;
+      if (editing && editing.k === 'dep') { this.setState({ dep: s.dep.map(x => x === editing.r ? b : x).sort((x, y) => x - y), placing: null, hov: null, editing: null }); return; }
+      if (editing && editing.k === 'm') { this.setState({ marsh: s.marsh.map(m => m.id === editing.id ? Object.assign({}, m, { r: b }) : m), placing: null, hov: null, editing: null }); return; }
+      if (placing === 'dep') this.setState({ dep: s.dep.concat([b]).sort((x, y) => x - y), placing: null, hov: null });
+      else { const id = ['B', 'C', 'D', 'F'].find(k => !marsh.some(m => m.id === k)); this.setState({ marsh: s.marsh.concat([{ id, r: b, base: 6 }]), placing: null, hov: null }); }
+    };
+    const arm = k => () => this.setState({ placing: (placing === k && !editing) ? null : k, hov: null, editing: null });
+    const btn = k => ({ label: (placing === k && !editing) ? 'Cancel' : (k === 'dep' ? 'Add' : 'Add stack'),
+      bg: (placing === k && !editing) ? 'rgba(241,88,34,.18)' : 'transparent', bc: (placing === k && !editing) ? '#F15822' : '#374250', fg: (placing === k && !editing) ? '#FFB08F' : '#E6EDF3' });
+    const bD = btn('dep'), bM = btn('m');
+    const status = placing ? (hov == null ? 'Click scope to place'
+      : r3(hov) + 'R' + (hc.err ? ' · ' + hc.err : hc.warn ? ' · ' + hc.warn : '')) : '';
+    return {
+      rad, onScopeMove, onScopeLeave, onScopeClick, scopeCur: placing ? 'crosshair' : 'default',
+      depChips: dep.map(r => { const on = !!(editing && editing.k === 'dep' && editing.r === r), lit = !!(hl && hl.k === 'dep' && hl.id === r);
+        return { name: 'DR', fg: '#C9D3DD', r: r3(r) + 'R', alt: '', isStack: false, canRemove: true, canEdit: !on, sel: on,
+          aria: 'Remove departure radial ' + r3(r), editAria: 'Edit departure radial ' + r3(r), pickAria: 'Highlight departure radial ' + r3(r), pressed: lit ? 'true' : 'false',
+          bg: on ? 'rgba(241,88,34,.14)' : (lit ? '#2E3946' : '#222C37'), bc: on ? '#F15822' : (lit ? '#E6EDF3' : 'transparent'),
+          pick: () => this.setState({ hl: lit ? null : { k: 'dep', id: r } }),
+          edit: () => this.setState({ placing: 'dep', editing: { k: 'dep', r }, hov: null }),
+          cancel: () => this.setState({ placing: null, editing: null, hov: null }),
+          remove: () => this.setState({ dep: s.dep.filter(x => x !== r), placing: null, editing: null, hl: null }) }; }),
+      mRows: marsh.map(m => { const on = !!(editing && editing.k === 'm' && editing.id === m.id), lit = !!(hl && hl.k === 'm' && hl.id === m.id);
+        const setBase = d => () => this.setState({ marsh: s.marsh.map(x => x.id === m.id ? Object.assign({}, x, { base: Math.max(6, Math.min(20, x.base + d)) }) : x) });
+        const exp = !!(s.mExp && s.mExp[m.id]);
+        const occ = m.id === 'A' ? { 6: ['101', ':15', '6.8'], 7: ['102', ':16', '7.1'], 8: ['104 ↘', ':17', '6.1'] } : {};
+        if (s.asgd && s.asgd.id === m.id) occ[s.asgd.ang] = ['106', s.asgdEat || '—', '7.4', 1];
+        else if (m.id === 'A' && !s.asgd) occ[9] = ['106', ':22?', '7.4', 1];
+        const levels = []; for (let a = m.base; a < m.base + 6; a++) { const o = occ[a];
+          levels.push({ a: String(a), d: String(a + 15), eat: o ? o[1] : '—', ac: o ? o[0] : 'open', st: o ? o[2] : '',
+            bg: o && o[3] ? 'rgba(228,91,234,.12)' : 'transparent', bc: o && o[3] ? 'rgba(228,91,234,.7)' : 'transparent', fg: o ? (o[3] ? '#F2B3F5' : '#E6EDF3') : '#6B7683' }); }
+        return { name: 'Stack ' + m.id, r: r3(m.r) + 'R', alt: 'A' + m.base + '+', fg: '#FFB08F', canRemove: m.id !== 'A' || marsh.length > 1,
+          canExp: true, exp, expA: exp ? 'true' : 'false', chev: exp ? 180 : 0, expAria: (exp ? 'Hide' : 'Show') + ' stack ' + m.id + ' levels', levels,
+          toggleExp: () => this.setState({ mExp: Object.assign({}, s.mExp || {}, { [m.id]: !exp }) }),
+          sel: on, notSel: !on, canEdit: !on, isStack: true, pressed: lit ? 'true' : 'false',
+          bg: on ? 'rgba(241,88,34,.14)' : (lit ? '#2E3946' : '#222C37'), bc: on ? '#F15822' : (lit ? '#E6EDF3' : 'transparent'),
+          pick: () => this.setState({ hl: lit ? null : { k: 'm', id: m.id } }),
+          edit: () => this.setState({ placing: 'm', editing: { k: 'm', id: m.id }, hov: null }),
+          cancel: () => this.setState({ placing: null, editing: null, hov: null }),
+          baseDn: setBase(-1), baseUp: setBase(1), editAria: 'Edit stack ' + m.id, pickAria: 'Highlight stack ' + m.id,
+          aria: 'Remove stack ' + m.id, remove: () => this.setState({ marsh: s.marsh.filter(x => x.id !== m.id), placing: null, editing: null, hl: null }) }; }).concat([
+        { isStack: false, name: 'Emergency', r: r3(EMR) + 'R', alt: 'A6+', fg: '#E7B04F', canRemove: false, sel: false, notSel: true, canEdit: false, pressed: (hl && hl.k === 'e') ? 'true' : 'false', bg: (hl && hl.k === 'e') ? '#2E3946' : '#222C37', bc: (hl && hl.k === 'e') ? '#E6EDF3' : 'transparent', pick: () => this.setState({ hl: (hl && hl.k === 'e') ? null : { k: 'e' } }), edit: () => {}, cancel: () => {}, baseDn: () => {}, baseUp: () => {}, editAria: '', pickAria: 'Emergency marshal', aria: '', remove: () => {} },
+        { isStack: false, name: 'Helo', r: r3(HEL) + 'R', alt: '1000 ft', fg: '#6FB6E6', canRemove: false, sel: false, notSel: true, canEdit: false, pressed: (hl && hl.k === 'h') ? 'true' : 'false', bg: (hl && hl.k === 'h') ? '#2E3946' : '#222C37', bc: (hl && hl.k === 'h') ? '#E6EDF3' : 'transparent', pick: () => this.setState({ hl: (hl && hl.k === 'h') ? null : { k: 'h' } }), edit: () => {}, cancel: () => {}, baseDn: () => {}, baseUp: () => {}, editAria: '', pickAria: 'Helo marshal', aria: '', remove: () => {} }]),
+      armDep: arm('dep'), armM: arm('m'), bD, bM,
+      rStatus: status, rStatusShow: !!placing && !editing, rStatusFg: hov == null ? '#93A1B0' : rad.candC
+    };
+  }
+  renderVals() {
+    const s = this.state, ov = s.ov;
+    // Seat presets: each CATCC seat opens with its own fit and layers.
+    const SEAT_PRE = { catcc: ['r50', {}], airops: ['cca', {}], dep: ['dep', { dep: true, marshal: false, arr: false, bolter: false, tanker: true }],
+      marshal: ['app', { dep: true, marshal: true, arr: true, bolter: false }], app: ['app', { marshal: true, arr: true, bolter: true, cv1: true, dep: false }], final: ['app', { arr: true, bolter: true, cv1: true, dep: false }] };
+    const SVs = this.seatVals('CATCC', k => { const p = SEAT_PRE[k]; if (p) this.setState({ zfit: p[0], ov: Object.assign({}, ov, p[1]) }); });
+    const clampW = w => Math.max(12, Math.min(220, w));
+    const fitBox = (pts, pad) => {
+      let xa = Infinity, xb = -Infinity, ya = Infinity, yb = -Infinity;
+      pts.forEach(([x, y]) => { xa = Math.min(xa, x); xb = Math.max(xb, x); ya = Math.min(ya, y); yb = Math.max(yb, y); });
+      const w = (xb - xa) + 2 * pad, h = (yb - ya) + 2 * pad, asp = s.asp || 0.75;
+      return { zw: clampW(Math.max(w, h / asp)), zx: (xa + xb) / 2, zy: (ya + yb) / 2 };
+    };
+    const PB0 = (b, r) => [r * Math.sin(b * Math.PI / 180), -r * Math.cos(b * Math.PI / 180)];
+    const fits = {
+      r50: () => fitBox([[-50, -50], [50, 50]], 0),
+      cca: () => fitBox([[-70, -70], [70, 70]], 0),
+      dep: () => fitBox([[0, 0]].concat((s.dep || []).map(r => PB0(r, 50))).concat([PB0(345, 10)]), 3),
+      app: () => { const pts = [[0, 0], [-4, -5], [4, 9]];
+        (s.marsh || []).forEach(m => { const a = m.base + 15; pts.push(PB0(m.r, a + 4.2 + 2.7)); pts.push(PB0(m.r + 14, a + 2)); pts.push(PB0(m.r - 14, a + 2)); });
+        pts.push(PB0(126, 27), PB0(86, 8)); return fitBox(pts, 3); }
+    };
+    // An active fit (CCA / DEP / APP) is recomputed every render, so it follows added or moved radials and stacks.
+    const FIT = s.zfit ? fits[s.zfit]() : null;
+    const VW = FIT ? FIT.zw : (s.zw || 97), VX = FIT ? FIT.zx : (s.zx != null ? s.zx : -2), VY = FIT ? FIT.zy : (s.zy != null ? s.zy : 4);
+    const FR = this.frame(s.asp, VW, VX, VY, s.boxW);
+    // Display settings: 5-step scales for hits, data tags, line weight and other scope text (Settings dialog; applied on Accept).
+    const UI_STEPS = [1.15, 1.3, 1.45, 1.6, 1.8], LW_STEPS = [1.15, 1.5, 1.9, 2.4, 3], UI_DEF = { h: 2, t: 2, l: 2, o: 2 }, UI = Object.assign({}, UI_DEF, s.ui || {});
+    const sH = UI_STEPS[UI.h - 1], sT = UI_STEPS[UI.t - 1], sL = LW_STEPS[UI.l - 1], sO = UI_STEPS[UI.o - 1];
+    const RV = this.radials(s, FR.z * sO);
+    const KX = (s.boxW || 900) / VW, toPx = q => [(q[0] - FR.vx) * KX, (q[1] - FR.vy) * KX];
+    const zk = FR.z, zt = {}, zkH = zk * sH, zkT = zk * sT, zkO = zk * sO;
+    // Formation (mockup): VOLT 3, 4 × F/A-18C in finger-four cruise. Collapsed under the lead by default; members are a few hundred yards apart,
+    // so at these ranges their hits merge. fmSel 0 = flight (collapsed), 1–4 = that member expanded and selected.
+    const FM = { L: [-19.0, 32.91], cs: 'VOLT 3', mem: [['401', '6.2'], ['405', '5.9'], ['410', '6.1'], ['414', '6.0']] };
+    const fmSel = s.fmSel || 0;
+    const fmD = {}; for (let i = 0; i <= 4; i++) fmD['t' + i] = fmSel === i ? 'inline' : 'none';
+    fmD.ex = fmSel ? 'inline' : 'none'; fmD.col = fmSel ? 'none' : 'inline'; fmD.ring = s.fmHov ? 'inline' : 'none';
+    for (let i = 1; i <= 4; i++) fmD['s' + i] = fmSel === i ? 'inline' : 'none';
+    ['f1', 'f2', 'f3', 'f4'].forEach((k, i) => { const p = [[-19.0, 32.91], [-19.29, 32.92], [-18.86, 33.17], [-18.72, 33.42]][i]; zt[k] = 'translate(' + p[0] + ' ' + p[1] + ') scale(' + zkH.toFixed(4) + ') translate(' + (-p[0]) + ' ' + (-p[1]) + ')'; });
+    // Off-scope indicators: hits within CCA + 10 NM that are outside the view get a triangle on the scope edge pointing at them.
+    const HITS = [['106', -39.13, -8.32, '#FF8A85'], ['401', -19.0, 32.91], ['412', -23.18, -6.21, '#FF8A85'], ['203', 8.75, 15.11], ['205', 2.44, 5.48], ['101', 12.05, 17.2], ['102', 8.85, 21.88],
+      ['104', 21.55, 19.4], ['115', -3.09, 0.83], ['610', 2.6, -0.6], ['302', 31.5, -4.5, '#3E9BD4'], ['305', 40, -22, '#3E9BD4']];
+    const offs = (() => {
+      const VH = VW * s.asp, x0 = VX - VW / 2, y0 = VY - VH / 2, pad = 0.4 * zk, ins = 24 / KX;
+      const hx = VW / 2 - ins, hy = VH / 2 - ins, tc = (this.props.tracks ?? 'Green') === 'Green' ? '#5FD068' : '#E6EDF3';
+      return HITS.filter(([, x, y]) => Math.hypot(x, y) <= 60 && (x < x0 - pad || x > x0 + VW + pad || y < y0 - pad || y > y0 + VH + pad)).map(([id, x, y, c]) => {
+        const dx = x - VX, dy = y - VY, t = Math.min(dx ? hx / Math.abs(dx) : Infinity, dy ? hy / Math.abs(dy) : Infinity), q = toPx([VX + dx * t, VY + dy * t]);
+        return { id, x: q[0].toFixed(1), y: q[1].toFixed(1), rot: (Math.atan2(dy, dx) * 180 / Math.PI).toFixed(1), c: c || tc, ring: c === '#FF8A85' ? 'inline' : 'none' };
+      });
+    })();
+    // CPA tag: when the CPA point is off the scope, the tag is pinned inside the edge in its direction.
+    const cpaTag = (() => {
+      const VH = VW * s.asp, x0 = VX - VW / 2, y0 = VY - VH / 2, P0 = [-31.6, -10.2];
+      if (P0[0] >= x0 && P0[0] <= x0 + VW && P0[1] >= y0 && P0[1] <= y0 + VH) return { d: 'none', x: 0, y: 0 };
+      const dx = P0[0] - VX, dy = P0[1] - VY, ins = 24 / KX, t = Math.min(dx ? (VW / 2 - ins) / Math.abs(dx) : Infinity, dy ? (VH / 2 - ins) / Math.abs(dy) : Infinity);
+      const q = toPx([VX + dx * t, VY + dy * t]), BW = s.boxW || 900, BH = BW * s.asp, w = 196, h = 20;
+      const x = Math.max(40, Math.min(BW - 40 - w, q[0] - w / 2)), y = Math.max(44, Math.min(BH - 44 - h, q[1] + (dy < 0 ? 18 : -18 - h)));
+      return { d: 'block', x: x.toFixed(0), y: y.toFixed(0) };
+    })();
+    const anchors = { t106: [-39.13, -8.32], t412: [-23.18, -6.21], t203: [8.75, 15.11], t205: [2.44, 5.48], t101: [12.05, 17.2], t102: [8.85, 21.88], t104: [21.55, 19.4], t115: [-3.09, 0.83], t610: [2.6, -0.6], t302: [31.5, -4.5], t305: [40, -22], a106: [-39.13, -8.32], a412: [-23.18, -6.21], cpa: [-31.6, -10.2], a203: [8.75, 15.11], a205: [2.44, 5.48], a101: [12.05, 17.2], a102: [8.85, 21.88], a104: [21.55, 19.4], a115: [-3.09, 0.83], a610: [2.6, -0.6], a302: [31.5, -4.5], a305: [40, -22], ship: [0, 0], tf: [-19.0, 32.91], coord: [20.37, -3] };
+    Object.keys(anchors).forEach(k => { const [ax, ay] = anchors[k], kk = /^a|^ship$/.test(k) ? zkH : (/^t|^cpa$|^coord$/.test(k) ? zkT : zkO); zt[k] = 'translate(' + ax + ' ' + ay + ') scale(' + kk.toFixed(4) + ') translate(' + (-ax) + ' ' + (-ay) + ')'; });
+    zt.s71 = 'scale(' + zkH.toFixed(4) + ')';
+    // View centre stays within 100 NM of the focus carrier.
+    const clampC = (x, y) => { const r = Math.hypot(x, y), k = r > 100 ? 100 / r : 1; return { zx: x * k, zy: y * k }; };
+    const zoomBy = (k, about) => {
+      const nw = clampW(VW * k), c = about || [VX, VY];
+      this.setState(Object.assign({ zw: nw, zfit: null }, clampC(c[0] + (VX - c[0]) * nw / VW, c[1] + (VY - c[1]) * nw / VW)));
+    };
+    const onWheel = e => {
+      // Over a formation: the wheel steps through flight (collapsed) → -1 → -2 → -3 → -4.
+      if (s.fmHov && !s.placing) { const n = FM.mem.length + 1, k = ((s.fmSel || 0) + (e.deltaY > 0 ? 1 : -1) + n) % n; this.setState({ fmSel: k }); return; }
+      // Hooked: the wheel sets the stack level (over a stack) or the vector airspeed, instead of zooming.
+      if (s.hooked && s.cur && !s.placing) { const up = e.deltaY < 0 ? 1 : -1, st = RV.rad.hitStack(s.cur);
+        if (st) { const a0 = s.asg && s.asg.id === st.id ? s.asg.ang : st.def; this.setState({ asg: { id: st.id, ang: Math.max(st.base, Math.min(st.base + 12, a0 + up)) } }); }
+        else this.setState({ vspd: Math.max(150, Math.min(650, (s.vspd || 420) + up * 10)) });
+        return; }
+      const svg = e.currentTarget, m = svg.getScreenCTM(); if (!m) return;
+      const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; const v = q.matrixTransform(m.inverse());
+      zoomBy(e.deltaY > 0 ? 1.15 : 1 / 1.15, [v.x, v.y]);
+    };
+    const zoomFits = [['r50', '50NM', 'Default range: 50 NM around the carrier'], ['cca', 'CCA', 'Fit CCA + 20 NM'], ['dep', 'DEP', 'Fit carrier and departure radials'], ['app', 'APP', 'Fit carrier, bolter pattern and marshal stacks']].map(([k, l, t]) => ({
+      label: l, title: t, go: () => this.setState(Object.assign(fits[k](), { zfit: k })),
+      bg: s.zfit === k ? 'rgba(241,88,34,.18)' : 'transparent', bc: s.zfit === k ? '#F15822' : '#374250', fg: s.zfit === k ? '#FFB08F' : '#E6EDF3' }));
+    const PB = (b, r) => [r * Math.sin(b * Math.PI / 180), -r * Math.cos(b * Math.PI / 180)];
+    const r3o = n => String(((Math.round(n) % 360) + 360) % 360).padStart(3, '0');
+    // Flags: departure radials centred on 35 DME pointing outbound; marshal radials centred on the inbound holding leg pointing inbound.
+    const flag = (b, d, outbound, t, sc, tc) => { const q = toPx(PB(b, d)), h = outbound ? b : (b + 180) % 360, w = Math.round(t.length * 6.4 + 18);
+      return { x: q[0].toFixed(1), y: q[1].toFixed(1), rot: (h - 90).toFixed(1), tr: h > 180 ? 180 : 0, t, w, ml: -w / 2, tw: w - 7, sc: sc || '#93A1B0', tc: tc || '#E6EDF3',
+        d: 'M0.5 0.5 H' + (w - 7.5) + ' L' + (w - 0.5) + ' 8 L' + (w - 7.5) + ' 15.5 H0.5 Z' }; };
+    const ed = s.placing && s.editing ? s.editing : null;
+    const DIM = ['#4A5562', '#6B7683'];
+    const ovFlags = (s.dep || []).map(r => (ed && ed.k === 'dep' && ed.r === r) ? flag(r, 35, true, 'DR ' + r3o(r), DIM[0], DIM[1]) : flag(r, 35, true, 'DR ' + r3o(r)))
+      .concat((s.marsh || []).map(m => (ed && ed.k === 'm' && ed.id === m.id) ? flag(m.r, m.base + 15 + 2.1, false, m.id + ' ' + r3o(m.r), DIM[0], DIM[1]) : flag(m.r, m.base + 15 + 2.1, false, m.id + ' ' + r3o(m.r))))
+      .concat([flag(126, 23.1, false, 'E 126'), flag(86, 6, false, 'H 086')]);
+    const ovLabels = [];
+    // Candidate flag follows the preview: on the inbound leg for a stack, at 35 DME for a departure radial.
+    if (s.placing && s.hov != null) {
+      const cc = (RV.rad && RV.rad.candC) || '#7FD397';
+      if (s.placing === 'm') { const em = ed && ed.k === 'm' ? (s.marsh || []).find(m => m.id === ed.id) : null, base = em ? em.base : 6, id = em ? em.id : (['B', 'C', 'D', 'F'].find(k => !(s.marsh || []).some(m => m.id === k)) || '?');
+        ovFlags.push(flag(s.hov, base + 15 + 2.1, false, id + ' ' + r3o(s.hov), cc, cc)); }
+      else ovFlags.push(flag(s.hov, 35, true, 'DR ' + r3o(s.hov), cc, cc));
+    }
+    if (!this._sb) this._sb = (el) => this.setBox(el);
+    const groups = [
+      ['Ship', [['brc','BRC','#E6EDF3'], ['fb','Final bearing','#E6EDF3']]],
+      ['Airspace', [['cca','CCA 50 NM','#40A85B'], ['coord','Coordination lines','#3E9BD4'], ['sar','Helo restrictions','#DE9A1F']]],
+      ['Departure', [['dep','Departure radials','#93A1B0']]],
+      ['Approach', [['marshal','Marshal stacks','#F15822'], ['arr','Arrival paths','#93A1B0'], ['cv1','CV-1 approach','#E6EDF3'], ['cv2','CV-2 approach','#C9D3DD'], ['cv3','CV-3 approach (helo)','#C9D3DD']]],
+      ['Recovery', [['bolter','Bolter pattern','#DE9A1F'], ['tanker','Tanker pattern','#93A1B0']]],
+      ['Reference', [['rings','Range rings / compass','#5E9A6C'], ['latlon','Lat / lon marks','#93A1B0'], ['grid','Lat / lon grid','#93A1B0']]]
+    ];
+    const labels = [].concat(...groups.map(g => g[1]));
+    // Carrier-specific layers get a second checkbox for the other carrier (always drawn in blue).
+    const SHARED = { coord: 1, latlon: 1, grid: 1 }, ov2 = s.ov2 || {}, BLUE = '#3E9BD4';
+    const setOv = (k) => this.setState({ ov: Object.assign({}, ov, { [k]: !ov[k] }) });
+    const setOv2 = (k) => this.setState({ ov2: Object.assign({}, ov2, { [k]: !ov2[k] }) });
+    const ovItem = ([k,l,c]) => ({ label: l, on: ov[k] ? 'true' : 'false', toggle: () => setOv(k), sw: c, fill: ov[k] ? c : 'transparent', fg: (ov[k] || (!SHARED[k] && k !== 'cca' && ov2[k])) ? '#E6EDF3' : '#93A1B0',
+      has2: !SHARED[k] && k !== 'cca', on2: ov2[k] ? 'true' : 'false', toggle2: () => setOv2(k), fill2: ov2[k] ? BLUE : 'transparent', aria: l + ' · CVN-73', aria2: l + ' · CVN-71' });
+    const overlays = groups.map(([t, items]) => ({ t, items: items.map(ovItem) }));
+    const allOn = labels.every(([k]) => ov[k] && (SHARED[k] || k === 'cca' || ov2[k]));
+    const toggleAll = () => { const n = {}, n2 = {}; labels.forEach(([k]) => { n[k] = !allOn; if (!SHARED[k] && k !== 'cca') n2[k] = !allOn; }); this.setState({ ov: n, ov2: n2 }); };
+    const vis = (b) => b ? 'inline' : 'none';
+    const d = {};
+    labels.forEach(([k]) => { d[k] = vis(ov[k]); });
+    const d2 = {}; labels.forEach(([k]) => { d2[k] = vis(!SHARED[k] && ov2[k]); }); d2.cca = 'inline';   // other carrier's CCA is always shown
+    d.eat = vis(s.hooked === '106' && !!s.stackHov);
+    d.hook = vis(s.hooked === '106');
+    d.bra = vis(s.tool === 'bra');
+    const toolDefs = [['select','Select / hook'],['bra','BRA ruler'],['marshal','Assign marshal level / EAT'],['cpa','CPA probe'],['vec','Vector / heading line']];
+    const tools = toolDefs.map(([k,l]) => ({
+      label: l, pick: () => this.setState({ tool: k }),
+      bg: s.tool === k ? 'rgba(241,88,34,.18)' : 'transparent', fg: s.tool === k ? '#FFB08F' : '#E6EDF3',
+      isSel: k === 'select', isBra: k === 'bra', isMsh: k === 'marshal', isCpa: k === 'cpa', isVec: k === 'vec'
+    }));
+    const stack = [
+      { a:'6', d:'21', eat:':15', ac:'101', st:'6.8' },
+      { a:'7', d:'22', eat:':16', ac:'102', st:'7.1' },
+      { a:'8', d:'23', eat:':17', ac:'104 ↘', st:'6.1' },
+      { a:'9', d:'24', eat:':22?', ac:'106', st:'7.4', hot:true },
+      { a:'10', d:'25', eat:'—', ac:'open', st:'', open:true },
+      { a:'11', d:'26', eat:'—', ac:'open', st:'', open:true }
+    ].map(r => Object.assign(r, { bg: r.hot ? 'rgba(241,88,34,.16)' : 'transparent', bc: r.hot ? '#F15822' : 'transparent', fg: r.open ? '#93A1B0' : (r.hot ? '#FFB08F' : '#E6EDF3') }));
+    const seq = [
+      { t:':13', id:'205', k:'live' }, { t:':14', id:'203', k:'live' }, { t:':15', id:'101', k:'set' }, { t:':16', id:'102', k:'set' },
+      { t:':17', id:'104', k:'set' }, { t:':18', id:'—', k:'open' }, { t:':19', id:'—', k:'open' }, { t:':20', id:'—', k:'open' }, { t:':22', id:'106', k:'prop' }
+    ].map(x => Object.assign(x, {
+      bg: x.k === 'live' ? '#222C37' : (x.k === 'prop' ? 'rgba(241,88,34,.12)' : '#1A212A'),
+      bc: x.k === 'prop' ? '#F15822' : '#374250', bs: (x.k === 'open' || x.k === 'prop') ? 'dashed' : 'solid',
+      fg: x.k === 'prop' ? '#FFB08F' : (x.k === 'open' ? '#93A1B0' : '#E6EDF3')
+    }));
+    // Flight strips under active control (layout follows the ReadyRoom Coordination flight card: lead block, members, position, low state).
+    const SC = { dep: ['DEPARTURE', '#93A1B0'], in: ['INBOUND', '#6FB6E6'], msh: ['MARSHAL', '#F15822'], app: ['APPROACH', '#7FD397'], sup: ['SUPPORT', '#93A1B0'] };
+    const flights = [
+      { g: 'dep', cs: 'ROOK 1', type: 'F-35C', sq: 'x', m: [['412', '9.8']], st: 'DR 285', pos: '285/23', alt: '↑142' },
+      { g: 'in', cs: 'VOLT 3', type: 'F/A-18C', sq: 'x', m: FM.mem, st: 'CHECK-IN', pos: '210/38', alt: '200', fm: true },
+      { g: 'in', cs: 'CHARGER 3', type: 'F/A-18E', sq: 'own', m: [['106', '7.4']], st: s.asgd ? 'MARSHAL ' + s.asgd.id + s.asgd.ang : 'CONFLICT', pos: '283/40', alt: '↓168', hot: !s.asgd, hook: '106' },
+      { g: 'msh', cs: 'CHARGER 1', type: 'F/A-18E', sq: 'own', m: [['101', '6.8'], ['102', '7.1']], st: 'A6 · :15', pos: '145/21', alt: '060' },
+      { g: 'msh', cs: 'CHARGER 2', type: 'F/A-18E', sq: 'own', m: [['104', '6.1']], st: 'A8 · :17', pos: '132/29', alt: '↓090' },
+      { g: 'app', cs: 'BULLET 1', type: 'F/A-18E/F', sq: 'own', m: [['203', '5.9'], ['205', '4.8']], st: 'CV-1', pos: '150/17', alt: '071' },
+      { g: 'sup', cs: 'ARCO 1', type: 'S-3B', sq: 'x', m: [['115', '6.0']], st: 'TANKER', pos: '285/3', alt: '060' },
+      { g: 'sup', cs: 'OLD SALT 1', type: 'MH-60S', sq: 'x', m: [['610', '2.4']], st: 'PLANE GUARD', pos: '256/2', alt: '002' }
+    ];
+    const fuelC = f => +f >= 5 ? '#7FD397' : (+f >= 4 ? '#E7B04F' : '#FF8A85');
+    const POS = { '412': [-23.18, -6.21, 142], '401': [-19.0, 32.91, 200], '106': [-39.13, -8.32, 168], '101': [12.05, 17.2, 60], '104': [21.55, 19.4, 90], '203': [8.75, 15.11, 36], '115': [-3.09, 0.83, 60], '610': [2.6, -0.6, 2] };
+    const bra = id => { const [x, y, a] = POS[id]; return String(Math.round(((Math.atan2(x, -y) * 180 / Math.PI) % 360 + 360) % 360)).padStart(3, '0') + '/' + Math.round(Math.hypot(x, y)) + '/' + Math.round(a / 10); };
+    const strips = ['dep', 'in', 'msh', 'app', 'sup'].map(g => { const items = flights.filter(f => f.g === g).map(f => {
+        const sel = s.fsel === f.cs, lowI = f.m.reduce((k, x, i) => +x[1] < +f.m[k][1] ? i : k, 0);
+        const exp = (s.staff || this.props.staffing || 'Condensed') === 'Expanded', pend = f.cs === 'VOLT 3' && !s.hoV3;
+        const own = pend ? 'STRIKE' : (exp ? ({ dep: 'DEP', in: 'MSHL', msh: 'MSHL', app: 'APP', sup: 'AIR OPS' })[g] : 'CATCC');
+        return { cs: f.cs, type: f.m.length + '× ' + f.type, bra: bra(f.m[0][0]), own, ho: pend, accept: e => { e.stopPropagation(); this.setState({ hoV3: true, acked: Object.assign({}, s.acked, { ho1: true }) }); },
+          obg: pend ? 'rgba(62,155,212,.16)' : '#2E3946', ofg: pend ? '#6FB6E6' : '#C9D3DD', ac: f.sq === 'own' ? '#E8622A' : '#3E7BB6',
+          mem: f.m.map((x, i) => ({ b: x[0], fu: x[1], c: fuelC(x[1]), bc: i === lowI ? fuelC(x[1]) : 'transparent' })),
+          bg: sel ? '#2A323E' : '#222832', bc: sel ? '#5E6A78' : (f.hot ? '#E0524E' : '#2E3743'), aria: f.cs + ' strip',
+          pick: () => this.setState(Object.assign({ fsel: sel ? null : f.cs }, f.hook ? { hooked: sel ? null : f.hook, cur: null } : {})) }; });
+      return { t: SC[g][0], n: String(items.length), items }; }).filter(g => g.items.length);
+    const lt = s.ltab || 'strips', nAc = flights.reduce((a, f) => a + f.m.length, 0);
+    const ltabs = [['info', 'Info', ''], ['strips', 'Strips', String(flights.length) + ' · ' + nAc]].map(([k, l, n]) => ({ label: l, n, on: lt === k ? 'true' : 'false',
+      bg: lt === k ? '#222C37' : 'transparent', fg: lt === k ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ ltab: k }) }));
+    const kinds = {
+      conflict: { fg:'#FF8A85', bc:'#E0524E', bg:'rgba(224,82,78,.10)' },
+      warn: { fg:'#E7B04F', bc:'#8A6A2A', bg:'rgba(222,154,31,.07)' },
+      coord: { fg:'#6FB6E6', bc:'#2F5F80', bg:'rgba(62,155,212,.07)' },
+      info: { fg:'#93A1B0', bc:'#262F3A', bg:'#1A212A' }
+    };
+    const N = [
+      { id:'ho1', k:'coord', kind:'HANDOFF', t:'18:12', title:'VOLT 3 · from Strike', ackL:'Accept' },
+      { id:'ca1', k:'conflict', kind:'CONFLICT', t:'in 1:04', title:'106 × 412', body:'CPA 1.4 NM / 700 FT' },
+      { id:'lf1', k:'warn', kind:'LOW STATE', t:'18:11', title:'211 · state 4.1' },
+      { id:'ea1', k:'warn', kind:'LATE PUSH', t:'18:14', title:'203 · +18 s' },
+      { id:'co1', k:'coord', kind:'COORD LINE', t:'18:12', title:'302 approaching' },
+      { id:'in1', k:'info', kind:'BRC CHANGE', t:'18:10', title:'020 at 18:45' }
+    ];
+    const notes = N.filter(n => !s.acked[n.id]).map(n => Object.assign({}, n, kinds[n.k], { full: n.k === 'conflict', compact: n.k !== 'conflict',
+      ackL: n.ackL || 'Ack', ack: () => this.setState(Object.assign({ acked: Object.assign({}, s.acked, { [n.id]: true }) }, n.id === 'ho1' ? { hoV3: true } : {}))
+    }));
+    return Object.assign(SVs, {
+      trailPx: (0.32 * KX * zkH).toFixed(2), lw: sL.toFixed(2), sO: sO.toFixed(2), sFl: (sO * 0.8 * 860 / 97 / 10.5).toFixed(3), sTg: (sT * 0.9 * 860 / 97 / 11).toFixed(3), sH: sH.toFixed(2), sT: sT.toFixed(2),
+      trk: (this.props.tracks ?? 'Green') === 'Green' ? '#5FD068' : '#E6EDF3', trkTrail: (this.props.tracks ?? 'Green') === 'Green' ? '#3E9A4C' : '#93A1B0',
+      vb: FR.vb, fr: FR.fr, latD: FR.latD, lonD: FR.lonD, setBox: this._sb, ovFlags, ovLabels, zk: zkO.toFixed(4), zt, offs, cpaTag, onWheel, zoomFits,
+      zoomIn: () => zoomBy(1 / 1.4), zoomOut: () => zoomBy(1.4), rng: Math.round(VW / 2),
+      stackIn: () => { clearTimeout(this._st); if (!s.stackHov) this.setState({ stackHov: true }); },
+      stackOut: () => { clearTimeout(this._st); this._st = setTimeout(() => this.setState({ stackHov: false }), 300); },
+      hook106: e => { e.stopPropagation(); if (this._dragged) { this._dragged = false; return; } this.setState({ hooked: s.hooked === '106' ? null : '106', cur: null }); },
+      d, d2, tools, overlays, toggleAll, allLabel: allOn ? 'All off' : 'All on',
+      layersOpen: s.layersOpen, layersExp: s.layersOpen ? 'true' : 'false',
+      toggleLayers: () => this.setState({ layersOpen: !s.layersOpen, radialsOpen: false }),
+      ...RV,
+      // Left-drag pans the scope. A drag of more than 3 px swallows the click that follows it.
+      onScopeDown: e => {
+        if (e.button !== 0) return;
+        const m = e.currentTarget.getScreenCTM(); if (!m) return;
+        const k = m.a, x0 = e.clientX, y0 = e.clientY, cx = VX, cy = VY; let moved = false;
+        this._dragged = false;
+        const mv = ev => {
+          const dx = ev.clientX - x0, dy = ev.clientY - y0;
+          if (!moved && Math.hypot(dx, dy) < 3) return;
+          if (!moved) { moved = true; this.setState({ panning: true }); }
+          this.setState(Object.assign({ zw: VW, zfit: null }, clampC(cx - dx / k, cy - dy / k)));
+        };
+        const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up);
+          if (moved) { this._dragged = true; this.setState({ panning: false }); setTimeout(() => { this._dragged = false; }, 0); } };
+        window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+        e.preventDefault();
+      },
+      onScopeClick: e => { if (this._dragged) { this._dragged = false; return; }
+        if (!s.placing && s.hooked && s.cur) { const st = RV.rad.hitStack(s.cur);
+          if (st) { const tg = RV.rad.hk.tag, mm = tg && /EAT \d\d:(\d\d)/.exec(tg.r2);
+            this.setState({ asgd: { id: st.id, ang: s.asg && s.asg.id === st.id ? s.asg.ang : st.def }, asgdEat: mm ? ':' + mm[1] : '—', hooked: null, cur: null }); return; } }
+        RV.onScopeClick(e); },
+      onScopeMove: e => { if (s.placing) return RV.onScopeMove(e);
+        const svg = e.currentTarget, m = svg.getScreenCTM(); if (!m) return;
+        const q = svg.createSVGPoint(); q.x = e.clientX; q.y = e.clientY; const v = q.matrixTransform(m.inverse()), c = [v.x, v.y];
+        const fh = Math.hypot(c[0] - FM.L[0], c[1] - FM.L[1]) < 1.6 * zkH;
+        if (fh !== !!s.fmHov) this.setState({ fmHov: fh });
+        if (!s.hooked) return;
+        const st = RV.rad.hitStack(c), n = { cur: c };
+        if (st && !(s.asg && s.asg.id === st.id)) n.asg = { id: st.id, ang: st.def };
+        this.setState(n); },
+      onScopeLeave: e => { if (s.placing) return RV.onScopeLeave(e); if (s.cur || s.fmHov) this.setState({ cur: null, fmHov: false }); },
+      hkTag: (() => { const t = RV.rad.hk.tag; if (!t) return { d: 'none', x: 0, y: 0, r0: '', r1: '', r2: '' };
+        const q = toPx(t.at), BW = s.boxW || 900, BH = BW * s.asp;
+        return { d: 'block', x: Math.min(BW - 230, Math.max(8, q[0] + 16)).toFixed(0), y: Math.min(BH - 60, Math.max(8, q[1] + 14)).toFixed(0), r0: t.r0, r1: t.r1, r2: t.r2 }; })(),
+      adTag: (() => { const a = RV.rad.ad; if (!a.at) return { d: 'none', x: 0, y: 0, t: '' }; const q = toPx(a.at);
+        return { d: 'block', x: (q[0] + 12).toFixed(0), y: (q[1] + 8).toFixed(0), t: a.t }; })(),
+      scopeCur: s.panning ? 'grabbing' : RV.scopeCur,
+      layersBg: s.layersOpen ? 'rgba(241,88,34,.18)' : 'transparent', layersFg: s.layersOpen ? '#FFB08F' : '#E6EDF3',
+      notes, noteCount: notes.length, strips, ltabs, tabInfo: lt === 'info', tabStrips: lt === 'strips', fmD,
+      freqOpen: !!s.freqOpen, freqExp: s.freqOpen ? 'true' : 'false', freqBg: s.freqOpen ? 'rgba(241,88,34,.18)' : 'rgba(21,26,33,.96)', freqFg: s.freqOpen ? '#FFB08F' : '#E6EDF3',
+      toggleFreq: () => this.setState({ freqOpen: !s.freqOpen }),
+      fmClick: e => { e.stopPropagation(); if (this._dragged) { this._dragged = false; return; } this.setState({ fmSel: fmSel ? 0 : 1 }); },
+      ...(() => { const D = Object.assign({}, UI, s.uiD || {}), RP = 860 / 97, x = k => (k === 'l' ? LW_STEPS : UI_STEPS)[D[k] - 1];
+        const row = (k, label) => ({ label, v: String(D[k]), val: '×' + x(k).toFixed(2) + (D[k] !== UI[k] ? ' · was ×' + (k === 'l' ? LW_STEPS : UI_STEPS)[UI[k] - 1].toFixed(2) : ''), vc: D[k] !== UI[k] ? '#FFB08F' : '#93A1B0',
+          set: e => this.setState({ uiD: Object.assign({}, D, { [k]: +e.target.value }) }), isH: k === 'h', isT: k === 't', isL: k === 'l', isO: k === 'o' });
+        const hp = 0.8 * RP * x('h'), tp = 0.32 * RP * x('h'), dots = [];
+        [[40, 40, 'sq'], [120, 30, 'sq'], [196, 44, 'ci']].forEach(([cx, cy, t], j) => {
+          for (let i = 5; i >= 1; i--) dots.push({ x: cx - i * 7, y: cy + i * 3, w: tp.toFixed(1), m: (-tp / 2).toFixed(1), c: '#3E9A4C', o: (1 - i * 0.16).toFixed(2), r: '0', rot: 0 });
+          const w = t === 'ci' ? 0.9 * RP * x('h') : hp; dots.push({ x: cx, y: cy, w: w.toFixed(1), m: (-w / 2).toFixed(1), c: j === 1 ? '#FF8A85' : '#5FD068', o: 1, r: t === 'ci' ? '50%' : '0', rot: 0 }); });
+        const fs = 0.9 * RP * x('t');
+        const rows = [row('h', 'Radar hits'), row('t', 'Data tags'), row('l', 'Line weight'), row('o', 'Other scope text')];
+        Object.assign(rows[0], { dots }); Object.assign(rows[1], { fs: fs.toFixed(1), ty: (40 - fs * 1.7).toFixed(0) });
+        Object.assign(rows[2], { w1: (1 * x('l')).toFixed(2), w2: (1.6 * x('l')).toFixed(2), w3: (1.8 * x('l')).toFixed(2) });
+        Object.assign(rows[3], { fs: (0.8 * RP * x('o')).toFixed(1), fg: (0.72 * RP * x('o')).toFixed(1), sc: (x('o') * 0.8 * RP / 10.5).toFixed(3) });
+        return { uiOpen: !!s.uiOpen, uiRows: rows, uiBtnBg: s.uiOpen ? 'rgba(241,88,34,.18)' : '#0E1116',
+          openUi: () => this.setState({ uiOpen: true, uiD: Object.assign({}, UI) }), uiCancel: () => this.setState({ uiOpen: false, uiD: null }),
+          uiReset: () => this.setState({ uiD: Object.assign({}, UI_DEF) }), uiApply: () => this.setState({ ui: D, uiOpen: false, uiD: null }) }; })(),
+      refOpen: !!s.refOpen, refExp: s.refOpen ? 'true' : 'false', refBg: s.refOpen ? 'rgba(241,88,34,.18)' : '#0E1116',
+      toggleRef: () => this.setState({ refOpen: !s.refOpen }),
+      refIs: { min: (s.refTab || 'min') === 'min', app: s.refTab === 'app', helo: s.refTab === 'helo', docs: s.refTab === 'docs' },
+      refTabs: [['min','Minimums'],['app','Approaches'],['helo','Helo ops'],['docs','Documents']].map(([k,l]) => ({ label: l, pick: () => this.setState({ refTab: k }),
+        bg: (s.refTab || 'min') === k ? '#222C37' : 'transparent', fg: (s.refTab || 'min') === k ? '#E6EDF3' : '#93A1B0' })),
+      minRows: [
+        ['JET','Non-precision','600-1-1/4'], ['','ICLS','300-3/4'], ['','ICLS/ILM w/ SPN-42/46','200-1/2'], ['','Mode I','As certified'], ['','Mode IA, II, IIT, III','200-1/2'],
+        ['TURBOPROP','Non-precision','400-1'], ['','ICLS','300-3/4'], ['','ICLS/ILM w/ SPN-42/46','200-1/2'], ['','Mode II / IIT / III','200-1/2'],
+        ['HELO','Non-precision','300-3/4'], ['','Mode III','200-1/2']
+      ].map(([ac, ap, min]) => ({ ac, ap, min }))
+    });
+  }
+}
+</script>
+</body>
+</html>

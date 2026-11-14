@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>CDC Strike</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1116}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.pnl{border:1px solid #262F3A;border-radius:8px;background:#151A21;padding:12px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:3px 0}
+.kv>span:first-child{color:#93A1B0}
+.btn{height:32px;padding:0 12px;border:1px solid #374250;border-radius:5px;background:transparent;color:#E6EDF3;font-family:'Saira',sans-serif;font-size:12.5px;cursor:pointer}
+.seg{display:flex;gap:2px;background:#0E1116;border:1px solid #262F3A;border-radius:6px;padding:2px}
+.seg>button{border:0;height:28px;padding:0 10px;border-radius:4px;font-family:'Saira',sans-serif;font-size:12.5px;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:.95}50%{opacity:.3}}
+.blink{animation:pulse 1.2s ease-in-out infinite}
+.th *{vector-effect:non-scaling-stroke}
+.th text{font-family:'IBM Plex Mono',monospace;font-size:4.3px}
+.th .geo{font-size:3.6px;fill:#5E6A78}
+.th .grid line{stroke:rgba(147,161,176,.09)}
+.th .bull circle,.th .bull line{fill:none;stroke:rgba(201,211,221,.18)}
+.th .bl{fill:#C9D3DD;font-size:4px}
+.th .blt{fill:#7D8896;font-size:3.4px}
+.th .sam circle{fill:rgba(62,155,212,.05);stroke:rgba(62,155,212,.45);stroke-dasharray:6 4}
+.th .cap path{fill:none;stroke:#6FB6E6;stroke-width:1.4}
+.th .route path{fill:none;stroke:#E6EDF3;stroke-width:1.2;stroke-dasharray:5 3}
+.th .route circle{fill:#0B0E12;stroke:#E6EDF3;stroke-width:1.2}
+.th .rt{fill:#E6EDF3;font-size:3.8px}
+.th .kbc{fill:none;stroke:rgba(231,176,79,.35);stroke-dasharray:3 3}
+.th .kba{fill:rgba(231,176,79,.1);stroke:#E7B04F;stroke-width:1.4}
+.th .kbt{fill:rgba(231,176,79,.6);font-size:3.6px}
+.th .kbta{fill:#E7B04F}
+.th .tl{fill:#C9D3DD}
+.th .t2{fill-opacity:.75;font-size:3.8px}
+.th .tb{fill:#6FB6E6}
+.th .tg{fill:#93A1B0}
+.th .tdim{fill:#7D8896}
+.row{display:grid;align-items:center;gap:8px;padding:7px 8px;border-radius:5px;border:1px solid #262F3A;background:#1A212A;font-family:'IBM Plex Mono',monospace;font-size:12px}
+.hafu{display:flex;gap:2px}
+.hafu>button{width:30px;height:24px;border:1px solid #374250;border-radius:3px;background:transparent;color:#93A1B0;font-family:'IBM Plex Mono',monospace;font-size:10px;cursor:pointer;padding:0}
+.tab{flex:1;height:30px;border:0;border-radius:4px;font-family:'Saira',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.chipb{font-family:'IBM Plex Mono',monospace;font-size:10.5px;font-weight:600;letter-spacing:.06em;padding:2px 6px;border-radius:3px}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: #0E1116; color: #E6EDF3; font-family: 'Saira', system-ui, sans-serif">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px; border-bottom: 1px solid #262F3A; background: #151A21">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 28px; height: 28px; border-radius: 5px; background: #F15822; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15h15l3-4H8L6 8H3z"></path><path d="M3 19c2 0 2-1.5 4.5-1.5S10 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"></path></svg>
+      </div>
+      <select aria-label="Ship" style="background: #0E1116; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; padding: 5px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">
+        <option>CVN-73 · Warfighter</option>
+        <option>CVN-71 · Rough Rider</option>
+      </select>
+    </div>
+    <nav aria-label="Location" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="CDC.dc.html" aria-current="page" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 13px; font-weight: 600">CDC</a>
+      <a href="Main.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">CATCC</a>
+      <a href="Boss.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">PriFly</a>
+      <a href="Bridge.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">Bridge</a>
+      <a href="LSO.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">LSO</a>
+    </nav>
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap" aria-label="Seats">
+      <sc-for list="{{seats}}" as="p" hint-placeholder-count="1">
+        <button onClick="{{p.click}}" title="{{p.title}}" aria-label="{{p.title}}" aria-pressed="{{p.on}}" style="display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px 0 4px; border-radius: 19px; border: 1px {{p.bs}} {{p.bc}}; background: {{p.bg}}; cursor: {{p.cur}}; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace">
+          <span style="width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box; border: 1.5px {{p.as}} {{p.ab}}; background: {{p.af}}; color: {{p.afg}}; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600">{{p.init}}</span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15">
+            <span style="font-size: 10px; letter-spacing: .1em; color: {{p.lfg}}">{{p.label}}</span>
+            <span style="font-size: 11.5px; color: {{p.whoFg}}">{{p.who}}</span>
+          </span>
+        </button>
+      </sc-for>
+      <sc-if value="{{viewOnly}}" hint-placeholder-val="{{false}}">
+        <span class="mono" style="font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid #374250; color: #93A1B0">VIEW ONLY</span>
+      </sc-if>
+    </div>
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 14px; font-family: 'IBM Plex Mono', monospace" aria-label="Time">
+      <div style="text-align: right; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">LOCAL · UTC+4</div>
+        <div style="font-size: 17px; font-weight: 600">18:12:30</div>
+      </div>
+      <div style="width: 1px; background: #374250"></div>
+      <div style="text-align: left; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">ZULU</div>
+        <div style="font-size: 17px; font-weight: 600">14:12:30Z</div>
+      </div>
+    </div>
+    <button onClick="{{openOpts}}" aria-label="Options" title="Options" style="height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; padding: 0; background: #0E1116; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; min-height: 0">
+    <aside aria-label="Tasking and tracks" style="flex: 0 0 344px; width: 344px; border-right: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; box-sizing: border-box; overflow-y: auto">
+      <div role="tablist" class="seg" style="flex: none">
+        <sc-for list="{{tabs}}" as="t" hint-placeholder-count="3"><button role="tab" class="tab" aria-selected="{{t.on}}" onClick="{{t.pick}}" style="background: {{t.bg}}; color: {{t.fg}}">{{t.label}}</button></sc-for>
+      </div>
+
+      <sc-if value="{{tabTask}}" hint-placeholder-val="{{true}}">
+        <div style="display: flex; justify-content: space-between; align-items: center"><span class="lbl">Packages</span><button class="btn" style="height: 26px; font-size: 11.5px">Load DTC</button></div>
+        <div class="row" style="grid-template-columns: 1fr auto; border-left: 3px solid #E6EDF3">
+          <div><div style="font-family: 'Saira', sans-serif; font-weight: 700; font-size: 14px">CHARGER 4 · 5</div><div style="color: #93A1B0">STRIKE · KB 85AB · 8× F/A-18E</div><div style="color: #93A1B0">PUSH 18:30 · TOT 18:52 · DTC ✓</div></div>
+          <span class="chipb" style="background: #222C37; color: #C9D3DD">BRIEFED</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px"><span class="lbl">CAP stations</span><button class="btn" style="height: 26px; font-size: 11.5px">+ CAP</button></div>
+        <div class="row" style="grid-template-columns: 1fr auto">
+          <div><div style="font-family: 'Saira', sans-serif; font-weight: 700; font-size: 14px">CAP NORTH</div><div style="color: #93A1B0">SLUGGER 2 · 2× F/A-18C · A25–30</div><div style="color: #93A1B0">ON STA 18:05 · RELIEF 19:20 SLUGGER 3</div></div>
+          <span class="chipb" style="background: rgba(127,211,151,.14); color: #7FD397">ON STA</span>
+        </div>
+        <div class="row" style="grid-template-columns: 1fr auto">
+          <div><div style="font-family: 'Saira', sans-serif; font-weight: 700; font-size: 14px">CAP WEST</div><div style="color: #93A1B0">A20–25 · 18:45–20:00</div></div>
+          <button class="btn" style="height: 26px; font-size: 11.5px">Assign</button>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px"><span class="lbl">Tanker tracks</span><button class="btn" style="height: 26px; font-size: 11.5px">+ Track</button></div>
+        <div class="row" style="grid-template-columns: 1fr auto">
+          <div><div style="font-family: 'Saira', sans-serif; font-weight: 700; font-size: 14px">TEXACO · SHELL 1</div><div style="color: #93A1B0">KC-135 · FL220 · 18:00–20:30 · 45X</div></div>
+          <span class="chipb" style="background: rgba(127,211,151,.14); color: #7FD397">ON STA</span>
+        </div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 4px"><span class="lbl">Kill boxes</span><button class="btn" style="height: 26px; font-size: 11.5px">+ Kill box</button></div>
+        <div class="row" style="grid-template-columns: 1fr auto"><div><b>KB 85AB</b> <span style="color: #93A1B0">· CHARGER 4 · 5</span></div><span class="chipb" style="background: rgba(231,176,79,.16); color: #E7B04F">HOT 18:45–19:15</span></div>
+        <div class="row" style="grid-template-columns: 1fr auto"><div><b>KB 85AC · 86AB · 86AC</b></div><span class="chipb" style="background: #222C37; color: #93A1B0">COLD</span></div>
+      </sc-if>
+
+      <sc-if value="{{tabAir}}" hint-placeholder-val="{{false}}">
+        <div class="lbl">Air tracks · ID</div>
+        <sc-for list="{{airTracks}}" as="a" hint-placeholder-count="6">
+          <div class="row" style="grid-template-columns: 1fr auto; border-color: {{a.bc}}; background: {{a.bg}}">
+            <div>
+              <div><b style="color: {{a.c}}">{{a.tn}}</b> <span style="color: #93A1B0">{{a.type}}</span></div>
+              <div style="color: #93A1B0">{{a.braa}}</div>
+            </div>
+            <div class="hafu">
+              <sc-for list="{{a.ids}}" as="i" hint-placeholder-count="5"><button onClick="{{i.pick}}" aria-pressed="{{i.on}}" title="{{i.title}}" style="background: {{i.bg}}; color: {{i.fg}}; border-color: {{i.bc}}">{{i.k}}</button></sc-for>
+            </div>
+          </div>
+        </sc-for>
+      </sc-if>
+
+      <sc-if value="{{tabSurf}}" hint-placeholder-val="{{false}}">
+        <div class="lbl">Surface tracks</div>
+        <sc-for list="{{surfTracks}}" as="a" hint-placeholder-count="3">
+          <div class="row" style="grid-template-columns: 1fr auto">
+            <div>
+              <div><b style="color: {{a.c}}">{{a.tn}}</b> <span style="color: #93A1B0">{{a.type}}</span></div>
+              <div style="color: #93A1B0">{{a.pos}}</div>
+              <div style="color: {{a.rc}}">{{a.rig}}</div>
+            </div>
+            <button class="btn" onClick="{{a.act}}" style="height: 26px; font-size: 11.5px">{{a.btn}}</button>
+          </div>
+        </sc-for>
+      </sc-if>
+    </aside>
+
+    <main aria-label="Theatre picture" style="flex: 1; min-width: 0; position: relative; background: #0B0E12; overflow: hidden">
+      <svg class="th" viewBox="-150 -230 360 360" preserveAspectRatio="xMidYMid meet" style="position: absolute; inset: 0; width: 100%; height: 100%" role="img" aria-label="Theatre picture: bullseye, CSG and SAM coverage, CAP and tanker tracks, kill boxes, strike route, air and surface tracks">
+            <g class="grid"><line x1="-150" y1="102" x2="210" y2="102"></line><line x1="-150" y1="72" x2="210" y2="72"></line><line x1="-150" y1="42" x2="210" y2="42"></line><line x1="-150" y1="12" x2="210" y2="12"></line><line x1="-150" y1="-18" x2="210" y2="-18"></line><line x1="-150" y1="-48" x2="210" y2="-48"></line><line x1="-150" y1="-78" x2="210" y2="-78"></line><line x1="-150" y1="-108" x2="210" y2="-108"></line><line x1="-150" y1="-138" x2="210" y2="-138"></line><line x1="-150" y1="-168" x2="210" y2="-168"></line><line x1="-150" y1="-198" x2="210" y2="-198"></line><line x1="-150" y1="-228" x2="210" y2="-228"></line><line x1="-123.85" y1="-230" x2="-123.85" y2="130"></line><line x1="-96.93" y1="-230" x2="-96.93" y2="130"></line><line x1="-70" y1="-230" x2="-70" y2="130"></line><line x1="-43.08" y1="-230" x2="-43.08" y2="130"></line><line x1="-16.15" y1="-230" x2="-16.15" y2="130"></line><line x1="10.77" y1="-230" x2="10.77" y2="130"></line><line x1="37.7" y1="-230" x2="37.7" y2="130"></line><line x1="64.62" y1="-230" x2="64.62" y2="130"></line><line x1="91.55" y1="-230" x2="91.55" y2="130"></line><line x1="118.47" y1="-230" x2="118.47" y2="130"></line><line x1="145.4" y1="-230" x2="145.4" y2="130"></line><line x1="172.32" y1="-230" x2="172.32" y2="130"></line><line x1="199.25" y1="-230" x2="199.25" y2="130"></line></g>
+            <g><text x="-148" y="100.8" class="geo">24°30'N</text><text x="-148" y="70.8" class="geo">25°00'N</text><text x="-148" y="40.8" class="geo">25°30'N</text><text x="-148" y="10.8" class="geo">26°00'N</text><text x="-148" y="-19.2" class="geo">26°30'N</text><text x="-148" y="-49.2" class="geo">27°00'N</text><text x="-148" y="-79.2" class="geo">27°30'N</text><text x="-148" y="-109.2" class="geo">28°00'N</text><text x="-148" y="-139.2" class="geo">28°30'N</text><text x="-148" y="-169.2" class="geo">29°00'N</text><text x="-148" y="-199.2" class="geo">29°30'N</text><text x="-148" y="-229.2" class="geo">30°00'N</text><text x="-122.65" y="-224" class="geo">054°30'E</text><text x="-95.73" y="-224" class="geo">055°00'E</text><text x="-68.8" y="-224" class="geo">055°30'E</text><text x="-41.88" y="-224" class="geo">056°00'E</text><text x="-14.95" y="-224" class="geo">056°30'E</text><text x="11.97" y="-224" class="geo">057°00'E</text><text x="38.9" y="-224" class="geo">057°30'E</text><text x="65.82" y="-224" class="geo">058°00'E</text><text x="92.75" y="-224" class="geo">058°30'E</text><text x="119.67" y="-224" class="geo">059°00'E</text><text x="146.6" y="-224" class="geo">059°30'E</text><text x="173.52" y="-224" class="geo">060°00'E</text><text x="200.45" y="-224" class="geo">060°30'E</text></g>
+            <g display="{{L.bull}}" class="bull"><circle cx="-40" cy="-95" r="20"></circle><circle cx="-40" cy="-95" r="40"></circle><circle cx="-40" cy="-95" r="60"></circle><circle cx="-40" cy="-95" r="80"></circle><line x1="-40" y1="-99" x2="-40" y2="-175"></line><line x1="-38" y1="-98.46" x2="-0" y2="-164.28"></line><line x1="-36.54" y1="-97" x2="29.28" y2="-135"></line><line x1="-36" y1="-95" x2="40" y2="-95"></line><line x1="-36.54" y1="-93" x2="29.28" y2="-55"></line><line x1="-38" y1="-91.54" x2="-0" y2="-25.72"></line><line x1="-40" y1="-91" x2="-40" y2="-15"></line><line x1="-42" y1="-91.54" x2="-80" y2="-25.72"></line><line x1="-43.46" y1="-93" x2="-109.28" y2="-55"></line><line x1="-44" y1="-95" x2="-120" y2="-95"></line><line x1="-43.46" y1="-97" x2="-109.28" y2="-135"></line><line x1="-42" y1="-98.46" x2="-80" y2="-164.28"></line></g>
+            <g display="{{L.bull}}"><text x="-37" y="-98" class="bl">BULLSEYE · ROCK</text><text x="-40" y="-177.2" text-anchor="middle" class="blt">000</text><text x="2" y="-165.95" text-anchor="middle" class="blt">030</text><text x="32.75" y="-135.2" text-anchor="middle" class="blt">060</text><text x="44" y="-93.2" text-anchor="middle" class="blt">090</text><text x="32.75" y="-51.2" text-anchor="middle" class="blt">120</text><text x="2" y="-20.45" text-anchor="middle" class="blt">150</text><text x="-40" y="-9.2" text-anchor="middle" class="blt">180</text><text x="-82" y="-20.45" text-anchor="middle" class="blt">210</text><text x="-112.75" y="-51.2" text-anchor="middle" class="blt">240</text><text x="-124" y="-93.2" text-anchor="middle" class="blt">270</text><text x="-112.75" y="-135.2" text-anchor="middle" class="blt">300</text><text x="-82" y="-165.95" text-anchor="middle" class="blt">330</text></g>
+            <g display="{{L.sam}}" class="sam"><circle cx="-14" cy="-10" r="90"></circle><circle cx="16" cy="-18" r="75"></circle><circle cx="-6" cy="16" r="75"></circle></g>
+            <g display="{{L.kb}}"><rect x="100" y="-140" width="30" height="30" class="kba"></rect><rect x="130" y="-140" width="30" height="30" class="kbc"></rect><rect x="100" y="-110" width="30" height="30" class="kbc"></rect><rect x="130" y="-110" width="30" height="30" class="kbc"></rect><text x="102" y="-134" class="kbt kbta">KB 85AB</text><text x="132" y="-134" class="kbt">KB 85AC</text><text x="102" y="-104" class="kbt">KB 86AB</text><text x="132" y="-104" class="kbt">KB 86AC</text><text x="102" y="-102" class="kbt kbta">HOT 18:45–19:15</text></g>
+            <g display="{{L.cap}}" class="cap"><path d="M-15 -144 L-45 -144 A6 6 0 0 1 -45 -156 L-15 -156 A6 6 0 0 1 -15 -144 Z"></path><path d="M-109 -75 L-109 -45 A6 6 0 0 1 -121 -45 L-121 -75 A6 6 0 0 1 -109 -75 Z"></path><path d="M-71.72 26.3 L-42.28 43.3 A6 6 0 0 1 -48.28 53.7 L-77.72 36.7 A6 6 0 0 1 -71.72 26.3 Z"></path></g>
+            <g display="{{L.cap}}"><text x="-48" y="-160" class="tl tb">CAP NORTH · SLUGGER 2</text><text x="-48" y="-154.8" class="tl tb t2">A25–30 · ON STA 18:05</text><text x="-136" y="-78" class="tl tdim">CAP WEST</text><text x="-136" y="-72.8" class="tl tdim t2">UNASSIGNED</text><text x="-86" y="56" class="tl tg">TEXACO TRK · SHELL 1</text><text x="-86" y="61.2" class="tl tg t2">FL220 · KC-135 · 18:00–20:30</text></g>
+            <g display="{{L.routes}}" class="route"><path d="M0 0 L25 -40 L70 -95 L112 -128 L150 -80 L95 -25 L30 -10"></path><circle cx="25" cy="-40" r="1.6"></circle><circle cx="70" cy="-95" r="1.6"></circle><circle cx="112" cy="-128" r="1.6"></circle><circle cx="150" cy="-80" r="1.6"></circle><circle cx="95" cy="-25" r="1.6"></circle><circle cx="30" cy="-10" r="1.6"></circle></g>
+            <g display="{{L.routes}}"><text x="28" y="-42.5" class="rt">1 PUSH 18:30</text><text x="73" y="-97.5" class="rt">2 IP</text><text x="115" y="-130.5" class="rt">TGT · TOT 18:52</text><text x="153" y="-82.5" class="rt">4</text><text x="98" y="-27.5" class="rt">5</text><text x="33" y="-12.5" class="rt">6 MOM</text></g>
+            <g stroke="#5AAEE3"><circle cx="0" cy="0" r="2.4" fill="none" stroke-width="1.8"></circle><circle cx="37.09" cy="-14.98" r="2.4" fill="none" stroke-width="1.8"></circle><circle cx="-14" cy="-10" r="2.4" fill="none" stroke-width="1.8"></circle><circle cx="16" cy="-18" r="2.4" fill="none" stroke-width="1.8"></circle><circle cx="-6" cy="16" r="2.4" fill="none" stroke-width="1.8"></circle></g>
+            <g><text x="4" y="1.8" class="tl tb">CVN-73</text><text x="-10" y="-8.2" class="tl tb">CG</text><text x="20" y="-16.2" class="tl tb">DDG-1</text></g>
+            <g display="{{L.surf}}"><g stroke="#E7D04F" fill="#E7D04F"><rect x="67.4" y="27.4" width="5.2" height="5.2" fill="none" stroke-width="1.8"></rect><g stroke-width="1.4"><line x1="70" y1="30" x2="65.3" y2="31.71"></line></g></g><g style="fill:#E7D04F"><text x="75" y="31.5" class="tl">S-012 · UNK</text><text x="75" y="36.7" class="tl t2">MERCHANT? · 14 KT</text></g><g stroke="#FF6B66" fill="#FF6B66"><path d="M140 -43.38 L143.38 -40 L140 -36.62 L136.62 -40 Z" fill="none" stroke-width="1.8"></path><g stroke-width="1.4"><line x1="140" y1="-40" x2="135.08" y2="-39.13"></line></g></g><g style="fill:#FF6B66"><text x="145" y="-38.5" class="tl">S-015 · FAC ×3</text><text x="145" y="-33.3" class="tl t2">28 KT</text></g><g stroke="#7FD397" fill="#7FD397"><rect x="-97.6" y="17.4" width="5.2" height="5.2" fill="none" stroke-width="1.8"></rect><g stroke-width="1.4"><line x1="-95" y1="20" x2="-90.67" y2="22.5"></line></g></g><g style="fill:#7FD397"><text x="-90" y="21.5" class="tl">S-009 · DHOW</text><text x="-90" y="26.7" class="tl t2">NEUTRAL · 6 KT</text></g><path d="M2.6 -0.6 L70 30" stroke="#E7D04F" stroke-dasharray="3 3" fill="none"></path><text x="34" y="20" class="tl" style="fill:#E7D04F">RIG · 610 · ETA 18:31</text></g>
+            <g display="{{L.air}}"><g stroke="#5AAEE3" fill="#5AAEE3"><path d="M-33.2 -150 A3.2 3.2 0 0 1 -26.8 -150" fill="none" stroke-width="1.8"></path><circle cx="-30" cy="-150" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="-30" y1="-150" x2="-25" y2="-150"></line></g></g><g style="fill:#5AAEE3"><text x="-25" y="-148.5" class="tl">SLUGGER 2 ×2</text><text x="-25" y="-143.3" class="tl t2">A27 · 350</text></g><g stroke="#5AAEE3" fill="#5AAEE3"><path d="M-22.2 33 A3.2 3.2 0 0 1 -15.8 33" fill="none" stroke-width="1.8"></path><circle cx="-19" cy="33" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="-19" y1="33" x2="-16.5" y2="28.67"></line></g></g><g style="fill:#5AAEE3"><text x="-14" y="34.5" class="tl">VOLT 3 ×4</text><text x="-14" y="39.7" class="tl t2">A20 · 350</text></g><g stroke="#5AAEE3" fill="#5AAEE3"><path d="M-63.2 40 A3.2 3.2 0 0 1 -56.8 40" fill="none" stroke-width="1.8"></path><circle cx="-60" cy="40" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="-60" y1="40" x2="-63.46" y2="38"></line></g></g><g style="fill:#5AAEE3"><text x="-55" y="41.5" class="tl">SHELL 1</text><text x="-55" y="46.7" class="tl t2">FL220 · 290</text></g><g stroke="#5AAEE3" fill="#5AAEE3"><path d="M31.8 -45 A3.2 3.2 0 0 1 38.2 -45" fill="none" stroke-width="1.8"></path><circle cx="35" cy="-45" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="35" y1="-45" x2="38.86" y2="-49.6"></line></g></g><g style="fill:#5AAEE3"><text x="40" y="-43.5" class="tl">CHARGER 4 ×4</text><text x="40" y="-38.3" class="tl t2">A24 · 420</text></g><g stroke="#5AAEE3" fill="#5AAEE3"><path d="M26.8 20 A3.2 3.2 0 0 1 33.2 20" fill="none" stroke-width="1.8"></path><circle cx="30" cy="20" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="30" y1="20" x2="28" y2="23.46"></line></g></g><g style="fill:#5AAEE3"><text x="35" y="21.5" class="tl">DARKSTAR · E-2</text><text x="35" y="26.7" class="tl t2">A25 · 240</text></g><g stroke="#FF6B66" fill="#FF6B66"><path d="M146.8 -190 L150 -193.84 L153.2 -190" fill="none" stroke-width="1.8"></path><circle cx="150" cy="-190" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="150" y1="-190" x2="146.92" y2="-181.54"></line></g></g><g style="fill:#FF6B66"><text x="155" y="-188.5" class="tl">TN 4021 · BANDIT</text><text x="155" y="-183.3" class="tl t2">MIG-29 ×2 · A25 · 520</text></g><g stroke="#E7D04F" fill="#E7D04F"><path d="M58.8 -150 L58.8 -155.12 L65.2 -155.12 L65.2 -150" fill="none" stroke-width="1.8"></path><circle cx="62" cy="-150" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="62" y1="-150" x2="64.05" y2="-144.36"></line></g></g><g style="fill:#E7D04F"><text x="67" y="-148.5" class="tl">TN 4033 · BOGEY</text><text x="67" y="-143.3" class="tl t2">A08 · 380</text></g><g stroke="#F0A050" fill="#F0A050"><path d="M181.8 -120 L185 -123.84 L188.2 -120" fill="none" stroke-width="1.8"></path><circle cx="185" cy="-120" r="0.7" stroke="none"></circle><g stroke-width="1.4"><line x1="185" y1="-120" x2="179.8" y2="-117"></line></g></g><g style="fill:#F0A050"><text x="190" y="-118.5" class="tl">TN 4040 · SUSPECT</text><text x="190" y="-113.3" class="tl t2">A15 · 300</text></g><rect x="144" y="-196" width="12" height="12" fill="none" stroke="#E6EDF3" stroke-width="1.2"></rect></g>
+          </svg>
+      <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; background: rgba(21,26,33,.96); border: 1px solid #374250; border-radius: 8px; padding: 5px 6px; box-shadow: 0 6px 18px rgba(0,0,0,.4)">
+        <div class="seg"><sc-for list="{{fits}}" as="f" hint-placeholder-count="3"><button onClick="{{f.pick}}" aria-pressed="{{f.on}}" style="background: {{f.bg}}; color: {{f.fg}}">{{f.label}}</button></sc-for></div>
+        <div style="width: 1px; height: 24px; background: #374250"></div>
+        <sc-for list="{{layers}}" as="l" hint-placeholder-count="7">
+          <button onClick="{{l.pick}}" aria-pressed="{{l.on}}" style="height: 28px; padding: 0 8px; border-radius: 4px; border: 1px solid {{l.bc}}; background: {{l.bg}}; color: {{l.fg}}; font-family: 'IBM Plex Mono', monospace; font-size: 11px; cursor: pointer">{{l.label}}</button>
+        </sc-for>
+      </div>
+      <div class="mono" style="position: absolute; left: 12px; bottom: 12px; display: flex; gap: 12px; font-size: 11px; color: #93A1B0; background: rgba(11,14,18,.85); padding: 6px 10px; border-radius: 6px; border: 1px solid #262F3A">
+        <span><span style="color: #5AAEE3">◠</span> FRIEND</span><span><span style="color: #E7D04F">⊓</span> UNKNOWN</span><span><span style="color: #F0A050">∧</span> SUSPECT</span><span><span style="color: #FF6B66">∧</span> HOSTILE</span><span style="color: #7D8896">CURSOR · ROCK 062/48</span>
+      </div>
+    </main>
+
+    <aside aria-label="Air defence and emissions" style="flex: 0 0 344px; width: 344px; border-left: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; box-sizing: border-box; overflow-y: auto">
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px"><span class="lbl">Altitude blocks</span><span class="chipb" style="background: rgba(224,82,78,.16); color: #FF8A85">1 OVERLAP</span></div>
+        <div class="mono" style="font-size: 12px">
+          <sc-for list="{{alts}}" as="b" hint-placeholder-count="6">
+            <div style="display: grid; grid-template-columns: 1fr 76px 1fr; gap: 6px; align-items: center; padding: 3px 0">
+              <span style="color: {{b.fg}}">{{b.who}}</span>
+              <span style="position: relative; height: 12px; background: #0E1116; border-radius: 2px"><span style="position: absolute; left: {{b.l}}%; width: {{b.w}}%; top: 0; bottom: 0; border-radius: 2px; background: {{b.c}}"></span></span>
+              <span style="color: {{b.fg}}; text-align: right">{{b.blk}}</span>
+            </div>
+          </sc-for>
+        </div>
+      </section>
+
+      <section class="pnl">
+        <div class="lbl" style="margin-bottom: 6px">Air defence</div>
+        <sc-for list="{{sams}}" as="m" hint-placeholder-count="3">
+          <div style="display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: center; padding: 4px 0">
+            <div class="mono" style="font-size: 12px"><b>{{m.ship}}</b> <span style="color: #93A1B0">{{m.sys}}</span></div>
+            <div class="seg"><sc-for list="{{m.roe}}" as="r" hint-placeholder-count="3"><button onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="height: 24px; font-size: 11px; padding: 0 7px; background: {{r.bg}}; color: {{r.fg}}">{{r.k}}</button></sc-for></div>
+          </div>
+        </sc-for>
+      </section>
+
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px"><span class="lbl">EMCON</span><div class="seg"><sc-for list="{{emcon}}" as="e" hint-placeholder-count="4"><button onClick="{{e.pick}}" aria-pressed="{{e.on}}" style="height: 24px; font-size: 11px; padding: 0 8px; background: {{e.bg}}; color: {{e.fg}}">{{e.k}}</button></sc-for></div></div>
+        <sc-for list="{{emitters}}" as="e" hint-placeholder-count="5">
+          <div class="kv"><span>{{e.n}}</span><span style="color: {{e.c}}">{{e.st}}</span></div>
+        </sc-for>
+      </section>
+
+      <section class="pnl">
+        <div class="lbl" style="margin-bottom: 6px">Link 16 donors</div>
+        <sc-for list="{{donors}}" as="d" hint-placeholder-count="5">
+          <div style="display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 3px 0">
+            <span class="mono" style="font-size: 12px; color: {{d.fg}}">{{d.n}}</span>
+            <button onClick="{{d.pick}}" aria-pressed="{{d.on}}" style="height: 24px; padding: 0 8px; border-radius: 4px; border: 1px solid {{d.bc}}; background: {{d.bg}}; color: {{d.fg}}; font-family: 'IBM Plex Mono', monospace; font-size: 11px; cursor: pointer">{{d.lbl}}</button>
+          </div>
+        </sc-for>
+      </section>
+    </aside>
+  </div>
+
+  <sc-if value="{{optsOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0; background: rgba(5,7,10,.55); z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 70px">
+      <div role="dialog" aria-label="Options" style="width: min(460px, calc(100% - 32px)); background: #151A21; border: 1px solid #374250; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 14px">
+        <div style="display: flex; align-items: center; margin-bottom: 12px"><div style="font-weight: 700; font-size: 15px; flex: 1">Options</div><button class="btn" onClick="{{closeOpts}}">Done</button></div>
+        <div class="lbl" style="margin-bottom: 6px">Staffing</div>
+        <div class="seg" style="margin-bottom: 10px">
+          <sc-for list="{{staffOpts}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="flex: 1; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button></sc-for>
+        </div>
+        <div class="mono" style="font-size: 11.5px; color: #93A1B0; line-height: 1.6">
+          <sc-for list="{{staffRows}}" as="r" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px"><span style="color: #E6EDF3">{{r.loc}}</span><span>{{r.seats}}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"staffing":{"editor":"enum","options":["Condensed","Expanded"],"default":"Condensed"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+
+  seatVals(loc, onSeat) {
+    const s = this.state, mode = s.staff || this.props.staffing || 'Condensed';
+    const C = { CDC: [['strike', 'STRIKE']], CATCC: [['catcc', 'CATCC']], PriFly: [['boss', 'AIR BOSS']], Bridge: [['ood', 'OOD']], LSO: [['lso', 'LSO']] };
+    const E = { CDC: [['aw', 'AIR WARFARE'], ['strike', 'STRIKE'], ['suw', 'SURFACE WARFARE']],
+      CATCC: [['airops', 'AIR OPS'], ['dep', 'DEPARTURE'], ['marshal', 'MARSHAL'], ['app', 'APPROACH'], ['final', 'FINAL']],
+      PriFly: [['boss', 'AIR BOSS'], ['mini', 'MINI BOSS · TWR']], Bridge: [['ood', 'OFFICER OF THE DECK']],
+      LSO: [['clso', 'CONTROLLING LSO'], ['blso', 'BACKUP LSO'], ['writer', 'WRITER']] };
+    // Who holds what at start (mockup): "me" = this user (100); others show board · callsign.
+    const SEED = { strike: { b: '305', cs: 'Ghost' }, aw: { b: '305', cs: 'Ghost' }, suw: null,
+      catcc: 'me', airops: { b: '201', cs: 'Juno' }, dep: { b: '201', cs: 'Juno' }, marshal: 'me', app: 'me', final: null,
+      boss: { b: '210', cs: 'Mako' }, mini: null, ood: { b: '207', cs: 'Skip' }, lso: { b: '214', cs: 'Paddles' }, clso: { b: '214', cs: 'Paddles' }, blso: null, writer: null };
+    const held = Object.assign({}, SEED, s.held || {}), act = s.seat || this.defSeat || null;
+    const list = (mode === 'Expanded' ? E : C)[loc];
+    const set = (k, v, a) => { this.setState({ held: Object.assign({}, s.held || {}, { [k]: v }), seat: a }); if (onSeat && a) onSeat(a); };
+    const seats = list.map(([k, label]) => {
+      const h = held[k], mine = h === 'me', on = mine && (act === k || (!act && list.length === 1));
+      if (!h) return { label, who: 'Open', init: '+', on: 'false', click: () => set(k, 'me', k), title: 'Take ' + label,
+        bs: 'dashed', bc: '#374250', bg: 'transparent', cur: 'pointer', as: 'dashed', ab: '#5E6A78', af: 'transparent', afg: '#93A1B0', whoFg: '#93A1B0', lfg: '#93A1B0' };
+      if (mine) return { label, who: '100 · You', init: '100', on: on ? 'true' : 'false',
+        click: () => on ? set(k, null, null) : (this.setState({ seat: k }), onSeat && onSeat(k)),
+        title: on ? 'You hold ' + label + ' · click to release' : 'Show the ' + label + ' view',
+        bs: 'solid', bc: '#F15822', bg: on ? 'rgba(241,88,34,.2)' : 'transparent', cur: 'pointer', as: 'solid', ab: '#F15822', af: on ? '#F15822' : 'transparent', afg: on ? '#0E1116' : '#FFB08F', whoFg: '#FFB08F', lfg: on ? '#FFB08F' : '#93A1B0' };
+      return { label, who: h.b + ' · ' + h.cs, init: h.b, on: 'false', click: () => {}, title: label + ' held by ' + h.b + ' ' + h.cs,
+        bs: 'solid', bc: '#374250', bg: '#1A212A', cur: 'default', as: 'solid', ab: '#3E9BD4', af: '#1F3A52', afg: '#CFE6F6', whoFg: '#C9D3DD', lfg: '#93A1B0' };
+    });
+    const nm = l => l.map(x => x[1].charAt(0) + x[1].slice(1).toLowerCase()).join(' · ');
+    return {
+      seats, viewOnly: !list.some(([k]) => held[k] === 'me'), staffMode: mode,
+      optsOpen: !!s.optsOpen, openOpts: () => this.setState({ optsOpen: true }), closeOpts: () => this.setState({ optsOpen: false }),
+      staffOpts: ['Condensed', 'Expanded'].map(m => ({ label: m === 'Condensed' ? 'Condensed · 1 seat per location' : 'Expanded · all seats', on: mode === m ? 'true' : 'false',
+        bg: mode === m ? '#222C37' : 'transparent', fg: mode === m ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ staff: m, seat: null }) })),
+      staffRows: Object.keys(C).map(L => ({ loc: L, seats: nm((mode === 'Expanded' ? E : C)[L]) }))
+    };
+  }
+
+
+  constructor(p) { super(p); this.state = { tab: null, L: null, fit: 'theatre', ids: {}, roe: {}, emcon: 'B', supp: { 'ROOK 1': true }, rig: {} }; this.defSeat = null; }
+  renderVals() {
+    const s = this.state;
+    const SV = this.seatVals('CDC', k => this.setState({ tab: k === 'aw' ? 'air' : (k === 'suw' ? 'surf' : 'task'),
+      L: k === 'aw' ? { bull: 1, sam: 1, kb: 0, routes: 0, cap: 1, surf: 0, air: 1 } : (k === 'suw' ? { bull: 1, sam: 0, kb: 0, routes: 0, cap: 0, surf: 1, air: 0 } : null) }));
+    const tab = s.tab || 'task';
+    const L = Object.assign({ bull: 1, sam: 1, kb: 1, routes: 1, cap: 1, surf: 1, air: 1 }, s.L || {});
+    const vis = {}; Object.keys(L).forEach(k => { vis[k] = L[k] ? 'inline' : 'none'; });
+    const tabs = [['task', 'Tasking'], ['air', 'Air'], ['surf', 'Surface']].map(([k, l]) => ({ label: l, on: tab === k ? 'true' : 'false', pick: () => this.setState({ tab: k }),
+      bg: tab === k ? '#222C37' : 'transparent', fg: tab === k ? '#E6EDF3' : '#93A1B0' }));
+    const layers = [['bull', 'BULLSEYE'], ['sam', 'SAM'], ['kb', 'KILL BOX'], ['routes', 'DTC'], ['cap', 'CAP/TKR'], ['air', 'AIR'], ['surf', 'SURF']].map(([k, l]) => ({ label: l, on: L[k] ? 'true' : 'false',
+      pick: () => this.setState({ L: Object.assign({}, L, { [k]: L[k] ? 0 : 1 }) }), bg: L[k] ? '#222C37' : 'transparent', fg: L[k] ? '#E6EDF3' : '#7D8896', bc: L[k] ? '#374250' : '#262F3A' }));
+    const fits = [['theatre', 'THEATRE'], ['csg', 'CSG'], ['bull', 'BULL']].map(([k, l]) => ({ label: l, on: s.fit === k ? 'true' : 'false', pick: () => this.setState({ fit: k }),
+      bg: s.fit === k ? '#222C37' : 'transparent', fg: s.fit === k ? '#E6EDF3' : '#93A1B0' }));
+    // HAFU declaration: FRD / NEU / UNK / SUS / HOS (manual; the radar's auto-ID shows until a controller declares)
+    const IDK = [['FRD', '#5AAEE3', 'Friend'], ['NEU', '#7FD397', 'Neutral'], ['UNK', '#E7D04F', 'Unknown'], ['SUS', '#F0A050', 'Suspect'], ['HOS', '#FF6B66', 'Hostile']];
+    const AT = [['TN 4021', 'MIG-29 ×2', 'ROCK 058/112 · A25 · 520', 'HOS'], ['TN 4040', 'UNK FTR', 'ROCK 085/135 · A15 · 300', 'SUS'], ['TN 4033', 'UNK', 'ROCK 077/108 · A08 · 380', 'UNK'],
+      ['SLUGGER 2', 'F/A-18C ×2', 'ROCK 360/56 · A27', 'FRD'], ['CHARGER 4', 'F/A-18E ×4', 'ROCK 128/80 · A24', 'FRD'], ['DARKSTAR', 'E-2D', 'ROCK 152/134 · A25', 'FRD']];
+    const airTracks = AT.map(([tn, type, braa, d0]) => { const cur = s.ids[tn] || d0, c = IDK.find(x => x[0] === cur)[1];
+      return { tn, type, braa, c, bc: tn === 'TN 4021' ? '#5E6A78' : '#262F3A', bg: tn === 'TN 4021' ? '#222832' : '#1A212A',
+        ids: IDK.map(([k, col, t]) => ({ k, title: t, on: cur === k ? 'true' : 'false', bg: cur === k ? col : 'transparent', fg: cur === k ? '#0E1116' : '#93A1B0', bc: cur === k ? col : '#374250',
+          pick: () => this.setState({ ids: Object.assign({}, s.ids, { [tn]: k }) }) })) }; });
+    const ST = [['S-012', 'UNK · MERCHANT?', 'CVN 072/76 · 250° · 14 KT', '#E7D04F', 'RIG · 610 · ETA 18:31', 'Recall'], ['S-015', 'HOSTILE · FAC ×3', 'CVN 074/146 · 260° · 28 KT', '#FF6B66', 'NO RIG · STANDOFF', 'Task rig'],
+      ['S-009', 'NEUTRAL · DHOW', 'CVN 282/97 · 120° · 6 KT', '#7FD397', 'RIGGED 17:52 · 610', 'Task rig']];
+    const surfTracks = ST.map(([tn, type, pos, c, rig, btn]) => ({ tn, type, pos, c, rig: s.rig[tn] || rig, rc: '#93A1B0', btn,
+      act: () => this.setState({ rig: Object.assign({}, s.rig, { [tn]: btn === 'Recall' ? 'RIG RECALLED' : 'RIG TASKED · 610 · PENDING' }) }) }));
+    const alts = [['SLUGGER 2', 'A25–30', 25, 30, 0], ['CHARGER 4/5', 'A22–26', 22, 26, 1], ['DARKSTAR', 'A24–26', 24, 26, 1], ['SHELL 1', 'FL220', 21.5, 22.5, 0], ['VOLT 3', 'A20', 19.5, 20.5, 0], ['ARCO 1', 'A06', 5.5, 6.5, 0]]
+      .map(([who, blk, a, b, ov]) => ({ who, blk, l: (a / 35 * 100).toFixed(1), w: ((b - a) / 35 * 100).toFixed(1), c: ov ? '#E0524E' : '#3E9BD4', fg: ov ? '#FF8A85' : '#E6EDF3' }));
+    const ROE = [['HOLD', '#E0524E'], ['TIGHT', '#E7B04F'], ['FREE', '#7FD397']];
+    const sams = [['CG', 'SM-2 · 90 NM', 'TIGHT'], ['DDG-1', 'SM-2 · 75 NM', 'TIGHT'], ['DDG-2', 'SM-2 · 75 NM', 'HOLD']].map(([ship, sys, d0]) => {
+      const cur = s.roe[ship] || d0; return { ship, sys, roe: ROE.map(([k, c]) => ({ k, on: cur === k ? 'true' : 'false', bg: cur === k ? c : 'transparent', fg: cur === k ? '#0E1116' : '#93A1B0',
+        pick: () => this.setState({ roe: Object.assign({}, s.roe, { [ship]: k }) }) })) }; });
+    const EM = { A: ['SILENT', 'SILENT', 'SILENT', 'SILENT', 'RX ONLY'], B: ['ON', 'SILENT', 'ON', 'SILENT', 'ON'], C: ['ON', 'ON', 'ON', 'SILENT', 'ON'], D: ['ON', 'ON', 'ON', 'ON', 'ON'] }[s.emcon];
+    const emcon = ['A', 'B', 'C', 'D'].map(k => ({ k, on: s.emcon === k ? 'true' : 'false', bg: s.emcon === k ? '#222C37' : 'transparent', fg: s.emcon === k ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ emcon: k }) }));
+    const emitters = ['SPS-48 air search', 'SPY-1 (CG/DDG)', 'TACAN 73X', 'ICLS / ACLS', 'Link 16'].map((n, i) => ({ n, st: EM[i], c: EM[i] === 'ON' ? '#7FD397' : '#E7B04F' }));
+    const donors = ['DARKSTAR · E-2D', 'CG · SPY-1', 'DDG-1 · SPY-1', 'ROOK 1 · F-35C', 'SLUGGER 2'].map(n => { const sup = !!s.supp[n];
+      return { n, on: sup ? 'true' : 'false', lbl: sup ? 'SUPPRESSED' : 'DONOR', fg: sup ? '#E7B04F' : '#E6EDF3', bg: sup ? 'rgba(231,176,79,.12)' : 'transparent', bc: sup ? '#E7B04F' : '#374250',
+        pick: () => this.setState({ supp: Object.assign({}, s.supp, { [n]: !sup }) }) }; });
+    return Object.assign(SV, { tabs, tabTask: tab === 'task', tabAir: tab === 'air', tabSurf: tab === 'surf', L: vis, layers, fits, airTracks, surfTracks, alts, sams, emcon, emitters, donors });
+  }
+
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,540 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Bridge</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Saira:wght@400;500;600;700&amp;family=IBM+Plex+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#0E1116}
+a{color:#F15822}a:hover{color:#FF8A5C}
+.lbl{font-family:'IBM Plex Mono',ui-monospace,monospace;font-size:10.5px;letter-spacing:.12em;text-transform:uppercase;color:#93A1B0}
+.mono{font-family:'IBM Plex Mono',ui-monospace,monospace}
+.pnl{border:1px solid #262F3A;border-radius:8px;background:#151A21;padding:12px}
+.kv{display:flex;justify-content:space-between;gap:10px;font-family:'IBM Plex Mono',monospace;font-size:12.5px;padding:3px 0}
+.kv>span:first-child{color:#93A1B0}
+.btn{height:32px;padding:0 12px;border:1px solid #374250;border-radius:5px;background:transparent;color:#E6EDF3;font-family:'Saira',sans-serif;font-size:12.5px;cursor:pointer}
+.seg{display:flex;gap:2px;background:#0E1116;border:1px solid #262F3A;border-radius:6px;padding:2px}
+.seg>button{border:0;height:28px;padding:0 10px;border-radius:4px;font-family:'Saira',sans-serif;font-size:12.5px;cursor:pointer}
+@keyframes pulse{0%,100%{opacity:.95}50%{opacity:.3}}
+.blink{animation:pulse 1.2s ease-in-out infinite}
+.ch *{vector-effect:non-scaling-stroke}
+.ch text{font-family:'IBM Plex Mono',monospace;font-size:1.45px}
+.ch .cl{fill:#93A1B0}
+.ch .cb{fill:#6FB6E6}.ch .cp{fill:#C9D3DD}.ch .co{fill:#7FD397}
+.ch .g line{stroke:rgba(147,161,176,.08)}
+.ch .rg circle{fill:none;stroke:rgba(64,168,91,.18)}
+.ch .sect path{fill:rgba(62,155,212,.07);stroke:rgba(62,155,212,.4);stroke-dasharray:3 3}
+.ch .pim{fill:none;stroke:#C9D3DD;stroke-width:1.2;stroke-dasharray:8 4}
+.ch .pimbox{fill:rgba(201,211,221,.05);stroke:#C9D3DD;stroke-width:1}
+.ch .pimpt{fill:#C9D3DD}
+.ch .past{fill:none;stroke:rgba(147,161,176,.5);stroke-width:1.2}
+.ch .rec{fill:none;stroke:#5FD068;stroke-width:2}
+.ch .ret{fill:none;stroke:#E6EDF3;stroke-width:1.2;stroke-dasharray:4 3}
+.ch .wp circle{fill:#0B0E12;stroke:#E6EDF3;stroke-width:1.2}
+.ch .esc circle{fill:#3E9BD4}
+.ch .own{stroke:#E6EDF3;stroke-width:1.6}
+.ch .ownsym{fill:#E6EDF3}
+.ch .wnd{fill:none;stroke:rgba(147,161,176,.4)}
+.ch .wa{fill:none;stroke:#C9D3DD;stroke-width:1.4}
+.dig{display:inline-block;box-sizing:border-box;padding:2px 6px;border-radius:2px;background:#0B100C;border:1px solid #3A4A3B;font-family:'IBM Plex Mono',monospace;font-size:15px;font-weight:600;color:#6FBF68;text-align:center;letter-spacing:.04em}
+.cl2{font-family:'IBM Plex Mono',monospace;font-size:10px;font-weight:600;letter-spacing:.1em;color:#1E1B18}
+.rose text{font-family:'IBM Plex Mono',monospace;text-anchor:middle}
+.rose .oc text{fill:#1E1B18;font-size:6.4px;font-weight:600}
+.rose .ic text{fill:#1E1B18;font-size:6.2px;font-weight:600}
+.dial text{font-family:'IBM Plex Mono',monospace}
+.fm *{vector-effect:non-scaling-stroke}
+.fm circle{fill:none;stroke:rgba(64,168,91,.22)}
+.fm .ax{stroke:rgba(230,237,243,.35);stroke-dasharray:4 4}
+.fm .ax2{stroke:rgba(147,161,176,.12)}
+.fm .sec{fill:rgba(62,155,212,.10);stroke:rgba(62,155,212,.55);stroke-dasharray:4 3}
+.fm .secs{fill:rgba(241,88,34,.12);stroke:#F15822;stroke-width:1.6}
+.fm .pt{fill:#3E9BD4;stroke:none}
+.fm .hd{fill:#0B0E12;stroke:#F15822;stroke-width:1.4}
+.dial .rl text{fill:#A39C90;font-size:9px}
+.dial .rl2{fill:#93A1B0;font-size:8px;letter-spacing:.1em}
+.gt{fill:#93A1B0;font-family:'IBM Plex Mono',monospace;font-size:8px}
+</style>
+</helmet>
+<div style="position: relative; min-height: 100vh; display: flex; flex-direction: column; background: #0E1116; color: #E6EDF3; font-family: 'Saira', system-ui, sans-serif">
+  <header style="display: flex; flex-wrap: wrap; align-items: center; gap: 14px; padding: 8px 16px; border-bottom: 1px solid #262F3A; background: #151A21">
+    <div style="display: flex; align-items: center; gap: 10px">
+      <div style="width: 28px; height: 28px; border-radius: 5px; background: #F15822; display: flex; align-items: center; justify-content: center">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#0E1116" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 15h15l3-4H8L6 8H3z"></path><path d="M3 19c2 0 2-1.5 4.5-1.5S10 19 12 19s2.5-1.5 4.5-1.5S19 19 21 19"></path></svg>
+      </div>
+      <select aria-label="Ship" style="background: #0E1116; color: #E6EDF3; border: 1px solid #374250; border-radius: 4px; padding: 5px 8px; font-family: 'IBM Plex Mono', monospace; font-size: 12.5px">
+        <option>CVN-73 · Warfighter</option>
+        <option>CVN-71 · Rough Rider</option>
+      </select>
+    </div>
+    <nav aria-label="Location" style="display: flex; gap: 2px; background: #0E1116; border: 1px solid #262F3A; border-radius: 6px; padding: 2px">
+      <a href="CDC.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">CDC</a>
+      <a href="Main.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">CATCC</a>
+      <a href="Boss.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">PriFly</a>
+      <a href="Bridge.dc.html" aria-current="page" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; background: #222C37; color: #E6EDF3; font-size: 13px; font-weight: 600">Bridge</a>
+      <a href="LSO.dc.html" style="text-decoration: none; padding: 6px 12px; border-radius: 4px; color: #93A1B0; font-size: 13px">LSO</a>
+    </nav>
+    <div style="display: flex; gap: 6px; align-items: center; flex-wrap: wrap" aria-label="Seats">
+      <sc-for list="{{seats}}" as="p" hint-placeholder-count="1">
+        <button onClick="{{p.click}}" title="{{p.title}}" aria-label="{{p.title}}" aria-pressed="{{p.on}}" style="display: flex; align-items: center; gap: 7px; height: 38px; padding: 0 12px 0 4px; border-radius: 19px; border: 1px {{p.bs}} {{p.bc}}; background: {{p.bg}}; cursor: {{p.cur}}; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace">
+          <span style="width: 28px; height: 28px; border-radius: 50%; box-sizing: border-box; border: 1.5px {{p.as}} {{p.ab}}; background: {{p.af}}; color: {{p.afg}}; display: flex; align-items: center; justify-content: center; font-size: 10.5px; font-weight: 600">{{p.init}}</span>
+          <span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.15">
+            <span style="font-size: 10px; letter-spacing: .1em; color: {{p.lfg}}">{{p.label}}</span>
+            <span style="font-size: 11.5px; color: {{p.whoFg}}">{{p.who}}</span>
+          </span>
+        </button>
+      </sc-for>
+      <sc-if value="{{viewOnly}}" hint-placeholder-val="{{false}}">
+        <span class="mono" style="font-size: 11px; padding: 4px 8px; border-radius: 4px; border: 1px solid #374250; color: #93A1B0">VIEW ONLY</span>
+      </sc-if>
+    </div>
+    <div style="padding: 4px 10px; border-radius: 4px; background: #0E1116; border: 1px solid #374250; font-family: 'IBM Plex Mono', monospace; font-size: 12px; letter-spacing: .06em">EVENT 3 RECOVERY · INTO WIND</div>
+    <div style="flex: 1"></div>
+    <div style="display: flex; gap: 14px; font-family: 'IBM Plex Mono', monospace" aria-label="Time">
+      <div style="text-align: right; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">LOCAL · UTC+4</div>
+        <div style="font-size: 17px; font-weight: 600">18:12:30</div>
+      </div>
+      <div style="width: 1px; background: #374250"></div>
+      <div style="text-align: left; line-height: 1.1">
+        <div style="font-size: 10px; color: #93A1B0; letter-spacing: .12em">ZULU</div>
+        <div style="font-size: 17px; font-weight: 600">14:12:30Z</div>
+      </div>
+    </div>
+    <button onClick="{{openOpts}}" aria-label="Options" title="Options" style="height: 36px; width: 36px; display: flex; align-items: center; justify-content: center; padding: 0; background: #0E1116; border: 1px solid #374250; border-radius: 5px; color: #E6EDF3; cursor: pointer">
+      <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h4M12 17h8"></path><circle cx="16" cy="7" r="2"></circle><circle cx="10" cy="17" r="2"></circle></svg>
+    </button>
+  </header>
+
+  <div style="flex: 1; display: flex; min-height: 0">
+    <aside aria-label="Track, formation and lighting" style="flex: 0 0 344px; width: 344px; border-right: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; box-sizing: border-box; overflow-y: auto">
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px"><span class="lbl">Waypoints</span><button class="btn" style="height: 26px; font-size: 11.5px">+ Waypoint</button></div>
+        <sc-for list="{{wps}}" as="w" hint-placeholder-count="5">
+          <div class="mono" style="display: grid; grid-template-columns: 44px 1fr auto; gap: 6px; font-size: 12px; padding: 4px 6px; border-radius: 4px; background: {{w.bg}}; color: {{w.fg}}"><b>{{w.n}}</b><span>{{w.pos}}</span><span>{{w.eta}}</span></div>
+        </sc-for>
+      </section>
+      <section class="pnl">
+        <div class="lbl" style="margin-bottom: 6px">PIM</div>
+        <div class="kv"><span>PIM now</span><span>285 / 25 NM</span></div>
+        <div class="kv"><span>PIM course · speed</span><span>352 · 12 KT</span></div>
+        <div class="kv"><span>Box</span><span style="color: #E7B04F">OUTSIDE · back by 19:20</span></div>
+        <div class="kv"><span>Catch-up speed</span><span>24 KT from 18:45</span></div>
+        <div style="position: relative; height: 16px; background: #0E1116; border-radius: 3px; margin-top: 8px">
+          <span style="position: absolute; left: 0; width: 38%; top: 0; bottom: 0; border-radius: 3px 0 0 3px; background: rgba(95,208,104,.3)"></span>
+          <span style="position: absolute; left: 38%; width: 47%; top: 0; bottom: 0; background: rgba(62,155,212,.25)"></span>
+          <span style="position: absolute; left: 12%; top: -3px; bottom: -3px; width: 2px; background: #E6EDF3"></span>
+        </div>
+        <div class="mono" style="display: flex; justify-content: space-between; font-size: 10.5px; color: #93A1B0; margin-top: 3px"><span>17:55 INTO WIND</span><span>18:45 TO PIM</span><span>19:20 IN BOX</span></div>
+      </section>
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px"><span class="lbl">{{csgTitle}}</span><button class="btn" onClick="{{openCsg}}" style="height: 26px; font-size: 11.5px">Edit stations</button></div>
+        <sc-for list="{{csg}}" as="c" hint-placeholder-count="4">
+          <div class="mono" style="display: grid; grid-template-columns: 62px 1fr auto; gap: 6px; font-size: 12px; padding: 3px 0"><b>{{c.n}}</b><span style="color: #93A1B0">{{c.st}}</span><span style="color: {{c.sc}}">{{c.s}}</span></div>
+        </sc-for>
+      </section>
+      <section class="pnl">
+        <div class="lbl" style="margin-bottom: 6px">Lights</div>
+        <sc-for list="{{lights}}" as="l" hint-placeholder-count="3">
+          <div style="display: grid; grid-template-columns: 1fr auto; align-items: center; padding: 3px 0">
+            <span class="mono" style="font-size: 12px">{{l.n}}</span>
+            <div class="seg"><sc-for list="{{l.opts}}" as="o" hint-placeholder-count="3"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="height: 24px; font-size: 11px; padding: 0 8px; background: {{o.bg}}; color: {{o.fg}}; box-shadow: inset 0 0 0 1px {{o.bc}}">{{o.k}}</button></sc-for></div>
+          </div>
+        </sc-for>
+      </section>
+    </aside>
+
+    <main aria-label="Navigation chart" style="flex: 1; min-width: 0; position: relative; background: #0B0E12; overflow: hidden">
+      <svg class="ch" viewBox="-48 -58 96 84" preserveAspectRatio="xMidYMid meet" style="position: absolute; inset: 0; width: 100%; height: 100%" role="img" aria-label="Navigation chart: planned track, PIM, recovery leg, escort stations">
+            <g class="g"><line x1="-40" y1="-58" x2="-40" y2="26"></line><line x1="-30" y1="-58" x2="-30" y2="26"></line><line x1="-20" y1="-58" x2="-20" y2="26"></line><line x1="-10" y1="-58" x2="-10" y2="26"></line><line x1="0" y1="-58" x2="0" y2="26"></line><line x1="10" y1="-58" x2="10" y2="26"></line><line x1="20" y1="-58" x2="20" y2="26"></line><line x1="30" y1="-58" x2="30" y2="26"></line><line x1="40" y1="-58" x2="40" y2="26"></line><line x1="-48" y1="-50" x2="48" y2="-50"></line><line x1="-48" y1="-40" x2="48" y2="-40"></line><line x1="-48" y1="-30" x2="48" y2="-30"></line><line x1="-48" y1="-20" x2="48" y2="-20"></line><line x1="-48" y1="-10" x2="48" y2="-10"></line><line x1="-48" y1="0" x2="48" y2="0"></line><line x1="-48" y1="10" x2="48" y2="10"></line><line x1="-48" y1="20" x2="48" y2="20"></line></g>
+            <g class="rg"><circle cx="0" cy="0" r="10"></circle><circle cx="0" cy="0" r="20"></circle><circle cx="0" cy="0" r="30"></circle></g>
+            <g class="sect"><path d="M-2 -3.46 L-4 -6.93 A8 8 0 0 1 0 -8 L0 -4 A4 4 0 0 0 -2 -3.46 Z"></path><path d="M3.08 -8.46 L5.13 -14.1 A15 15 0 0 1 12.99 -7.5 L7.79 -4.5 A9 9 0 0 0 3.08 -8.46 Z"></path><path d="M-6.89 5.79 L-11.49 9.64 A15 15 0 0 1 -15 0 L-9 0 A9 9 0 0 0 -6.89 5.79 Z"></path></g>
+            <path d="M-22 24 L-26 -6 L-30 -26 L-40 -50" class="pim"></path>
+            <rect x="-29.9" y="-2.6" width="10" height="10" class="pimbox"></rect>
+            <circle cx="-24.9" cy="2.4" r="0.8" class="pimpt"></circle>
+            <text x="-29.9" y="9.8" class="cl cp">PIM 18:12 · 25 NM</text>
+            <path d="M-14 30 L-6 8 L0 0" class="past"></path>
+            <path d="M0 0 L-2.46 -9.18" class="rec"></path>
+            <path d="M-2.46 -9.18 Q-5.46 -12.18 -7.46 -11.18 L-30 -26 L-40 -50" class="ret"></path>
+            <g class="wp"><circle cx="-14" cy="30" r="1"></circle><circle cx="-30" cy="-26" r="1"></circle><circle cx="-40" cy="-50" r="1"></circle></g>
+            <text x="-12.2" y="30.8" class="cl">WP3 · 17:40</text><text x="-28.2" y="-25.2" class="cl">WP4 · 19:20</text><text x="-38.2" y="-49.2" class="cl">WP5 · 20:30</text>
+            <text x="-0.86" y="-9.18" class="cl co">END RECOVERY 18:45</text>
+            <text x="-20" y="-14" class="cl">RETURN TO PIM · 24 KT</text>
+            <g class="esc"><circle cx="-1.55" cy="-5.8" r="0.9"></circle><circle cx="7.71" cy="-9.19" r="0.9"></circle><circle cx="-11.28" cy="4.1" r="0.9"></circle><circle cx="37.09" cy="-14.98" r="0.9"></circle></g><text x="0.05" y="-5" class="cl cb">CG</text><text x="9.31" y="-8.39" class="cl cb">DDG-1</text><text x="-9.68" y="4.9" class="cl cb">DDG-2</text><text x="38.69" y="-14.18" class="cl cb">CVN-71</text>
+            <line x1="0" y1="0" x2="-0.65" y2="-2.41" class="own"></line>
+            <path d="M0 -1.4 L0.7 0.9 L0 0.5 L-0.7 0.9 Z" transform="rotate(345)" class="ownsym"></path>
+            <text x="1.8" y="1.6" class="cl" style="fill:#E6EDF3">CVN-73 · 345 / 15</text>
+            <g transform="translate(34 18)"><circle r="5" class="wnd"></circle><path d="M0 -5 L0 5 M-1.2 2.8 L0 5 L1.2 2.8" transform="rotate(330)" class="wa"></path><text x="0" y="8.6" text-anchor="middle" class="cl">WIND FROM 330 / 12</text></g>
+            <text x="-47" y="24.5" class="cl" style="fill:#5E6A78">10 NM GRID</text>
+          </svg>
+      <div style="position: absolute; top: 12px; left: 50%; transform: translateX(-50%); display: flex; gap: 8px; align-items: center; background: rgba(21,26,33,.96); border: 1px solid #374250; border-radius: 8px; padding: 5px 6px">
+        <sc-for list="{{tools}}" as="t" hint-placeholder-count="4"><button onClick="{{t.pick}}" aria-pressed="{{t.on}}" style="height: 28px; padding: 0 10px; border-radius: 4px; border: 1px solid {{t.bc}}; background: {{t.bg}}; color: {{t.fg}}; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">{{t.label}}</button></sc-for>
+        <div style="width: 1px; height: 24px; background: #374250"></div>
+        <button onClick="{{togglePlat}}" aria-pressed="{{platOn}}" style="height: 28px; padding: 0 10px; border-radius: 4px; border: 1px solid {{platBc}}; background: {{platBg}}; color: #E6EDF3; font-family: 'Saira', sans-serif; font-size: 12.5px; cursor: pointer">PLAT</button>
+      </div>
+      <sc-if value="{{plat}}" hint-placeholder-val="{{true}}">
+        <div style="position: absolute; right: 12px; bottom: 12px; width: min(340px, 45%); background: #151A21; border: 1px solid #374250; border-radius: 8px; padding: 6px">
+          <div style="position: relative; aspect-ratio: 16 / 9; background: #07090C; border-radius: 4px; overflow: hidden">
+            <span style="position: absolute; left: 50%; top: 0; bottom: 0; width: 1px; background: rgba(230,237,243,.25)"></span>
+            <span style="position: absolute; top: 50%; left: 0; right: 0; height: 1px; background: rgba(230,237,243,.25)"></span>
+            <span class="mono" style="position: absolute; left: 8px; top: 6px; font-size: 10.5px; color: #93A1B0">PLAT</span>
+            <span class="mono" style="position: absolute; left: 8px; bottom: 6px; font-size: 10.5px; color: #5E6A78">NO SIGNAL · RTMP</span>
+          </div>
+        </div>
+      </sc-if>
+    </main>
+
+    <aside aria-label="Steering, propulsion and wind" style="flex: 0 0 520px; width: 520px; border-left: 1px solid #262F3A; background: #151A21; display: flex; flex-direction: column; gap: 10px; padding: 12px; box-sizing: border-box; overflow-y: auto">
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-bottom: 8px">
+          <span class="lbl">Steering</span>
+        </div>
+        <div style="display: flex; flex-direction: column; gap: 12px; align-items: center">
+          <div style="position: relative; width: 100%; max-width: 440px">
+<svg class="rose" viewBox="-104 -104 208 208" style="width: 100%; display: block" role="img" aria-label="Compass: outer card true heading, inner ring relative bearing, ordered course bug">
+              <circle r="103" fill="#0A0B0C"></circle>
+              <g transform="rotate({{cardRot}})">
+                <circle r="92" fill="none" stroke="#8F897E" stroke-width="16"></circle>
+                <path d="M0 -84L0 -91M2.93 -83.95L3.02 -86.45M5.86 -83.8L6.03 -86.29M8.78 -83.54L9.04 -86.03M11.69 -83.18L12.04 -85.66M14.59 -82.72L15.8 -89.62M17.46 -82.16L17.98 -84.61M20.32 -81.5L20.93 -83.93M23.15 -80.75L23.84 -83.15M25.96 -79.89L26.73 -82.27M28.73 -78.93L31.12 -85.51M31.47 -77.88L32.4 -80.2M34.17 -76.74L35.18 -79.02M36.82 -75.5L37.92 -77.75M39.44 -74.17L40.61 -76.37M42 -72.75L45.5 -78.81M44.51 -71.24L45.84 -73.36M46.97 -69.64L48.37 -71.71M49.37 -67.96L50.84 -69.98M51.72 -66.19L53.25 -68.16M53.99 -64.35L58.49 -69.71M56.21 -62.42L57.88 -64.28M58.35 -60.42L60.09 -62.22M60.42 -58.35L62.22 -60.09M62.42 -56.21L64.28 -57.88M64.35 -53.99L69.71 -58.49M66.19 -51.72L68.16 -53.25M67.96 -49.37L69.98 -50.84M69.64 -46.97L71.71 -48.37M71.24 -44.51L73.36 -45.84M72.75 -42L78.81 -45.5M74.17 -39.44L76.37 -40.61M75.5 -36.82L77.75 -37.92M76.74 -34.17L79.02 -35.18M77.88 -31.47L80.2 -32.4M78.93 -28.73L85.51 -31.12M79.89 -25.96L82.27 -26.73M80.75 -23.15L83.15 -23.84M81.5 -20.32L83.93 -20.93M82.16 -17.46L84.61 -17.98M82.72 -14.59L89.62 -15.8M83.18 -11.69L85.66 -12.04M83.54 -8.78L86.03 -9.04M83.8 -5.86L86.29 -6.03M83.95 -2.93L86.45 -3.02M84 -0L91 -0M83.95 2.93L86.45 3.02M83.8 5.86L86.29 6.03M83.54 8.78L86.03 9.04M83.18 11.69L85.66 12.04M82.72 14.59L89.62 15.8M82.16 17.46L84.61 17.98M81.5 20.32L83.93 20.93M80.75 23.15L83.15 23.84M79.89 25.96L82.27 26.73M78.93 28.73L85.51 31.12M77.88 31.47L80.2 32.4M76.74 34.17L79.02 35.18M75.5 36.82L77.75 37.92M74.17 39.44L76.37 40.61M72.75 42L78.81 45.5M71.24 44.51L73.36 45.84M69.64 46.97L71.71 48.37M67.96 49.37L69.98 50.84M66.19 51.72L68.16 53.25M64.35 53.99L69.71 58.49M62.42 56.21L64.28 57.88M60.42 58.35L62.22 60.09M58.35 60.42L60.09 62.22M56.21 62.42L57.88 64.28M53.99 64.35L58.49 69.71M51.72 66.19L53.25 68.16M49.37 67.96L50.84 69.98M46.97 69.64L48.37 71.71M44.51 71.24L45.84 73.36M42 72.75L45.5 78.81M39.44 74.17L40.61 76.37M36.82 75.5L37.92 77.75M34.17 76.74L35.18 79.02M31.47 77.88L32.4 80.2M28.73 78.93L31.12 85.51M25.96 79.89L26.73 82.27M23.15 80.75L23.84 83.15M20.32 81.5L20.93 83.93M17.46 82.16L17.98 84.61M14.59 82.72L15.8 89.62M11.69 83.18L12.04 85.66M8.78 83.54L9.04 86.03M5.86 83.8L6.03 86.29M2.93 83.95L3.02 86.45M0 84L0 91M-2.93 83.95L-3.02 86.45M-5.86 83.8L-6.03 86.29M-8.78 83.54L-9.04 86.03M-11.69 83.18L-12.04 85.66M-14.59 82.72L-15.8 89.62M-17.46 82.16L-17.98 84.61M-20.32 81.5L-20.93 83.93M-23.15 80.75L-23.84 83.15M-25.96 79.89L-26.73 82.27M-28.73 78.93L-31.12 85.51M-31.47 77.88L-32.4 80.2M-34.17 76.74L-35.18 79.02M-36.82 75.5L-37.92 77.75M-39.44 74.17L-40.61 76.37M-42 72.75L-45.5 78.81M-44.51 71.24L-45.84 73.36M-46.97 69.64L-48.37 71.71M-49.37 67.96L-50.84 69.98M-51.72 66.19L-53.25 68.16M-53.99 64.35L-58.49 69.71M-56.21 62.42L-57.88 64.28M-58.35 60.42L-60.09 62.22M-60.42 58.35L-62.22 60.09M-62.42 56.21L-64.28 57.88M-64.35 53.99L-69.71 58.49M-66.19 51.72L-68.16 53.25M-67.96 49.37L-69.98 50.84M-69.64 46.97L-71.71 48.37M-71.24 44.51L-73.36 45.84M-72.75 42L-78.81 45.5M-74.17 39.44L-76.37 40.61M-75.5 36.82L-77.75 37.92M-76.74 34.17L-79.02 35.18M-77.88 31.47L-80.2 32.4M-78.93 28.73L-85.51 31.12M-79.89 25.96L-82.27 26.73M-80.75 23.15L-83.15 23.84M-81.5 20.32L-83.93 20.93M-82.16 17.46L-84.61 17.98M-82.72 14.59L-89.62 15.8M-83.18 11.69L-85.66 12.04M-83.54 8.78L-86.03 9.04M-83.8 5.86L-86.29 6.03M-83.95 2.93L-86.45 3.02M-84 0L-91 0M-83.95 -2.93L-86.45 -3.02M-83.8 -5.86L-86.29 -6.03M-83.54 -8.78L-86.03 -9.04M-83.18 -11.69L-85.66 -12.04M-82.72 -14.59L-89.62 -15.8M-82.16 -17.46L-84.61 -17.98M-81.5 -20.32L-83.93 -20.93M-80.75 -23.15L-83.15 -23.84M-79.89 -25.96L-82.27 -26.73M-78.93 -28.73L-85.51 -31.12M-77.88 -31.47L-80.2 -32.4M-76.74 -34.17L-79.02 -35.18M-75.5 -36.82L-77.75 -37.92M-74.17 -39.44L-76.37 -40.61M-72.75 -42L-78.81 -45.5M-71.24 -44.51L-73.36 -45.84M-69.64 -46.97L-71.71 -48.37M-67.96 -49.37L-69.98 -50.84M-66.19 -51.72L-68.16 -53.25M-64.35 -53.99L-69.71 -58.49M-62.42 -56.21L-64.28 -57.88M-60.42 -58.35L-62.22 -60.09M-58.35 -60.42L-60.09 -62.22M-56.21 -62.42L-57.88 -64.28M-53.99 -64.35L-58.49 -69.71M-51.72 -66.19L-53.25 -68.16M-49.37 -67.96L-50.84 -69.98M-46.97 -69.64L-48.37 -71.71M-44.51 -71.24L-45.84 -73.36M-42 -72.75L-45.5 -78.81M-39.44 -74.17L-40.61 -76.37M-36.82 -75.5L-37.92 -77.75M-34.17 -76.74L-35.18 -79.02M-31.47 -77.88L-32.4 -80.2M-28.73 -78.93L-31.12 -85.51M-25.96 -79.89L-26.73 -82.27M-23.15 -80.75L-23.84 -83.15M-20.32 -81.5L-20.93 -83.93M-17.46 -82.16L-17.98 -84.61M-14.59 -82.72L-15.8 -89.62M-11.69 -83.18L-12.04 -85.66M-8.78 -83.54L-9.04 -86.03M-5.86 -83.8L-6.03 -86.29M-2.93 -83.95L-3.02 -86.45" stroke="#24201C" stroke-width="0.9" fill="none"></path>
+                <g class="oc"><text x="0" y="-95.2" transform="rotate(0 0 -95.2)" dy="2.3">000</text><text x="16.53" y="-93.75" transform="rotate(10 16.53 -93.75)" dy="2.3">010</text><text x="32.56" y="-89.46" transform="rotate(20 32.56 -89.46)" dy="2.3">020</text><text x="47.6" y="-82.45" transform="rotate(30 47.6 -82.45)" dy="2.3">030</text><text x="61.19" y="-72.93" transform="rotate(40 61.19 -72.93)" dy="2.3">040</text><text x="72.93" y="-61.19" transform="rotate(50 72.93 -61.19)" dy="2.3">050</text><text x="82.45" y="-47.6" transform="rotate(60 82.45 -47.6)" dy="2.3">060</text><text x="89.46" y="-32.56" transform="rotate(70 89.46 -32.56)" dy="2.3">070</text><text x="93.75" y="-16.53" transform="rotate(80 93.75 -16.53)" dy="2.3">080</text><text x="95.2" y="-0" transform="rotate(90 95.2 -0)" dy="2.3">090</text><text x="93.75" y="16.53" transform="rotate(100 93.75 16.53)" dy="2.3">100</text><text x="89.46" y="32.56" transform="rotate(110 89.46 32.56)" dy="2.3">110</text><text x="82.45" y="47.6" transform="rotate(120 82.45 47.6)" dy="2.3">120</text><text x="72.93" y="61.19" transform="rotate(130 72.93 61.19)" dy="2.3">130</text><text x="61.19" y="72.93" transform="rotate(140 61.19 72.93)" dy="2.3">140</text><text x="47.6" y="82.45" transform="rotate(150 47.6 82.45)" dy="2.3">150</text><text x="32.56" y="89.46" transform="rotate(160 32.56 89.46)" dy="2.3">160</text><text x="16.53" y="93.75" transform="rotate(170 16.53 93.75)" dy="2.3">170</text><text x="0" y="95.2" transform="rotate(180 0 95.2)" dy="2.3">180</text><text x="-16.53" y="93.75" transform="rotate(190 -16.53 93.75)" dy="2.3">190</text><text x="-32.56" y="89.46" transform="rotate(200 -32.56 89.46)" dy="2.3">200</text><text x="-47.6" y="82.45" transform="rotate(210 -47.6 82.45)" dy="2.3">210</text><text x="-61.19" y="72.93" transform="rotate(220 -61.19 72.93)" dy="2.3">220</text><text x="-72.93" y="61.19" transform="rotate(230 -72.93 61.19)" dy="2.3">230</text><text x="-82.45" y="47.6" transform="rotate(240 -82.45 47.6)" dy="2.3">240</text><text x="-89.46" y="32.56" transform="rotate(250 -89.46 32.56)" dy="2.3">250</text><text x="-93.75" y="16.53" transform="rotate(260 -93.75 16.53)" dy="2.3">260</text><text x="-95.2" y="0" transform="rotate(270 -95.2 0)" dy="2.3">270</text><text x="-93.75" y="-16.53" transform="rotate(280 -93.75 -16.53)" dy="2.3">280</text><text x="-89.46" y="-32.56" transform="rotate(290 -89.46 -32.56)" dy="2.3">290</text><text x="-82.45" y="-47.6" transform="rotate(300 -82.45 -47.6)" dy="2.3">300</text><text x="-72.93" y="-61.19" transform="rotate(310 -72.93 -61.19)" dy="2.3">310</text><text x="-61.19" y="-72.93" transform="rotate(320 -61.19 -72.93)" dy="2.3">320</text><text x="-47.6" y="-82.45" transform="rotate(330 -47.6 -82.45)" dy="2.3">330</text><text x="-32.56" y="-89.46" transform="rotate(340 -32.56 -89.46)" dy="2.3">340</text><text x="-16.53" y="-93.75" transform="rotate(350 -16.53 -93.75)" dy="2.3">350</text></g>
+                <path d="M0 -100 L-4.5 -104 L4.5 -104 Z" fill="#6FBF68" transform="rotate({{ordRel0}})"></path>
+              </g>
+              <circle r="74" fill="#87817A"></circle>
+              <path d="M0 -74L0 -67M6.45 -73.72L6.1 -69.73M12.85 -72.88L11.63 -65.98M19.15 -71.48L18.12 -67.61M25.31 -69.54L22.92 -62.96M31.27 -67.07L29.58 -63.44M37 -64.09L33.5 -58.02M42.44 -60.62L40.15 -57.34M47.57 -56.69L43.07 -51.32M52.33 -52.33L49.5 -49.5M56.69 -47.57L51.32 -43.07M60.62 -42.44L57.34 -40.15M64.09 -37L58.02 -33.5M67.07 -31.27L63.44 -29.58M69.54 -25.31L62.96 -22.92M71.48 -19.15L67.61 -18.12M72.88 -12.85L65.98 -11.63M73.72 -6.45L69.73 -6.1M74 -0L67 -0M73.72 6.45L69.73 6.1M72.88 12.85L65.98 11.63M71.48 19.15L67.61 18.12M69.54 25.31L62.96 22.92M67.07 31.27L63.44 29.58M64.09 37L58.02 33.5M60.62 42.44L57.34 40.15M56.69 47.57L51.32 43.07M52.33 52.33L49.5 49.5M47.57 56.69L43.07 51.32M42.44 60.62L40.15 57.34M37 64.09L33.5 58.02M31.27 67.07L29.58 63.44M25.31 69.54L22.92 62.96M19.15 71.48L18.12 67.61M12.85 72.88L11.63 65.98M6.45 73.72L6.1 69.73M0 74L0 67M-6.45 73.72L-6.1 69.73M-12.85 72.88L-11.63 65.98M-19.15 71.48L-18.12 67.61M-25.31 69.54L-22.92 62.96M-31.27 67.07L-29.58 63.44M-37 64.09L-33.5 58.02M-42.44 60.62L-40.15 57.34M-47.57 56.69L-43.07 51.32M-52.33 52.33L-49.5 49.5M-56.69 47.57L-51.32 43.07M-60.62 42.44L-57.34 40.15M-64.09 37L-58.02 33.5M-67.07 31.27L-63.44 29.58M-69.54 25.31L-62.96 22.92M-71.48 19.15L-67.61 18.12M-72.88 12.85L-65.98 11.63M-73.72 6.45L-69.73 6.1M-74 0L-67 0M-73.72 -6.45L-69.73 -6.1M-72.88 -12.85L-65.98 -11.63M-71.48 -19.15L-67.61 -18.12M-69.54 -25.31L-62.96 -22.92M-67.07 -31.27L-63.44 -29.58M-64.09 -37L-58.02 -33.5M-60.62 -42.44L-57.34 -40.15M-56.69 -47.57L-51.32 -43.07M-52.33 -52.33L-49.5 -49.5M-47.57 -56.69L-43.07 -51.32M-42.44 -60.62L-40.15 -57.34M-37 -64.09L-33.5 -58.02M-31.27 -67.07L-29.58 -63.44M-25.31 -69.54L-22.92 -62.96M-19.15 -71.48L-18.12 -67.61M-12.85 -72.88L-11.63 -65.98M-6.45 -73.72L-6.1 -69.73" stroke="#24201C" stroke-width="0.9" fill="none"></path>
+              <g class="ic"><text x="0" y="-61" transform="rotate(0 0 -61)" dy="2.3">000</text><text x="20.86" y="-57.32" transform="rotate(20 20.86 -57.32)" dy="2.3">020</text><text x="39.21" y="-46.73" transform="rotate(40 39.21 -46.73)" dy="2.3">040</text><text x="52.83" y="-30.5" transform="rotate(60 52.83 -30.5)" dy="2.3">060</text><text x="60.07" y="-10.59" transform="rotate(80 60.07 -10.59)" dy="2.3">080</text><text x="60.07" y="10.59" transform="rotate(100 60.07 10.59)" dy="2.3">100</text><text x="52.83" y="30.5" transform="rotate(120 52.83 30.5)" dy="2.3">120</text><text x="39.21" y="46.73" transform="rotate(140 39.21 46.73)" dy="2.3">140</text><text x="20.86" y="57.32" transform="rotate(160 20.86 57.32)" dy="2.3">160</text><text x="0" y="61" transform="rotate(180 0 61)" dy="2.3">180</text><text x="-20.86" y="57.32" transform="rotate(200 -20.86 57.32)" dy="2.3">160</text><text x="-39.21" y="46.73" transform="rotate(220 -39.21 46.73)" dy="2.3">140</text><text x="-52.83" y="30.5" transform="rotate(240 -52.83 30.5)" dy="2.3">120</text><text x="-60.07" y="10.59" transform="rotate(260 -60.07 10.59)" dy="2.3">100</text><text x="-60.07" y="-10.59" transform="rotate(280 -60.07 -10.59)" dy="2.3">080</text><text x="-52.83" y="-30.5" transform="rotate(300 -52.83 -30.5)" dy="2.3">060</text><text x="-39.21" y="-46.73" transform="rotate(320 -39.21 -46.73)" dy="2.3">040</text><text x="-20.86" y="-57.32" transform="rotate(340 -20.86 -57.32)" dy="2.3">020</text></g>
+              <path d="M0 -75.5 L-3.6 -79.5 L0 -83.5 L3.6 -79.5 Z" fill="#D8D2C6"></path>
+            </svg>
+            <div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; pointer-events: none">
+              <span style="display: grid; grid-template-columns: auto auto auto; gap: 3px 5px; align-items: center; margin-top: 2px">
+                <span class="cl2" style="text-align: right">ORDER</span><span class="dig" style="min-width: 76px; font-size: 20px">{{ordN}}</span><span class="cl2">DEG</span>
+                <span class="cl2" style="text-align: right">HEADING</span><span class="dig" style="min-width: 76px; font-size: 20px">{{hdgN}}</span><span class="cl2">DEG</span>
+                <span class="cl2" style="text-align: right">SPEED</span><span class="dig" style="min-width: 76px; font-size: 20px">{{sogN}}</span><span class="cl2">KTS</span>
+              </span>
+            </div>
+          </div>
+          <div style="width: 100%; max-width: 360px">
+            <svg class="dial" viewBox="-100 -12 200 112" style="width: 70%; display: block; margin: 0 auto" role="img" aria-label="Rudder angle: order and port and starboard rudders">
+              <path d="M-84.69 14.93 A86 86 0 0 0 84.69 14.93" fill="none" stroke="#A39C90" stroke-width="1"></path>
+              <g stroke="#A39C90" stroke-width="1"><line x1="-84.69" y1="14.93" x2="-68.94" y2="12.16"></line><line x1="-80.81" y1="29.41" x2="-73.30" y2="26.68"></line><line x1="-74.48" y1="43.00" x2="-60.62" y2="35.00"></line><line x1="-65.88" y1="55.28" x2="-59.75" y2="50.14"></line><line x1="-55.28" y1="65.88" x2="-45.00" y2="53.62"></line><line x1="-43.00" y1="74.48" x2="-39.00" y2="67.55"></line><line x1="-29.41" y1="80.81" x2="-23.94" y2="65.78"></line><line x1="-14.93" y1="84.69" x2="-13.54" y2="76.82"></line><line x1="0.00" y1="86.00" x2="0.00" y2="70.00"></line><line x1="14.93" y1="84.69" x2="13.54" y2="76.82"></line><line x1="29.41" y1="80.81" x2="23.94" y2="65.78"></line><line x1="43.00" y1="74.48" x2="39.00" y2="67.55"></line><line x1="55.28" y1="65.88" x2="45.00" y2="53.62"></line><line x1="65.88" y1="55.28" x2="59.75" y2="50.14"></line><line x1="74.48" y1="43.00" x2="60.62" y2="35.00"></line><line x1="80.81" y1="29.41" x2="73.30" y2="26.68"></line><line x1="84.69" y1="14.93" x2="68.94" y2="12.16"></line></g>
+              <g class="rl"><text x="-57.12" y="13.57" text-anchor="middle">40</text><text x="-50.23" y="32.50" text-anchor="middle">30</text><text x="-37.28" y="47.93" text-anchor="middle">20</text><text x="-19.84" y="58.00" text-anchor="middle">10</text><text x="0.00" y="61.50" text-anchor="middle">0</text><text x="19.84" y="58.00" text-anchor="middle">10</text><text x="37.28" y="47.93" text-anchor="middle">20</text><text x="50.23" y="32.50" text-anchor="middle">30</text><text x="57.12" y="13.57" text-anchor="middle">40</text></g>
+              <text x="-70" y="-2" class="rl2">PORT</text><text x="70" y="-2" class="rl2" text-anchor="end">STBD</text>
+              <path d="M-5 0 L0 84 L5 0 Z" fill="rgba(176,160,70,.7)" stroke="#6FBF68" stroke-width="1.5" transform="rotate({{rudRot}})"></path>
+              <circle r="6" fill="#151A21" stroke="#C9D3DD"></circle>
+            </svg>
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; text-align: center; margin-top: 4px">
+              <div><div class="lbl" style="font-size: 9px">PORT</div><span class="dig" style="min-width: 56px; font-size: 15px">{{rp}}</span></div>
+              <div><div class="lbl" style="font-size: 9px">ORDER</div><span class="dig" style="min-width: 56px; font-size: 15px">{{ro}}</span></div>
+              <div><div class="lbl" style="font-size: 9px">STBD</div><span class="dig" style="min-width: 56px; font-size: 15px">{{rs}}</span></div>
+            </div>
+            <div style="display: flex; align-items: center; justify-content: center; gap: 6px; margin-top: 10px">
+              <button class="btn" onClick="{{crsDn10}}" style="width: 50px; height: 38px; padding: 0; font-size: 22px; line-height: 1" aria-label="Order 10° left">«</button>
+              <button class="btn" onClick="{{crsDn}}" style="width: 46px; height: 38px; padding: 0; font-size: 22px; line-height: 1" aria-label="Order 1° left">−</button>
+              <span class="lbl">Order</span>
+              <button class="btn" onClick="{{crsUp}}" style="width: 46px; height: 38px; padding: 0; font-size: 22px; line-height: 1" aria-label="Order 1° right">+</button>
+              <button class="btn" onClick="{{crsUp10}}" style="width: 50px; height: 38px; padding: 0; font-size: 22px; line-height: 1" aria-label="Order 10° right">»</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px"><span class="lbl">Engine order</span></div>
+        <div style="display: grid; grid-template-columns: 170px 1fr; gap: 12px">
+          <div style="display: flex; flex-direction: column; gap: 3px">
+            <sc-for list="{{bells}}" as="b" hint-placeholder-count="9"><button onClick="{{b.pick}}" aria-pressed="{{b.on}}" style="height: 26px; border-radius: 3px; border: 1px solid {{b.bc}}; background: {{b.bg}}; color: {{b.fg}}; font-family: 'IBM Plex Mono', monospace; font-size: 11.5px; font-weight: 600; letter-spacing: .06em; cursor: pointer">{{b.k}}</button></sc-for>
+          </div>
+          <div style="display: flex; flex-direction: column; gap: 10px">
+            <div><div class="lbl" style="margin-bottom: 4px">Ordered speed</div><div style="display: flex; align-items: center; gap: 6px"><button class="btn" onClick="{{spdDn}}" style="width: 32px; padding: 0" aria-label="Slower">−</button><span class="dig" style="min-width: 80px; font-size: 20px">{{ospd}}</span><button class="btn" onClick="{{spdUp}}" style="width: 32px; padding: 0" aria-label="Faster">+</button></div></div>
+            <div class="kv"><span>Speed over ground</span><span>15.1 KT</span></div>
+            <div class="kv"><span>Sea room ahead</span><span>38 NM</span></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="pnl">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px">
+          <span class="lbl">Wind over deck</span>
+          <span class="mono" style="font-size: 11.5px; font-weight: 600; color: {{w.c}}">{{w.st}}</span>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; margin-bottom: 8px; text-align: center">
+          <div><div class="lbl" style="font-size: 9px">TRUE WIND</div><span class="dig">{{w.brg}}</span></div>
+          <div><div class="lbl" style="font-size: 9px">TRUE SPEED</div><span class="dig">{{w.spd}}</span></div>
+          <div><div class="lbl" style="font-size: 9px">DOWN ANGLE</div><span class="dig">{{w.along}}</span></div>
+          <div><div class="lbl" style="font-size: 9px">CROSS</div><span class="dig">{{w.cross}}</span></div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; align-items: end">
+          <div style="text-align: center">
+              <svg viewBox="-60 -56 120 66" style="width: 100%; max-width: 150px" aria-hidden="true">
+                <path d="M-48 0 A48 48 0 0 1 48 0" fill="none" stroke="#C9D3DD" stroke-width="3"></path>
+                <path d="M-48 0 L-40 0 M48 0 L40 0 M0 -48 L0 -40 M-34 -34 L-28.3 -28.3 M34 -34 L28.3 -28.3" stroke="#C9D3DD" stroke-width="1.5"></path>
+                <text x="-50" y="9" class="gt" text-anchor="middle">0</text><text x="50" y="9" class="gt" text-anchor="middle">40</text>
+                <path d="M-3 0 L0 -44 L3 0 Z" fill="#5FD068" transform="rotate({{w.aRot}})"></path>
+              </svg>
+              <div class="lbl" style="margin-top: -2px">Down-angle wind</div>
+            </div>
+          <div style="text-align: center">
+              <svg viewBox="-60 -56 120 66" style="width: 100%; max-width: 150px" aria-hidden="true">
+                <path d="M-48 0 A48 48 0 0 1 48 0" fill="none" stroke="#C9D3DD" stroke-width="3"></path>
+                <path d="M-48 0 L-40 0 M48 0 L40 0 M0 -48 L0 -40 M-34 -34 L-28.3 -28.3 M34 -34 L28.3 -28.3" stroke="#C9D3DD" stroke-width="1.5"></path>
+                <text x="-50" y="9" class="gt" text-anchor="middle">15 L</text><text x="50" y="9" class="gt" text-anchor="middle">15 R</text>
+                <path d="M-3 0 L0 -44 L3 0 Z" fill="#5FD068" transform="rotate({{w.cRot}})"></path>
+              </svg>
+              <div class="lbl" style="margin-top: -2px">Cross-deck wind</div>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px; margin-top: 4px">
+          <span class="mono" style="font-size: 12px; color: #93A1B0">Best recovery <b style="color: #E6EDF3">{{w.best}}</b></span>
+          <button class="btn" onClick="{{useBest}}" style="height: 28px">Set</button>
+        </div>
+        <div class="kv"><span>Trim · roll</span><span>0.1° · 0.4° P</span></div>
+      </section>
+    </aside>
+  </div>
+
+  <sc-if value="{{csgOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0; background: rgba(5,7,10,.6); z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 60px">
+      <div role="dialog" aria-label="CSG formation editor" style="width: min(1000px, calc(100% - 32px)); background: #151A21; border: 1px solid #374250; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); overflow: hidden">
+        <div style="display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-bottom: 1px solid #262F3A">
+          <div style="font-weight: 700; font-size: 15px">CSG formation</div>
+          <div class="seg"><sc-for list="{{fPresets}}" as="o" hint-placeholder-count="3"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="background: {{o.bg}}; color: {{o.fg}}">{{o.k}}</button></sc-for></div>
+          <div style="flex: 1"></div>
+          <span class="mono" style="font-size: 12px; color: #93A1B0">AXIS 345 · FOLLOWS BRC</span>
+        </div>
+        <div style="display: grid; grid-template-columns: minmax(0, 1fr) 360px; min-height: 0">
+          <div style="position: relative; padding: 12px; border-right: 1px solid #262F3A">
+            <div style="position: relative; width: 100%; max-width: 560px; aspect-ratio: 1; margin: 0 auto">
+              <svg class="fm" viewBox="-22 -22 44 44" onMouseDown="{{fmDown}}" style="position: absolute; inset: 0; width: 100%; height: 100%; cursor: {{fmCur}}" role="img" aria-label="Formation plot, axis up: station sectors and assigned units">
+                <circle r="5"></circle><circle r="10"></circle><circle r="15"></circle><circle r="20"></circle>
+                <line x1="0" y1="-21" x2="0" y2="21" class="ax"></line>
+                <line x1="-21" y1="0" x2="21" y2="0" class="ax2"></line>
+                <path d="{{fm.other}}" class="sec"></path>
+                <path d="{{fm.sel}}" class="secs"></path>
+                <path d="{{fm.pts}}" class="pt"></path>
+                <path d="{{fm.h}}" class="hd"></path>
+                <path d="M0 -1.1 L0.45 0.8 L-0.45 0.8 Z" fill="#E6EDF3"></path>
+              </svg>
+              <div style="position: absolute; inset: 0; pointer-events: none">
+                <sc-for list="{{fm.labels}}" as="l" hint-placeholder-count="6">
+                  <span class="mono" style="position: absolute; left: {{l.x}}%; top: {{l.y}}%; transform: translate(-50%, -50%); font-size: 11px; color: {{l.c}}; white-space: nowrap; background: {{l.bg}}; padding: 1px 4px; border-radius: 3px">{{l.t}}</span>
+                </sc-for>
+              </div>
+            </div>
+          </div>
+          <div style="padding: 12px; display: flex; flex-direction: column; gap: 10px">
+            <div class="lbl">Escorts · one station each</div>
+            <sc-for list="{{fmRows}}" as="r" hint-placeholder-count="3">
+              <button onClick="{{r.pick}}" aria-pressed="{{r.on}}" style="display: grid; grid-template-columns: 52px 1fr auto; gap: 8px; align-items: center; text-align: left; padding: 7px 8px; border-radius: 5px; border: 1px solid {{r.bc}}; background: {{r.bg}}; color: #E6EDF3; font-family: 'IBM Plex Mono', monospace; font-size: 12px; cursor: pointer">
+                <b style="color: #6FB6E6">{{r.unit}}</b><span style="color: #93A1B0">{{r.role}}</span><span style="color: {{r.gc}}">{{r.geo}}</span>
+              </button>
+            </sc-for>
+            <div style="border-top: 1px solid #262F3A; padding-top: 10px; display: flex; flex-direction: column; gap: 8px">
+              <div style="display: flex; justify-content: space-between; align-items: center"><span class="lbl">{{ed.unit}} station</span><div class="seg"><sc-for list="{{ed.kinds}}" as="o" hint-placeholder-count="3"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="height: 24px; font-size: 11px; background: {{o.bg}}; color: {{o.fg}}">{{o.k}}</button></sc-for></div></div>
+              <div>
+                <div class="lbl" style="margin-bottom: 4px">Role</div>
+                <div class="seg" style="flex-wrap: wrap"><sc-for list="{{ed.roles}}" as="o" hint-placeholder-count="4"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="height: 26px; font-size: 11.5px; background: {{o.bg}}; color: {{o.fg}}">{{o.k}}</button></sc-for></div>
+              </div>
+              <sc-for list="{{ed.fields}}" as="f" hint-placeholder-count="4">
+                <div style="display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 8px">
+                  <span class="mono" style="font-size: 12px; color: #93A1B0">{{f.label}}</span>
+                  <div style="display: flex; align-items: center; gap: 6px">
+                    <button class="btn" onClick="{{f.dn}}" aria-label="{{f.label}} down" style="width: 34px; height: 30px; padding: 0; font-size: 18px">−</button>
+                    <span class="dig" style="min-width: 96px">{{f.v}}</span>
+                    <button class="btn" onClick="{{f.up}}" aria-label="{{f.label}} up" style="width: 34px; height: 30px; padding: 0; font-size: 18px">+</button>
+                  </div>
+                </div>
+              </sc-for>
+            </div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px; padding: 12px 14px; border-top: 1px solid #262F3A">
+          <span class="mono" style="font-size: 11.5px; color: #93A1B0; align-self: center">Bearings relative to the formation axis · drag a station to move it, its grips to reshape it · Apply makes the shown preset active</span>
+          <div style="flex: 1"></div>
+          <button class="btn" onClick="{{cancelCsg}}">Cancel</button>
+          <button class="btn" onClick="{{applyCsg}}" style="background: #F15822; border-color: #F15822; color: #0E1116; font-weight: 700">Apply</button>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+  <sc-if value="{{optsOpen}}" hint-placeholder-val="{{false}}">
+    <div style="position: absolute; inset: 0; background: rgba(5,7,10,.55); z-index: 30; display: flex; align-items: flex-start; justify-content: center; padding-top: 70px">
+      <div role="dialog" aria-label="Options" style="width: min(460px, calc(100% - 32px)); background: #151A21; border: 1px solid #374250; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,.6); padding: 14px">
+        <div style="display: flex; align-items: center; margin-bottom: 12px"><div style="font-weight: 700; font-size: 15px; flex: 1">Options</div><button class="btn" onClick="{{closeOpts}}">Done</button></div>
+        <div class="lbl" style="margin-bottom: 6px">Staffing</div>
+        <div class="seg" style="margin-bottom: 10px">
+          <sc-for list="{{staffOpts}}" as="o" hint-placeholder-count="2"><button onClick="{{o.pick}}" aria-pressed="{{o.on}}" style="flex: 1; background: {{o.bg}}; color: {{o.fg}}">{{o.label}}</button></sc-for>
+        </div>
+        <div class="mono" style="font-size: 11.5px; color: #93A1B0; line-height: 1.6">
+          <sc-for list="{{staffRows}}" as="r" hint-placeholder-count="5"><div style="display: grid; grid-template-columns: 64px 1fr; gap: 8px"><span style="color: #E6EDF3">{{r.loc}}</span><span>{{r.seats}}</span></div></sc-for>
+        </div>
+      </div>
+    </div>
+  </sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"staffing":{"editor":"enum","options":["Condensed","Expanded"],"default":"Condensed"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+
+  seatVals(loc, onSeat) {
+    const s = this.state, mode = s.staff || this.props.staffing || 'Condensed';
+    const C = { CDC: [['strike', 'STRIKE']], CATCC: [['catcc', 'CATCC']], PriFly: [['boss', 'AIR BOSS']], Bridge: [['ood', 'OOD']], LSO: [['lso', 'LSO']] };
+    const E = { CDC: [['aw', 'AIR WARFARE'], ['strike', 'STRIKE'], ['suw', 'SURFACE WARFARE']],
+      CATCC: [['airops', 'AIR OPS'], ['dep', 'DEPARTURE'], ['marshal', 'MARSHAL'], ['app', 'APPROACH'], ['final', 'FINAL']],
+      PriFly: [['boss', 'AIR BOSS'], ['mini', 'MINI BOSS · TWR']], Bridge: [['ood', 'OFFICER OF THE DECK']],
+      LSO: [['clso', 'CONTROLLING LSO'], ['blso', 'BACKUP LSO'], ['writer', 'WRITER']] };
+    // Who holds what at start (mockup): "me" = this user (100); others show board · callsign.
+    const SEED = { strike: { b: '305', cs: 'Ghost' }, aw: { b: '305', cs: 'Ghost' }, suw: null,
+      catcc: 'me', airops: { b: '201', cs: 'Juno' }, dep: { b: '201', cs: 'Juno' }, marshal: 'me', app: 'me', final: null,
+      boss: { b: '210', cs: 'Mako' }, mini: null, ood: { b: '207', cs: 'Skip' }, lso: { b: '214', cs: 'Paddles' }, clso: { b: '214', cs: 'Paddles' }, blso: null, writer: null };
+    const held = Object.assign({}, SEED, s.held || {}), act = s.seat || this.defSeat || null;
+    const list = (mode === 'Expanded' ? E : C)[loc];
+    const set = (k, v, a) => { this.setState({ held: Object.assign({}, s.held || {}, { [k]: v }), seat: a }); if (onSeat && a) onSeat(a); };
+    const seats = list.map(([k, label]) => {
+      const h = held[k], mine = h === 'me', on = mine && (act === k || (!act && list.length === 1));
+      if (!h) return { label, who: 'Open', init: '+', on: 'false', click: () => set(k, 'me', k), title: 'Take ' + label,
+        bs: 'dashed', bc: '#374250', bg: 'transparent', cur: 'pointer', as: 'dashed', ab: '#5E6A78', af: 'transparent', afg: '#93A1B0', whoFg: '#93A1B0', lfg: '#93A1B0' };
+      if (mine) return { label, who: '100 · You', init: '100', on: on ? 'true' : 'false',
+        click: () => on ? set(k, null, null) : (this.setState({ seat: k }), onSeat && onSeat(k)),
+        title: on ? 'You hold ' + label + ' · click to release' : 'Show the ' + label + ' view',
+        bs: 'solid', bc: '#F15822', bg: on ? 'rgba(241,88,34,.2)' : 'transparent', cur: 'pointer', as: 'solid', ab: '#F15822', af: on ? '#F15822' : 'transparent', afg: on ? '#0E1116' : '#FFB08F', whoFg: '#FFB08F', lfg: on ? '#FFB08F' : '#93A1B0' };
+      return { label, who: h.b + ' · ' + h.cs, init: h.b, on: 'false', click: () => {}, title: label + ' held by ' + h.b + ' ' + h.cs,
+        bs: 'solid', bc: '#374250', bg: '#1A212A', cur: 'default', as: 'solid', ab: '#3E9BD4', af: '#1F3A52', afg: '#CFE6F6', whoFg: '#C9D3DD', lfg: '#93A1B0' };
+    });
+    const nm = l => l.map(x => x[1].charAt(0) + x[1].slice(1).toLowerCase()).join(' · ');
+    return {
+      seats, viewOnly: !list.some(([k]) => held[k] === 'me'), staffMode: mode,
+      optsOpen: !!s.optsOpen, openOpts: () => this.setState({ optsOpen: true }), closeOpts: () => this.setState({ optsOpen: false }),
+      staffOpts: ['Condensed', 'Expanded'].map(m => ({ label: m === 'Condensed' ? 'Condensed · 1 seat per location' : 'Expanded · all seats', on: mode === m ? 'true' : 'false',
+        bg: mode === m ? '#222C37' : 'transparent', fg: mode === m ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ staff: m, seat: null }) })),
+      staffRows: Object.keys(C).map(L => ({ loc: L, seats: nm((mode === 'Expanded' ? E : C)[L]) }))
+    };
+  }
+
+
+  constructor(p) { super(p); this.state = { crs: 345, hdg: 345.2, spd: 15, tool: 'select', lt: {}, plat: true, smode: 'AUTO', wref: 'RELATIVE' }; this.defSeat = null; }
+  renderVals() {
+    const s = this.state, SV = this.seatVals('Bridge');
+    const D = Math.PI / 180, TW = [330, 12];
+    const wod = (c, v) => { const wx = -TW[1] * Math.sin(TW[0] * D), wy = -TW[1] * Math.cos(TW[0] * D);
+      const rx = wx - v * Math.sin(c * D), ry = wy - v * Math.cos(c * D), kt = Math.hypot(rx, ry), from = (Math.atan2(-rx, -ry) / D + 360) % 360;
+      const rel = ((from - (c - 9)) % 360 + 540) % 360 - 180; return { kt, rel, from }; };
+    const w = wod(s.crs, s.spd);
+    let best = null; for (let c = 0; c < 360; c++) for (let v = 5; v <= 30; v += 0.5) { const q = wod(c, v), e = Math.abs(q.rel) * 2 + Math.abs(q.kt - 27); if (!best || e < best.e) best = { c, v, e }; }
+    const along = w.kt * Math.cos(w.rel * D), cross = w.kt * Math.sin(w.rel * D);
+    const inLim = w.kt >= 25 && w.kt <= 30 && Math.abs(w.rel) <= 5 && Math.abs(cross) <= 7;
+    const r3 = n => String(Math.round(((n % 360) + 360) % 360)).padStart(3, '0');
+    const err = ((s.crs - s.hdg) % 360 + 540) % 360 - 180, rud = Math.max(-30, Math.min(30, err * 0.9 + 0.3));
+    const RL = v => (v < 0 ? 'L ' : 'R ') + Math.abs(v).toFixed(1);
+    const BELLS = [['AHEAD FLANK', 30], ['AHEAD FULL', 22], ['AHEAD STANDARD', 15], ['AHEAD 2/3', 10], ['AHEAD 1/3', 5], ['STOP', 0], ['BACK 1/3', -5], ['BACK 2/3', -10], ['BACK FULL', -15]];
+    const bell = BELLS.reduce((a, b) => Math.abs(b[1] - s.spd) < Math.abs(a[1] - s.spd) ? b : a)[0];
+    const bells = BELLS.map(([k, v]) => { const on = k === bell, c = v > 0 ? '#5FD068' : (v < 0 ? '#FF6B66' : '#E6EDF3');
+      return { k, on: on ? 'true' : 'false', pick: () => this.setState({ spd: v }), bg: on ? (v > 0 ? 'rgba(95,208,104,.28)' : (v < 0 ? 'rgba(255,107,102,.25)' : '#2E3946')) : 'transparent', fg: c, bc: on ? c : '#374250' }; });
+    const rpm = [0, 1, -1, 0].map(d => String(Math.max(0, Math.round(Math.abs(s.spd) * 4.35 + d))).padStart(3, '0'));
+    const seg = (cur, k, key) => ({ k, on: cur === k ? 'true' : 'false', bg: cur === k ? '#222C37' : 'transparent', fg: cur === k ? '#E6EDF3' : '#93A1B0', pick: () => this.setState({ [key]: k }) });
+    const LC = { ON: '#5FD068', OFF: '#C9D3DD', AUTO: '#A08CFF', NIGHT: '#FF6B66' };
+    const lights = [['Navigation lights 1', ['ON', 'OFF', 'AUTO'], 'ON'], ['Navigation lights 2', ['ON', 'OFF', 'AUTO'], 'OFF'], ['Bridge / room lights', ['ON', 'NIGHT', 'OFF'], 'NIGHT']].map(([n, opts, d0]) => {
+      const cur = s.lt[n] || d0; return { n, opts: opts.map(k => ({ k, on: cur === k ? 'true' : 'false', bg: cur === k ? LC[k] + '33' : 'transparent', fg: cur === k ? LC[k] : '#7D8896', bc: cur === k ? LC[k] : 'transparent',
+        pick: () => this.setState({ lt: Object.assign({}, s.lt, { [n]: k }) }) })) }; });
+    const wps = [['WP3', '26°42\'N 056°39\'E', '17:40 ✓', 0], ['NOW', '26°12\'N 056°48\'E', '18:12', 1], ['RCV', '26°21\'N 056°45\'E', '18:45', 0], ['WP4', '26°38\'N 056°15\'E', '19:20', 0], ['WP5', '27°02\'N 056°03\'E', '20:30', 0]]
+      .map(([n, pos, eta, now]) => ({ n, pos, eta, bg: now ? '#222C37' : 'transparent', fg: n === 'WP3' ? '#7D8896' : '#E6EDF3' }));
+    const csg = [['CG', 'SECTOR 330–000 · 4–8 NM', 'ON STA', '#7FD397'], ['DDG-1', 'SECTOR 020–060 · 9–15', 'ON STA', '#7FD397'], ['DDG-2', 'SECTOR 230–270 · 9–15', 'OPENING', '#E7B04F'], ['CVN-71', 'OPS AREA EAST', 'OWN OPS', '#93A1B0']]
+      .map(([n, st, s_, sc]) => ({ n, st, s: s_, sc }));
+    const tools = [['select', 'Select'], ['wp', 'Plot waypoint'], ['pim', 'Edit PIM'], ['rng', 'Range / bearing']].map(([k, l]) => ({ label: l, on: s.tool === k ? 'true' : 'false',
+      pick: () => this.setState({ tool: k }), bg: s.tool === k ? '#222C37' : 'transparent', fg: s.tool === k ? '#E6EDF3' : '#93A1B0', bc: s.tool === k ? '#374250' : 'transparent' }));
+    const rel = s.wref === 'RELATIVE';
+    // Formation editor, units first: every escort holds exactly one station (Sector, Point or Free), so a ship can't be on two stations.
+    // Bearings are relative to the formation axis (follows BRC). Each preset keeps its own layout; Apply saves the drafts and makes the shown preset active.
+    const LAY = {
+      'Flight ops': { CG: { role: 'AAW', k: 'Sector', b0: 330, b1: 30, r0: 4, r1: 8 }, 'DDG-1': { role: 'AAW', k: 'Sector', b0: 35, b1: 75, r0: 9, r1: 15 }, 'DDG-2': { role: 'Plane guard', k: 'Point', b0: 170, b1: 170, r0: 2, r1: 2 } },
+      'Transit': { CG: { role: 'AAW', k: 'Sector', b0: 330, b1: 30, r0: 6, r1: 10 }, 'DDG-1': { role: 'ASW', k: 'Sector', b0: 240, b1: 300, r0: 6, r1: 10 }, 'DDG-2': { role: 'ASW', k: 'Sector', b0: 60, b1: 120, r0: 6, r1: 10 } },
+      'Combat': { CG: { role: 'AAW', k: 'Sector', b0: 10, b1: 50, r0: 12, r1: 20 }, 'DDG-1': { role: 'AAW', k: 'Sector', b0: 300, b1: 340, r0: 10, r1: 18 }, 'DDG-2': { role: 'ASW', k: 'Sector', b0: 160, b1: 200, r0: 6, r1: 12 } } };
+    const UNITS = ['CG', 'DDG-1', 'DDG-2'], saved = s.forms || LAY, active = s.fActive || 'Flight ops', PRE = s.fPre || active;
+    const ALL = s.fDraft || saved, FD = ALL[PRE], selU = s.fSel || 'CG', cur = FD[selU];
+    const Dg = Math.PI / 180, P = (b, r) => [r * Math.sin(b * Dg), -r * Math.cos(b * Dg)], f2 = n => n.toFixed(2);
+    const B1 = t => t.b1 <= t.b0 ? t.b1 + 360 : t.b1, mb = t => (t.b0 + B1(t)) / 2;
+    const r3s = n => String(((Math.round(n) % 360) + 360) % 360).padStart(3, '0'), yd = nm => Math.round(nm * 2000 / 50) * 50;   // naval rule of thumb: 2,000 yd per NM
+    const sector = t => { const e = B1(t), lg = e - t.b0 > 180 ? 1 : 0, a = P(t.b0, t.r1), b = P(e, t.r1), c = P(e, t.r0), d = P(t.b0, t.r0);
+      return 'M' + f2(d[0]) + ' ' + f2(d[1]) + 'L' + f2(a[0]) + ' ' + f2(a[1]) + 'A' + t.r1 + ' ' + t.r1 + ' 0 ' + lg + ' 1 ' + f2(b[0]) + ' ' + f2(b[1]) + 'L' + f2(c[0]) + ' ' + f2(c[1]) + 'A' + t.r0 + ' ' + t.r0 + ' 0 ' + lg + ' 0 ' + f2(d[0]) + ' ' + f2(d[1]) + 'Z'; };
+    const circ = (q, r) => 'M' + f2(q[0] + r) + ' ' + f2(q[1]) + 'A' + r + ' ' + r + ' 0 1 0 ' + f2(q[0] - r) + ' ' + f2(q[1]) + 'A' + r + ' ' + r + ' 0 1 0 ' + f2(q[0] + r) + ' ' + f2(q[1]);
+    const where = t => t.k === 'Point' ? P(t.b0, t.r0) : P(mb(t), (t.r0 + t.r1) / 2);
+    const pct = q => [((q[0] + 22) / 44 * 100).toFixed(1), ((q[1] + 22) / 44 * 100).toFixed(1)];
+    const placed = UNITS.filter(u => FD[u].k !== 'Free');
+    // Handles sit outside the sector (bearing grips past the outer arc, range grips just beyond each arc) so they stay apart when the sector is small.
+    const handles = t => t.k === 'Point' ? [['pt', P(t.b0, t.r0)]] : t.k === 'Sector' ? [['b0', P(t.b0, t.r1 + 1.3)], ['b1', P(B1(t), t.r1 + 1.3)], ['r0', P(mb(t), Math.max(0.6, t.r0 - 0.7))], ['r1', P(mb(t), t.r1 + 0.7)]] : [];
+    const sq = (q, h) => 'M' + f2(q[0] - h) + ' ' + f2(q[1] - h) + 'h' + 2 * h + 'v' + 2 * h + 'h' + (-2 * h) + 'Z';
+    const fm = { other: placed.filter(u => u !== selU && FD[u].k === 'Sector').map(u => sector(FD[u])).join(''), sel: cur.k === 'Sector' ? sector(cur) : '',
+      pts: placed.map(u => circ(where(FD[u]), 0.55)).join(''), h: handles(cur).map(([k, q]) => k === 'pt' ? circ(q, 0.9) : sq(q, 0.6)).join(''),
+      labels: placed.map(u => { const t = FD[u], q = pct(t.k === 'Point' ? P(t.b0, t.r0 + 1.8) : where(t)); return { x: q[0], y: q[1], t: u, c: u === selU ? '#FFB08F' : '#CFE6F6', bg: 'rgba(11,14,18,.75)' }; })
+        .concat([5, 10, 15, 20].map(r => { const q = pct([0.6, -r]); return { x: (+q[0] + 2.5).toFixed(1), y: (+q[1] + 1.6).toFixed(1), t: r + '', c: '#5E6A78', bg: 'transparent' }; }))
+        .concat([{ x: '50', y: '1.2', t: 'AXIS 345', c: '#C9D3DD', bg: 'transparent' }]) };
+    const setU = (u, o) => this.setState({ fDraft: Object.assign({}, ALL, { [PRE]: Object.assign({}, FD, { [u]: Object.assign({}, FD[u], o) }) }), fSel: u });
+    const sg2 = (val, k, set) => ({ k, on: val === k ? 'true' : 'false', bg: val === k ? '#222C37' : 'transparent', fg: val === k ? '#E6EDF3' : '#93A1B0', pick: set });
+    const geo = t => t.k === 'Free' ? 'FREE' : (t.k === 'Point' ? r3s(t.b0) + 'R · ' + (t.r0 < 3 ? yd(t.r0).toLocaleString('en-US') + ' YD' : t.r0 + ' NM') : r3s(t.b0) + '–' + r3s(t.b1) + 'R · ' + t.r0 + '–' + t.r1 + ' NM');
+    const fmRows = UNITS.map(u => ({ unit: u, role: FD[u].k === 'Free' ? '—' : FD[u].role, geo: geo(FD[u]), gc: FD[u].k === 'Free' ? '#E7B04F' : '#C9D3DD', on: u === selU ? 'true' : 'false',
+      bg: u === selU ? '#222C37' : '#1A212A', bc: u === selU ? '#F15822' : '#262F3A', pick: () => this.setState({ fSel: u }) }));
+    const W = (b, d) => ((b + d) % 360 + 360) % 360;
+    const fld = (label, v, up, dn) => ({ label, v, up, dn });
+    const ed = { unit: selU,
+      kinds: ['Sector', 'Point', 'Free'].map(k => sg2(cur.k, k, () => setU(selU, k === 'Sector' ? { k, b1: cur.k === 'Sector' ? cur.b1 : W(cur.b0, 30), r1: cur.k === 'Sector' ? cur.r1 : cur.r0 + 4 } : (k === 'Point' ? { k, r1: cur.r0 } : { k })))),
+      roles: ['AAW', 'ASW', 'Plane guard', 'Picket'].map(k => sg2(cur.role, k, () => setU(selU, k === 'Plane guard' ? { role: k, k: 'Point', b0: 170, b1: 170, r0: 2, r1: 2 } : { role: k }))),
+      fields: cur.k === 'Point' ? [fld('Bearing (rel)', r3s(cur.b0) + '°', () => setU(selU, { b0: W(cur.b0, 5) }), () => setU(selU, { b0: W(cur.b0, -5) })),
+          fld('Range', cur.r0 + ' NM · ' + yd(cur.r0).toLocaleString('en-US') + ' YD', () => setU(selU, { r0: cur.r0 + 0.5 }), () => setU(selU, { r0: Math.max(0.5, cur.r0 - 0.5) }))]
+        : cur.k === 'Sector' ? [fld('Bearing from (rel)', r3s(cur.b0) + '°', () => setU(selU, { b0: B1(cur) - cur.b0 > 10 ? W(cur.b0, 5) : cur.b0 }), () => setU(selU, { b0: W(cur.b0, -5) })),
+          fld('Bearing to (rel)', r3s(cur.b1) + '°', () => setU(selU, { b1: W(cur.b1, 5) }), () => setU(selU, { b1: B1(cur) - cur.b0 > 10 ? W(cur.b1, -5) : cur.b1 })),
+          fld('Range inner', cur.r0 + ' NM', () => setU(selU, { r0: Math.min(cur.r1 - 1, cur.r0 + 1) }), () => setU(selU, { r0: Math.max(0.5, cur.r0 - 1) })),
+          fld('Range outer', cur.r1 + ' NM', () => setU(selU, { r1: Math.min(30, cur.r1 + 1) }), () => setU(selU, { r1: Math.max(cur.r0 + 1, cur.r1 - 1) }))] : [] };
+    const polar = (x, y) => [((Math.atan2(x, -y) / Dg) + 360) % 360, Math.hypot(x, y)];
+    const inSec = (t, b, r) => t.k === 'Sector' && r >= t.r0 && r <= t.r1 && ((b - t.b0) % 360 + 360) % 360 <= B1(t) - t.b0;
+    const fmDown = e => {
+      const svg = e.currentTarget, m = svg.getScreenCTM(); if (!m) return;
+      const toV = ev => { const pt = svg.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const v = pt.matrixTransform(m.inverse()); return [v.x, v.y]; };
+      const v0 = toV(e), [bb, rr] = polar(v0[0], v0[1]);
+      // nearest grip of the selected unit first, then any unit's body (selects it)
+      const grips = handles(cur).map(([k, q]) => [k, Math.hypot(q[0] - v0[0], q[1] - v0[1])]).filter(g => g[1] < 1.3).sort((x, y) => x[1] - y[1]);
+      let u = selU, mode = grips.length ? grips[0][0] : null;
+      if (!mode) { const hit = [selU].concat(UNITS.filter(x => x !== selU)).find(x => { const t = FD[x]; if (t.k === 'Sector') return inSec(t, bb, rr); if (t.k === 'Point') { const q = P(t.b0, t.r0); return Math.hypot(q[0] - v0[0], q[1] - v0[1]) < 1.3; } return false; });
+        if (!hit) return; u = hit; mode = FD[hit].k === 'Point' ? 'pt' : 'move'; }
+      e.preventDefault();
+      const base = Object.assign({}, FD[u]), s5 = b => (Math.round(b / 5) * 5 + 360) % 360, h5 = r => Math.max(0.5, Math.round(r * 2) / 2), width = B1(base) - base.b0;
+      const mv = ev => { const v = toV(ev), [b, r] = polar(v[0], v[1]); let o;
+        if (mode === 'b0') { const nb = s5(b), w = ((base.b1 - nb) % 360 + 360) % 360; o = w >= 10 && w <= 180 ? { b0: nb } : {}; }
+        else if (mode === 'b1') { const nb = s5(b), w = ((nb - base.b0) % 360 + 360) % 360; o = w >= 10 && w <= 180 ? { b1: nb } : {}; }
+        else if (mode === 'r0') o = { r0: Math.min(base.r1 - 1, h5(r + 0.7)) };
+        else if (mode === 'r1') o = { r1: Math.max(base.r0 + 1, h5(r - 0.7)) };
+        else if (mode === 'pt') o = { b0: s5(b), b1: s5(b), r0: h5(r), r1: h5(r) };
+        else { const db = ((b - bb + 540) % 360) - 180, dr = r - rr, n0 = h5(Math.max(0.5, base.r0 + dr)); o = { b0: s5(base.b0 + db), b1: s5(base.b0 + db + width), r0: n0, r1: n0 + (base.r1 - base.r0) }; }
+        setU(u, o); };
+      const up = () => { window.removeEventListener('mousemove', mv); window.removeEventListener('mouseup', up); };
+      window.addEventListener('mousemove', mv); window.addEventListener('mouseup', up);
+    };
+    const AF = saved[active];
+    const csgList = UNITS.map(u => ({ n: u, st: AF[u].k === 'Free' ? 'FREE' : AF[u].role.toUpperCase() + ' · ' + geo(AF[u]), s: AF[u].k === 'Free' ? 'FREE' : (u === 'DDG-2' ? 'OPENING' : 'ON STA'), sc: AF[u].k === 'Free' ? '#93A1B0' : (u === 'DDG-2' ? '#E7B04F' : '#7FD397') }))
+      .concat([{ n: 'CVN-71', st: 'OPS AREA EAST', s: 'OWN OPS', sc: '#93A1B0' }]);
+    const fPresets = ['Flight ops', 'Transit', 'Combat'].map(k => Object.assign(sg2(PRE, k, () => this.setState({ fPre: k })), { k: k + (k === active ? ' ●' : '') }));
+    return Object.assign(SV, { csgOpen: !!s.csgOpen, fm, fmRows, ed, fPresets, fmDown, fmCur: 'crosshair', csgTitle: 'CSG formation · ' + active,
+      openCsg: () => this.setState({ csgOpen: true, fDraft: JSON.parse(JSON.stringify(saved)), fPre: active, fSel: 'CG' }), cancelCsg: () => this.setState({ csgOpen: false, fDraft: null }),
+      applyCsg: () => this.setState({ csgOpen: false, forms: ALL, fActive: PRE, fDraft: null }),
+      wps, csg: csgList, tools, lights, bells, rpm,
+      smode: ['HAND', 'AUTO', 'NAV'].map(k => seg(s.smode, k, 'smode')), wref: ['TRUE', 'RELATIVE'].map(k => seg(s.wref, k, 'wref')),
+      ordN: r3(s.crs), hdgN: s.hdg.toFixed(1), sogN: '15.1', cardRot: (-s.hdg).toFixed(1), ordRel0: s.crs, rudRot: (-rud * 2).toFixed(1),
+      ro: RL(rud), rp: RL(rud * 0.96), rs: RL(rud * 1.03), ospd: s.spd + ' KT',
+      crsUp: () => this.setState({ crs: (s.crs + 1) % 360 }), crsDn: () => this.setState({ crs: (s.crs + 359) % 360 }),
+      crsUp10: () => this.setState({ crs: (s.crs + 10) % 360 }), crsDn10: () => this.setState({ crs: (s.crs + 350) % 360 }),
+      spdUp: () => this.setState({ spd: Math.min(32, s.spd + 1) }), spdDn: () => this.setState({ spd: Math.max(-15, s.spd - 1) }),
+      plat: !!s.plat, platOn: s.plat ? 'true' : 'false', platBg: s.plat ? '#222C37' : 'transparent', platBc: s.plat ? '#5E6A78' : '#374250', togglePlat: () => this.setState({ plat: !s.plat }),
+      w: { brg: r3(TW[0]) + '°', spd: TW[1].toFixed(0) + ' KT', along: along.toFixed(0) + ' KT', cross: Math.abs(cross).toFixed(0) + (cross >= 0 ? ' R' : ' L'),
+        aRot: (Math.max(0, Math.min(40, along)) / 40 * 180 - 90).toFixed(1), cRot: (Math.max(-15, Math.min(15, cross)) / 15 * 90).toFixed(1),
+        st: inLim ? 'IN LIMITS' : 'OUT OF LIMITS', c: inLim ? '#7FD397' : '#FF8A85', best: r3(best.c) + ' / ' + best.v + ' KT' },
+      useBest: () => this.setState({ crs: best.c, spd: best.v }) });
+  }
+
+}
+</script>
+</body>
+</html>
