@@ -44,6 +44,38 @@ const XML = [
   '',
 ].join('\n');
 
+// the shape of Scripts/Speech/speech.lua around what the installer patches
+const SPEECH = [
+  'local base = _G',
+  "module('speech')",
+  'local finalPause = 1.0',
+  '--The function is to be called from wMessage::buildContent_()',
+  'function make(message)',
+  '\treturn { text = "call " .. message.event, duration = finalPause }',
+  'end',
+  '',
+].join('\r\n');
+
+// the patched speech module loaded under fengari (module() as in Lua 5.1, minimal) and asked for calls
+const speechHarness = `
+local out = {}
+local clockNow = 100
+os.clock = function() return clockNow end
+Message = { wMsgGroundCrewCopy = 1, wMsgGroundCrewWheelChocksOn = 2, wMsgGroundCrewWheelChocksOff = 3 }
+local M = setmetatable({}, { __index = _G })
+M.module = function() end -- the chunk already runs in M (fengari is Lua 5.3: no setfenv)
+local chunk = assert(load(SPEECH_SRC, 'speech.lua', 't', M))
+chunk()
+local function call(ev) out[#out + 1] = ev .. (M.make({ event = ev }) and ' voiced' or ' silent') end
+out[#out + 1] = 'flag ' .. tostring(M.catccQuiet)
+call(1); call(2)
+CATCC_CHOCKS = { quietUntil = clockNow + 20 }
+call(1); call(2); call(3)
+clockNow = clockNow + 21
+call(1); call(2)
+return table.concat(out, ' | ')
+`;
+
 function setup(autoexec?: string) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'catcc-install-'));
   const dcs = path.join(root, 'dcs');
@@ -54,6 +86,8 @@ function setup(autoexec?: string) {
   fs.mkdirSync(path.join(sg, 'Config'), { recursive: true });
   fs.writeFileSync(path.join(dcs, 'CoreMods/tech/USS_Nimitz/scripts/common.xml'), XML);
   fs.writeFileSync(path.join(dcs, 'Mods/aircraft/FA-18C/comm.lua'), COMM);
+  fs.mkdirSync(path.join(dcs, 'Scripts/Speech'), { recursive: true });
+  fs.writeFileSync(path.join(dcs, 'Scripts/Speech/speech.lua'), SPEECH);
   if (autoexec !== undefined) fs.writeFileSync(path.join(sg, 'Config/autoexec.cfg'), autoexec);
   const install = (...more: string[]) =>
     execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-NoElevate', '-DcsPath', dcs, '-SavedGames', sg, ...more], { encoding: 'utf8' });
@@ -171,9 +205,25 @@ describe.skipIf(!windows)('CATCC pilot mod installer', () => {
     expect(t.has('sg/Mods/tech/CATCC-Chocks')).toBe(false);
     expect(fs.readdirSync(path.join(t.root, 'dcs/Data'))).toEqual([]);
   });
+  it('makes the crew\'s chock calls silent only in the hook\'s quiet window, adding two marked lines to speech.lua', () => {
+    const sp = t.read('dcs/Scripts/Speech/speech.lua');
+    const lines = sp.split('\r\n');
+    expect(lines.filter((l) => l.includes('-- CATCC'))).toHaveLength(2);
+    expect(lines.filter((l) => !l.includes('-- CATCC')).join('\r\n')).toBe(SPEECH);
+    expect(said).toContain('crew chock calls silent for the mod');
+    const L = lauxlib.luaL_newstate();
+    lualib.luaL_openlibs(L);
+    lua.lua_pushstring(L, to_luastring(sp));
+    lua.lua_setglobal(L, to_luastring('SPEECH_SRC'));
+    const status = lauxlib.luaL_dostring(L, to_luastring(speechHarness));
+    const r = lua.lua_tojsstring(L, -1) as string;
+    if (status !== 0) throw new Error(r);
+    expect(r).toBe('flag true | 1 voiced | 2 voiced | 1 silent | 2 silent | 3 voiced | 1 voiced | 2 voiced');
+  });
   it('uninstalls: the DCS files are stock again, its autoexec line is gone, the pilot\'s own entries stay', () => {
     t.install('-Uninstall');
     expect(t.read('dcs/Mods/aircraft/FA-18C/comm.lua')).toBe(COMM);
+    expect(t.read('dcs/Scripts/Speech/speech.lua')).toBe(SPEECH);
     expect(t.read('dcs/CoreMods/tech/USS_Nimitz/scripts/common.xml')).toBe(XML);
     expect(t.has('sg/Mods/aircraft/CATCC-Pilot')).toBe(false);
     expect(t.has('sg/Scripts/Hooks/CATCC-pilot-hook.lua')).toBe(false);

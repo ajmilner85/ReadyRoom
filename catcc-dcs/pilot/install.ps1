@@ -13,6 +13,8 @@
 #      says you're held. Removes any earlier CATCC patch (the 30 s test, the old after-salute gate);
 #   4. routes the Hornet's F8 "Wheel chocks > Remove" and "Salute!" through PriFly
 #      (Mods\aircraft\FA-18C\comm.lua): while PriFly holds your chocks they wait for the taxi instruction;
+#   4b. makes the ground crew's answer silent when the mod itself asks for chocks
+#      (Scripts\Speech\speech.lua, one line at the top of make());
 #   5. lets the pilot hook reach the F8 menu: Saved Games\...\Config\autoexec.cfg gets "userhooks" in
 #      net.allow_unsafe_api and "server" in net.allow_dostring_in (what DCS asks for, API\Sim_ControlAPI.md).
 # -Experiments also installs what was tried and parked (the chock static objects with their cargo
@@ -69,6 +71,7 @@ $autoexec = Join-Path $SavedGames 'Config\autoexec.cfg'
 $xml =Join-Path $DcsPath 'CoreMods\tech\USS_Nimitz\scripts\common.xml'
 if (-not (Test-Path $xml)) { throw "Not found: $xml (pass -DcsPath)" }
 $comm = Join-Path $DcsPath 'Mods\aircraft\FA-18C\comm.lua' # the Hornet's F8 radio menu
+$speech = Join-Path $DcsPath 'Scripts\Speech\speech.lua' # builds every radio call (voice + subtitle)
 $enc = New-Object System.Text.UTF8Encoding($false)
 
 # the line we add to comm.lua ends in "-- CATCC ...", so removing it is one pass too
@@ -76,6 +79,11 @@ $commText = $null
 if (Test-Path $comm) {
   $commText = [System.IO.File]::ReadAllText($comm, $enc)
   $commText = [regex]::Replace($commText, '\r?\n[^\r\n]*-- CATCC[^\r\n]*', '')
+}
+$speechText = $null
+if (Test-Path $speech) {
+  $speechText = [System.IO.File]::ReadAllText($speech, $enc)
+  $speechText = [regex]::Replace($speechText, '\r?\n[^\r\n]*-- CATCC[^\r\n]*', '')
 }
 
 # every line we add to common.xml carries "CATCC" (the test patch too), so removing is one pass
@@ -85,6 +93,7 @@ $text = [regex]::Replace($text, '\n[ \t]*<[^\n]*CATCC[^\n]*', '')
 if ($Uninstall) {
   [System.IO.File]::WriteAllText($xml, $text, $enc)
   if ($null -ne $commText) { [System.IO.File]::WriteAllText($comm, $commText, $enc) }
+  if ($null -ne $speechText) { [System.IO.File]::WriteAllText($speech, $speechText, $enc) }
   if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
   if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
   if (Test-Path $hookDst) { Remove-Item -Force $hookDst }
@@ -213,6 +222,39 @@ if ($null -ne $commText) {
   }
 }
 
+# 4b. the radio calls: when the pilot hook asks the ground crew for chocks (deck crew off), their answer
+#     ("copy", "wheel chocks are now placed") is silent. Every radio call is built by speech.make in
+#     Scripts\Speech\speech.lua; the line added at its top returns nothing for those two calls while the
+#     hook's quiet window (CATCC_CHOCKS.quietUntil, set when it asks) runs. Everything else as stock.
+$speechDone = $false
+if ($null -ne $speechText) {
+  $sanchor2 = 'function make(message)'
+  $sm = $speechText.IndexOf($sanchor2)
+  if ($sm -ge 0 -and $speechText.IndexOf($sanchor2, $sm + 1) -lt 0) {
+    $seol2 = $speechText.IndexOf("`n", $sm)
+    if ($seol2 -lt 0) { $seol2 = $speechText.Length }
+    if ($seol2 -gt 0 -and $speechText[$seol2 - 1] -eq "`r") { $seol2 = $seol2 - 1 }
+    $snl = if ($speechText.Contains("`r`n")) { "`r`n" } else { "`n" }
+    $qline = "`tlocal catccS = base.CATCC_CHOCKS; if catccS and catccS.quietUntil and message and base.Message and " +
+      "(message.event == base.Message.wMsgGroundCrewCopy or message.event == base.Message.wMsgGroundCrewWheelChocksOn) and " +
+      "base.os and base.os.clock and base.os.clock() < catccS.quietUntil then catccS.quieted = (catccS.quieted or 0) + 1; return nil end " +
+      "-- CATCC: the crew's answer to the pilot mod's own chocks request is silent"
+    $speechText = $speechText.Substring(0, $seol2) + $snl + $qline + $speechText.Substring($seol2)
+    # tells the pilot hook the file does it (it then skips its own run-time wrap)
+    $manchor = "module('speech')"
+    $mm = $speechText.IndexOf($manchor)
+    if ($mm -ge 0) {
+      $meol = $speechText.IndexOf("`n", $mm)
+      if ($meol -gt 0 -and $speechText[$meol - 1] -eq "`r") { $meol = $meol - 1 }
+      $speechText = $speechText.Substring(0, $meol) + $snl + "catccQuiet = true -- CATCC: speech.make silences the crew's answer to the pilot mod" + $speechText.Substring($meol)
+    }
+    [System.IO.File]::WriteAllText($speech, $speechText, $enc)
+    $speechDone = $true
+  } else {
+    Write-Warning "Scripts\Speech\speech.lua: make() wasn't found exactly once; the crew's chock calls stay voiced."
+  }
+}
+
 # 5. the pilot hook reaches the F8 menu's Lua state with net.dostring_in("server", ...). DCS allows that
 #    only when autoexec.cfg says so (API\Sim_ControlAPI.md): net.allow_unsafe_api must list "userhooks"
 #    and net.allow_dostring_in must list "server". Add what is missing (a new line is marked CATCC).
@@ -242,4 +284,5 @@ if ($auto2 -ne $auto) {
 $srv = if ($Server) { "${Server}:$Port" } else { 'the squadron server (default)' }
 $chk = if ($chocksDone -and $saluteDone) { '; Hornet chocks and salute routed through PriFly' } elseif ($chocksDone) { '; Hornet chocks routed through PriFly' } else { '' }
 $exp = if ($Experiments) { '; parked experiments installed' } else { '' }
+if ($speechDone) { $chk += '; crew chock calls silent for the mod' }
 Write-Host "CATCC pilot mod installed in $SavedGames (server: $srv); launch gate added to common.xml$chk$autoDone$exp. Restart DCS."
