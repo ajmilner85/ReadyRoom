@@ -77,6 +77,32 @@ describe('interceptSolve', () => {
     expect(s.ok).toBe(true);
     expect(s.steerHdg).toBeCloseTo(0, 0);
   });
+
+  it('calm wind matches an omitted wind field (regression)', () => {
+    const inp = base();
+    const a = interceptSolve(inp);
+    const b = interceptSolve({ ...inp, wind: [0, 0] });
+    expect(b.eteS).toBeCloseTo(a.eteS, 6);
+    expect(b.mergeS).toBeCloseTo(a.mergeS, 6);
+  });
+
+  it('a tailwind closes a stern chase faster than a headwind (interceptor speed is a TAS)', () => {
+    // interceptor at [0,0] co-aligned north behind a target at [0,-10]; target GROUND speed is fixed,
+    // only the interceptor's TAS is wind-corrected, so a northerly wind adds/subtracts closure.
+    const chase = (wind: [number, number]) =>
+      interceptSolve({ p0: [0, 0], h0: 0, v0: 400, vSet: 400, rates: RATES, pe: [0, -10], crsE: 0, gsE: 250, standoffNm: 10, wind });
+    const tail = chase([0, -60]); // air moving north (+ with the chase)
+    const head = chase([0, 60]); // air moving south (against)
+    expect(tail.ok && head.ok).toBe(true);
+    expect(tail.mergeS).toBeLessThan(head.mergeS);
+  });
+
+  it('a wind-corrected stern conversion still rolls out on the target ground course', () => {
+    const crsE = 90;
+    const r = sternConversion({ p0: [0, -5], h0: 135, vKt: 420, pe: [10, 0], crsE, gsE: 250, t0S: 0, trailNm: 1, wind: [40, 0] });
+    expect(r.ok).toBe(true);
+    expect(r.endHdg).toBe(crsE);
+  });
 });
 
 describe('sternConversion', () => {

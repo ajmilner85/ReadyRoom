@@ -165,6 +165,14 @@ describe('max-endurance hold speed', () => {
     expect(near).toBeGreaterThan((1 / 450) * 3600);
   });
 
+  it('wind on the transit: a tailwind shortens the time and a headwind lengthens it (default 0 = still air)', () => {
+    const route = { transitNm: 60, entryNm: 25 };
+    const still = marshalTimeS(route, 400, 300);
+    expect(marshalTimeS(route, 400, 300, 0)).toBeCloseTo(still, 6); // explicit 0 matches the default
+    expect(marshalTimeS(route, 400, 300, 50)).toBeLessThan(still); // 50 kt tailwind
+    expect(marshalTimeS(route, 400, 300, -50)).toBeGreaterThan(still); // 50 kt headwind
+  });
+
   it('a slower hold gives a tighter entry', () => {
     const fix: Pt = [FIX_NM * Math.sin(RADIAL * D2R), -FIX_NM * Math.cos(RADIAL * D2R)];
     let slow = 0;

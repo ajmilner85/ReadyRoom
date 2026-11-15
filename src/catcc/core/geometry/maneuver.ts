@@ -1,7 +1,7 @@
 /**
  * Turn-then-direct flight model for the hooked-aircraft tools (handoff §5.6), plus EAT and CPA.
  */
-import { add, D2R, angDiff, bearingTo, dir, dist, dot, mul, signedDiff, sub, type Pt } from './vec.ts';
+import { add, cross, D2R, angDiff, bearingTo, dir, dist, dot, len, mul, signedDiff, sub, type Pt } from './vec.ts';
 
 /** Turn radius in NM for a true airspeed (kt) and bank angle: R(ft) = V² / (11.26 tan φ). */
 export function turnRadiusNm(tasKt: number, bankDeg = 30): number {
@@ -27,43 +27,65 @@ export function sustainedTurnRadiusNm(tasKt: number): number {
 
 export interface FlyResult {
   path: Pt[];
-  /** distance flown, NM */
+  /** ground distance flown, NM */
   dist: number;
-  /** heading after the turn (deg true) */
+  /** heading to steer after the turn (deg true; the crab heading in wind) */
   hdg: number;
+  /** time flown, s — only when a true airspeed was supplied (so wind can be timed) */
+  timeS?: number;
 }
 
 /**
- * Fly from p0 on heading h0 to target T: turn the shortest way at radius R until pointing at
- * T, then straight. Integrated in 0.1 NM steps (as in the mockup).
+ * Fly from p0 on heading h0 to a ground point T: turn the shortest way at radius R until the ground
+ * track points at T, then straight. Integrated in 0.1 NM steps (as in the mockup). With `opts.wind`
+ * (kt, scope coords) and `opts.vKt` (true airspeed) the aircraft flies its TAS through the moving air
+ * and crabs to hold the ground track, so the drawn path, the steer heading and the returned time are
+ * wind-correct; without them it is the original calm turn-then-straight at unit ground speed.
  */
-export function fly(p0: Pt, h0: number, T: Pt, R: number): FlyResult {
+export function fly(p0: Pt, h0: number, T: Pt, R: number, opts: { wind?: Pt; vKt?: number } = {}): FlyResult {
+  const wind = opts.wind ?? [0, 0];
+  const vKt = opts.vKt ?? 0;
+  const timed = vKt > 0;
+  const windy = (wind[0] !== 0 || wind[1] !== 0) && timed;
+  const vNmS = vKt / 3600;
+  const wNmS = mul(wind, 1 / 3600);
   const path: Pt[] = [[p0[0], p0[1]]];
   let p: Pt = [p0[0], p0[1]];
   let h = h0;
   let turned = 0;
   let d = 0;
+  let t = 0;
   const ds = 0.1;
   for (let i = 0; i < 6000; i++) {
     const rg = dist(p, T);
     if (rg < 0.05) break;
-    const b = bearingTo(p, T);
-    const df = signedDiff(b, h);
+    const aim = windy ? crabHeading(bearingTo(p, T), vKt, wind) : bearingTo(p, T);
+    const df = signedDiff(aim, h);
     if (Math.abs(df) < 0.5 || turned > 360) {
       path.push([T[0], T[1]]);
       d += rg;
-      h = b;
+      if (timed) t += rg / Math.max(windy ? len(add(mul(dir(h), vNmS), wNmS)) : vNmS, 1e-6);
+      h = aim;
       break;
     }
     const st = Math.min(Math.abs(df), ds / R / D2R);
     h += Math.sign(df) * st;
     turned += st;
-    const dd = dir(h);
-    p = [p[0] + dd[0] * ds, p[1] + dd[1] * ds];
-    d += ds;
+    if (windy) {
+      const stepT = ds / vNmS; // time to fly ds of air path
+      const gv = add(mul(dir(h), vNmS), wNmS); // ground velocity
+      p = [p[0] + gv[0] * stepT, p[1] + gv[1] * stepT];
+      d += len(gv) * stepT;
+      t += stepT;
+    } else {
+      const dd = dir(h);
+      p = [p[0] + dd[0] * ds, p[1] + dd[1] * ds];
+      d += ds;
+      if (timed) t += ds / vNmS;
+    }
     path.push([p[0], p[1]]);
   }
-  return { path, dist: d, hdg: ((h % 360) + 360) % 360 };
+  return { path, dist: d, hdg: ((h % 360) + 360) % 360, timeS: timed ? t : undefined };
 }
 
 /**
@@ -305,17 +327,24 @@ export const DECEL_KT_S = 2;
  * Time (s) to fly a marshal route: the transit at the aircraft's speed, slowing at DECEL_KT_S to
  * holding speed so as to arrive at the fix at it (a slower aircraft just flies its own speed), then
  * the entry manoeuvre at holding speed.
+ *
+ * `windAlongTransitKt` is the wind component along the transit (+ tailwind): the transit is one long,
+ * roughly straight leg where wind directly adds to or subtracts from closure, so it is flown at a
+ * ground speed of airspeed + wind. The entry is a near-closed racetrack whose legs cancel, so it is
+ * left at holding airspeed. Default 0 reproduces the still-air time exactly.
  */
-export function marshalTimeS(route: { transitNm: number; entryNm: number }, transitKt: number, holdKt: number): number {
-  let transitS = (route.transitNm / transitKt) * 3600;
-  if (transitKt > holdKt) {
-    const decS = (transitKt - holdKt) / DECEL_KT_S;
-    const decNm = (((transitKt + holdKt) / 2) * decS) / 3600;
-    if (decNm <= route.transitNm) transitS = ((route.transitNm - decNm) / transitKt) * 3600 + decS;
+export function marshalTimeS(route: { transitNm: number; entryNm: number }, transitKt: number, holdKt: number, windAlongTransitKt = 0): number {
+  const gT = Math.max(50, transitKt + windAlongTransitKt); // transit ground speed
+  const gH = Math.max(40, holdKt + windAlongTransitKt); // ground speed once slowed to holding airspeed
+  let transitS = (route.transitNm / gT) * 3600;
+  if (gT > gH) {
+    const decS = (gT - gH) / DECEL_KT_S;
+    const decNm = (((gT + gH) / 2) * decS) / 3600;
+    if (decNm <= route.transitNm) transitS = ((route.transitNm - decNm) / gT) * 3600 + decS;
     else {
       // too close to finish slowing before the fix: decelerate over the whole transit
-      const v1 = Math.sqrt(Math.max(holdKt * holdKt, transitKt * transitKt - 2 * DECEL_KT_S * 3600 * route.transitNm));
-      transitS = (transitKt - v1) / DECEL_KT_S;
+      const v1 = Math.sqrt(Math.max(gH * gH, gT * gT - 2 * DECEL_KT_S * 3600 * route.transitNm));
+      transitS = (gT - v1) / DECEL_KT_S;
     }
   }
   return transitS + (route.entryNm / Math.min(transitKt, holdKt)) * 3600;
@@ -507,11 +536,11 @@ export interface AccelRates {
 }
 
 export interface InterceptInput {
-  /** interceptor position (scope NM), current heading (deg true) and current groundspeed (kt) */
+  /** interceptor position (scope NM), current heading (deg true) and current TRUE AIRSPEED (kt) */
   p0: Pt;
   h0: number;
   v0: number;
-  /** commanded groundspeed to fly, kt */
+  /** commanded true airspeed to fly, kt */
   vSet: number;
   rates: AccelRates;
   /** interceptee position, course (deg true) and groundspeed (kt) */
@@ -520,6 +549,8 @@ export interface InterceptInput {
   gsE: number;
   /** how far short of the contact the interceptor is vectored (the visual-rejoin point), NM */
   standoffNm: number;
+  /** wind at the intercept altitude as a velocity the air moves TOWARD (kt, scope coords); default calm */
+  wind?: Pt;
 }
 
 export interface InterceptSolution {
@@ -557,13 +588,28 @@ interface AccelFlight {
 const clampN = (x: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, x));
 
 /**
- * Fly to a fixed point at the turn-rate limit while accelerating/decelerating toward vSet: turn the
- * shorter way until pointing at T, then straight. Time-stepped (dt 0.5 s) so a changing speed (hence
- * a changing turn radius) is integrated honestly, recording cumulative distance and time at every
- * vertex so the path can later be split at a distance short of T.
+ * Air heading (deg true) that holds a ground course `gc` at true airspeed `tas` in `wind` (kt, the
+ * velocity the air moves toward): the wind-correction (crab) angle cancels the cross-course wind.
+ * When the crosswind exceeds the airspeed the track cannot be held and the nose crabs fully into it.
  */
-function flyAccel(inp: { p0: Pt; h0: number; v0: number; vSet: number; rates: AccelRates }, T: Pt): AccelFlight {
+function crabHeading(gc: number, tas: number, wind: Pt): number {
+  const wperp = cross(dir(gc), wind); // kt, + to the right of the course
+  const crab = Math.asin(clampN(-wperp / Math.max(tas, 1), -1, 1)) / D2R;
+  return ((gc + crab) % 360 + 360) % 360;
+}
+
+/**
+ * Fly to a fixed point at the turn-rate limit while accelerating/decelerating toward vSet, in wind.
+ * The aircraft flies its true airspeed through a moving air mass: each step it crabs to hold the
+ * ground course toward T and advances by its ground velocity (air velocity + wind). Turn rate is
+ * limited by the TAS-based radius (bank acts on the air). Time-stepped (dt 0.5 s) so a changing speed
+ * (hence radius) and the wind drift are integrated honestly, recording cumulative GROUND distance and
+ * time at every vertex so the path can later be split at a distance short of T. Calm wind ([0,0])
+ * reduces exactly to a turn-then-straight run at groundspeed = TAS.
+ */
+function flyAccel(inp: { p0: Pt; h0: number; v0: number; vSet: number; rates: AccelRates; wind?: Pt }, T: Pt): AccelFlight {
   const dt = 0.5;
+  const wNmS = mul(inp.wind ?? [0, 0], 1 / 3600); // wind velocity, NM/s
   let p: Pt = [inp.p0[0], inp.p0[1]];
   let h = ((inp.h0 % 360) + 360) % 360;
   let v = inp.v0;
@@ -573,11 +619,12 @@ function flyAccel(inp: { p0: Pt; h0: number; v0: number; vSet: number; rates: Ac
   const cum = [0];
   const time = [0];
   for (let i = 0; i < 8000; i++) {
-    const vNmS = v / 3600;
+    const gv = add(mul(dir(h), v / 3600), wNmS); // ground velocity at the current heading/speed, NM/s
+    const gsNmS = len(gv);
     const rg = dist(p, T);
-    if (rg <= Math.max(vNmS * dt, 0.05)) {
+    if (rg <= Math.max(gsNmS * dt, 0.05)) {
       total += rg;
-      t += rg / Math.max(vNmS, 1e-6);
+      t += rg / Math.max(gsNmS, 1e-6);
       h = bearingTo(p, T);
       path.push([T[0], T[1]]);
       cum.push(total);
@@ -589,11 +636,11 @@ function flyAccel(inp: { p0: Pt; h0: number; v0: number; vSet: number; rates: Ac
     v += clampN(dv, -rate * dt, rate * dt);
     const R = sustainedTurnRadiusNm(v);
     const maxTurn = ((v / 3600) / R) / D2R * dt; // deg this step
-    h = ((h + clampN(signedDiff(bearingTo(p, T), h), -maxTurn, maxTurn)) % 360 + 360) % 360;
-    const step = (v / 3600) * dt;
-    const d = dir(h);
-    p = [p[0] + d[0] * step, p[1] + d[1] * step];
-    total += step;
+    const hDes = crabHeading(bearingTo(p, T), v, inp.wind ?? [0, 0]);
+    h = ((h + clampN(signedDiff(hDes, h), -maxTurn, maxTurn)) % 360 + 360) % 360;
+    const stepVec = mul(add(mul(dir(h), v / 3600), wNmS), dt); // ground step this interval
+    p = [p[0] + stepVec[0], p[1] + stepVec[1]];
+    total += len(stepVec);
     t += dt;
     path.push([p[0], p[1]]);
     cum.push(total);
@@ -626,14 +673,17 @@ function splitAt(fl: AccelFlight, cut: number): { pt: Pt; idx: number; timeS: nu
  * commanded speed (no positive collision time).
  */
 export function interceptSolve(inp: InterceptInput): InterceptSolution {
-  const ev = mul(dir(inp.crsE), inp.gsE / 3600); // interceptee velocity, NM/s
+  const ev = mul(dir(inp.crsE), inp.gsE / 3600); // interceptee ground velocity, NM/s
+  const wNmS = mul(inp.wind ?? [0, 0], 1 / 3600);
   const predict = (ts: number): Pt => add(inp.pe, mul(ev, ts));
 
-  // analytic lead-collision seed: |R0 + ev·t| = s·t  (constant commanded speed, straight line)
+  // analytic lead-collision seed, worked in the air mass so the commanded TAS is the straight-line
+  // speed: in that frame the target drifts at (ev − wind), so |R0 + (ev − wind)·t| = vSet·t.
   const R0 = sub(inp.pe, inp.p0);
   const s = inp.vSet / 3600;
-  const a = dot(ev, ev) - s * s;
-  const b = 2 * dot(R0, ev);
+  const evRel = sub(ev, wNmS);
+  const a = dot(evRel, evRel) - s * s;
+  const b = 2 * dot(R0, evRel);
   const c = dot(R0, R0);
   let t0 = NaN;
   if (Math.abs(a) < 1e-9) {
@@ -692,6 +742,8 @@ export interface SternInput {
   t0S: number;
   /** roll out this far behind the interceptee, NM */
   trailNm: number;
+  /** wind at the conversion altitude as a velocity the air moves TOWARD (kt, scope coords); default calm */
+  wind?: Pt;
 }
 
 export interface SternSolution {
@@ -721,11 +773,14 @@ export interface SternSolution {
 export function sternConversion(inp: SternInput): SternSolution {
   const dt = 0.5;
   const vNmS = inp.vKt / 3600;
+  const wind = inp.wind ?? [0, 0];
+  const wNmS = mul(wind, 1 / 3600);
   const R = sustainedTurnRadiusNm(inp.vKt);
   const maxTurn = (vNmS / R) / D2R * dt; // deg per step
-  const ev = mul(dir(inp.crsE), inp.gsE / 3600); // interceptee velocity, NM/s
+  const ev = mul(dir(inp.crsE), inp.gsE / 3600); // interceptee ground velocity, NM/s
   const trail = mul(dir(inp.crsE), -inp.trailNm); // offset from the interceptee to the trail point
   const trailAt = (ts: number): Pt => add(add(inp.pe, mul(ev, ts)), trail);
+  const gsAlong = (gc: number): number => len(add(mul(dir(crabHeading(gc, inp.vKt, wind)), vNmS), wNmS)); // ground speed holding course gc
   let p: Pt = [inp.p0[0], inp.p0[1]];
   let h = ((inp.h0 % 360) + 360) % 360;
   let t = 0;
@@ -735,9 +790,10 @@ export function sternConversion(inp: SternInput): SternSolution {
   for (let i = 0; i < 4000; i++) {
     const F = trailAt(inp.t0S + t);
     const rg = dist(p, F);
-    if (rg <= Math.max(vNmS * dt * 1.5, 0.05)) {
+    const gsF = gsAlong(bearingTo(p, F));
+    if (rg <= Math.max(gsF * dt * 1.5, 0.05)) {
       path.push([F[0], F[1]]);
-      return { ok: true, path, end: F, endHdg: inp.crsE, timeS: t + rg / Math.max(vNmS, 1e-6) };
+      return { ok: true, path, end: F, endHdg: inp.crsE, timeS: t + rg / Math.max(gsF, 1e-6) };
     }
     if (rg < minD) {
       minD = rg;
@@ -747,10 +803,10 @@ export function sternConversion(inp: SternInput): SternSolution {
       const trimmed = path.slice(0, minIdx + 1);
       return { ok: true, path: trimmed, end: trimmed[trimmed.length - 1], endHdg: inp.crsE, timeS: t };
     }
-    const df = signedDiff(bearingTo(p, F), h);
-    h = ((h + clampN(df, -maxTurn, maxTurn)) % 360 + 360) % 360;
-    const d = dir(h);
-    p = [p[0] + d[0] * vNmS * dt, p[1] + d[1] * vNmS * dt];
+    const hDes = crabHeading(bearingTo(p, F), inp.vKt, wind); // crab to track the trail point in wind
+    h = ((h + clampN(signedDiff(hDes, h), -maxTurn, maxTurn)) % 360 + 360) % 360;
+    const gv = add(mul(dir(h), vNmS), wNmS); // ground velocity
+    p = [p[0] + gv[0] * dt, p[1] + gv[1] * dt];
     t += dt;
     path.push([p[0], p[1]]);
   }

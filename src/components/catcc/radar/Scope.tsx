@@ -23,6 +23,7 @@ import {
 import { holdSpecForTas, tasFromIas } from '../../../catcc/core/geometry/procedures.ts';
 import { accelRatesKtS, maxEnduranceKias } from '../../../catcc/core/dcs/aircraft.ts';
 import { magVar } from '../../../catcc/core/env/magvar.ts';
+import { casToTasKt, ISA_SL_K, machFromTasKt, tasToCasKt, tempAtAltK, windAlongKt, windVecKt, wxWindLayers } from '../../../catcc/core/env/atmosphere.ts';
 import { orderedPath, trendPath, trendTurnLimit, turnTo } from '../../../catcc/core/geometry/shipTurn.ts';
 import { add, bearingOf, D2R, dir, len, mul, P, rot, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
@@ -262,18 +263,6 @@ const segHitsBox = (a: Pt, b: Pt, r: Box): boolean => {
   return segSeg(a, b, f, c) || segSeg(a, b, c, d) || segSeg(a, b, d, e) || segSeg(a, b, e, f);
 };
 const boxHitsBox = (a: Box, b: Box): boolean => a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h;
-/** A spot for a label of half-size (hw,hh) near `anchor` that clears every box, searched outward. */
-const clearSpot = (anchor: Pt, hw: number, hh: number, boxes: Box[], gap: number): Pt => {
-  const dirs = [90, 135, 45, 180, 0, 225, 315, 270]; // prefer below the anchor (south = +y)
-  for (const m of [1, 1.35, 1.75, 2.2, 2.8, 3.5, 4.4]) {
-    for (const a of dirs) {
-      const c: Pt = [anchor[0] + Math.cos((a * Math.PI) / 180) * gap * m, anchor[1] + Math.sin((a * Math.PI) / 180) * gap * m];
-      const box: Box = { x: c[0] - hw, y: c[1] - hh, w: hw * 2, h: hh * 2 };
-      if (!boxes.some((b) => boxHitsBox(box, b))) return c;
-    }
-  }
-  return [anchor[0], anchor[1] + gap * 4.4];
-};
 const HELO_HOLD: HoldSpec = { legNm: 2, turnNm: 0.5 };
 /** view width, NM: 5 NM (edge to centre) at the closest, MAX_RANGE_NM at the widest */
 const clampW = (w: number) => Math.max(2 * MIN_RANGE_NM, Math.min(2 * MAX_RANGE_NM, w));
@@ -1036,6 +1025,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   };
   // a track in a tight (collapsible) formation is targeted as the whole group: resolve to its lead
   const repOf = (id: string): string => pic.formations.find((f) => f.collapsible && f.members.some((m) => m.id === id))?.lead.id ?? id;
+  // the focus carrier's reported weather drives the wind triangle and Mach aloft; absent (e.g. ACMI
+  // playback) the day is ISA and calm, and every speed tool degrades to still-air groundspeed = TAS
+  const focusWx = pic.focus?.track.wx;
+  const windAt = (altFt: number): Pt => (focusWx ? windVecKt(wxWindLayers(focusWx), altFt) : [0, 0]);
+  const slTempK = focusWx?.tK ?? ISA_SL_K;
+  const qnhPa = focusWx?.qnh ?? undefined;
   // one interceptor → one target intercept: the lead-collision vector to the visual point (10 NM short)
   // plus the stern conversion into the six. `spdOverride` is the wheel-set commanded speed (active only).
   const makeIntercept = (interceptor: ScopeTrack, tgt: ScopeTrack, spdOverride?: number) => {
@@ -1044,10 +1039,23 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     const hdg = interceptor.crs ?? interceptor.hdg ?? 0;
     // default commanded speed: a brisk MIL-power intercept (≥ ~420 kt, with ≥ 80 kt margin over the
     // contact for real closure), not the interceptor's current loiter speed; the wheel overrides it
-    const spd = spdOverride ?? Math.max(240, Math.min(900, Math.round(Math.max(interceptor.gs ?? 350, tgtGs + 80, 420) / 10) * 10));
-    const sol = interceptSolve({ p0: interceptor.p, h0: hdg, v0: Math.max(80, interceptor.gs ?? spd), vSet: spd, rates: accelRatesKtS(interceptor.ty), pe: tgt.p, crsE, gsE: tgtGs, standoffNm: 10 });
-    const stern = sol.ok ? sternConversion({ p0: sol.rejoin, h0: sol.steerHdg, vKt: spd, pe: tgt.p, crsE, gsE: tgtGs, t0S: sol.eteS, trailNm: 1 }) : null;
-    return { interceptor, tgt, sol, stern, spd };
+    // the controller commands a CALIBRATED airspeed (what the pilot flies); the solver works in TAS,
+    // so CAS is converted at the merge altitude (the interceptor is vectored to the contact's angels).
+    // The default is seeded from a brisk true intercept speed (≥ ~420 KTAS, ≥ 80 kt over the contact)
+    // expressed back as CAS. Wind at that altitude makes the geometry wind-correct; Mach follows.
+    const altFt = tgt.alt ?? interceptor.alt ?? 0;
+    const wind = windAt(altFt);
+    const tempK = tempAtAltK(slTempK, altFt);
+    const defTas = Math.max(240, Math.min(900, Math.round(Math.max(interceptor.gs ?? 350, tgtGs + 80, 420) / 10) * 10));
+    const defCas = Math.round(tasToCasKt(defTas, altFt, slTempK, qnhPa) / 10) * 10;
+    const cas = spdOverride ?? Math.max(240, Math.min(900, defCas));
+    const tas = casToTasKt(cas, altFt, slTempK, qnhPa);
+    const mach = machFromTasKt(tas, tempK);
+    // the interceptor's current TAS from its observed groundspeed and the wind at altitude
+    const v0 = Math.max(80, len(sub(mul(dir(hdg), Math.max(80, interceptor.gs ?? tas)), wind)));
+    const sol = interceptSolve({ p0: interceptor.p, h0: hdg, v0, vSet: tas, rates: accelRatesKtS(interceptor.ty), pe: tgt.p, crsE, gsE: tgtGs, standoffNm: 10, wind });
+    const stern = sol.ok ? sternConversion({ p0: sol.rejoin, h0: sol.steerHdg, vKt: tas, pe: tgt.p, crsE, gsE: tgtGs, t0S: sol.eteS, trailNm: 1, wind }) : null;
+    return { interceptor, tgt, sol, stern, spd: cas, mach };
   };
   const toolActive = tool === 'marshal' || tool === 'vec' || tool === 'int';
   const hk = useMemo(() => {
@@ -1071,12 +1079,16 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       const holdTas = Math.round(tasFromIas(maxEnduranceKias(hooked.ty), ang * 1000));
       const spec = holdSpecForTas(holdTas);
       const route = marshalRoute(hooked.p, hdg, spd, st.r, fixDme(ang), st.rh ? 'right' : 'left', spec);
-      const fixS = nowS + marshalTimeS(route, spd, holdTas);
+      // the transit is flown into the wind at the fix altitude: + tailwind shortens the time to the fix
+      const wAlong = windAlongKt(windAt(ang * 1000), bearingOf(sub(route.fix, hooked.p)));
+      const fixS = nowS + marshalTimeS(route, spd, holdTas, wAlong);
       const prev = [...assignments.entries()].filter(([id, a]) => a.stackId === st.id && a.carrier === hull && id !== hooked.id).map(([, a]) => a.eatS);
       const eatS = eatOf(fixS, prev.length ? Math.max(...prev) : undefined);
       return { kind: 'marshal' as const, st, ang, route, fixS, eatS, spd, holdKias: maxEnduranceKias(hooked.ty), spec };
     }
-    const fl = fly(hooked.p, hdg, cur, turnRadiusNm(spd));
+    // the vector is wind-corrected: the aircraft crabs to track to the point, so the drawn path, the
+    // steer heading and the ETE account for the wind at its altitude (commanded speed read as a TAS)
+    const fl = fly(hooked.p, hdg, cur, turnRadiusNm(spd), { wind: windAt(hooked.alt ?? 0), vKt: spd });
     return { kind: 'vec' as const, fl, spd, brg: bearingOf(sub(cur, hooked.p)), rng: len(sub(cur, hooked.p)) };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hooked, cur, vspd, asg, stacks, tool, placement.placing, nowS, assignments, hull, acHov, pic.air, props.locks]);
@@ -1099,7 +1111,9 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     for (const [i, t] of Object.entries(props.locks)) add(i, t, false);
     for (const [i, t] of Object.entries(props.intercepts)) add(i, t, true);
     return out;
-  }, [tool, props.locks, props.intercepts, pic.air, hookedId, vspd]);
+    // makeIntercept is recreated each render; its real inputs (picture, locks, wheel speed) are listed
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tool, props.locks, props.intercepts, pic.air, pic.focus, hookedId, vspd]);
 
   // ------------------------------------------------ input
   const svgPoint = (e: { clientX: number; clientY: number }): Pt | null => {
@@ -1923,12 +1937,12 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           ? [
               `${label} → ${intLabel(hk.tgt)}`,
               `STEER ${r3(hk.sol.steerHdg)} · ${hk.sol.distNm.toFixed(1)} NM FOR INTERCEPT`,
-              `ANGELS ${(hk.tgt.alt / 1000).toFixed(1)} · ${hk.spd} KT`,
+              `ANGELS ${(hk.tgt.alt / 1000).toFixed(1)} · ${hk.spd} KCAS · M${hk.mach.toFixed(2)}`,
               `VISUAL ${msS(hk.sol.eteS)}`,
               `INTERCEPT ${msS(hk.stern ? hk.sol.eteS + hk.stern.timeS : hk.sol.mergeS)}`,
             ]
-          : [`${label} → ${intLabel(hk.tgt)}`, 'NO INTERCEPT AT THIS SPEED', `SCROLL TO RAISE · ${hk.spd} KT`]
-        : [`BRG ${r3(hk.brg)} · RNG ${hk.rng.toFixed(1)}`, `HDG ${r3(hk.fl.hdg)} · TRK DIST ${hk.fl.dist.toFixed(1)}`, `ETE ${msS((hk.fl.dist / hk.spd) * 3600)} · ${hk.spd} KT`];
+          : [`${label} → ${intLabel(hk.tgt)}`, 'NO INTERCEPT AT THIS SPEED', `SCROLL TO RAISE · ${hk.spd} KCAS`]
+        : [`BRG ${r3(hk.brg)} · RNG ${hk.rng.toFixed(1)}`, `HDG ${r3(hk.fl.hdg)} · TRK DIST ${hk.fl.dist.toFixed(1)}`, `ETE ${msS(hk.fl.timeS ?? (hk.fl.dist / hk.spd) * 3600)} · ${hk.spd} KT`];
     // marshal / vector: a simple offset from the anchor
     if (hk.kind !== 'int') {
       return { x: Math.min(box.w - 230, Math.max(8, q[0] + 16)), y: Math.min(BH - 60, Math.max(8, q[1] + 14)), rows };
@@ -2581,48 +2595,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 </g>
               );
             })}
-          {tool === 'bra' && braA && (braB || cur) && (() => {
-            const b = braB ?? (cur ? { p: cur } : null);
-            if (!b) return null;
-            const d = sub(b.p, braA.p);
-            const altD = braA.t && b.t ? (b.t.alt - braA.t.alt) / 1000 : null;
-            const rows = [
-              `${braA.t ? (braA.t.bd ?? braA.t.cs ?? braA.t.id) : 'PT'} → ${b.t ? (b.t.bd ?? b.t.cs ?? b.t.id) : 'PT'}`,
-              `${r3(bearingOf(d))}° / ${Math.round(len(d))}${altD != null ? ` / ${altD >= 0 ? '+' : ''}${altD.toFixed(1)}K` : ''}`,
-            ];
-            const w = Math.max(...rows.map((r) => r.length)) * 0.54 + 0.9;
-            // float the label clear of every aircraft tag/symbol and connect it to the ruler midpoint
-            // with a leader (scope-NM; CDC/CATCC are north-up). Half-sizes and boxes in scope NM.
-            const mid = mul(add(braA.p, b.p), 0.5);
-            const hw = (w * zkT) / 2;
-            const hh = 1.1 * zkT;
-            const s = Math.SQRT1_2;
-            const obstacles: Box[] = [];
-            for (const ti of tagItems) {
-              obstacles.push({ x: ti.t.p[0] - 0.9 * zkH, y: ti.t.p[1] - 0.9 * zkH, w: 1.8 * zkH, h: 1.8 * zkH }); // symbol
-              const pl = places.get(ti.t.id);
-              if (!pl) continue;
-              const g = tagGeom(ti.rows);
-              const rx = pl.q[0] > 0 ? pl.q[0] * pl.L * s + 0.05 : pl.q[0] * pl.L * s - 0.05 - g.w;
-              const ty = pl.q[1] * pl.L * s + 0.32;
-              obstacles.push({ x: ti.t.p[0] + rx * zkT, y: ti.t.p[1] + (ty - 0.85) * zkT, w: g.w * zkT, h: g.h * zkT });
-            }
-            const box = clearSpot(mid, hw, hh, obstacles, Math.max(hw, hh) + 0.5 * zkT);
-            return (
-              <g>
-                <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(braA.p[0])} y1={f2(braA.p[1])} x2={f2(b.p[0])} y2={f2(b.p[1])} stroke="#FFD7A8" />
-                <line style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x1={f2(mid[0])} y1={f2(mid[1])} x2={f2(box[0])} y2={f2(box[1])} stroke="#FFD7A8" strokeDasharray="2 2" opacity={0.7} />
-                <g className="zs nr" transform={`translate(${f2(box[0])} ${f2(box[1])})${ROT ? ` rotate(${ROT})` : ''} scale(${zkT.toFixed(4)})`}>
-                  <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(-w / 2)} y="-1.1" width={f2(w)} height="2.2" rx="0.25" fill="#151A21" stroke="#FFD7A8" />
-                  {rows.map((r, i) => (
-                    <text key={i} x={f2(-w / 2 + 0.5)} y={f2(-0.2 + i)} className="tg" style={{ fill: '#FFD7A8' }}>
-                      {r}
-                    </text>
-                  ))}
-                </g>
-              </g>
-            );
-          })()}
           <g style={{ '--lw': 1 } as React.CSSProperties}>
             {cpaList.map(({ a, b, cpa, probe: pr }) => {
               const ext = (t: ScopeTrack) => add(t.p, mul(dir(t.crs ?? t.hdg ?? 0), ((t.gs ?? 0) * (cpa.tS + 10)) / 3600));
@@ -2903,6 +2875,51 @@ export const Scope: React.FC<ScopeProps> = (props) => {
               </g>
             );
           })}
+          {/* BRA ruler + tag — drawn last, so it is always on top and never obscured */}
+          {tool === 'bra' && braA && (braB || cur) && (() => {
+            const b = braB ?? (cur ? { p: cur } : null);
+            if (!b) return null;
+            const d = sub(b.p, braA.p);
+            const rng = Math.round(len(d));
+            const fwd = bearingOf(d);
+            const toStart = `${r3((fwd + 180) % 360)}° / ${rng} NM`; // end → start (reciprocal)
+            const toEnd = `${r3(fwd)}° / ${rng} NM`; // start → end
+            const w = Math.max(toStart.length, toEnd.length) * 0.54 + 1.1;
+            // the tag runs along the ruler at its midpoint (like the coordination line) and is
+            // double-pointed: the top line's triangle juts toward the start, the bottom line's toward the
+            // end. When the ruler points south-ish the tag is rotated 180° to keep the text upright, which
+            // reverses the tag relative to the (unflipped) ruler line — so swap the two bearings then, to
+            // keep each one beside the triangle that points its way. No obstacle avoidance.
+            const mid = mul(add(braA.p, b.p), 0.5);
+            const rawAng = (Math.atan2(d[1], d[0]) * 180) / Math.PI;
+            const ang = upAng(rawAng);
+            const flipped = ang !== rawAng;
+            const top = flipped ? toEnd : toStart;
+            const bot = flipped ? toStart : toEnd;
+            const xl = mid[0] - w / 2;
+            const xr = mid[0] + w / 2;
+            const yt = mid[1] - 0.5;
+            const yb = mid[1] + 0.5;
+            return (
+              <g>
+                <g className="zs nr" transform={`${zs(mid, zkT)} rotate(${f2(ang)} ${f2(mid[0])} ${f2(mid[1])})`}>
+                  <rect style={{ strokeWidth: 'calc(1px * var(--lw, 1))' }} x={f2(xl)} y={f2(mid[1] - 1.1)} width={f2(w)} height="2.2" rx="0.25" fill="#151A21" stroke="#FFD7A8" />
+                  <path d={`M${f2(xl)} ${f2(yt - 0.55)}L${f2(xl - 0.9)} ${f2(yt)}L${f2(xl)} ${f2(yt + 0.55)}Z`} fill="#FFD7A8" />
+                  <path d={`M${f2(xr)} ${f2(yb - 0.55)}L${f2(xr + 0.9)} ${f2(yb)}L${f2(xr)} ${f2(yb + 0.55)}Z`} fill="#FFD7A8" />
+                  <text x={f2(mid[0])} y={f2(mid[1] - 0.25)} textAnchor="middle" className="tg" style={{ fill: '#FFD7A8' }}>{top}</text>
+                  <text x={f2(mid[0])} y={f2(mid[1] + 0.95)} textAnchor="middle" className="tg" style={{ fill: '#FFD7A8' }}>{bot}</text>
+                </g>
+                {/* the ruler drawn last, over the tag, so it runs between the two lines */}
+                <line style={{ strokeWidth: 'calc(1.3px * var(--lw, 1))' }} x1={f2(braA.p[0])} y1={f2(braA.p[1])} x2={f2(b.p[0])} y2={f2(b.p[1])} stroke="#FFD7A8" />
+                <g className="zs" transform={zs(braA.p, zkH)}>
+                  <circle cx={f2(braA.p[0])} cy={f2(braA.p[1])} r="0.3" fill="#FFD7A8" />
+                </g>
+                <g className="zs" transform={zs(b.p, zkH)}>
+                  <circle cx={f2(b.p[0])} cy={f2(b.p[1])} r="0.3" fill="#FFD7A8" />
+                </g>
+              </g>
+            );
+          })()}
         </g>
         </svg>)}
 

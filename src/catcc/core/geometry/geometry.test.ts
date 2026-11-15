@@ -165,6 +165,16 @@ describe('maneuvering, EAT, CPA', () => {
     expect(r.dist).toBeLessThan(30 + Math.PI * R + 2 * R + 1);
   });
 
+  it('fly: a headwind lengthens the time to the point and the drawn ground track still ends on it', () => {
+    const T: Pt = [20, 0]; // 20 NM due east
+    const calm = fly([0, 0], 90, T, turnRadiusNm(350), { vKt: 350 });
+    const head = fly([0, 0], 90, T, turnRadiusNm(350), { wind: [-60, 0], vKt: 350 }); // 60 kt from the east
+    expect(calm.timeS).toBeCloseTo((20 / 350) * 3600, 0); // calm: ground speed = TAS
+    expect(head.timeS!).toBeGreaterThan(calm.timeS!); // into wind: slower over the ground
+    const end = head.path[head.path.length - 1];
+    expect(Math.hypot(end[0] - T[0], end[1] - T[1])).toBeLessThan(0.1); // tracks to the point
+  });
+
   it('EAT rounds up and spaces a minute behind the previous', () => {
     expect(eat(65_481)).toBe(65_520);
     expect(eat(65_481, 65_520)).toBe(65_580);
