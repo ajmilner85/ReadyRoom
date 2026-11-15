@@ -352,6 +352,7 @@ const CatccApp: React.FC = () => {
           handoffCtx={handoffCtx}
           owners={state.owners}
           readOnly={!mayEditOps}
+          recoveryCase={env?.case}
         />
       )}
       {mod === 'radar' && cview === 'radar' && (

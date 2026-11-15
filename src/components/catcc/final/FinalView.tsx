@@ -10,6 +10,7 @@ import { BALL_NM, UPWIND_TURN_IN_NM, type SlotResult } from '../../../catcc/core
 import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
 import { windOverDeck } from '../../../catcc/core/env/wod.ts';
 import { HandoffRow } from '../Handoff.tsx';
+import { IcLayers } from '../icons.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
@@ -71,6 +72,8 @@ interface Lab {
   tf: string;
   c: string;
   t: string;
+  /** a numbered position (ringed) or a point (filled dot) instead of plain text */
+  kind?: 'ring' | 'dot';
 }
 interface Blip {
   id: string;
@@ -90,6 +93,35 @@ interface Blip {
 
 const label = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
 
+type FinalLayer = 'abeam' | 'portHold' | 'brc' | 'alts' | 'profile' | 'fixes' | 'ball' | 'tol' | 'fan' | 'altScale' | 'latScale';
+type RecoveryCase = 'I' | 'II' | 'III';
+/** layers on by default only in these recovery cases; a manual choice holds until the case changes */
+const CASE_LAYERS: Partial<Record<FinalLayer, RecoveryCase[]>> = { abeam: ['I', 'II'], portHold: ['I'] };
+const HOLD_C = '#9FD9A8';
+const LAYER_GROUPS: [string, [FinalLayer, string, string][]][] = [
+  ['Case I / II', [['abeam', 'Abeam 1-1/4 · 1-1/2 NM', '#E7B04F'], ['portHold', 'Case I port hold · commence', HOLD_C]]],
+  ['Case III', [['alts', 'Altitude references', '#E7B04F'], ['profile', 'Descent profile', '#C9D3DD'], ['fixes', 'Fixes · 6 / 10 / 20 DME', '#C9D3DD']]],
+  ['Final', [['ball', 'Ball call · GS intercept', '#C9D3DD'], ['tol', 'Glideslope ±0.5°', '#93A1B0'], ['fan', 'Azimuth 1° / 2° / 5°', '#93A1B0']]],
+  ['Ship', [['brc', 'BRC', '#6FB6E6']]],
+  ['Scales', [['altScale', 'Altitude · 1,000 ft', '#93A1B0'], ['latScale', 'Lateral · 1 NM', '#93A1B0']]],
+];
+const LAYER_DEFAULT: Record<FinalLayer, boolean> = { abeam: false, portHold: false, brc: false, alts: true, profile: true, fixes: true, ball: true, tol: true, fan: true, altScale: false, latScale: false };
+const LAYER_KEY = 'catcc.final.layers';
+const loadLayers = (): Record<FinalLayer, boolean> => {
+  try {
+    return { ...LAYER_DEFAULT, ...JSON.parse(localStorage.getItem(LAYER_KEY) ?? '{}') };
+  } catch {
+    return LAYER_DEFAULT;
+  }
+};
+const saveLayers = (v: Record<FinalLayer, boolean>) => {
+  try {
+    localStorage.setItem(LAYER_KEY, JSON.stringify(v));
+  } catch {
+    /* private window */
+  }
+};
+
 export const FinalView: React.FC<{
   pic: Picture;
   ops?: OpsState;
@@ -100,10 +132,30 @@ export const FinalView: React.FC<{
   handoffCtx: HandoffCtx;
   owners: Record<string, Ownership>;
   readOnly: boolean;
-}> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly }) => {
+  recoveryCase?: RecoveryCase;
+}> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly, recoveryCase }) => {
   const [RG, setRG] = useState<ParRange>(defaultRange);
   const [ghost, setGhost] = useState(true);
   const [sep, setSep] = useState(false);
+  const [layersOpen, setLayersOpen] = useState(false);
+  const [casePick, setCasePick] = useState<Partial<Record<FinalLayer, { kase?: RecoveryCase; on: boolean }>>>({});
+  const caseOn = (k: FinalLayer) => {
+    const p = casePick[k];
+    return p && p.kase === recoveryCase ? p.on : !!recoveryCase && !!CASE_LAYERS[k]?.includes(recoveryCase);
+  };
+  const [ovStored, setOvStored] = useState(loadLayers);
+  const ov: Record<FinalLayer, boolean> = { ...ovStored, abeam: caseOn('abeam'), portHold: caseOn('portHold') };
+  const toggleLayer = (k: FinalLayer) => {
+    if (CASE_LAYERS[k]) return setCasePick({ ...casePick, [k]: { kase: recoveryCase, on: !ov[k] } });
+    const n = { ...ovStored, [k]: !ovStored[k] };
+    setOvStored(n);
+    saveLayers(n);
+  };
+  const resetLayers = () => {
+    setCasePick({});
+    setOvStored(LAYER_DEFAULT);
+    saveLayers(LAYER_DEFAULT);
+  };
   const [pick, setPick] = useState<string | null>(null);
   const fp = useMemo(() => finalPicture(pic), [pic]);
   // the displays' size in px, for tag placement (both displays are the same size)
@@ -121,8 +173,10 @@ export const FinalView: React.FC<{
 
   const X = (r: number) => 60 + ((r - R0) / (RG - R0)) * 920;
   const Ye = (a: number) => 370 - (a / AMAX[RG]) * 330;
-  // plan view with the approach running right to left: left of course (lat < 0) is below the centreline
-  const Ya = (l: number) => 200 - (l / LMAX[RG]) * 170;
+  // plan view with the approach running right to left: left of course (lat < 0) is below the centreline;
+  // its lateral half-width (170 units) set from the display's px so an NM is the same length both ways
+  const LM = sz.w && sz.h ? (170 * sz.h) / 400 / ((920 * sz.w) / 1000 / (RG - R0)) : LMAX[RG];
+  const Ya = (l: number) => 200 - (l / LM) * 170;
   const pc = (x: number, y: number) => [x / 10, y / 4] as const;
 
   const bolter: FinalAc | undefined = fp ? (fp.bolters.find((b) => b.t.id === pick) ?? fp.bolters[0]) : undefined;
@@ -138,13 +192,15 @@ export const FinalView: React.FC<{
   const gsInt = 1200 / GP_FT_PER_NM;
   const DM: [number, string][] = (
     [
-      [BALL_NM, '3/4 NM - BALL CALL'],
-      [gsInt, 'GS INTCP'],
-      [6, 'FINAL'],
-      [10, 'DIRTY UP'],
-      [20, 'PLATFORM'],
-    ] as [number, string][]
-  ).filter((d) => d[0] <= RG);
+      [BALL_NM, '3/4 NM - BALL CALL', 'ball'],
+      [gsInt, 'GS INTCP', 'ball'],
+      [6, 'FINAL', 'fixes'],
+      [10, 'DIRTY UP', 'fixes'],
+      [20, 'PLATFORM', 'fixes'],
+    ] as [number, string, FinalLayer][]
+  )
+    .filter((d) => d[0] <= RG && ov[d[2]])
+    .map((d) => [d[0], d[1]]);
   // full-height lines only at the milestones; range on hash marks (small every 1 NM, wider every 2 NM)
   let eGrid = '';
   for (const [r] of DM) eGrid += `M${f1(X(r))} 30V375`;
@@ -171,12 +227,20 @@ export const FinalView: React.FC<{
       [5000, 'PLATFORM · 5,000'],
       [1200, "1,200'"],
     ] as [number, string][]
-  ).filter((x) => x[0] < AMAX[RG]);
+  ).filter((x) => ov.alts && x[0] < AMAX[RG]);
   const eLim = LIMS.map(([al]) => `M60 ${f1(Ye(al))}H980`).join('');
   const eLab: Lab[] = [];
   for (const [al, t] of LIMS) {
     const p = pc(975, Ye(al));
     eLab.push({ x: p[0], y: p[1], tf: 'translate(-100%, -120%)', c: '#E7B04F', t });
+  }
+  let eAlt = '';
+  if (ov.altScale) {
+    for (let al = 1000; al < AMAX[RG]; al += 1000) {
+      eAlt += `M60 ${f1(Ye(al))}H980`;
+      const p = pc(8, Ye(al));
+      eLab.push({ x: p[0], y: p[1], tf: 'translate(0, -50%)', c: '#7D8896', t: al.toLocaleString('en-US') });
+    }
   }
   const topMarks = (into: Lab[]) =>
     DM.forEach(([r, t]) => {
@@ -203,7 +267,7 @@ export const FinalView: React.FC<{
   const aFan = [1, 2, 5]
     .map((dg) => {
       const t = Math.tan((dg * Math.PI) / 180);
-      const rr = Math.min(RG, LMAX[RG] / t);
+      const rr = Math.min(RG, LM / t);
       return `M${f1(X(0))} 200L${f1(X(rr))} ${f1(Ya(-rr * t))}M${f1(X(0))} 200L${f1(X(rr))} ${f1(Ya(rr * t))}`;
     })
     .join('');
@@ -233,7 +297,7 @@ export const FinalView: React.FC<{
   const aSep: React.ReactNode[] = [];
   if (sep && fp) {
     for (const a of fp.acs) {
-      if (!(a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG])) continue;
+      if (!(a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LM && a.t.alt <= AMAX[RG])) continue;
       const s = sepStd(a);
       const bad = sepViolated(a, fp.acs);
       const st = { stroke: bad ? 'rgba(255,138,133,.75)' : 'rgba(201,211,221,.4)', fill: bad ? 'rgba(224,82,78,.1)' : 'rgba(201,211,221,.05)', strokeDasharray: '4 3' };
@@ -241,29 +305,145 @@ export const FinalView: React.FC<{
       const rx = s.nm * pxNm;
       const ry = (s.ft / AMAX[RG]) * 330;
       eSep.push(<rect key={a.t.id} x={f1(cx - rx)} y={f1(Ye(a.t.alt) - ry)} width={f1(2 * rx)} height={f1(2 * ry)} rx="4" {...st} />);
-      aSep.push(<ellipse key={a.t.id} cx={f1(cx)} cy={f1(Ya(a.f.lat))} rx={f1(rx)} ry={f1((s.nm / LMAX[RG]) * 170)} {...st} />);
+      aSep.push(<ellipse key={a.t.id} cx={f1(cx)} cy={f1(Ya(a.f.lat))} rx={f1(rx)} ry={f1((s.nm / LM) * 170)} {...st} />);
     }
   }
   const aLab: Lab[] = [];
   topMarks(aLab);
-  for (const [dg, t] of [
+  for (const [dg, t] of ov.fan ? ([
     [1, '1°'],
     [2, '2°'],
     [5, '5°'],
-  ] as const) {
+  ] as const) : []) {
     const tn = Math.tan((dg * Math.PI) / 180);
-    const rr = Math.min(RG, LMAX[RG] / tn);
+    const rr = Math.min(RG, LM / tn);
     const p = pc(X(rr) - 4, Ya(-rr * tn));
     aLab.push({ x: p[0], y: p[1], tf: 'translate(-100%, 2px)', c: '#7D8896', t });
   }
   aLab.push({ x: 0.8, y: 6, tf: 'none', c: '#7D8896', t: 'R' }, { x: 0.8, y: 90, tf: 'none', c: '#7D8896', t: 'L' });
   rangeMarks(aLab);
+  // Case I / II downwind abeam distances, port side (left of course, below the centreline)
+  let aAbeam = '';
+  if (ov.abeam) {
+    for (const [nm, t, tf] of [
+      [1.25, '1-1/4 NM', 'translate(-100%, -120%)'],
+      [1.5, '1-1/2 NM', 'translate(-100%, 20%)'],
+    ] as const) {
+      if (nm > LM) continue;
+      aAbeam += `M60 ${f1(Ya(-nm))}H980`;
+      const p = pc(975, Ya(-nm));
+      aLab.push({ x: p[0], y: p[1], tf, c: '#E7B04F', t });
+    }
+  }
+  let aLat = '';
+  if (ov.latScale) {
+    for (let nm = 1; nm < LM; nm += 1) {
+      for (const sgn of [1, -1]) {
+        aLat += `M60 ${f1(Ya(sgn * nm))}H980`;
+        const p = pc(8, Ya(sgn * nm));
+        aLab.push({ x: p[0], y: p[1], tf: 'translate(0, -50%)', c: '#7D8896', t: `${nm}` });
+      }
+    }
+  }
+  // Case I port hold and commence, as on the main radar (Scope.tsx portHold): a left-hand circle 5 NM
+  // across to port, its position 1 0.5 NM starboard of the ship; commence from 3 on BRC + 210°,
+  // then a left turn onto the BRC to the initial, 3 NM astern
+  let aHold = '';
+  let aCommence = '';
+  let aChev = '';
+  const inPlot = (u: number, v: number) => u >= 60 && u <= 980 && v >= 0 && v <= 400;
+  // ship frame (x to starboard, y along the BRC) → scope → display units
+  const shipAt = fp && pic.focus
+    ? (() => {
+        const s = pic.focus.track.p;
+        const b = (pic.focus.ship.brc * Math.PI) / 180;
+        return (x: number, y: number): [number, number] => {
+          const [al, la] = fp.toFinal([s[0] + x * Math.cos(b) + y * Math.sin(b), s[1] + x * Math.sin(b) - y * Math.cos(b)]);
+          return [X(al), Ya(la)];
+        };
+      })()
+    : null;
+  // the base recovery course through the ship, astern to the edge of the display and on ahead
+  let aBrc = '';
+  if (ov.brc && shipAt && pic.focus) {
+    const a = shipAt(0, -(RG + 6));
+    const z = shipAt(0, -R0 + 2);
+    aBrc = `M${f1(a[0])} ${f1(a[1])}L${f1(z[0])} ${f1(z[1])}`;
+    // label at the last point astern still on the display
+    let lp: [number, number] | null = null;
+    for (let y = -0.5; y >= -(RG + 6); y -= 0.25) {
+      const q = shipAt(0, y);
+      if (inPlot(q[0], q[1])) lp = q;
+    }
+    if (lp) {
+      const p = pc(lp[0] - 5, lp[1]);
+      aLab.push({ x: p[0], y: p[1], tf: 'translate(-100%, -120%)', c: 'rgba(111,182,230,.75)', t: `BRC ${String(Math.round(pic.focus.ship.brc) % 360).padStart(3, '0')}` });
+    }
+  }
+  if (ov.portHold && shipAt && sz.w) {
+    const at = shipAt;
+    const poly = (pts: [number, number][]) => 'M' + pts.map(([x, y]) => { const q = at(x, y); return `${f1(q[0])} ${f1(q[1])}`; }).join('L');
+    const arc = (cx: number, cy: number, r: number, a0: number, a1: number) => {
+      const n = Math.max(4, Math.ceil(Math.abs(a1 - a0) / 5));
+      return Array.from({ length: n + 1 }, (_, i) => {
+        const a = ((a0 + ((a1 - a0) * i) / n) * Math.PI) / 180;
+        return [cx + r * Math.cos(a), cy + r * Math.sin(a)] as [number, number];
+      });
+    };
+    const R = 2.5;
+    const OFF = 0.5;
+    const cx = OFF - R;
+    aHold = poly(arc(cx, 0, R, 0, 360));
+    const r1 = turnRadiusNm(250);
+    const r2 = turnRadiusNm(350);
+    const th = (210 * Math.PI) / 180;
+    const [sn, cs] = [Math.sin(th), Math.cos(th)];
+    const c1x = OFF - 5 - r1;
+    const qx = c1x + r1 * Math.cos(Math.PI / 6);
+    const qy = -r1 * Math.sin(Math.PI / 6);
+    const L = Math.max(0, (qx + r2 * (1 - cs)) / -sn);
+    const p1x = qx + L * sn;
+    const p1y = qy + L * cs;
+    aCommence = poly([...arc(c1x, 0, r1, 0, -30), [p1x, p1y], ...arc(p1x - r2 * cs, p1y + r2 * sn, r2, 150, 360), [0, -3]]);
+    // positions in flight order from overhead: [x, y, flight direction, outward from the circle's centre]
+    const pos: [number, number, [number, number], [number, number]][] = [
+      [OFF, 0, [0, 1], [1, 0]],
+      [cx, R, [-1, 0], [0, 1]],
+      [cx - R, 0, [0, -1], [-1, 0]],
+      [cx, -R, [1, 0], [0, -1]],
+    ];
+    const kx = sz.w / 1000;
+    const ky = sz.h / 400;
+    // a unit direction on screen (px) from a ship-frame direction at a point
+    const dirPx = (x: number, y: number, d: [number, number]): [number, number] => {
+      const a = at(x, y);
+      const e = at(x + d[0] * 0.1, y + d[1] * 0.1);
+      const v: [number, number] = [(e[0] - a[0]) * kx, (e[1] - a[1]) * ky];
+      const m = Math.hypot(...v) || 1;
+      return [v[0] / m, v[1] / m];
+    };
+    pos.forEach(([x, y, fwd, out], i) => {
+      const p = at(x, y);
+      if (!inPlot(p[0], p[1])) return;
+      const f = dirPx(x, y, fwd);
+      const o = dirPx(x, y, out);
+      const u = (dx: number, dy: number) => `${f1(p[0] + dx / kx)} ${f1(p[1] + dy / ky)}`;
+      aChev += `M${u(-2 * f[0] + 5 * o[0], -2 * f[1] + 5 * o[1])}L${u(6 * f[0], 6 * f[1])}L${u(-2 * f[0] - 5 * o[0], -2 * f[1] - 5 * o[1])}`;
+      const lp = pc(p[0] + (16 * o[0]) / kx, p[1] + (16 * o[1]) / ky);
+      aLab.push({ x: lp[0], y: lp[1], tf: 'translate(-50%, -50%)', c: 'rgba(159,217,168,.6)', t: `${i + 1}`, kind: 'ring' });
+    });
+    const ini = at(0, -3);
+    if (inPlot(ini[0], ini[1])) {
+      const p = pc(ini[0], ini[1]);
+      aLab.push({ x: p[0], y: p[1], tf: 'translate(-50%, -50%)', c: 'rgba(159,217,168,.6)', t: '', kind: 'dot' });
+    }
+  }
 
   // bolter downwind, its window and ghost turns
   let aDw = '';
   let aWin = '';
   const ghosts: Record<'ok' | 'marginal' | 'bad', string> = { ok: '', marginal: '', bad: '' };
-  if (ghost && bolter && slot && Math.abs(bolter.f.lat) <= LMAX[RG]) {
+  if (ghost && bolter && slot && Math.abs(bolter.f.lat) <= LM) {
     const DW = bolter.f.lat;
     aDw = `M${f1(X(Math.max(R0, bolter.f.along)))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, 12)))}`;
     if (slot.window) aWin = `M${f1(X(Math.min(RG, slot.window[0])))} ${f1(Ya(DW))}H${f1(X(Math.min(RG, slot.window[1])))}`;
@@ -283,7 +463,7 @@ export const FinalView: React.FC<{
   const eBlips: Blip[] = [];
   const aBlips: Blip[] = [];
   // only what is inside the displays' coverage: no contacts pinned to the edges
-  const inside = (a: FinalAc) => a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LMAX[RG] && a.t.alt <= AMAX[RG];
+  const inside = (a: FinalAc) => a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LM && a.t.alt <= AMAX[RG];
   const conflictIds = new Set(pic.conflicts.flatMap((k) => [k.a.id, k.b.id]));
   for (const a of fp?.acs ?? []) {
     if (!fp || !inside(a)) continue;
@@ -425,11 +605,19 @@ export const FinalView: React.FC<{
           {blips.map((b) => b.v && <line key={`v${b.id}`} x1={f1(b.v[0])} y1={f1(b.v[1])} x2={f1(b.v[2])} y2={f1(b.v[3])} stroke={b.c} strokeWidth="1.8" strokeLinecap="round" />)}
         </svg>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
-          {labs.map((l, i) => (
-            <span key={i} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, fontSize: 10.5, color: l.c, whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
-              {l.t}
-            </span>
-          ))}
+          {labs.map((l, i) =>
+            l.kind === 'dot' ? (
+              <span key={i} style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, width: 7, height: 7, borderRadius: '50%', background: l.c }} />
+            ) : l.kind === 'ring' ? (
+              <span key={i} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, width: 16, height: 16, boxSizing: 'border-box', borderRadius: '50%', border: `1px solid ${l.c}`, background: '#0B0E12', color: l.c, fontSize: 10, fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                {l.t}
+              </span>
+            ) : (
+              <span key={i} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, fontSize: 10.5, color: l.c, whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
+                {l.t}
+              </span>
+            ),
+          )}
           {blips.map((b) =>
             b.tr.map((q, i) => <span key={`${b.id}t${i}`} style={{ position: 'absolute', left: `${q[0]}%`, top: `${q[1]}%`, width: 4, height: 4, margin: '-2px 0 0 -2px', background: b.tc, opacity: TRAIL_O[i] ?? 0.2 }} />),
           )}
@@ -526,19 +714,43 @@ export const FinalView: React.FC<{
               </button>
             ))}
           </div>
-          {fp && (
-            <span className="mono" style={{ position: 'absolute', right: 0, top: '50%', transform: 'translateY(-50%)', fontSize: 11.5, color: '#93A1B0' }}>
-              FB {String(Math.round(fp.fb)).padStart(3, '0')} · GS {GS_DEG}° · closure {Math.round(fp.vFinal)} KT{ghost && bolter ? ` · downwind ${Math.round(bolter.f.alongKt)} KT` : ''}
-            </span>
-          )}
+          <div style={{ position: 'absolute', right: 0, top: 4, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
+            <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={layersOpen} onClick={() => setLayersOpen(!layersOpen)} style={{ background: layersOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>
+              <IcLayers />
+            </button>
+            {layersOpen && (
+              <section aria-label="Layers" style={{ width: 260, background: 'rgba(21,26,33,.97)', border: '1px solid #374250', borderRadius: 8, padding: 10, boxShadow: '0 10px 30px rgba(0,0,0,.5)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                  <span className="lbl">Layers</span>
+                  <button onClick={resetLayers} title="Restore the default layers (abeam lines follow the recovery case)" style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: "'IBM Plex Mono', monospace", fontSize: 10.5, cursor: 'pointer' }}>
+                    Reset
+                  </button>
+                </div>
+                {LAYER_GROUPS.map(([g, items]) => (
+                  <React.Fragment key={g}>
+                    <div className="lbl" style={{ fontSize: 9.5, color: '#6B7683', margin: '8px 0 2px 2px' }}>{g}</div>
+                    {items.map(([k, l, c]) => (
+                      <div key={k} className="lrow" style={{ gridTemplateColumns: 'minmax(0, 1fr) 52px', color: ov[k] ? '#E6EDF3' : '#93A1B0' }}>
+                        <span style={{ paddingLeft: 6, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{l}</span>
+                        <button className="lcb" onClick={() => toggleLayer(k)} aria-pressed={ov[k]} aria-label={l}>
+                          <span style={{ borderColor: c, background: ov[k] ? c : 'transparent' }} />
+                        </button>
+                      </div>
+                    ))}
+                  </React.Fragment>
+                ))}
+              </section>
+            )}
+          </div>
         </div>
         {disp(
           'Elevation',
           eGrid,
           <>
+            {eAlt && <path d={eAlt} stroke="rgba(147,161,176,.12)" fill="none" />}
             <path d={eLim} stroke="rgba(231,176,79,.4)" fill="none" strokeDasharray="6 4" />
-            <path d={eProf} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />
-            <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />
+            {ov.profile && <path d={eProf} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />}
+            {ov.tol && <path d={eTol} stroke="rgba(201,211,221,.18)" fill="none" />}
             {eSep}
             <path d={eCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
             {sz.h > 0 && <path d={`M${f1(deckX1)} ${(370 + ((DECK_PX / 2) * 400) / sz.h).toFixed(2)}H${f1(deckX0)}`} stroke="#C9D3DD" strokeWidth={DECK_PX} strokeLinecap="butt" fill="none" />}
@@ -557,8 +769,26 @@ export const FinalView: React.FC<{
           'Azimuth',
           aGrid,
           <>
-            <path d={aFan} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />
+            {ov.fan && <path d={aFan} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />}
             <path d={aAhead} stroke="rgba(201,211,221,.21)" fill="none" strokeDasharray="4 4" />
+            {aLat && <path d={aLat} stroke="rgba(147,161,176,.12)" fill="none" />}
+            {aBrc && <path d={aBrc} stroke="rgba(111,182,230,.45)" strokeWidth="1.2" fill="none" strokeDasharray="10 4 2 4" clipPath="url(#final-az-brc)" />}
+            {aBrc && (
+              <clipPath id="final-az-brc">
+                <rect x="60" y="0" width="920" height="400" />
+              </clipPath>
+            )}
+            {aAbeam && <path d={aAbeam} stroke="rgba(231,176,79,.4)" fill="none" strokeDasharray="6 4" />}
+            {aHold && (
+              <g clipPath="url(#final-az-plot)">
+                <clipPath id="final-az-plot">
+                  <rect x="60" y="0" width="920" height="400" />
+                </clipPath>
+                <path d={aHold} fill="none" stroke={HOLD_C} strokeOpacity=".3" strokeWidth="1.2" />
+                <path d={aCommence} fill="none" stroke={HOLD_C} strokeOpacity=".4" strokeWidth="2" strokeDasharray="5 4" />
+                <path d={aChev} fill="none" stroke={HOLD_C} strokeOpacity=".5" strokeWidth="1.6" strokeLinejoin="round" />
+              </g>
+            )}
             {aSep}
             <path d={aCl} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
             <path d={cvAz} fill="#0B0E12" stroke="#E6EDF3" strokeWidth="1.3" strokeLinejoin="miter" />
