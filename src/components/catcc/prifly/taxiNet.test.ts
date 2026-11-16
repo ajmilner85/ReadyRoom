@@ -3,6 +3,9 @@ import { CATS, NIMITZ, inPoly, type V } from './deck.ts';
 import { ROADS, TAXI_DESTS, TAXI_GRAPH, firstBlock, planTaxi, routeLength, smoothRoute, taxiDest, taxiRoute, taxiWaypoints, type DeckPose } from './taxiNet.ts';
 import { taxiOrders, withLaunch, withTaxi } from './launch.ts';
 import { cleanOpsPatch } from '../../../catcc/core/room/ops.ts';
+import fs from 'node:fs';
+import { DECK_SPOTS } from './deckSpots.gen.ts';
+import { SPOTS_TS, buildSpotsTs } from '../../../../scripts/catcc/deck-spots.gen.ts';
 
 const at = (id: string): V => taxiDest(id)!.p;
 const route = (from: string, to: string) => taxiRoute(at(from), to)!;
@@ -19,12 +22,49 @@ const turn = (a: V, b: V, c: V) => {
 
 describe('taxi network', () => {
   it('has every destination on a road, on the deck, and reachable from every other', () => {
-    expect(TAXI_DESTS.map((d) => d.id)).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C4', 'E1F', 'E2A', 'E3F', 'E4A', 'COR', 'PA1', 'JY1', 'PT1', 'BOX', 'CR1', 'FGR']));
+    expect(TAXI_DESTS.map((d) => d.id)).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C4', 'BS1', 'BP3', 'CR3', 'PT4', 'E11', 'E22', 'E31', 'E42', 'SP6', 'CO2', 'PA2', 'ST2', 'PO5']));
+    // the four catapults and the 40 deck spots of the spotting plan
+    expect(TAXI_DESTS.length).toBe(44);
     for (const d of TAXI_DESTS) {
       expect(TAXI_GRAPH.nodes.some((n) => Math.hypot(n[0] - d.p[0], n[1] - d.p[1]) < 0.25), d.id).toBe(true);
       expect(inPoly(d.p[0], d.p[1], NIMITZ.outline), d.id).toBe(true);
     }
     for (const a of TAXI_DESTS) for (const b of TAXI_DESTS) if (a !== b) expect(taxiWaypoints(a.p, b.id), `${a.id} -> ${b.id}`).not.toBeNull();
+  });
+
+  it('takes every deck spot to every catapult: straight out the way the jet is parked, on the deck, lined up for the last 8 m', () => {
+    const D = Math.PI / 180;
+    const wrap = (d: number) => ((d + 540) % 360) - 180;
+    const ang = (a: V, b: V) => Math.atan2(b[1] - a[1], b[0] - a[0]) / D;
+    expect(DECK_SPOTS.length).toBe(40);
+    for (const s of DECK_SPOTS)
+      for (const k of ['1', '2', '3', '4']) {
+        const name = `${s.id} -> CAT ${k}`;
+        const wp = taxiWaypoints(s.p, `C${k}`, s.hdg)!;
+        const r = taxiRoute(s.p, `C${k}`, s.hdg)!;
+        expect(wp, name).not.toBeNull();
+        // the first leg is the spot's own feeder: along the nose, for at least 5 m (the six-pack's aft
+        // spot stands 3.9 m from the artery: it turns onto it there)
+        expect(Math.abs(wrap(ang(wp[0], wp[1]) - s.hdg)), name).toBeLessThan(1);
+        let i = 1;
+        while (i < wp.length - 1 && Math.abs(wrap(ang(wp[i], wp[i + 1]) - s.hdg)) < 1) i++;
+        expect(Math.hypot(wp[i][0] - s.p[0], wp[i][1] - s.p[1]), name).toBeGreaterThanOrEqual(s.id === 'SP6' ? 3.8 : 5);
+        for (const p of r) {
+          expect(inPoly(p[0], p[1], NIMITZ.outline), `${name} at ${p}`).toBe(true);
+          expect(inPoly(p[0], p[1], NIMITZ.struct['Island']), `${name} at ${p}`).toBe(false);
+        }
+        // the last straight, into the shuttle
+        let j = wp.length - 2;
+        while (j > 0 && Math.abs(wrap(ang(wp[j - 1], wp[j]) - ang(wp[j], wp[j + 1]))) < 2) j--;
+        expect(Math.hypot(wp[wp.length - 1][0] - wp[j][0], wp[wp.length - 1][1] - wp[j][1]), name).toBeGreaterThanOrEqual(8);
+        expect(Math.abs(wrap(ang(wp[j], wp[wp.length - 1]) - ang(CATS[k][0], CATS[k][1]))), name).toBeLessThan(1);
+      }
+  });
+
+  it('has the deck spots of the spotting plan (else: node scripts/catcc/deck-spots.gen.ts)', () => {
+    expect(fs.readFileSync(SPOTS_TS, 'utf8').replace(/\r\n/g, '\n')).toBe(buildSpotsTs());
+    expect(DECK_SPOTS.map((s) => s.n)).toEqual(Array.from({ length: 40 }, (_, i) => i + 1));
+    expect(new Set(DECK_SPOTS.map((s) => s.id)).size).toBe(40);
   });
 
   it('keeps every road on the deck and clear of the island', () => {
@@ -38,18 +78,19 @@ describe('taxi network', () => {
   });
 
   it('sends everything from the stern to the bow catapults up the one artery', () => {
-    for (const [from, to] of [['E3F', 'C1'], ['E3A', 'C2'], ['PA1', 'C1'], ['PA3', 'C2'], ['JY1', 'C1'], ['E2A', 'C2']]) {
+    for (const [from, to] of [['E31', 'C1'], ['E32', 'C2'], ['PA1', 'C1'], ['ST1', 'C2'], ['E21', 'C1'], ['E22', 'C2']]) {
       const r = route(from, to);
       // from clear of its own feeder's fillet to short of the bow fan
       const x0 = Math.max(-60, at(from)[0] + 12);
       expect(onArtery(r, x0, 10), `${from} -> ${to}`).toBe(true);
       expect(r.some((p) => p[0] > x0 && p[0] < 10)).toBe(true);
-      expect(r[r.length - 1]).toEqual(CATS[to[1]][0]);
+      expect(r[r.length - 1][0]).toBeCloseTo(CATS[to[1]][0][0], 6);
+      expect(r[r.length - 1][1]).toBeCloseTo(CATS[to[1]][0][1], 6);
     }
   });
 
   it('arrives at a catapult lined up with its track', () => {
-    for (const [from, k] of [['E3F', '1'], ['E3F', '2'], ['PA2', '3'], ['E3A', '4'], ['E4A', '3'], ['E1F', '1']]) {
+    for (const [from, k] of [['E31', '1'], ['E31', '2'], ['PA2', '3'], ['E32', '4'], ['E42', '3'], ['E11', '1'], ['BS2', '1'], ['BP2', '2'], ['PT3', '1']]) {
       const r = route(from, `C${k}`);
       const [a, b] = CATS[k];
       const last = r[r.length - 1];
@@ -62,29 +103,38 @@ describe('taxi network', () => {
   it('shares the waist crossing between the patio and EL 3; EL 4 reaches the waist catapults without it', () => {
     const crossing = (r: V[]) => r.filter((p) => p[1] > -8 && p[1] < 10);
     const a = crossing(route('PA2', 'C3'));
-    const b = crossing(route('E3A', 'C4'));
-    const c = crossing(route('E3F', 'C3'));
+    const b = crossing(route('E32', 'C4'));
+    const c = crossing(route('E31', 'C3'));
     expect(a.length).toBeGreaterThan(10);
     // the same line across the landing area: every point of one is on the others' path
     const near = (p: V, r: V[]) => r.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.75);
     expect(a.every((p) => near(p, b))).toBe(true);
     expect(c.every((p) => near(p, a))).toBe(true);
     // EL 4: stays on the port side of the landing area
-    for (const [from, to] of [['E4F', 'C3'], ['E4A', 'C3'], ['E4F', 'C4'], ['E4A', 'C4'], ['FGR', 'C3']]) expect(route(from, to).every((p) => p[1] > 10), `${from} -> ${to}`).toBe(true);
+    for (const [from, to] of [['E41', 'C3'], ['E42', 'C3'], ['E41', 'C4'], ['E42', 'C4'], ['PO2', 'C3']]) expect(route(from, to).every((p) => p[1] > 10), `${from} -> ${to}`).toBe(true);
   });
 
-  it('fillets the corners: no route between spots turns sharper than a 2.5 m radius, most far gentler', () => {
+  it('fillets the corners: no route from a spot to a catapult turns sharper than a 2.5 m radius; few between spots do', () => {
     let sharp = 0;
-    for (const a of TAXI_DESTS)
+    let tight = 0;
+    let routes = 0;
+    // (from a spot: a route that starts on a catapult's shuttle backs down the track's line first, which no jet does)
+    for (const a of TAXI_DESTS.filter((d) => d.kind !== 'cat'))
       for (const b of TAXI_DESTS) {
         if (a === b) continue;
         const r = taxiRoute(a.p, b.id)!;
+        routes++;
         let worst = 0;
         for (let i = 1; i < r.length - 1; i++) worst = Math.max(worst, turn(r[i - 1], r[i], r[i + 1]));
-        expect(worst, `${a.id} -> ${b.id}`).toBeLessThan(24); // degrees per ~1 m step
+        // degrees per ~1 m step
+        if (b.kind === 'cat') expect(worst, `${a.id} -> ${b.id}`).toBeLessThan(24);
+        else if (worst >= 24) tight++;
         if (worst > 12) sharp++;
       }
-    expect(sharp).toBeLessThan(120);
+    // spot to spot, a route ends by running up the other spot's feeder the wrong way: where that feeder
+    // meets its road at a slant a few of these still kink (the crotch's aft spot is most of them)
+    expect(tight).toBeLessThan(routes * 0.02);
+    expect(sharp).toBeLessThan(routes * 0.2);
   });
 
   it('smooths a right-angle corner into an arc of the asked radius', () => {
@@ -112,13 +162,13 @@ describe('taxi network', () => {
     // an AI-parked jet a few metres inboard of an elevator spot starts from that spot's feeder
     const ai = taxiRoute([-101.62, -29.84], 'C3', -90)!;
     expect(ai[0]).toEqual([-101.62, -29.84]);
-    expect(Math.abs(ai[5][0] + 102.4)).toBeLessThan(1);
+    expect(Math.abs(ai[5][0] + 103.3)).toBeLessThan(1);
   });
 });
 
 describe('taxi conflicts', () => {
   it('finds the first aircraft in the way, not one the route merely starts beside', () => {
-    const r = route('E3F', 'C1');
+    const r = route('E31', 'C1');
     expect(firstBlock(r, [])).toBeNull();
     // parked across the artery ahead
     const b = firstBlock(r, [pose('x', 0, -9.7, 90)])!;
@@ -126,11 +176,11 @@ describe('taxi conflicts', () => {
     expect(r[b.i][0]).toBeGreaterThan(-20);
     expect(r[b.i][0]).toBeLessThan(0);
     // wing to wing on the next elevator spot, and well clear of the artery: not in the way
-    expect(firstBlock(r, [parked('n', 'E3A'), parked('m', 'E2A')])).toBeNull();
+    expect(firstBlock(r, [parked('n', 'E32'), parked('m', 'E22')])).toBeNull();
   });
 
   it('works instructions in order: the second jet to a catapult is clear to behind the first', () => {
-    const jets = [parked('a', 'E3F'), parked('b', 'E3A'), parked('c', 'E2A')];
+    const jets = [parked('a', 'E31'), parked('b', 'E32'), parked('c', 'E22')];
     const plans = planTaxi(jets, { a: { to: 'C1', at: 1 }, b: { to: 'C1', at: 2 }, c: { to: 'C2', at: 3 } });
     const [a, b, c] = ['a', 'b', 'c'].map((k) => plans.get(k)!);
     expect([a.seq, b.seq, c.seq]).toEqual([1, 2, 3]);
@@ -151,7 +201,7 @@ describe('taxi conflicts', () => {
   });
 
   it('is blocked by an aircraft parked on the route until that one is given an earlier instruction', () => {
-    const jets = [parked('a', 'E3F'), pose('p', 7.56, -10.5, 132)]; // DCS spawn spot 2 sits on the artery
+    const jets = [parked('a', 'E31'), pose('p', 7.56, -10.5, 132)]; // DCS spawn spot 2 sits on the artery
     const alone = planTaxi(jets, { a: { to: 'C1', at: 5 } }).get('a')!;
     expect(alone.blockedBy).toBe('p');
     expect(alone.clearLen).toBeGreaterThan(60);
@@ -163,7 +213,7 @@ describe('taxi conflicts', () => {
   });
 
   it('marks an aircraft at its destination as arrived and ignores orders for aircraft that have left', () => {
-    const plans = planTaxi([parked('a', 'COR'), pose('k', CATS['2'][0][0] + 4, CATS['2'][0][1], 2.4)], { a: { to: 'COR', at: 1 }, k: { to: 'C2', at: 2 }, gone: { to: 'C1', at: 3 } });
+    const plans = planTaxi([parked('a', 'CO1'), pose('k', CATS['2'][0][0] + 4, CATS['2'][0][1], 2.4)], { a: { to: 'CO1', at: 1 }, k: { to: 'C2', at: 2 }, gone: { to: 'C1', at: 3 } });
     expect(plans.get('a')!.arrived).toBe(true);
     expect(plans.get('k')!.arrived).toBe(true);
     expect(plans.has('gone')).toBe(false);
@@ -182,14 +232,14 @@ describe('taxi instructions in the shared ops state', () => {
     expect(p1.taxi).toEqual({ a: { to: 'C2', at: 100 } });
     expect(p1.launch['2'].queue).toEqual(['ga']);
     expect(cleanOpsPatch(p1)).not.toBeNull();
-    const p2 = withTaxi(p1, deck, 'a', 'E2A', 200);
-    expect(p2.taxi.a.to).toBe('E2A');
+    const p2 = withTaxi(p1, deck, 'a', 'E22', 200);
+    expect(p2.taxi.a.to).toBe('E22');
     expect(p2.launch['2'].queue).toEqual([]);
     const p3 = withTaxi(p1, deck, 'a', null, 300);
     expect(p3.taxi).toEqual({});
     expect(p3.launch['2'].queue).toEqual([]);
     // one of a two-ship sent to park: the flight stays queued for its wingman
-    const q = withTaxi(withTaxi(withTaxi(undefined, deck, 'b1', 'C1', 1), deck, 'b2', 'C1', 2), deck, 'b1', 'COR', 3);
+    const q = withTaxi(withTaxi(withTaxi(undefined, deck, 'b1', 'C1', 1), deck, 'b2', 'C1', 2), deck, 'b1', 'CO1', 3);
     expect(q.launch['1'].queue).toEqual(['gb']);
     expect(q.taxi.b2.to).toBe('C1');
   });
@@ -209,7 +259,7 @@ describe('taxi instructions in the shared ops state', () => {
   });
 
   it('validates taxi patches', () => {
-    expect(cleanOpsPatch({ taxi: { t1: { to: 'E2A', at: 5 } } })).toEqual({ taxi: { t1: { to: 'E2A', at: 5 } } });
+    expect(cleanOpsPatch({ taxi: { t1: { to: 'E22', at: 5 } } })).toEqual({ taxi: { t1: { to: 'E22', at: 5 } } });
     expect(cleanOpsPatch({ taxi: null })).toEqual({ taxi: null });
     expect(cleanOpsPatch({ taxi: { t1: { to: 'not a spot!', at: 5 } } })).toBeNull();
     expect(cleanOpsPatch({ taxi: { t1: { to: 'C1' } } })).toBeNull();

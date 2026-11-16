@@ -10,10 +10,14 @@
  * network at the best entry point near it. Routes are checked against the other aircraft on deck: the
  * route is clear up to the first aircraft in its way.
  *
+ * The parking spots are the 40 F/A-18C spots of the spotting plan (deckSpots.gen.ts, from
+ * carrier-ops-handoff-2/deck-spots.csv): each is joined to the roads straight ahead of the parked jet.
+ *
  * Deck coordinates as in deck.ts: metres, x forward, y to port, headings in degrees CCW from the bow.
- * To retune the network, edit ROADS and SPOTS below; the graph, the solver and the drawing follow.
+ * To retune the network, edit ROADS and FEED below; the graph, the solver and the drawing follow.
  */
 import { CATS, NIMITZ as G, inPoly, onCat, type V } from './deck.ts';
+import { DECK_SPOTS, type DeckSpot } from './deckSpots.gen.ts';
 
 const D = Math.PI / 180;
 const sub = (a: V, b: V): V => [a[0] - b[0], a[1] - b[1]];
@@ -44,66 +48,72 @@ const cat = (k: string) => onLine(CATS[k][0], CATS[k][1]);
 const catDir = (k: string): V => unit(sub(CATS[k][1], CATS[k][0]));
 /** the landing area centreline */
 const la = onLine(G.la.c[0], G.la.c[1]);
-/** the main artery: one straight line from in front of EL 3 to the bow catapults (the deck crew's routes 9, 10 and 14, straightened) */
+/**
+ * The main artery: one straight line up the deck, from in front of EL 3 to the bow. Aft of the bow
+ * catapults it is the deck crew's routes 9, 10 and 14, straightened; forward of them it runs on between
+ * the two bow catapult tracks (the bow lane), where aircraft spotted on the bow pull out to.
+ */
 const art = onLine([-100, -15.5], [20, -8.5]);
 
-/** where the artery fans out to the bow catapults (also where the EL 1 aft feeder and the landing-area turn-round cross it) */
-const FAN = art(22.94);
+const spot = (id: string): DeckSpot => {
+  const s = DECK_SPOTS.find((q) => q.id === id);
+  if (!s) throw new Error(`taxiNet: no deck spot ${id}`);
+  return s;
+};
+
+/** the turn-round road runs across the deck at EL 1's aft spot: straight ahead of the jet parked there */
+const TURN_X = spot('E12').p[0];
+/** where the artery fans out to the bow catapults (also where the turn-round road crosses it) */
+const FAN = art(TURN_X);
+/** the bow lane's forward end */
+const BOW_END = art(150);
 /** the patio road: the artery's aft end, bent to run parallel to the patio's row of spots, clear of their noses */
 const PATIO_JOIN = art(-108);
 const PATIO_DIR = heading(-9.3);
 const PATIO_END = add(PATIO_JOIN, PATIO_DIR, -24);
-/** the waist crossing: leaves the artery where the EL 3 forward feeder meets it, crosses the landing area to the waist catapult lines */
-const CROSS_FROM = art(-90);
+/** the artery as one line, stern to bow */
+const MAIN: V[] = [PATIO_END, PATIO_JOIN, FAN, BOW_END];
+/** the waist crossing: leaves the artery straight ahead of EL 3's forward spot, crosses the landing area to the waist catapult lines */
+const CROSS_FROM = art(spot('E31').p[0]);
 const CROSS_DIR = heading(75);
 const CROSS_CAT3 = meet(CROSS_FROM, CROSS_DIR, CATS['3'][0], catDir('3'));
 const CROSS_CAT4 = meet(CROSS_FROM, CROSS_DIR, CATS['4'][0], catDir('4'));
 /** landing-area turn-round: off the centreline, round to starboard and down onto the artery */
 const LA_OFF = la(4);
 const LA_END = la(44);
+const LA_AFT = la(-130);
 const CROTCH_JOIN: V = [72, 14.5];
-/** the point's roads leave the bow fan across cat 1's line and fork there */
-const POINT_FORK = cat('1')(39);
+/** the catapult approaches' aft ends: the bow catapults' at the turn-round road, the waist catapults' where the aftmost spots join */
+const CAT_FROM: Record<string, V> = { '1': cat('1')(TURN_X), '2': cat('2')(TURN_X), '3': cat('3')(-125), '4': cat('4')(-84) };
 
-/** a spot's feeder: straight out along the way it is parked until it meets the patio road */
-const patioFeeder = (p: V, hdg: number): V[] => [p, meet(p, heading(hdg), PATIO_JOIN, PATIO_DIR)];
+/** where the ray from p along heading hdg first meets the line a-b (the segments of `road`, each taken as a line between its ends); null if it does not, ahead of p */
+const ahead = (p: V, hdg: number, road: V[]): V | null => {
+  const h = heading(hdg);
+  let best: V | null = null;
+  for (let i = 1; i < road.length; i++) {
+    const [a, b] = [road[i - 1], road[i]];
+    const e = sub(b, a);
+    const den = cross(h, e);
+    if (Math.abs(den) < 1e-9) continue;
+    const t = cross(sub(a, p), e) / den;
+    const u = cross(sub(a, p), h) / den;
+    if (t <= 0.5 || u < -1e-6 || u > 1 + 1e-6) continue;
+    const q = add(p, h, t);
+    if (!best || dist(p, q) < dist(p, best)) best = q;
+  }
+  return best;
+};
 
 export type DestKind = 'cat' | 'elev' | 'park';
 export interface TaxiDest {
   id: string;
   kind: DestKind;
-  /** full name, e.g. "EL 2 aft" */
+  /** full name, e.g. "El 2 1" */
   label: string;
-  /** what fits in a marker or after a board number, e.g. "E2A" */
+  /** what fits in a marker or after a board number, e.g. "E21" */
   short: string;
   p: V;
 }
-
-// Parking spots. Elevator, Corral and Patio spots are the DCS spawn spots (GT.TaxiForTORoutes 5-16), where
-// players start; Point spots are the DCS recovery spots 11 and 12; the rest are placed in their deck areas.
-const SPOT: Record<string, { kind: DestKind; label: string; p: V }> = {
-  E1F: { kind: 'elev', label: 'EL 1 fwd', p: [35, -34] },
-  E1A: { kind: 'elev', label: 'EL 1 aft', p: [22.94, -34] },
-  E2F: { kind: 'elev', label: 'EL 2 fwd', p: [-11, -34.06] },
-  E2A: { kind: 'elev', label: 'EL 2 aft', p: [-23, -34.06] },
-  E3F: { kind: 'elev', label: 'EL 3 fwd', p: [-90, -34.06] },
-  E3A: { kind: 'elev', label: 'EL 3 aft', p: [-102.53, -34.12] },
-  E4F: { kind: 'elev', label: 'EL 4 fwd', p: [-96.03, 33.94] },
-  E4A: { kind: 'elev', label: 'EL 4 aft', p: [-108, 34] },
-  COR: { kind: 'park', label: 'Corral', p: [5.97, -32.5] },
-  JY1: { kind: 'park', label: 'Junk Yard 1', p: [-73, -28] },
-  JY2: { kind: 'park', label: 'Junk Yard 2', p: [-82, -28] },
-  PA1: { kind: 'park', label: 'Patio 1', p: [-117.97, -28.06] },
-  PA2: { kind: 'park', label: 'Patio 2', p: [-129.22, -26.19] },
-  PA3: { kind: 'park', label: 'Patio 3', p: [-141.19, -24.25] },
-  PT1: { kind: 'park', label: 'Point 1', p: [64.12, -32] },
-  PT2: { kind: 'park', label: 'Point 2', p: [42, -30.11] },
-  BOX: { kind: 'park', label: 'Box', p: art(54.5) },
-  CR1: { kind: 'park', label: 'Crotch 1', p: [86, 16.5] },
-  CR2: { kind: 'park', label: 'Crotch 2', p: [99, 14.2] },
-  FGR: { kind: 'park', label: 'Finger', p: [-120, 28] },
-};
-const at = (id: string): V => SPOT[id].p;
 
 export type RoadKind = 'artery' | 'cat' | 'feeder';
 export interface Road {
@@ -113,57 +123,86 @@ export interface Road {
 }
 
 /**
+ * Each deck spot's way onto the roads: straight ahead, the way the jet is parked, until it meets the road
+ * named here (crossing, and so joining, any road on the way). The spots are deckSpots.gen.ts: the 40
+ * F/A-18C spots of the spotting plan, where players spawn.
+ *   main      the artery: the bow lane for the bow, crotch and point rows; the street for the six-pack and
+ *             the starboard rows; the patio road for the patio and the starboard quarter. The port side
+ *             spots cross the waist catapult lines and the landing area to it.
+ *   bow2      EL 1's forward spot and Point 4 run on across the bow lane to the cat 2 feeder
+ *   cat3      the port quarter spot whose nose points along the cat 3 line
+ */
+const FEED: Record<string, 'main' | 'bow2' | 'cat3'> = {
+  BS1: 'main', BS2: 'main', BS3: 'main', BS4: 'main', BS5: 'main',
+  BP1: 'main', BP2: 'main', BP3: 'main', CR1: 'main', CR2: 'main', CR3: 'main',
+  PT1: 'main', PT2: 'main', PT3: 'main', PT4: 'bow2', E11: 'bow2',
+  SP1: 'main', SP2: 'main', SP3: 'main', SP4: 'main', SP5: 'main', SP6: 'main',
+  CO1: 'main', CO2: 'main', E21: 'main', E22: 'main', E31: 'main', E32: 'main',
+  PA1: 'main', PA2: 'main', ST1: 'main',
+  PO1: 'main', PO2: 'main', PO3: 'main', PO4: 'cat3', E41: 'main', E42: 'main',
+};
+const BOW2: V[] = [FAN, cat('2')(50)];
+const LANDING: V[] = [LA_AFT, LA_END];
+const CAT3: V[] = [CAT_FROM['3'], CATS['3'][0]];
+const FEED_ROAD = { main: MAIN, bow2: BOW2, cat3: CAT3 };
+
+const feeders = (): Road[] => {
+  const out: Road[] = [];
+  for (const [id, to] of Object.entries(FEED)) {
+    const s = spot(id);
+    const q = ahead(s.p, s.hdg, FEED_ROAD[to]);
+    if (!q) throw new Error(`taxiNet: spot ${id} does not meet the ${to} road straight ahead`);
+    out.push({ id: `spot-${id}`, kind: 'feeder', pts: [s.p, q] });
+  }
+  return out;
+};
+
+/**
+ * EL 4's spots sit beside the cat 4 line pointing across the deck: besides running straight ahead they
+ * can pull out 6 m and swing left onto the cat 4 approach.
+ */
+const pivot = (id: string, to: V): Road => {
+  const s = spot(id);
+  return { id: `pivot-${id}`, kind: 'feeder', pts: [s.p, add(s.p, heading(s.hdg), 6), to] };
+};
+
+/**
  * The roads. They are joined wherever they touch or cross (buildGraph), so a junction needs no entry of
  * its own: end a feeder on an artery's line and it is a junction.
  */
 export const ROADS: Road[] = [
   // arteries
-  { id: 'main', kind: 'artery', pts: [PATIO_END, PATIO_JOIN, FAN] },
+  { id: 'main', kind: 'artery', pts: MAIN },
   { id: 'waist-crossing', kind: 'artery', pts: [CROSS_FROM, CROSS_CAT3, CROSS_CAT4] },
-  { id: 'landing-area', kind: 'artery', pts: [la(-125), LA_END] },
+  { id: 'landing-area', kind: 'artery', pts: LANDING },
   // catapult approaches: each track's own line, so aircraft arrive lined up
-  { id: 'cat1', kind: 'cat', pts: [cat('1')(22.94), CATS['1'][0]] },
-  { id: 'cat2', kind: 'cat', pts: [cat('2')(50), CATS['2'][0]] },
-  { id: 'cat3', kind: 'cat', pts: [cat('3')(-124), CATS['3'][0]] },
-  { id: 'cat4', kind: 'cat', pts: [cat('4')(-84), CATS['4'][0]] },
-  // the bow fan: off the end of the artery to cat 1, the box and cat 2
+  ...['1', '2', '3', '4'].map((k): Road => ({ id: `cat${k}`, kind: 'cat', pts: [CAT_FROM[k], CATS[k][0]] })),
+  // the bow fan: off the artery to cat 1 and cat 2
   { id: 'bow1', kind: 'feeder', pts: [FAN, cat('1')(52)] },
-  { id: 'bow2', kind: 'feeder', pts: [FAN, cat('2')(50)] },
-  { id: 'box', kind: 'feeder', pts: [FAN, at('BOX')] },
-  { id: 'point', kind: 'feeder', pts: [FAN, POINT_FORK, at('PT1')] },
-  { id: 'point2', kind: 'feeder', pts: [POINT_FORK, at('PT2')] },
-  // the landing-area turn-round, continuing across the artery as the EL 1 aft feeder
-  { id: 'turn-round', kind: 'feeder', pts: [LA_OFF, [22.94, 11], at('E1A')] },
-  { id: 'el1f', kind: 'feeder', pts: [at('E1F'), onLine(FAN, cat('2')(50))(35)] },
-  // out of the landing area ahead: to the crotch, which cat 2 traffic reaches too
-  { id: 'crotch', kind: 'feeder', pts: [LA_END, CROTCH_JOIN, at('CR1'), at('CR2')] },
+  { id: 'bow2', kind: 'feeder', pts: BOW2 },
+  // the turn-round road, across the deck from the landing area to EL 1's aft spot: where aircraft come
+  // off the landing area, and where aircraft coming aft down the bow lane turn back up to a bow catapult
+  { id: 'turn-round', kind: 'feeder', pts: [LA_OFF, [TURN_X, 11], spot('E12').p] },
+  // out of the landing area ahead, to the cat 2 line
+  { id: 'crotch', kind: 'feeder', pts: [LA_END, CROTCH_JOIN] },
   { id: 'crotch2', kind: 'feeder', pts: [cat('2')(55.8), CROTCH_JOIN] },
-  // starboard side feeders: straight inboard to the artery
-  { id: 'corral', kind: 'feeder', pts: [at('COR'), art(5.97)] },
-  { id: 'el2f', kind: 'feeder', pts: [at('E2F'), art(-11)] },
-  { id: 'el2a', kind: 'feeder', pts: [at('E2A'), art(-23)] },
-  { id: 'jy1', kind: 'feeder', pts: [at('JY1'), art(-73)] },
-  { id: 'jy2', kind: 'feeder', pts: [at('JY2'), art(-82)] },
-  { id: 'el3f', kind: 'feeder', pts: [at('E3F'), CROSS_FROM] },
-  { id: 'el3a', kind: 'feeder', pts: [at('E3A'), art(-102.53)] },
-  // patio: each spot straight ahead as it is parked (the DCS spawn headings) onto the patio road
-  { id: 'patio1', kind: 'feeder', pts: patioFeeder(at('PA1'), 63.7) },
-  { id: 'patio2', kind: 'feeder', pts: patioFeeder(at('PA2'), 51.9) },
-  { id: 'patio3', kind: 'feeder', pts: patioFeeder(at('PA3'), 36.3) },
-  // port side: EL 4 and the finger feed the cat 3 line; EL 4 forward also sits on cat 4's line
-  { id: 'el4f', kind: 'feeder', pts: [at('E4F'), cat('3')(-96.03)] },
-  { id: 'el4a', kind: 'feeder', pts: [at('E4A'), cat('3')(-108)] },
-  { id: 'finger', kind: 'feeder', pts: [at('FGR'), cat('3')(-120)] },
-  { id: 'el4-cat4', kind: 'feeder', pts: [at('E4F'), cat('4')(-84)] },
+  // the stern spots that point up a road's own line pull straight out 8 m and ease onto its aft end: the landing area's, the cat 3 line's
+  { id: 'spot-ST2', kind: 'feeder', pts: [spot('ST2').p, add(spot('ST2').p, heading(spot('ST2').hdg), 8), LA_AFT] },
+  { id: 'spot-PO5', kind: 'feeder', pts: [spot('PO5').p, add(spot('PO5').p, heading(spot('PO5').hdg), 8), CAT_FROM['3']] },
+  ...feeders(),
+  pivot('E41', CAT_FROM['4']),
+  pivot('E42', CAT_FROM['4']),
 ];
+
+const KIND = (s: DeckSpot): DestKind => (s.area.startsWith('El ') ? 'elev' : 'park');
 
 /** how the network and its routes are drawn: a clear route green, the part beyond an aircraft in the way amber */
 export const TAXI_COL = { clear: '#5FD068', blocked: '#E7B04F', road: '#D6E2EE' } as const;
 
-/** Everywhere an aircraft can be sent: the four catapults (their shuttles) and the parking spots. */
+/** Everywhere an aircraft can be sent: the four catapults (their shuttles) and the deck spots. */
 export const TAXI_DESTS: TaxiDest[] = [
   ...['1', '2', '3', '4'].map((k): TaxiDest => ({ id: `C${k}`, kind: 'cat', label: `CAT ${k}`, short: `C${k}`, p: CATS[k][0] })),
-  ...Object.entries(SPOT).map(([id, s]): TaxiDest => ({ id, kind: s.kind, label: s.label, short: id, p: s.p })),
+  ...DECK_SPOTS.map((s): TaxiDest => ({ id: s.id, kind: KIND(s), label: s.label, short: s.id, p: s.p })),
 ];
 const DEST = new Map(TAXI_DESTS.map((d) => [d.id, d]));
 export const taxiDest = (id: string | null | undefined): TaxiDest | undefined => (id ? DEST.get(id) : undefined);
@@ -240,6 +279,20 @@ const AT_NODE = 5;
 const SNAP_MAX = 60;
 /** fillet radius for the corners of a route, metres */
 const RADIUS = 8;
+/**
+ * An aircraft bound for a catapult makes no turn sharper than LINEUP_TURN within MIN_LINEUP metres of
+ * the shuttle: it comes onto the track's line behind the jet blast deflector and rolls up it straight.
+ * (A spot's feeder that happens to cross a catapult line a couple of metres short of the shuttle is no
+ * way onto that catapult.)
+ */
+const MIN_LINEUP = 8;
+const LINEUP_TURN = 30;
+/**
+ * Nor does an aircraft turn that sharply in its first MIN_PULL_OUT metres: it pulls straight out of its
+ * spot before it swings. (Spots stand close to roads and to each other's feeders: a junction a metre
+ * ahead of the nose is not a place to turn.) If that leaves no way at all, the rule is dropped.
+ */
+const MIN_PULL_OUT = 5;
 
 const STRUCT = [G.struct['Island'], G.struct['Radar Mast']];
 /** can an aircraft taxi straight from a to b: on the deck all the way and not through the island */
@@ -306,9 +359,14 @@ function seeds(g: TaxiGraph, from: V, hdg?: number): State[] {
 
 /** the waypoints (corners, not yet filleted) from an aircraft at `from` to a destination; null if it can't be reached */
 export function taxiWaypoints(from: V, to: string, hdg?: number, g: TaxiGraph = TAXI_GRAPH): V[] | null {
+  return solve(from, to, hdg, g, true) ?? solve(from, to, hdg, g, false);
+}
+
+function solve(from: V, to: string, hdg: number | undefined, g: TaxiGraph, pullOut: boolean): V[] | null {
   const goal = NODE_OF.get(to);
   if (goal === undefined || goal < 0) return null;
   const open = seeds(g, from, hdg);
+  const lineUp = destCat(to) ? g.nodes[goal] : null;
   const done = new Set<string>();
   while (open.length) {
     let bi = 0;
@@ -328,6 +386,8 @@ export function taxiWaypoints(from: V, to: string, hdg?: number, g: TaxiGraph = 
       const d = unit(sub(g.nodes[n], g.nodes[s.node]));
       const turn = s.dir ? turnDeg(s.dir, d) : 0;
       if (turn > MAX_TURN) continue;
+      if (lineUp && turn > LINEUP_TURN && dist(g.nodes[s.node], lineUp) < MIN_LINEUP) continue;
+      if (pullOut && turn > LINEUP_TURN && dist(g.nodes[s.node], from) < MIN_PULL_OUT) continue;
       open.push({ node: n, prev: s.node, dir: d, cost: s.cost + dist(g.nodes[n], g.nodes[s.node]) + turn * TURN_COST, parent: s, pts: [g.nodes[n]] });
     }
   }
@@ -362,7 +422,11 @@ export function smoothRoute(wp: V[], r = RADIUS, step = 1): V[] {
   const out: V[] = [];
   const run = (a: V, b: V) => {
     const L = dist(a, b);
-    if (L < 0.01 && out.length) return; // two fillets meeting: no straight between them
+    if (L < 0.01) {
+      // two fillets meeting, or a fillet that starts on the route's first point: no straight between them
+      if (!out.length) out.push(a);
+      return;
+    }
     const k = Math.max(1, Math.ceil(L / step));
     for (let j = out.length ? 1 : 0; j <= k; j++) out.push(add(a, sub(b, a), j / k));
   };
