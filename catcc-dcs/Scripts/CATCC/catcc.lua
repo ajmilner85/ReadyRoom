@@ -75,12 +75,16 @@ do
 end
 
 -- test switches, kept out of CATCC.lua (which holds the token): Config/CATCC-test.lua returning e.g.
--- { chockTest = true } (F10 chock test menu, Scripts/CATCC/chocktest.lua)
+-- { chockTest = true } (F10 chock test menu, Scripts/CATCC/chocktest.lua),
+-- { routeLines = true } (F10 taxi route lines on the deck, Scripts/CATCC/routelines.lua; catcc-dcs/deck-test/route-lines)
 do
   local f = loadfile(writedir .. 'Config/CATCC-test.lua')
   if f then
     local ok, t = pcall(f)
-    if ok and type(t) == 'table' then cfg.chockTest = t.chockTest == true end
+    if ok and type(t) == 'table' then
+      cfg.chockTest = t.chockTest == true
+      cfg.routeLines = t.routeLines == true
+    end
   end
 end
 
@@ -254,25 +258,32 @@ end
 -- the F10 chock test (Config/CATCC-test.lua): installed at every mission start, room or not (the Lua
 -- state it lives in outlives a mission, its F10 menu doesn't), and again if that state resets;
 -- checked every 5 s
-local lastChockTestAt, chockTestWarned, chockTestInstalled = -1e9, false, false
-local function chockTest(t)
-  if not cfg.chockTest or t - lastChockTestAt < 5 then return end
-  lastChockTestAt = t
-  local ok, present = pcall(dostring, 'return type(CATCC_CT)')
-  if chockTestInstalled and ok and present == 'table' then return end
-  local fh = io.open(writedir .. 'Scripts/CATCC/chocktest.lua', 'r')
-  if not fh then
-    if not chockTestWarned then chockTestWarned = true; warn('chockTest is on but Scripts/CATCC/chocktest.lua is missing') end
-    return
+-- The same for the taxi route lines (Config/CATCC-test.lua routeLines = true).
+local function testScript(flag, file, global, name, menu)
+  local st = { at = -1e9, warned = false, installed = false }
+  local function run(t)
+    if not cfg[flag] or t - st.at < 5 then return end
+    st.at = t
+    local ok, present = pcall(dostring, 'return type(' .. global .. ')')
+    if st.installed and ok and present == 'table' then return end
+    local fh = io.open(writedir .. file, 'r')
+    if not fh then
+      if not st.warned then st.warned = true; warn(flag .. ' is on but ' .. file .. ' is missing') end
+      return
+    end
+    local src = fh:read('*a')
+    fh:close()
+    local ok2, r = pcall(dostring, src .. '\nreturn (type(' .. global .. ') == "table") and "CATCC_OK" or "CATCC_FAIL"')
+    if ok2 and r == 'CATCC_OK' then
+      st.installed = true
+      info(name .. ' menu installed (F10 > ' .. menu .. ')')
+    elseif not st.warned then st.warned = true; warn(name .. ' install failed: ' .. tostring(r)) end
   end
-  local ct = fh:read('*a')
-  fh:close()
-  local ok2, r = pcall(dostring, ct .. '\nreturn (type(CATCC_CT) == "table") and "CATCC_OK" or "CATCC_FAIL"')
-  if ok2 and r == 'CATCC_OK' then
-    chockTestInstalled = true
-    info('chock test menu installed (F10 > CATCC chock test)')
-  elseif not chockTestWarned then chockTestWarned = true; warn('chock test install failed: ' .. tostring(r)) end
+  local function reset() st.at, st.warned, st.installed = -1e9, false, false end
+  return run, reset
 end
+local chockTest, chockTestReset = testScript('chockTest', 'Scripts/CATCC/chocktest.lua', 'CATCC_CT', 'chock test', 'CATCC chock test')
+local routeLines, routeLinesReset = testScript('routeLines', 'Scripts/CATCC/routelines.lua', 'CATCC_RL', 'route lines', 'CATCC route lines')
 
 local function sample()
   if not samplerInstalled and not installSampler() then return end
@@ -654,7 +665,7 @@ local function tick()
     end
   end
 
-  if missionRunning then chockTest(t) end
+  if missionRunning then chockTest(t); routeLines(t) end
 
   -- launch holds: forgotten when the room stops refreshing them; pilots hear the list every 5 s
   if (#holdList > 0 or #chockList > 0) and t - holdAt > HOLD_TTL_S then
@@ -675,7 +686,8 @@ function handler.onSimulationStart()
   missionRunning = true
   lastEnvAt = -1e9
   samplerInstalled = false
-  lastChockTestAt, chockTestWarned, chockTestInstalled = -1e9, false, false
+  chockTestReset()
+  routeLinesReset()
   broadcast(missionMessage())
 end
 
