@@ -1,0 +1,25 @@
+-- TEST ONLY (CATCC crew test). A character model descriptor of our own, in the form of DCS's
+-- CoreMods/aircraft/FA-18C/animations/models/pilot_FA18C.chanimgpu: the F/A-18C pilot figure's mesh
+-- (found through the F/A-18C module's own models path), on the deck crew's skeleton, standing in the
+-- deck crew's idle. Used by one added crew member with director-test.ps1 -Crew Model.
+model_path = "pilot_FA18C/"
+model = model_path .. "pilot_FA18C.fbx"
+skeleton = "typeV"
+bounding_box = {{-0.5, 0, -0.5},{0.5, 1.8, 0.5}}
+default_animation = "Idle"
+use_idle_timeline = false
+scale = 1
+
+connectors = 
+{
+    {
+        name = "__conn_head",
+        parent = "typeV_Head",
+        m = {{0, 1, 0, 0}, {1, 0, 0, 0}, {0, 0, -1, 0}, {0.091718, 0.127267, 0, 1}},
+    },
+}
+
+lods = 
+{
+    {model, 1000};
+}
