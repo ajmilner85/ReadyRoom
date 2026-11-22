@@ -81,6 +81,21 @@ describe('radar sweep', () => {
     expect(trackerVelocity(a1, [], 10)).toBe(a1); // nothing to difference: DCS's velocity
   });
 
+  it('a track that jumps (replay loop, respawn) resyncs instead of differencing thousands of knots', () => {
+    const all: Radar = { id: 'cv', lat: 26, lon: 56, swept: () => true };
+    const P: Painter = { painted: new Map([['cv', cv]]), hist: new Map() };
+    // the demo pattern's 203 at its loop end (~7.4 NM astern), then back at its start (21 NM) 4 s later
+    const before = { ...at('203', 180, 7.4), crs: 0, gs: 250 };
+    paintRadars(P, [cv, before], 'cv', [all], 0);
+    paintRadars(P, [cv, { ...at('203', 180, 7.4 - 250 / 3600 * 4), crs: 0, gs: 250 }], 'cv', [all], 4);
+    const after = { ...at('203', 180, 21), crs: 0, gs: 250 };
+    paintRadars(P, [cv, after], 'cv', [all], 8);
+    expect(P.painted.get('203')!.gs).toBe(250); // the feed's own, not 12,000+ kt
+    expect(P.hist.get('203')!.length).toBe(1); // trail restarts at the new position
+    // a direct difference across a jump is refused too
+    expect(trackerVelocity(after, [{ t: 4, lat: before.lat, lon: before.lon, alt: 5000 }], 8)).toBe(after);
+  });
+
   it('arc test wraps through north', () => {
     expect(swept(350, 10, 5)).toBe(true);
     expect(swept(350, 10, 355)).toBe(true);

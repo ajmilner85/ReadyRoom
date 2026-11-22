@@ -1,7 +1,7 @@
 import type { AcmiEvent } from '../acmi/parser.ts';
 import type { CarrierWx } from '../dcs/hookProtocol.ts';
 import { AcmiState, type AcmiObject } from '../acmi/state.ts';
-import { bearingDeg, distanceNm, M_PER_FT, MS_PER_KT } from '../geo.ts';
+import { bearingDeg, distanceNm, implausibleMove, M_PER_FT, MS_PER_KT } from '../geo.ts';
 import { CARRIER_HULLS, parsePilot } from './naming.ts';
 
 export type TrackKind = 'fixedwing' | 'rotary' | 'carrier' | 'ship' | 'ground' | 'other';
@@ -192,6 +192,18 @@ export class TrackStore {
   private pushSample(track: Track): void {
     const h = track.history;
     const s: TrackSample = { t: this.t, lat: track.lat, lon: track.lon, altFt: track.altFt };
+    // A teleport (respawn in place of the old object, a replay loop or seek) or time running backwards:
+    // differencing across it gives thousands of knots. Resync: the history restarts at this sample and
+    // there is no groundspeed, course or vertical speed until a new window has built up.
+    const last = h[h.length - 1];
+    if (last && implausibleMove(distanceNm(last.lat, last.lon, s.lat, s.lon), s.t - last.t)) {
+      h.length = 0;
+      h.push(s);
+      track.gsKt = undefined;
+      track.vsFpm = undefined;
+      track.courseDeg = undefined;
+      return;
+    }
     if (h.length && h[h.length - 1].t === s.t) h[h.length - 1] = s;
     else h.push(s);
     const cutoff = this.t - this.historyS;
