@@ -37,7 +37,9 @@ export const IcWp = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="6" cy="17" 
 export const IcLayers = ({ size = 20 }: P) => S(size, 1.8, <><path d="M12 3l9 5-9 5-9-5z" /><path d="M3 13l9 5 9-5" /></>);
 export const IcBulls = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="12" cy="12" r="2.5" /><circle cx="12" cy="12" r="6" /><circle cx="12" cy="12" r="9.5" /><path d="M12 1v4M12 19v4M1 12h4M19 12h4" /></>);
 export const IcComms = ({ size = 20 }: P) => S(size, 1.8, <><path d="M4 5h16v10H9l-5 4z" /><path d="M8 9h8M8 12h5" /></>);
-export const IcZoomOut = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6" /></>);
+/** follow (not in the mockup; drawn in its style): a contact's hit square held in the corners of a tracking gate */
+export const IcFollow = ({ size = 20 }: P) => S(size, 1.8, <><rect x="9.5" y="9.5" width="5" height="5" /><path d="M3 8V3h5M16 3h5v5M21 16v5h-5M8 21H3v-5" /></>);
+export const IcZoomOut =({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6" /></>);
 export const IcZoomIn = ({ size = 20 }: P) => S(size, 1.8, <><circle cx="10.5" cy="10.5" r="6.5" /><path d="M15.5 15.5L20 20M7.5 10.5h6M10.5 7.5v6" /></>);
 export const IcEdit = () => S(12, 2, <><path d="M4 20h4L19 9l-4-4L4 16z" /><path d="M13.5 6.5l4 4" /></>);
 export const IcX = ({ size = 10, sw = 3 }: { size?: number; sw?: number }) => S(size, sw, <path d="M6 6l12 12M18 6L6 18" />);

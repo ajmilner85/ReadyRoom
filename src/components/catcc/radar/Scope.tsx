@@ -129,7 +129,8 @@ import { inAltBlock, smoothedCourse, STACK_IDS, stackLabel, tagRows, velocityEnd
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
 import { useVecSeconds } from '../vecLength.ts';
-import { IcBra, IcBulls, IcCpa, IcComms, IcIntercept, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
+import { IcBra, IcBulls, IcCpa, IcComms, IcFollow, IcIntercept, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
+import { canFollow, dblClickAction, followStep, zoomCentre } from './follow.ts';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
 
@@ -626,6 +627,13 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     setLock(false);
   };
   const anc = !lock && anchor.current && pic.proj ? pic.proj.toScope(anchor.current.lat, anchor.current.lon) : null;
+  // Follow (follow.ts): the view centre rides on the hooked contact at the current range. The carrier lock
+  // is off meanwhile and the anchor is kept on the followed centre, so stopping leaves the view where it was.
+  const [follow, setFollow] = useState(false);
+  const fStep = followStep(follow, hookedId, pic.air);
+  const fP = fStep.kind === 'follow' ? fStep.p : null;
+  // dropped in the render itself (not an effect), so a double-click's unhook-then-hook can never race it
+  if (follow && (fStep.kind === 'stop' || fit)) setFollow(false);
   const [cur, setCur] = useState<Pt | null>(null);
   const [panning, setPanning] = useState(false);
   const [fmSel, setFmSel] = useState<Record<string, number>>({});
@@ -812,9 +820,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const FIT = fit ? fits[fit]() : null;
   // presets and the carrier lock can ask for a view past the theatre's edge: held inside it here too
   const VW = maxW(FIT ? FIT.zw : view.zw);
-  const VC = clampCore(FIT ? FIT.zx : anc ? anc[0] : view.zx, FIT ? FIT.zy : anc ? anc[1] : view.zy, VW);
+  const VC = clampCore(FIT ? FIT.zx : fP ? fP[0] : anc ? anc[0] : view.zx, FIT ? FIT.zy : fP ? fP[1] : anc ? anc[1] : view.zy, VW);
   const VX = VC.zx;
   const VY = VC.zy;
+  if (fP && !FIT && pic.proj) anchor.current = pic.proj.toLatLon([VX, VY]);
   const VH = VW * asp;
   const RC = rp([VX, VY]);
   // our carrier's rate of turn (deg/s, + right), from its heading over the last ~10 s of mission time
@@ -883,9 +892,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     zoomIdleT.current = setTimeout(() => setZoomIdle((n) => n + 1), 260);
     const nw = maxW(clampW(VW * k));
     // locked on the carrier: zoom about the view centre so the lock holds (only panning unlocks);
-    // unlocked: zoom about the cursor and re-pin the new centre
-    const c = lock ? [VX, VY] : (about ?? [VX, VY]);
-    const nc = clampC(c[0] + ((VX - c[0]) * nw) / VW, c[1] + ((VY - c[1]) * nw) / VW, nw);
+    // unlocked: zoom about the cursor and re-pin the new centre; following: about the followed contact
+    // (zoom is not a pan: Follow stays on)
+    const zc = zoomCentre([VX, VY], VW, nw, about, lock || !!fP);
+    const nc = clampC(zc[0], zc[1], nw);
     setView({ zw: nw, ...nc });
     if (!lock) unlockAt(nc.zx, nc.zy);
     onFit(null);
@@ -893,6 +903,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   useEffect(() => {
     if (!props.goTo) return;
     onFit(null);
+    setFollow(false);
     const g = props.goTo!;
     if (g.fit?.length) {
       // zoom to fit the encounter with margin (at least 8 NM across)
@@ -1222,6 +1233,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       if (!moved) {
         moved = true;
         setPanning(true);
+        setFollow(false);
       }
       onFit(null);
       const d = rpInv([dx / k, dy / k]);
@@ -1314,7 +1326,27 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     }
     if (hookedId) onHook(null);
   };
-  const onMove = (e: React.MouseEvent) => {
+  // double-click (follow.ts dblClickAction). Its two clicks have already run: on a contact they hooked and
+  // unhooked it, so this hooks it again and follows; on empty map the first one dropped any hook.
+  const onDblClick = (e: React.MouseEvent) => {
+    if (dragged.current) return;
+    const q = svgPoint(e);
+    if (!q) return;
+    const a = dblClickAction(tool, !!placement.placing, nearestTrack(q)?.id, q);
+    if (a.kind === 'follow') {
+      onHook(a.id);
+      setLock(false);
+      onFit(null);
+      setFollow(true);
+    } else if (a.kind === 'centre') {
+      setFollow(false);
+      onFit(null);
+      const nc = clampC(a.p[0], a.p[1]);
+      setView({ zw: VW, ...nc });
+      unlockAt(nc.zx, nc.zy);
+    }
+  };
+  const onMove =(e: React.MouseEvent) => {
     const q = svgPoint(e);
     if (!q) return;
     setCur(q);
@@ -2660,6 +2692,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
           role="img"
           aria-label={`Radar scope centred on ${hull || 'the carrier'}`}
           onClick={onClick}
+          onDoubleClick={onDblClick}
           onMouseDown={onDown}
           onMouseMove={onMove}
           onMouseLeave={onLeave}
@@ -3065,12 +3098,41 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
               </>
             )}
+            {(() => {
+              const on = fStep.kind === 'follow';
+              const can = on || canFollow(hookedId, pic.air);
+              return (
+                <button
+                  className="tbtn"
+                  aria-label="Follow"
+                  title="Follow"
+                  aria-pressed={on}
+                  disabled={!can}
+                  onClick={() => {
+                    if (on) {
+                      // off: the view stays where it is (the anchor already holds the followed centre)
+                      setFollow(false);
+                      setView({ zw: VW, zx: VX, zy: VY });
+                      unlockAt(VX, VY);
+                      return;
+                    }
+                    setLock(false);
+                    onFit(null);
+                    setFollow(true);
+                  }}
+                  style={{ color: on ? '#FFB08F' : can ? '#E6EDF3' : '#5E6A78', background: on ? 'rgba(241,88,34,.18)' : undefined, cursor: can ? 'pointer' : 'default' }}
+                >
+                  <IcFollow />
+                </button>
+              );
+            })()}
             <button
               className="tbtn"
               aria-label="Centre on carrier"
               aria-pressed={lock}
               title={lock ? 'Following the carrier · click (or pan) to unlock' : 'Centre on the carrier and follow it'}
               onClick={() => {
+                setFollow(false);
                 if (lock && !fit) {
                   // toggle off: pin the current view to where it is on the map
                   setView({ zw: VW, zx: VX, zy: VY });
@@ -3097,6 +3159,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                 onClick={() => {
                   anchor.current = null;
                   setLock(true);
+                  setFollow(false);
                   onFit(k);
                 }}
                 title={t}

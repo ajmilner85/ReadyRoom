@@ -145,6 +145,8 @@ const controls: KitSection = {
           <K.ToolButton label="Zoom in"><Ic.IcZoomIn /></K.ToolButton>
           <K.ToolDivider />
           <K.VectorButton s={30} />
+          <K.ToolDivider />
+          <K.ToolButton label="Follow"><Ic.IcFollow /></K.ToolButton>
         </K.Toolbar>
       ),
     },

@@ -817,3 +817,14 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 ## Approach / Final: vectors stop at the plot edge (2026-11-22)
 
 - A projection vector that would run out of its display's plot (the Elevation, Azimuth or AZ/EL plot area; the frame outline is gone but the area is the same) is cut at the edge with a filled arrowhead there, in the vector's colour (the user). `clipVector` in finalModel.ts; the arrowhead is 9 px long, 4.5 px half-width, drawn in pixels on the Elevation / Azimuth displays (their plots stretch).
+
+## Radar scope: Follow (2026-11-22)
+
+- A Follow button on the primary radar scope's toolbar (Scope.tsx, so every seat's Radar view: CDC, CATCC, Bridge and the rest; not Approach / Final), just left of Centre on carrier (the user). Its icon is not in the mockup set: `IcFollow` in icons.tsx, drawn in that set's style (a hit square in the corners of a tracking gate). On, it shows like the other on tool buttons (rgba(241,88,34,.18), #FFB08F).
+- While on, the view centre is the hooked contact's position every update, at the current range (`followStep` in radar/follow.ts). The carrier lock is off meanwhile.
+- With nothing hooked the button is disabled (#5E6A78, as the altitude filter's reset); it can always be turned off.
+- Hooking another contact while following follows the new one.
+- Follow stops, leaving the view where it last was, when: the hook is dropped (Escape, a click on empty map, clicking the hooked contact again), the hooked contact leaves the picture, the scope is panned (dragged), the Follow button is pressed again, the map is double-clicked off any contact, a range preset or Centre on carrier is pressed, or a go-to (a panel's go-to button) moves the view.
+- Double-click (the user): on a contact it hooks the contact and turns Follow on; on empty map it stops following and centres the view on that point at the current range. Only with the Select tool and nothing being placed: the other tools keep their own clicks (a marshal / vector / intercept click commits, BRA / CPA / waypoint clicks set points), so a double-click there is still just two of their clicks (`dblClickAction`). A double-click's two clicks hook then unhook the contact first (single clicks toggle the hook as before); the double-click hooks it again.
+- Zooming while following keeps following (the user): the toolbar zoom buttons and the mouse wheel (a trackpad pinch arrives as the wheel) zoom about the followed contact, not the cursor, and are not a pan (`zoomCentre`). The scope has no keyboard zoom.
+- The range rings, compass rose, sweep and off-scope pointers stay on the carrier (the radar's position), as they already did for a panned view: while following, the user sees the rings and sweep origin off centre, or off the scope, with the followed contact in the middle. Data tags, the BRA ruler and the off-scope pointers already work from the view centre, so nothing else changes.
