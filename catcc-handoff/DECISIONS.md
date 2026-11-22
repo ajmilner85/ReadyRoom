@@ -796,3 +796,7 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 - The AZ/EL display draws a projection vector for its contact (the radar's vector style), from its deviation now to its deviation after the Approach / Final Vector time: on centreline and glidepath it has no length (straight into the scope); right of course it points left (the display is mirrored).
 - The main radar scope stays earth-stabilized (ground-track trails and vectors, unchanged): it is a picture of the airspace over the ground, where the ship moves like any other contact.
 - The scale-end labels read RIGHT / LEFT / HIGH / LOW (were R / L / HI / LO; the user). RIGHT is still at the left end: each names the side of course an aircraft drawn there is on.
+
+## Approach / Final vectors default to 10 s (2026-11-22)
+
+- The user: the Approach / Final displays' projection vectors default to 10 s (were 2 s). The radar stays 30 s. A value already chosen in a browser is kept.

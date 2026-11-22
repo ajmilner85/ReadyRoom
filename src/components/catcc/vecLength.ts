@@ -9,8 +9,8 @@ export const VEC_STEPS = [1, 2, 5, 10, 30] as const;
 export type VecSeconds = (typeof VEC_STEPS)[number];
 export type VecDisplay = 'radar' | 'final';
 
-/** Primary radar 30 s; Approach / Final 2 s. */
-export const VEC_DEFAULT: Record<VecDisplay, VecSeconds> = { radar: 30, final: 2 };
+/** Primary radar 30 s; Approach / Final 10 s. */
+export const VEC_DEFAULT: Record<VecDisplay, VecSeconds> = { radar: 30, final: 10 };
 export const vecKey = (d: VecDisplay) => `catcc.vec.${d}`;
 
 export const nextVec = (s: VecSeconds): VecSeconds => VEC_STEPS[(VEC_STEPS.indexOf(s) + 1) % VEC_STEPS.length];

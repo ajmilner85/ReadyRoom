@@ -41,17 +41,17 @@ describe('vector time', () => {
     expect(nextVec(30)).toBe(1);
   });
 
-  it('defaults: primary radar 30 s, Approach / Final 2 s', () => {
-    expect(VEC_DEFAULT).toEqual({ radar: 30, final: 2 });
+  it('defaults: primary radar 30 s, Approach / Final 10 s', () => {
+    expect(VEC_DEFAULT).toEqual({ radar: 30, final: 10 });
     expect(loadVec('radar')).toBe(30);
-    expect(loadVec('final')).toBe(2);
+    expect(loadVec('final')).toBe(10);
   });
 
   it('remembers each display type on its own, and ignores a bad stored value', () => {
     saveVec('radar', 5);
     expect(loadVec('radar')).toBe(5);
-    expect(loadVec('final')).toBe(2);
+    expect(loadVec('final')).toBe(10);
     localStorage.setItem(vecKey('final'), '7');
-    expect(loadVec('final')).toBe(2);
+    expect(loadVec('final')).toBe(10);
   });
 });
