@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { bolterSlot, finalPicture, landingWeightLb, profileAlt, sepStd, sepViolated } from './finalModel.ts';
+import { azElPicture, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -74,5 +74,58 @@ describe('approach / final picture', () => {
     expect(profileAlt(2)).toBeLessThan(1200);
     expect(landingWeightLb('FA-18C_hornet', 4100)).toBe(31000);
     expect(landingWeightLb('KC135MPRS', 1000)).toBeNull();
+  });
+});
+
+describe('AZ/EL scope', () => {
+  it('measures deviation from the glidepath origin with its sign conventions', () => {
+    // on the glidepath and the centreline
+    const on = glideDeviation(4, 0, 4 * GP_FT_PER_NM)!;
+    expect(on.az).toBeCloseTo(0, 6);
+    expect(on.el).toBeCloseTo(0, 6);
+    expect(on.r).toBeCloseTo(4, 6);
+    // right of course and high are positive; left and low negative
+    const rh = glideDeviation(4, 0.1, 4 * GP_FT_PER_NM + 200)!;
+    expect(rh.az).toBeCloseTo((Math.atan2(0.1, 4) * 180) / Math.PI, 6);
+    expect(rh.el).toBeGreaterThan(0);
+    const ll = glideDeviation(4, -0.1, 4 * GP_FT_PER_NM - 200)!;
+    expect(ll.az).toBeLessThan(0);
+    expect(ll.el).toBeLessThan(0);
+    // 1° high: the elevation angle is 4.5°
+    expect(glideDeviation(3, 0, Math.tan((4.5 * Math.PI) / 180) * 3 * 6076.12)!.el).toBeCloseTo(1, 6);
+    // at or past the origin there are no angles
+    expect(glideDeviation(0, 0, 100)).toBeNull();
+    expect(glideDeviation(-1, 0, 100)).toBeNull();
+  });
+
+  const ac = (id: string, along: number, lat: number, alt: number): FinalAc => ({ t: { id, alt } as FinalAc['t'], f: { along, lat, alongKt: -130, closureKt: 130 }, kind: 'final', tBall: 0 });
+  const fpOf = (acs: FinalAc[]) => ({ acs }) as FinalPicture;
+
+  it('keeps aircraft inside 6 NM and the field of regard, nearest first', () => {
+    const gp = (r: number) => r * GP_FT_PER_NM;
+    const list = azElPicture(
+      fpOf([
+        ac('far', 5, 0, gp(5)),
+        ac('near', 2, 0.05, gp(2) + 50),
+        ac('beyond6', 6.5, 0, gp(6.5)),
+        ac('wide', 3, 1, gp(3)), // 18° off course
+        ac('high', 3, 0, Math.tan((7 * Math.PI) / 180) * 3 * 6076.12), // 3.5° high
+        ac('low', 3, 0, 0), // 3.5° low
+        ac('past', -0.5, 0, 300),
+        ac('mid', 3.5, -0.2, gp(3.5)),
+      ]),
+    );
+    expect(list.map((c) => c.a.t.id)).toEqual(['near', 'mid', 'far']);
+    expect(azElPicture(null)).toEqual([]);
+  });
+
+  it('finds the arrival on final in the live picture', () => {
+    const fp = finalPicture(
+      buildPicture([carrier, jet('205', destination(CV.lat, CV.lon, 156, 4), { bd: '205', alt: Math.round(4 * GP_FT_PER_NM) }), jet('207', destination(CV.lat, CV.lon, 156, 5.5), { bd: '207', alt: Math.round(5.5 * GP_FT_PER_NM) })], 'CVN-72', new Map(), 0),
+    );
+    const list = azElPicture(fp);
+    expect(list.map((c) => c.a.t.id)).toEqual(['205', '207']);
+    expect(Math.abs(list[0].dev.az)).toBeLessThan(0.2);
+    expect(Math.abs(list[0].dev.el)).toBeLessThan(0.1);
   });
 });
