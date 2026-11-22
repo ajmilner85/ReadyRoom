@@ -4139,6 +4139,10 @@ function bearingDeg(lat1, lon1, lat2, lon2) {
   const x = Math.cos(p1) * Math.sin(p2) - Math.sin(p1) * Math.cos(p2) * Math.cos(dl);
   return norm360(Math.atan2(y, x) / D2R);
 }
+var MAX_PLAUSIBLE_GS_KT = 1500;
+function implausibleMove(nm, dtS) {
+  return dtS < 0 || nm * 3600 / Math.max(dtS, 1) > MAX_PLAUSIBLE_GS_KT;
+}
 
 // src/catcc/core/tracks/naming.ts
 var CALLSIGN = /^\s*([A-Za-z][A-Za-z ]*?)[\s-]*(\d{1,2})-(\d{1,2})\b/;
@@ -4286,7 +4290,8 @@ var HookTrackStore = class {
     tr.altFt = altFt;
     tr.headingDeg = u.hdg;
     tr.courseDeg = u.crs ?? void 0;
-    tr.gsKt = u.gs / MS_PER_KT;
+    const gs = u.gs / MS_PER_KT;
+    tr.gsKt = gs <= MAX_PLAUSIBLE_GS_KT ? gs : void 0;
     tr.vsFpm = u.vs / M_PER_FT * 60;
     tr.fuelFrac = u.f;
     tr.fuelLb = fuelLb(u.t, u.f);
@@ -4580,6 +4585,15 @@ var TrackStore = class {
   pushSample(track) {
     const h = track.history;
     const s = { t: this.t, lat: track.lat, lon: track.lon, altFt: track.altFt };
+    const last = h[h.length - 1];
+    if (last && implausibleMove(distanceNm(last.lat, last.lon, s.lat, s.lon), s.t - last.t)) {
+      h.length = 0;
+      h.push(s);
+      track.gsKt = void 0;
+      track.vsFpm = void 0;
+      track.courseDeg = void 0;
+      return;
+    }
     if (h.length && h[h.length - 1].t === s.t) h[h.length - 1] = s;
     else h.push(s);
     const cutoff = this.t - this.historyS;
