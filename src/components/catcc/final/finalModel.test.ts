@@ -59,12 +59,25 @@ describe('approach / final picture', () => {
     expect(sepStd(fp.acs.find((a) => a.t.id === '211')!).nm).toBe(2);
     // 18 NM inbound: 3 NM, 1,000 ft
     expect(sepStd(fp.acs.find((a) => a.t.id === '203')!)).toEqual({ nm: 3, ft: 1000 });
-    expect(sepViolated(a205, fp.acs)).toBe(false);
-    // a second aircraft 1 NM behind 205 at the same height is inside its bubble
-    const close = { ...a205, t: { ...a205.t, id: 'x' }, f: { ...a205.f, along: a205.f.along + 1 } };
-    expect(sepViolated(a205, [...fp.acs, close])).toBe(true);
-    // ...but not 1,000 ft above it
-    expect(sepViolated(a205, [...fp.acs, { ...close, t: { ...close.t, alt: a205.t.alt + 1000 } }])).toBe(false);
+    // the bubble is violated when the aircraft is in one of the picture's (predicted) conflicts
+    expect(sepViolated(a205, pic.conflicts)).toBe(false);
+    expect(sepViolated(a205, [{ a: { id: 'x' }, b: { id: '205' } }])).toBe(true);
+  });
+
+  it('a normal Case III sequence in trail is no conflict (the reported screenshot)', () => {
+    // BRC 070 → FB 061; 712 at 1.2 NM / 300 ft / 128 kt, 205 behind at 3.5 NM / 1,000 ft / 150 kt
+    const cv = { ...carrier, crs: 70, hdg: 70, gs: 22 };
+    const p = (r: number) => destination(CV.lat, CV.lon, 241, r);
+    const trail = (gs205: number, r205: number) =>
+      buildPicture(
+        [cv, jet('712', p(1.2), { bd: '712', g: 'A 1', crs: 61, gs: 128, alt: 300, vs: -700 }), jet('205', p(r205), { bd: '205', g: 'B 1', crs: 61, gs: gs205, alt: 1000, vs: -800 })],
+        'CVN-72',
+        new Map(),
+        0,
+      );
+    expect(trail(150, 3.5).conflicts).toEqual([]);
+    // a trailer overtaking hard enough to close inside 1-1/2 NM before the leader traps is one
+    expect(trail(260, 2.9).conflicts).toHaveLength(1);
   });
 
   it('follows the Case III profile and estimates the trap weight', () => {

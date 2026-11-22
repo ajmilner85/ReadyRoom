@@ -172,31 +172,96 @@ export interface ConflictOptions {
   minVsFpm?: number;
   /** final bearing, to recognise aircraft on final */
   fb?: number;
+  /** the focus carrier's course and groundspeed: an arrival's time to touchdown is its closure on the ship */
+  ship?: { crs: number; gs: number };
+}
+
+/** Final: astern within this range, inside FINAL_DEG of the centreline, on the final bearing and closing. */
+export const FINAL_NM = 12;
+export const FINAL_DEG = 6;
+/** an opening pair keeps its alert this long past its closest point, so a pass doesn't flicker at the abeam */
+export const CONFLICT_HOLD_S = 6;
+const STEP_S = 1;
+
+/** An aircraft established on final: range astern of the ship, closure on it (kt) and time to touchdown (s). */
+export function onFinalOf(k: Kinematic, fb: number, ship?: { crs: number; gs: number }): { along: number; closureKt: number; tTdS: number } | null {
+  const u = dir(fb);
+  const along = -dot(k.p, u);
+  const lat = dot(k.p, dir(fb + 90));
+  if (along <= 0 || along > FINAL_NM || angDiff(k.crs, fb) > 20) return null;
+  if (Math.abs((Math.atan2(lat, along) * 180) / Math.PI) > FINAL_DEG) return null;
+  const closureKt = k.gs * Math.cos((k.crs - fb) * D2R) - (ship ? ship.gs * Math.cos((ship.crs - fb) * D2R) : 0);
+  if (closureKt < 40) return null;
+  return { along, closureKt, tTdS: (along * 3600) / closureKt };
 }
 
 /**
- * A conflict is predicted when, within the look-ahead window, BOTH the lateral and vertical
- * standards are lost at CPA. Positions are scope coordinates relative to the focus carrier.
+ * A conflict is a predicted loss of separation: at some moment in the look-ahead window BOTH the
+ * lateral and the vertical standard are lost, and the pair is getting there, not leaving it.
+ *
+ * - Relative motion: each aircraft flies its course and groundspeed (climb/descent for vertCapS, not
+ *   below its floor). The worst moment is where max(lateral / lateral std, vertical / vertical std)
+ *   is least; under 1 is a loss. A pair inside the bubble that is opening or holding steady isn't a
+ *   conflict (its worst moment lies behind it); one still closing is, and a pass stays alerted for
+ *   CONFLICT_HOLD_S after its closest point. A pair already inside and only creeping closer
+ *   (under 5% of the standard, track noise on a steady pair) isn't news either.
+ * - Landing: an aircraft established on final (onFinalOf) is predicted only up to its touchdown. A
+ *   leader that traps before its trailer closes to the standard is no conflict with it: the interval
+ *   at the ramp is the slot timeline's business, and a bolter or waveoff climbing out ahead is opening.
+ * - Standards (CV NATOPS 3.3): two aircraft both established on final are in trail, 1-1/2 NM when the
+ *   trailer is within 5 NM of the ship, else 2 NM. Otherwise the carrier pattern (both inside
+ *   PATTERN_RANGE_NM below PATTERN_TOP_FT) passes at PATTERN_LAT_NM, and everything else takes
+ *   lateralStandardNm by the nearer aircraft's range. Vertical VERTICAL_STANDARD_FT.
+ *
+ * Positions are scope coordinates relative to the focus carrier.
  */
 export function predictConflict(A: Kinematic, B: Kinematic, opts: ConflictOptions = {}): (Cpa & { latStd: number }) | null {
   const look = opts.lookAheadS ?? 120;
   const cap = opts.vertCapS ?? 30;
   const minVs = opts.minVsFpm ?? 500;
-  const c = cpa({ ...A, vsFpm: 0 }, { ...B, vsFpm: 0 }, look);
   const altAt = (k: Kinematic, t: number) => {
     const vs = Math.abs(k.vsFpm ?? 0) < minVs ? 0 : (k.vsFpm ?? 0);
-    let alt = k.altFt + (vs * Math.min(t, cap)) / 60;
-    if (vs < 0 && k.floorFt !== undefined) alt = Math.max(alt, Math.min(k.floorFt, k.altFt));
+    let alt = k.altFt + (vs * Math.max(-cap, Math.min(t, cap))) / 60;
+    if (vs < 0 && k.floorFt !== undefined && t > 0) alt = Math.max(alt, Math.min(k.floorFt, k.altFt));
     return alt;
   };
-  c.vertFt = Math.abs(altAt(A, c.tS) - altAt(B, c.tS));
+  const fa = opts.fb !== undefined ? onFinalOf(A, opts.fb, opts.ship) : null;
+  const fbn = opts.fb !== undefined ? onFinalOf(B, opts.fb, opts.ship) : null;
   const range = Math.min(Math.hypot(...A.p), Math.hypot(...B.p));
-  const onFinal =
-    opts.fb !== undefined && [A, B].every((k) => angDiff(k.crs, opts.fb!) < 15 && Math.hypot(...k.p) < 6);
   const inPattern = [A, B].every((k) => Math.hypot(...k.p) < PATTERN_RANGE_NM && k.altFt < PATTERN_TOP_FT);
-  const latStd = inPattern && !(onFinal && range <= 5) ? PATTERN_LAT_NM : lateralStandardNm(range, onFinal);
-  if (c.latNm < latStd && c.vertFt < VERTICAL_STANDARD_FT) return { ...c, latStd };
-  return null;
+  const latStd = fa && fbn ? (Math.max(fa.along, fbn.along) <= 5 ? 1.5 : 2) : inPattern ? PATTERN_LAT_NM : lateralStandardNm(range);
+  const end = Math.min(look, fa?.tTdS ?? Infinity, fbn?.tTdS ?? Infinity);
+  const va = mul(dir(A.crs), A.gs / 3600);
+  const vb = mul(dir(B.crs), B.gs / 3600);
+  const at = (t: number) => {
+    const a = add(A.p, mul(va, t));
+    const b = add(B.p, mul(vb, t));
+    const latNm = dist(a, b);
+    const vertFt = Math.abs(altAt(A, t) - altAt(B, t));
+    return { tS: t, latNm, vertFt, a, b, s: Math.max(latNm / latStd, vertFt / VERTICAL_STANDARD_FT) };
+  };
+  const ts: number[] = [];
+  for (let t = -CONFLICT_HOLD_S; t < end; t += STEP_S) ts.push(t);
+  ts.push(Math.max(end, 0));
+  // the lateral CPA itself, when it falls inside the window
+  const dv = sub(vb, va);
+  const vv = dot(dv, dv);
+  if (vv > 1e-12) {
+    const tc = -dot(sub(B.p, A.p), dv) / vv;
+    if (tc > -CONFLICT_HOLD_S && tc < end) ts.push(tc);
+  }
+  let w = at(ts[0]);
+  for (const t of ts) {
+    const c = at(t);
+    if (c.s < w.s - 1e-9) w = c;
+  }
+  if (w.s >= 1 || w.tS <= -CONFLICT_HOLD_S) return null;
+  // already inside and only creeping closer (track noise on a steady pair): not news
+  const now = at(0);
+  if (now.s < 1 && w.tS > CONFLICT_HOLD_S && now.s - w.s < 0.05) return null;
+  // just past the closest point: report where the pair is now
+  const r = w.tS < 0 ? now : w;
+  return { tS: r.tS, latNm: r.latNm, vertFt: r.vertFt, a: r.a, b: r.b, latStd };
 }
 
 // ---------------------------------------------------------------- marshal route with hold entry

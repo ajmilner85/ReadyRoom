@@ -169,7 +169,8 @@ export function buildPicture(
   const live = air.filter((a) => !a.landing);
   const formations = groupFormations(live);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
-  const conflicts = findConflicts(live, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors);
+  const ft = focusTrack;
+  const conflicts = findConflicts(live, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors, { crs: ft.crs ?? ft.hdg ?? 0, gs: ft.gs ?? 0 });
   const ships = tracks.filter((t) => t.k === 'ship').map(toScope);
   return { proj, focus: carriers.find((c) => c.focus), carriers, air, ground, ships, formations, conflicts };
 }
@@ -255,7 +256,7 @@ export function inCompany(a: ScopeTrack, b: ScopeTrack): boolean {
   return lat < 1.5 && Math.abs(a.alt - b.alt) < 1500 && angDiff(a.crs ?? a.hdg ?? 0, b.crs ?? b.hdg ?? 0) < 30 && Math.abs((a.gs ?? 0) - (b.gs ?? 0)) < 60;
 }
 
-export function findConflicts(air: ScopeTrack[], fb: number, lookAheadS: number, vertCapS = 30, floors?: Map<string, number>): Conflict[] {
+export function findConflicts(air: ScopeTrack[], fb: number, lookAheadS: number, vertCapS = 30, floors?: Map<string, number>, ship?: { crs: number; gs: number }): Conflict[] {
   const cand = air.filter((t) => t.air !== false && t.rng <= 60 && (t.gs ?? 0) > 60);
   const best = new Map<string, Conflict>();
   for (let i = 0; i < cand.length; i++) {
@@ -266,7 +267,7 @@ export function findConflicts(air: ScopeTrack[], fb: number, lookAheadS: number,
       if (a.g && a.g === b.g) continue;
       if (inCompany(a, b)) continue;
       const k = (t: ScopeTrack) => ({ p: t.p, crs: t.crs ?? t.hdg ?? 0, gs: t.gs ?? 0, altFt: t.alt, vsFpm: t.vs, floorFt: floors?.get(t.id) });
-      const c = predictConflict(k(a), k(b), { lookAheadS, fb, vertCapS });
+      const c = predictConflict(k(a), k(b), { lookAheadS, fb, vertCapS, ship });
       if (!c) continue;
       // one alert per pair of flights: keep the worst (closest) member pair
       const key = [a.g ?? a.id, b.g ?? b.id].sort().join('|');

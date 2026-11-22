@@ -289,4 +289,68 @@ describe('pattern traffic', () => {
     const dw = { p: at(241, 4, 0.6), crs: 241, gs: 149, altFt: 1200 };
     expect(predictConflict(fin, dw, { lookAheadS: 120, fb: 61 })).not.toBeNull();
   });
+
+  // the reported Case III screenshot: BRC 070 (FB 061), the ship at 22 kt
+  const ship = { crs: 70, gs: 22 };
+  const o = { lookAheadS: 120, fb: 61, ship };
+  it('a normal in-trail sequence on final is not a conflict', () => {
+    const lead = { p: at(241, 1.2, 0), crs: 61, gs: 128, altFt: 300, vsFpm: -700 };
+    const trail = { p: at(241, 3.5, 0), crs: 61, gs: 150, altFt: 1000, vsFpm: -800 };
+    expect(predictConflict(lead, trail, o)).toBeNull();
+    // the frames the old straight-line, 120 s check flagged: 3 NM back at 151 kt, 3.5 NM at 155 kt
+    expect(predictConflict(lead, { ...trail, p: at(241, 3, 0), gs: 151 }, o)).toBeNull();
+    expect(predictConflict(lead, { ...trail, gs: 155 }, o)).toBeNull();
+  });
+  it('the leader trapping ends the prediction: a trailer still 1-1/2 NM back at touchdown is clear', () => {
+    // straight-line over 120 s this trailer would close to 1/3 NM; the leader traps in ~34 s
+    const lead = { p: at(241, 1, 0), crs: 61, gs: 128, altFt: 250 };
+    const trail = { p: at(241, 3, 0), crs: 61, gs: 178, altFt: 800 };
+    expect(predictConflict(lead, trail, o)).toBeNull();
+  });
+  it('an overtake that closes inside the in-trail standard before the leader traps is a conflict', () => {
+    const lead = { p: at(241, 4, 0), crs: 61, gs: 130, altFt: 1200 };
+    const trail = { p: at(241, 6, 0), crs: 61, gs: 250, altFt: 1200 };
+    const c = predictConflict(lead, trail, o)!;
+    expect(c).not.toBeNull();
+    expect(c.latStd).toBe(2); // the trailer is outside 5 NM: 2 NM
+    expect(c.tS).toBeGreaterThan(0);
+  });
+  it('the in-trail standard is 1-1/2 NM once both are within 5 NM', () => {
+    const lead = { p: at(241, 2.5, 0), crs: 61, gs: 130, altFt: 800 };
+    const trail = { p: at(241, 4, 0), crs: 61, gs: 230, altFt: 1200 };
+    expect(predictConflict(lead, trail, o)?.latStd).toBe(1.5);
+  });
+  it('traffic crossing the final inside the bubble is a conflict', () => {
+    const fin = { p: at(241, 4, 0), crs: 61, gs: 133, altFt: 900 };
+    // 1.2 NM left of the final, 0.4 NM ahead of the arrival, crossing it at right angles at 1,100 ft
+    const x = { p: at(241, 3.6, -1.2), crs: 331, gs: 200, altFt: 1100 };
+    expect(predictConflict(fin, x, o)).not.toBeNull();
+  });
+  it('a bolter climbing out ahead of the next arrival is opening, not a conflict', () => {
+    const up = { p: at(241, -0.5, 0), crs: 61, gs: 170, altFt: 400, vsFpm: 2000 };
+    const arr = { p: at(241, 1.5, 0), crs: 61, gs: 130, altFt: 450, vsFpm: -700 };
+    expect(predictConflict(up, arr, o)).toBeNull();
+  });
+});
+
+describe('conflicts by relative motion', () => {
+  const o = { lookAheadS: 120 };
+  it('a pair inside the bubble but opening is not a conflict; the same pair closing is', () => {
+    // 2 NM apart inside the 3 NM standard, their closest point 12 s behind them
+    expect(predictConflict({ p: [0, 20], crs: 270, gs: 300, altFt: 8000 }, { p: [2, 20], crs: 90, gs: 300, altFt: 8000 }, o)).toBeNull();
+    expect(predictConflict({ p: [0, 20], crs: 90, gs: 300, altFt: 8000 }, { p: [2, 20], crs: 270, gs: 300, altFt: 8000 }, o)).not.toBeNull();
+  });
+  it('a pair holding steady inside the bubble is not a conflict', () => {
+    expect(predictConflict({ p: [0, 20], crs: 0, gs: 300, altFt: 8000 }, { p: [1, 20], crs: 0, gs: 300, altFt: 8200 }, o)).toBeNull();
+  });
+  it('a head-on pass stays alerted through the abeam, then clears once it opens', () => {
+    // 1 NM apart laterally, passing abeam now (CPA at t = 0)
+    const a = { p: [0, 20] as Pt, crs: 0, gs: 300, altFt: 8000 };
+    expect(predictConflict(a, { p: [1, 20], crs: 180, gs: 300, altFt: 8000 }, o)).not.toBeNull();
+    // 30 s later: 5 NM apart along track and opening
+    expect(predictConflict({ ...a, p: [0, 17.5] }, { p: [1, 22.5], crs: 180, gs: 300, altFt: 8000 }, o)).toBeNull();
+  });
+  it('a climb into another aircraft while laterally steady is a conflict', () => {
+    expect(predictConflict({ p: [0, 20], crs: 0, gs: 300, altFt: 6000, vsFpm: 3000 }, { p: [1, 20], crs: 0, gs: 300, altFt: 8000 }, o)).not.toBeNull();
+  });
 });

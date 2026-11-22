@@ -101,10 +101,13 @@ export function sepStd(a: FinalAc): { nm: number; ft: number } {
   return { nm, ft: d <= 10 ? 800 : 1000 };
 }
 
-/** Whether another aircraft is inside an aircraft's separation bubble: closer than both standards. */
-export function sepViolated(a: FinalAc, others: FinalAc[]): boolean {
-  const s = sepStd(a);
-  return others.some((o) => o !== a && Math.hypot(o.f.along - a.f.along, o.f.lat - a.f.lat) < s.nm && Math.abs(o.t.alt - a.t.alt) < s.ft);
+/**
+ * Whether an aircraft's separation bubble draws as violated: it is in one of the picture's conflicts
+ * (predictConflict: a predicted loss of separation, by relative motion, arrivals cut off at touchdown),
+ * not merely another aircraft inside the bubble, so the bubbles and the red tags always agree.
+ */
+export function sepViolated(a: FinalAc, conflicts: { a: { id: string }; b: { id: string } }[]): boolean {
+  return conflicts.some((c) => c.a.id === a.t.id || c.b.id === a.t.id);
 }
 
 /** Aircraft in the carrier's pattern (arrivals and bolters) are approach traffic, whatever their sortie phase says. */

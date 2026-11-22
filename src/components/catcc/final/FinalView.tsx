@@ -361,7 +361,7 @@ export const FinalView: React.FC<{
     for (const a of fp.acs) {
       if (!(a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LM && a.t.alt <= AMAX[RG])) continue;
       const s = sepStd(a);
-      const bad = sepViolated(a, fp.acs);
+      const bad = sepViolated(a, pic.conflicts);
       const st = { stroke: bad ? 'rgba(255,138,133,.75)' : 'rgba(201,211,221,.4)', fill: bad ? 'rgba(224,82,78,.1)' : 'rgba(201,211,221,.05)', strokeDasharray: '4 3' };
       const cx = X(a.f.along);
       const rx = s.nm * pxNm;
