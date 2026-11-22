@@ -4,12 +4,15 @@
  * Nimitz-class CATCC's marshal/approach-control search radar is the AN/SPN-43, whose antenna turns
  * at 15 RPM (a 4-second scan). The sweep is driven by the wall clock so every module and the
  * sweep line overlay agree on its bearing. Bearings are measured from the reference carrier.
+ * On the Approach / Final display the ACLS radar (AN/SPN-46, spn46.ts) also paints: it tracks up to
+ * two aircraft on final continuously, so those repaint every data frame.
  */
 import { useEffect, useRef, useState } from 'react';
 import { bearingDeg, distanceNm } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { SHIP_HISTORY_S, type Trail } from '../scopeModel.ts';
 import { antennaFtOf, coverageNm, radarOf, type RadarSpec } from '../../../catcc/core/sensors/radar.ts';
+import { spn46Locks, spn46Radar } from './spn46.ts';
 
 export const SPN43_RPM = 15;
 export const SCAN_S = 60 / SPN43_RPM;
@@ -41,6 +44,8 @@ export interface Radar {
   airNm?: (targetFt: number) => number;
   /** paints ships out to its radar horizon (surface search) */
   sfc?: { rangeNm: number };
+  /** a tracking radar: looks at these tracks only (its locks), not at every bearing it "sweeps" */
+  only?: ReadonlySet<string>;
 }
 
 /** Radar horizon, NM, between an antenna and a target mast top (heights ft): 1.23 (√ha + √ht). */
@@ -59,14 +64,16 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
   const isShip = (t: WireTrack) => t.k === 'ship' || t.k === 'carrier';
   // aircraft: an air-search beam passing them inside its coverage for their altitude;
   // ships: a surface-search beam passing them within its horizon
+  const looks = (r: Radar, id: string) => !r.only || r.only.has(id);
   const sees = (r: Radar, t: WireTrack) => {
+    if (!looks(r, t.id)) return false;
     if (isShip(t)) return !!r.sfc && distanceNm(r.lat, r.lon, t.lat, t.lon) <= r.sfc.rangeNm;
     if (r.air === false) return false;
     return !r.airNm || distanceNm(r.lat, r.lon, t.lat, t.lon) <= r.airNm(t.alt);
   };
   const hitT = (t: WireTrack) => radars.some((r) => sees(r, t) && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon)));
   // a contact swept by a radar of its kind that no radar can see any more (out of range, below the horizon) is lost
-  const ofKind = (r: Radar, t: WireTrack) => (isShip(t) ? !!r.sfc : r.air !== false);
+  const ofKind = (r: Radar, t: WireTrack) => looks(r, t.id) && (isShip(t) ? !!r.sfc : r.air !== false);
   const lost = (t: WireTrack) => radars.some((r) => ofKind(r, t) && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon))) && !radars.some((r) => sees(r, t));
   let changed = false;
   const seen = new Set<string>();
@@ -88,6 +95,8 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
       continue;
     }
     let h = P.hist.get(t.id);
+    // already painted from this frame (a tracking radar looks every step; the data changes once a frame)
+    if (h?.length && h[h.length - 1].t === mt && P.painted.has(t.id)) continue;
     if (!h) P.hist.set(t.id, (h = []));
     if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
     P.painted.set(t.id, trackerVelocity(t, h, mt));
@@ -96,7 +105,7 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
     changed = true;
   }
   for (const [id, t] of P.painted) {
-    if (seen.has(id) || !radars.some((r) => r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon)))) continue;
+    if (seen.has(id) || !radars.some((r) => looks(r, id) && r.swept(bearingDeg(r.lat, r.lon, t.lat, t.lon)))) continue;
     P.painted.delete(id);
     P.hist.delete(id);
     changed = true;
@@ -177,9 +186,10 @@ export const isAewUp = (t: WireTrack) => radarOf(t.ty)?.kind === 'aew' && t.air 
  * our carrier's own radars. With datalink (Link 16 / CEC style track sharing): every friendly
  * carrier's, escorts with a known radar within CSG_RADIUS_NM of a friendly carrier, and friendly
  * AEW aircraft in the air. Air search is limited by each radar's range and its horizon to the
- * target's altitude, so low flyers beyond the ships' horizon are seen only by AEW.
+ * target's altitude, so low flyers beyond the ships' horizon are seen only by AEW. `locks`: the
+ * aircraft our carrier's SPN-46 tracks (see spn46.ts), painted every step besides the sweeps.
  */
-export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: number, datalink: boolean): Radar[] {
+export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: number, datalink: boolean, locks: readonly string[] = []): Radar[] {
   const ref = tracks.find((t) => t.id === refId);
   if (!ref) return [];
   const rot = (t: WireTrack, rpm: number, phase: number): Radar => {
@@ -191,6 +201,7 @@ export function radarsFor(tracks: WireTrack[], refId: string, t0: number, t1: nu
   const carrierAir = (c: WireTrack, phase: number): Radar => ({ ...rot(c, SPN43_RPM, phase), airNm: airCov(radarOf(c.ty) ?? CVN_AIR, c) });
   // our carrier: air search (SPN-43 timing, SPS-48E coverage) and SPS-67 surface search
   const out: Radar[] = [carrierAir(ref, 0), sfc(ref, SPS67_RPM, CVN_SFC_ANT_FT)];
+  if (locks.length) out.push(spn46Radar(ref, locks));
   if (!datalink) return out;
   const carriers = tracks.filter((t) => t.k === 'carrier' && t.sd === ref.sd);
   for (const c of carriers) if (c.id !== refId) out.push(carrierAir(c, phaseOf(c.id)), sfc(c, SPS67_RPM, CVN_SFC_ANT_FT));
@@ -228,10 +239,14 @@ export function scanPeriodS(ty: string): number {
   if (spec) return 'rpm' in spec ? 60 / spec.rpm : spec.revisitS;
   return SCAN_S;
 }
-/** Paints `tracks` on the sweep(s) while enabled; null when disabled (use the live picture). */
-export function useSweep(tracks: WireTrack[], mt: number, refId: string | undefined, enabled: boolean, datalink = false): { tracks: WireTrack[]; hist: Map<string, Trail[]> } | null {
-  const latest = useRef({ tracks, mt, refId, datalink });
-  latest.current = { tracks, mt, refId, datalink };
+/**
+ * Paints `tracks` on the sweep(s) while enabled; null when disabled (use the live picture).
+ * `acls`: the focus carrier's SPN-46 feeds this display (the Approach / Final display with the ACLS
+ * up): aircraft it has locked repaint every frame, everything else on the SPN-43 sweep.
+ */
+export function useSweep(tracks: WireTrack[], mt: number, refId: string | undefined, enabled: boolean, datalink = false, acls = false): { tracks: WireTrack[]; hist: Map<string, Trail[]> } | null {
+  const latest = useRef({ tracks, mt, refId, datalink, acls });
+  latest.current = { tracks, mt, refId, datalink, acls };
   const P = useRef<Painter>({ painted: new Map(), hist: new Map() });
   const [out, setOut] = useState<{ tracks: WireTrack[]; hist: Map<string, Trail[]> } | null>(null);
   useEffect(() => {
@@ -242,6 +257,7 @@ export function useSweep(tracks: WireTrack[], mt: number, refId: string | undefi
     }
     let prev: number | null = null;
     let prevRef: string | undefined;
+    let locks: string[] = [];
     const step = () => {
       const L = latest.current;
       const now = performance.now();
@@ -251,10 +267,13 @@ export function useSweep(tracks: WireTrack[], mt: number, refId: string | undefi
         P.current = { painted: new Map(L.tracks.map((t) => [t.id, t])), hist: new Map() };
         prev = now;
         prevRef = L.refId;
+        locks = [];
         setOut({ tracks: [...P.current.painted.values()], hist: P.current.hist });
         return;
       }
-      const radars = radarsFor(L.tracks, L.refId, prev, now, L.datalink);
+      const cv = L.tracks.find((t) => t.id === L.refId);
+      locks = cv ? spn46Locks(locks, L.tracks, cv, L.acls) : [];
+      const radars = radarsFor(L.tracks, L.refId, prev, now, L.datalink, locks);
       if (paintRadars(P.current, L.tracks, L.refId, radars, L.mt)) setOut({ tracks: [...P.current.painted.values()], hist: P.current.hist });
       prev = now;
     };

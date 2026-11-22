@@ -72,12 +72,33 @@ const CatccApp: React.FC = () => {
   };
   // aircraft assigned to a marshal level are not predicted to descend below it
   const floors = useMemo(() => new Map(Object.entries(state.assignments).map(([id, a]) => [id, a.angels * 1000])), [state.assignments]);
+  // CATCC seats switch between the radar and the Approach / Final displays (Approach and Final open on the latter)
+  const [catccView, setCatccViewState] = useState<Record<string, 'radar' | 'final'>>(() => {
+    try {
+      return JSON.parse(localStorage.getItem('catcc.view') ?? '{}');
+    } catch {
+      return {};
+    }
+  });
+  const cview = seatDef.loc === 'catcc' ? (catccView[seatDef.id] ?? (seatDef.id === 'approach' || seatDef.id === 'final' ? 'final' : 'radar')) : 'radar';
+  const setCatccView = (v: 'radar' | 'final') => {
+    const n = { ...catccView, [seatDef.id]: v };
+    setCatccViewState(n);
+    try {
+      localStorage.setItem('catcc.view', JSON.stringify(n));
+    } catch {
+      /* private mode */
+    }
+  };
   // realistic radar update rate (radar module only): the picture is what the sweep has painted
   const refId = useMemo(() => {
     const cvs = state.tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
     return (cvs.find((c) => c.hull === focusHull) ?? cvs[0])?.id;
   }, [state.tracks, focusHull]);
-  const sw = useSweep(state.tracks, state.mt, refId, conflict.sweep && mod === 'radar', !!conflict.datalink);
+  // the ACLS radar (SPN-46) feeds the final controller's display only, and only while the ACLS is up
+  const refHull = state.tracks.find((t) => t.id === refId)?.hull;
+  const aclsUp = (refHull ? state.ops[refHull]?.aids?.acls : undefined) ?? true;
+  const sw = useSweep(state.tracks, state.mt, refId, conflict.sweep && mod === 'radar', !!conflict.datalink, cview === 'final' && aclsUp);
   const pic = useMemo(
     () =>
       buildPicture(sw?.tracks ?? state.tracks, focusHull, sw?.hist ?? history, state.mt, {
@@ -108,24 +129,6 @@ const CatccApp: React.FC = () => {
     }
   };
   const locSeats = seatsAt(layout, seatDef.loc);
-  // CATCC seats switch between the radar and the Approach / Final displays (Approach and Final open on the latter)
-  const [catccView, setCatccViewState] = useState<Record<string, 'radar' | 'final'>>(() => {
-    try {
-      return JSON.parse(localStorage.getItem('catcc.view') ?? '{}');
-    } catch {
-      return {};
-    }
-  });
-  const cview = seatDef.loc === 'catcc' ? (catccView[seatDef.id] ?? (seatDef.id === 'approach' || seatDef.id === 'final' ? 'final' : 'radar')) : 'radar';
-  const setCatccView = (v: 'radar' | 'final') => {
-    const n = { ...catccView, [seatDef.id]: v };
-    setCatccViewState(n);
-    try {
-      localStorage.setItem('catcc.view', JSON.stringify(n));
-    } catch {
-      /* private mode */
-    }
-  };
   const setHullOps = (patch: Record<string, unknown>) => hull && setOps(hull, patch);
   const locLabel = (LOCATIONS.find((l) => l.id === seatDef.loc)?.label ?? '').toUpperCase();
 
