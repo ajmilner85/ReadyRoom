@@ -195,6 +195,14 @@ describe('maneuvering, EAT, CPA', () => {
     expect(predictConflict(A, { p: [1, 20], crs: 0, gs: 300, altFt: 11500 }, { lookAheadS: 300 })).toBeNull();
     expect(predictConflict(A, { p: [1, 20], crs: 0, gs: 300, altFt: 10500 }, { lookAheadS: 120 })).toBeNull(); // CPA beyond window
   });
+
+  it('vertical standard is 800 ft inside 10 NM of the ship, 1,000 ft beyond', () => {
+    // head-on pass 0.5 NM apart with 900 ft between them, above the carrier pattern
+    const pass = (x: number) =>
+      predictConflict({ p: [x, -3], crs: 180, gs: 300, altFt: 5000 }, { p: [x + 0.5, 3], crs: 0, gs: 300, altFt: 5900 }, { lookAheadS: 120 });
+    expect(pass(8)).toBeNull(); // 900 ft > 800 ft inside 10 NM
+    expect(pass(30)).not.toBeNull(); // 900 ft < 1,000 ft at 30 NM
+  });
 });
 
 describe('projection', () => {

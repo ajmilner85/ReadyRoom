@@ -6,7 +6,7 @@
 import { finalPos, timeToBall, turnWithWind, windVec, APPROACH_KT, slotWindow, upwindWindow, UPWIND_TURN_IN_NM, type FinalPos, type SlotResult } from '../../../catcc/core/geometry/slot.ts';
 import type { CarrierWx } from '../../../catcc/core/dcs/hookProtocol.ts';
 import { angDiff, type Pt } from '../../../catcc/core/geometry/vec.ts';
-import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
+import { turnRadiusNm, verticalStandardFt } from '../../../catcc/core/geometry/maneuver.ts';
 import type { Picture, ScopeTrack } from '../scopeModel.ts';
 import { SPN46_CHANNELS } from '../radar/spn46.ts';
 
@@ -99,7 +99,7 @@ export function finalPicture(pic: Picture): FinalPicture | null {
 export function sepStd(a: FinalAc): { nm: number; ft: number } {
   const d = Math.hypot(a.f.along, a.f.lat);
   const nm = a.kind === 'final' && d <= 5 ? 1.5 : d <= 12 && a.kind !== 'other' ? 2 : d < 50 ? 3 : 5;
-  return { nm, ft: d <= 10 ? 800 : 1000 };
+  return { nm, ft: verticalStandardFt(d) };
 }
 
 /**

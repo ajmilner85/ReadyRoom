@@ -153,6 +153,11 @@ export function lateralStandardNm(rangeNm: number, onFinal = false): number {
 }
 
 export const VERTICAL_STANDARD_FT = 1000;
+/** CV NATOPS 3.3: 800 ft vertical inside 10 NM of the ship */
+export const VERTICAL_NEAR_FT = 800;
+export const VERTICAL_NEAR_NM = 10;
+/** Vertical standard by range from the ship (NM): 800 ft inside 10 NM, else 1,000 ft. */
+export const verticalStandardFt = (rangeNm: number): number => (rangeNm <= VERTICAL_NEAR_NM ? VERTICAL_NEAR_FT : VERTICAL_STANDARD_FT);
 
 /**
  * The carrier's own pattern (bolter / waveoff downwind, the turn to final, final itself) is
@@ -211,7 +216,8 @@ export function onFinalOf(k: Kinematic, fb: number, ship?: { crs: number; gs: nu
  * - Standards (CV NATOPS 3.3): two aircraft both established on final are in trail, 1-1/2 NM when the
  *   trailer is within 5 NM of the ship, else 2 NM. Otherwise the carrier pattern (both inside
  *   PATTERN_RANGE_NM below PATTERN_TOP_FT) passes at PATTERN_LAT_NM, and everything else takes
- *   lateralStandardNm by the nearer aircraft's range. Vertical VERTICAL_STANDARD_FT.
+ *   lateralStandardNm by the nearer aircraft's range. Vertical verticalStandardFt by the nearer aircraft's
+ *   range: 800 ft inside 10 NM, else 1,000 ft (the Final display's bubbles draw the same).
  *
  * Positions are scope coordinates relative to the focus carrier.
  */
@@ -229,6 +235,7 @@ export function predictConflict(A: Kinematic, B: Kinematic, opts: ConflictOption
   const fbn = opts.fb !== undefined ? onFinalOf(B, opts.fb, opts.ship) : null;
   const range = Math.min(Math.hypot(...A.p), Math.hypot(...B.p));
   const inPattern = [A, B].every((k) => Math.hypot(...k.p) < PATTERN_RANGE_NM && k.altFt < PATTERN_TOP_FT);
+  const vertStd = verticalStandardFt(range);
   const latStd = fa && fbn ? (Math.max(fa.along, fbn.along) <= 5 ? 1.5 : 2) : inPattern ? PATTERN_LAT_NM : lateralStandardNm(range);
   const end = Math.min(look, fa?.tTdS ?? Infinity, fbn?.tTdS ?? Infinity);
   const va = mul(dir(A.crs), A.gs / 3600);
@@ -238,7 +245,7 @@ export function predictConflict(A: Kinematic, B: Kinematic, opts: ConflictOption
     const b = add(B.p, mul(vb, t));
     const latNm = dist(a, b);
     const vertFt = Math.abs(altAt(A, t) - altAt(B, t));
-    return { tS: t, latNm, vertFt, a, b, s: Math.max(latNm / latStd, vertFt / VERTICAL_STANDARD_FT) };
+    return { tS: t, latNm, vertFt, a, b, s: Math.max(latNm / latStd, vertFt / vertStd) };
   };
   const ts: number[] = [];
   for (let t = -CONFLICT_HOLD_S; t < end; t += STEP_S) ts.push(t);
