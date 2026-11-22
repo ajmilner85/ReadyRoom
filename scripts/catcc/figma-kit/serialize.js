@@ -79,6 +79,61 @@
     };
   }
 
+  // the font's ascent as a share of its content area (ascent + descent): a text box's baseline is at
+  // top + height * share. Used by the SVG export (figma/catcc-kit/svg), whose <text> is placed by its baseline.
+  const ctx = document.createElement('canvas').getContext('2d');
+  const ascentShare = (cs) => {
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} 100px ${cs.fontFamily}`;
+    const m = ctx.measureText('Hg');
+    return m.fontBoundingBoxAscent / (m.fontBoundingBoxAscent + m.fontBoundingBoxDescent);
+  };
+
+  /** the lines a wrapped text node is broken into: [{ s, dx, dy }], dx / dy the line's start and baseline from `at` */
+  function textLines(node, cs, at, share) {
+    const raw = node.textContent || '';
+    const range = document.createRange();
+    const lines = [];
+    let cur = null;
+    for (let i = 0; i < raw.length; i++) {
+      range.setStart(node, i);
+      range.setEnd(node, i + 1);
+      const r = [...range.getClientRects()].find((q) => q.width > 0);
+      if (!r) {
+        if (cur) cur.s += raw[i];
+        continue;
+      }
+      if (!cur || Math.abs(r.top - cur.top) > 1) {
+        cur = { s: '', top: r.top, left: r.left, h: r.height };
+        lines.push(cur);
+      }
+      cur.s += raw[i];
+    }
+    return lines
+      .map((l) => ({ s: cs.whiteSpace.startsWith('pre') ? l.s : l.s.replace(/\s+/g, ' ').trim(), dx: R(l.left - at.left), dy: R(l.top + l.h * share - at.top) }))
+      .filter((l) => l.s);
+  }
+
+  /** what an ellipsis-truncated text shows, when it is cut (else undefined) */
+  function visibleText(node, el, cs, s) {
+    if (el.scrollWidth <= el.clientWidth + 0.5) return undefined;
+    const er = el.getBoundingClientRect();
+    const right = er.right - px(cs.paddingRight) - px(cs.borderRightWidth);
+    ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+    const ell = ctx.measureText('…').width + (cs.letterSpacing === 'normal' ? 0 : px(cs.letterSpacing));
+    const raw = node.textContent || '';
+    const range = document.createRange();
+    let n = 0;
+    for (let i = 0; i < raw.length; i++) {
+      range.setStart(node, i);
+      range.setEnd(node, i + 1);
+      const r = range.getBoundingClientRect();
+      if (r.width > 0 && r.right > right - ell + 0.5) break;
+      n = i + 1;
+    }
+    const shown = raw.slice(0, n).replace(/\s+/g, ' ').trim();
+    return shown === s ? undefined : `${shown}…`;
+  }
+
   /** a text run of `node` (a DOM Text) inside element `el`, positioned against `origin` */
   function textSpec(node, el, origin, opacity) {
     const raw = node.textContent || '';
@@ -93,6 +148,14 @@
     const tops = new Set(rects.map((r) => Math.round(r.top)));
     const trunc = cs.textOverflow === 'ellipsis' && cs.overflow !== 'visible';
     const er = el.getBoundingClientRect();
+    const share = ascentShare(cs);
+    const wrap = tops.size > 1;
+    // where the first glyph starts (x is the run's box, or a truncating element's content box)
+    const first = raw.search(/\S/);
+    const fr = document.createRange();
+    fr.setStart(node, first);
+    fr.setEnd(node, first + 1);
+    const gx = fr.getBoundingClientRect().left - origin.left;
     return {
       t: 'text',
       n: s.slice(0, 32),
@@ -102,8 +165,13 @@
       cy: R(box.top + box.height / 2 - origin.top),
       w: R(trunc ? er.width - px(cs.paddingLeft) - px(cs.paddingRight) : box.width),
       h: R(box.height),
-      wrap: tops.size > 1 || undefined,
+      wrap: wrap || undefined,
       trunc: trunc || undefined,
+      // the baseline (of the first line) below y, and a wrapped text's lines
+      by: R(rects[0].top + rects[0].height * share - box.top),
+      gx: R(gx - ((trunc ? er.left + px(cs.paddingLeft) : box.left) - origin.left)) || undefined,
+      lines: wrap ? textLines(node, cs, box, share) : undefined,
+      vis: trunc ? visibleText(node, el, cs, s) : undefined,
       ...textStyle(cs, opacity),
     };
   }
@@ -152,6 +220,7 @@
               h: R(b.height),
               anchor: anchor === 'middle' ? 'center' : anchor === 'end' ? 'right' : 'left',
               ax: R((anchor === 'middle' ? b.left + b.width / 2 : anchor === 'end' ? b.right : b.left) - origin.left),
+              by: R(b.height * ascentShare(cs)),
               f: fontFamily(cs.fontFamily),
               wt: Number(cs.fontWeight) || 400,
               sz: R(px(cs.fontSize) * k),
@@ -219,6 +288,8 @@
       }
     }
     const node = { t: 'svg', n: nameOf(svg), x: R(r.left - origin.left), y: R(r.top - origin.top), w: R(r.width), h: R(r.height), svg: new XMLSerializer().serializeToString(clone) };
+    // the browser clips an inline SVG to its box unless its overflow is visible (the SVG export clips it too)
+    if (getComputedStyle(svg).overflow !== 'visible') node.clip = true;
     if (!texts.length) return node;
     // the SVG and its lettering as real text layers, in one frame
     return { t: 'frame', n: node.n, x: node.x, y: node.y, w: node.w, h: node.h, clip: false, kids: [{ ...node, x: 0, y: 0 }, ...texts.map((t) => ({ ...t, x: R(t.x - node.x), y: R(t.y - node.y), cy: R(t.cy - node.y), ax: R(t.ax - node.x) }))] };
@@ -259,7 +330,10 @@
     // a <select>: its chosen option's text (the native arrow is not drawn)
     if (el.tagName === 'SELECT') {
       const opt = el.options[el.selectedIndex];
-      node.kids = [{ t: 'text', n: 'value', s: opt ? opt.text : '', x: R(px(cs.paddingLeft) + px(cs.borderLeftWidth)), cy: R(r.height / 2), y: 0, w: R(r.width), h: R(r.height), ...textStyle(cs, 1) }];
+      ctx.font = `${cs.fontStyle} ${cs.fontWeight} ${cs.fontSize} ${cs.fontFamily}`;
+      const m = ctx.measureText('Hg');
+      const bl = r.height / 2 + (m.fontBoundingBoxAscent - m.fontBoundingBoxDescent) / 2;
+      node.kids = [{ t: 'text', n: 'value', s: opt ? opt.text : '', x: R(px(cs.paddingLeft) + px(cs.borderLeftWidth)), cy: R(r.height / 2), by: R(bl), y: 0, w: R(r.width), h: R(r.height), ...textStyle(cs, 1) }];
       return node;
     }
 
