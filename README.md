@@ -41,6 +41,12 @@ npm run dev
 npm run build
 ```
 
+### CATCC UI kit and Figma plugin
+
+- `/catcc/kit` (signed in, like `/catcc`) is the CATCC UI kit: the CATCC interface's tokens, type and components (header, controls, panels, scope symbols, data tags, strips, overlays, icons) rendered live with demo data. The source is `src/components/catcc/kit/`.
+- `figma/catcc-kit/` is a Figma development plugin built from that page. It makes CATCC colour variables, text styles and components with variants for sketching new CATCC features. To import it, open the Figma desktop app, choose **Plugins → Development → Import plugin from manifest…**, pick `figma/catcc-kit/manifest.json`, then run **CATCC Kit**. See `figma/catcc-kit/README.md`.
+- After changing the kit, regenerate the plugin's data with `node scripts/catcc/figma-kit.gen.ts`. It needs headless Chromium (playwright-core) and the network for the Google fonts. The tests check that it is current.
+
 ## Customization
 
 Squadron-specific configurations can be adjusted in the settings panel, allowing customization of callsigns, qualifications, and roles specific to your unit.

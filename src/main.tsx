@@ -12,6 +12,7 @@ import { registerWakeHandlers, wake } from './utils/wake'
 
 const KneeboardLayout = lazy(() => import('./components/kneeboard/KneeboardLayout'))
 const CatccApp = lazy(() => import('./components/catcc/CatccApp'))
+const CatccKit = lazy(() => import('./components/catcc/kit/CatccKit'))
 
 // Import debug utilities for development
 import './utils/debugUtils.ts'
@@ -56,6 +57,13 @@ createRoot(document.getElementById('root')!).render(
               <ProtectedRoute>
                 <Suspense fallback={null}>
                   <CatccApp />
+                </Suspense>
+              </ProtectedRoute>
+            } />
+            <Route path="/catcc/kit" element={
+              <ProtectedRoute>
+                <Suspense fallback={null}>
+                  <CatccKit />
                 </Suspense>
               </ProtectedRoute>
             } />
