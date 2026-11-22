@@ -782,3 +782,4 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 ## AZ/EL: one scale on both axes (2026-11-22)
 
 - The user asked for the same scale on both axes and chose to keep the scope square: azimuth is now ±3° (was ±6°), the same as elevation (±3° about the glideslope). Ticks every 0.5°, whole degrees labelled, on both axes. An aircraft more than 3° off course is outside the field.
+- The track table now sits inset in the plot's top-right corner (inside the frame, just below the HI label, sized to its rows) instead of the pane's corner (the user).

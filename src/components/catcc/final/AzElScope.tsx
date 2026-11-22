@@ -2,7 +2,7 @@
  * CATCC Approach / Final: the AZ/EL display. One scope centred on the ICLS / ACLS glidepath, azimuth
  * (localizer) deviation across and elevation (glideslope) deviation up, both in degrees from the
  * glidepath origin, drawn as seen from the ship: an aircraft high and right of course (the pilot's
- * view) shows high and left. The track table (top right) lists the aircraft the SPN-46 holds; the primary one
+ * view) shows high and left. The track table (inset in the plot's top-right corner) lists the aircraft the SPN-46 holds; the primary one
  * (green dot, picked from the table or the scope, else the nearest) is the contact and everything
  * else in the field a ghost. With nothing held, the nearest aircraft inside 6 NM is the contact.
  */
@@ -18,6 +18,8 @@ const TRK_TRAIL = '#3E9A4C';
 const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
 /** the plot's half-width in display units (viewBox 400 × 400, centre 200 200) */
 const H = AZEL_HALF;
+/** the plot frame's inset from the scope's edge, % (the 400-unit viewBox's frame starts at 200 − H) */
+const FRAME_INSET = ((200 - H) / 400) * 100;
 /** seen from the ship: right of course (az +) draws left of centre */
 const X = azElX;
 const Y = azElY;
@@ -156,8 +158,14 @@ export const AzElScope: React.FC<{
           );
         })}
       </div>
-      {/* the track table: always two rows and the flag line, so nothing moves as tracks come and go */}
-      <div className="mono" role="list" aria-label="AZ/EL tracks" style={{ position: 'absolute', right: 8, top: 8, zIndex: 3, width: 136, boxSizing: 'border-box', fontSize: 10.5, lineHeight: `${ROW_H}px` }}>
+      {/* the track table, inset in the plot's top-right corner (below the HI label, sized to its rows):
+          always two rows and the flag line, so nothing moves as tracks come and go */}
+      <div
+        className="mono"
+        role="list"
+        aria-label="AZ/EL tracks"
+        style={{ position: 'absolute', right: `calc(${FRAME_INSET}% + 6px)`, top: `calc(${FRAME_INSET}% + 18px)`, zIndex: 3, width: 'max-content', boxSizing: 'border-box', fontSize: 10.5, lineHeight: `${ROW_H}px` }}
+      >
         {[0, 1].map((i) => {
           const k = tracked[i];
           if (!k) return <div key={i} style={{ height: ROW_H }} />;
