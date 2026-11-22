@@ -5,9 +5,9 @@
  */
 import { finalPos, timeToBall, turnWithWind, windVec, APPROACH_KT, slotWindow, upwindWindow, UPWIND_TURN_IN_NM, type FinalPos, type SlotResult } from '../../../catcc/core/geometry/slot.ts';
 import type { CarrierWx } from '../../../catcc/core/dcs/hookProtocol.ts';
-import { angDiff, type Pt } from '../../../catcc/core/geometry/vec.ts';
+import { angDiff, bearingTo, dir, dot, signedDiff, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { turnRadiusNm, verticalStandardFt } from '../../../catcc/core/geometry/maneuver.ts';
-import type { Picture, ScopeTrack } from '../scopeModel.ts';
+import type { Carrier, Picture, ScopeTrack } from '../scopeModel.ts';
 import { SPN46_CHANNELS } from '../radar/spn46.ts';
 
 export const GS_DEG = 3.5;
@@ -52,6 +52,69 @@ export interface FinalPicture {
   wx?: CarrierWx;
   /** a scope point (NM) as [along final, lateral] about the carrier: astern and right of the final bearing positive */
   toFinal: (p: Pt) => [number, number];
+  /**
+   * The same for a point the radar had at mission time `t` (s): about where the ship was then, on its final
+   * bearing then, so a track that flew the moving centreline sits on it (see shipFrameAt). Without a time, toFinal.
+   */
+  toFinalAt: (p: Pt, t: number | undefined) => [number, number];
+}
+
+/** Velocity relative to the ship in the final frame, kt: along (astern +) and lateral (right +). */
+export function relRates(t: ScopeTrack, fb: number, ship: { crs: number; gs: number }): [number, number] {
+  const va = dir(t.crs ?? t.hdg ?? 0);
+  const vs = dir(ship.crs);
+  const vr: Pt = [va[0] * (t.gs ?? 0) - vs[0] * ship.gs, va[1] * (t.gs ?? 0) - vs[1] * ship.gs];
+  return [dot(vr, dir(fb + 180)), dot(vr, dir(fb + 90))];
+}
+
+/**
+ * The aircraft's projection after `seconds` on the Final displays: [along, lateral, altitude ft], from its
+ * velocity relative to the ship (ground velocity less the ship's) and its climb or descent. An aircraft flying
+ * the moving centreline has no lateral rate; one on the glidepath too stays at zero deviation (an empty AZ/EL vector).
+ */
+export function finalProjection(fp: Pick<FinalPicture, 'fb' | 'ship'>, a: Pick<FinalAc, 't' | 'f'>, seconds: number): [number, number, number] {
+  const [alongKt, latKt] = relRates(a.t, fp.fb, fp.ship);
+  return [a.f.along + (alongKt * seconds) / 3600, a.f.lat + (latKt * seconds) / 3600, a.t.alt + ((a.t.vs ?? 0) * seconds) / 60];
+}
+
+/** fastest ship turn the course history is believed to show, °/s */
+const MAX_SHIP_TURN_DPS = 3;
+
+/**
+ * Where the carrier was, and its final bearing, at mission time `T`: between the radar's updates of it (its
+ * current position and trail dots, with their times) by interpolation, past either end dead-reckoned along its
+ * course and speed. The course at T follows the turn its track shows (the bearing of its last trail chord
+ * against its present course), so a turning ship's final bearing then is used too.
+ */
+export function shipFrameAt(c: Carrier, crs: number, gs: number): (T: number | undefined) => { p: Pt; fb: number } {
+  const t0 = c.track.pT;
+  const p0 = c.track.p;
+  const pts: { t: number; p: Pt }[] = t0 === undefined ? [] : [{ t: t0, p: p0 }];
+  const tt = c.track.trailT;
+  if (t0 !== undefined && tt) c.track.trail.forEach((q, i) => tt[i] !== undefined && pts.push({ t: tt[i], p: q }));
+  const v = dir(crs);
+  const dr = (from: { t: number; p: Pt }, T: number): Pt => [from.p[0] + (v[0] * gs * (T - from.t)) / 3600, from.p[1] + (v[1] * gs * (T - from.t)) / 3600];
+  // turn rate: the last chord's bearing is the course half-way along it
+  let rate = 0;
+  const p1 = pts[1];
+  if (p1 && t0 !== undefined && t0 - p1.t > 5 && Math.hypot(p0[0] - p1.p[0], p0[1] - p1.p[1]) > 0.03) {
+    const d = signedDiff(bearingTo(p1.p, p0), crs);
+    if (Math.abs(d) > 1.5) rate = Math.max(-MAX_SHIP_TURN_DPS, Math.min(MAX_SHIP_TURN_DPS, d / ((p1.t - t0) / 2)));
+  }
+  return (T) => {
+    if (T === undefined || t0 === undefined) return { p: p0, fb: c.ship.fb };
+    const fb = c.ship.fb + rate * (T - t0);
+    if (T >= pts[0].t) return { p: dr(pts[0], T), fb };
+    for (let i = 0; i + 1 < pts.length; i++) {
+      const a = pts[i];
+      const b = pts[i + 1];
+      if (T <= a.t && T >= b.t) {
+        const k = a.t === b.t ? 0 : (a.t - T) / (a.t - b.t);
+        return { p: [a.p[0] + (b.p[0] - a.p[0]) * k, a.p[1] + (b.p[1] - a.p[1]) * k], fb };
+      }
+    }
+    return { p: dr(pts[pts.length - 1], T), fb };
+  };
 }
 
 export function finalPicture(pic: Picture): FinalPicture | null {
@@ -61,10 +124,18 @@ export function finalPicture(pic: Picture): FinalPicture | null {
   const ship = { crs: c.track.crs ?? c.track.hdg ?? c.ship.brc, gs: c.track.gs ?? 0 };
   const vFinal = Math.max(80, APPROACH_KT - ship.gs);
   const acs: FinalAc[] = [];
+  const shipAt = shipFrameAt(c, ship.crs, ship.gs);
+  const toFinalAt = (p: Pt, T: number | undefined): [number, number] => {
+    const s = shipAt(T);
+    const f = finalPos([p[0] - s.p[0], p[1] - s.p[1]], s.fb, { crs: 0, gs: 0 }, { crs: 0, gs: 0 });
+    return [f.along, f.lat];
+  };
   for (const t of pic.air) {
     if (t.air === false || (t.gs ?? 0) < 60) continue;
     if (t.owner && t.owner !== c.track.hull) continue;
-    const rel: Pt = [t.p[0] - c.track.p[0], t.p[1] - c.track.p[1]];
+    // about the ship where it was when the radar had the aircraft (the two are updated at different times)
+    const sp = shipAt(t.pT).p;
+    const rel: Pt = [t.p[0] - sp[0], t.p[1] - sp[1]];
     if (Math.hypot(...rel) > 45) continue;
     const crs = t.crs ?? t.hdg ?? 0;
     const f = finalPos(rel, fb, { crs, gs: t.gs ?? 0 }, ship);
@@ -87,7 +158,7 @@ export function finalPicture(pic: Picture): FinalPicture | null {
     const f = finalPos([p[0] - cp[0], p[1] - cp[1]], fb, { crs: 0, gs: 0 }, { crs: 0, gs: 0 });
     return [f.along, f.lat];
   };
-  return { fb, ship, vFinal, acs, arrivals, bolters, upwinds, toFinal, wx: c.track.wx };
+  return { fb, ship, vFinal, acs, arrivals, bolters, upwinds, toFinal, toFinalAt, wx: c.track.wx };
 }
 
 /**

@@ -7,7 +7,7 @@
  * else in the field a ghost. With nothing held, the nearest aircraft inside 6 NM is the contact.
  */
 import React from 'react';
-import { azElSelect, azElX, azElY, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
+import { azElSelect, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
 import { typeName, type ScopeTrack } from '../scopeModel.ts';
 
 const TRK = '#5FD068';
@@ -28,6 +28,8 @@ const pc = (x: number, y: number) => [x / 4, y / 4] as const;
 
 export const AzElScope: React.FC<{
   fp: FinalPicture | null;
+  /** projection-vector time, s (the Approach / Final toolbar's Vector) */
+  vecS?: number;
   tol: boolean;
   conflictIds: Set<string>;
   /** the aircraft the SPN-46 holds (the Landing aids LOCK-ON list); none: no table, the nearest is the contact */
@@ -36,7 +38,7 @@ export const AzElScope: React.FC<{
   pick?: string | null;
   onPick?: (id: string) => void;
   style?: React.CSSProperties;
-}> = ({ fp, tol, conflictIds, locks, pick, onPick, style }) => {
+}> = ({ fp, vecS = 2, tol, conflictIds, locks, pick, onPick, style }) => {
   const { prim, ghosts, tracked, primaryId, notNearest } = azElSelect(fp, locks, pick);
 
   // crosshair through the glidepath, hash marks every 0.5°, longer at whole degrees
@@ -84,12 +86,21 @@ export const AzElScope: React.FC<{
     prim.a.t.trail.forEach((q, i) => {
       const qa = prim.a.t.trailAlt?.[i];
       if (qa === undefined) return;
-      const [al, la] = fp.toFinal(q);
+      // in the ship's frame of the dot's time: a track that flew the moving centreline trails along the vertical axis
+      const [al, la] = fp.toFinalAt(q, prim.a.t.trailT?.[i]);
       const d = glideDeviation(al, la, qa);
       if (!d || Math.abs(d.az) > AZEL_AZ_DEG || Math.abs(d.el) > AZEL_EL_DEG) return;
       const p = pc(X(d.az), Y(d.el));
       trail.push([p[0], p[1]]);
     });
+  }
+  // the contact's projection vector: where its deviation will be after vecS, from its motion relative to the
+  // ship and its climb or descent; on centreline and glidepath it has no length (straight into the scope)
+  let vec: number[] | null = null;
+  if (prim && fp && (prim.a.t.gs ?? 0) >= 20) {
+    const [al, la, alt] = finalProjection(fp, prim.a, vecS);
+    const d = glideDeviation(al, la, alt);
+    if (d) vec = [X(prim.dev.az), Y(prim.dev.el), X(d.az), Y(d.el)];
   }
   const red = prim ? conflictIds.has(prim.a.t.id) : false;
   const c = red ? '#FF8A85' : TRK;
@@ -103,6 +114,7 @@ export const AzElScope: React.FC<{
         {tol && <path d={tolPath} stroke="rgba(201,211,221,.18)" fill="none" />}
         <path d={cross} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
         <path d={ticks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
+        {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap="round" />}
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {labs.map((l, i) => (

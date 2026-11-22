@@ -13,12 +13,12 @@ import { HandoffRow } from '../Handoff.tsx';
 import { IcLayers } from '../icons.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { useVecSeconds } from '../vecLength.ts';
-import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { shortType, fuelK, tagRows, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
 import { SPN46_ACQ_DEG, SPN46_ACQ_NM, SPN46_CHANNELS, SPN46_RANGE_NM } from '../radar/spn46.ts';
 import { LABEL_FONT_PX, LABEL_ROW_PX, TICK_PX, TIMELINE_H, TIMELINE_LINE_Y, labelTop, placeTimelineLabels } from './timelineLabels.ts';
-import { bolterSlot, upwindSlot, dmeAt, finalPicture, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
+import { bolterSlot, upwindSlot, dmeAt, finalPicture, finalProjection, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
@@ -561,7 +561,7 @@ export const FinalView: React.FC<{
   for (const a of fp?.acs ?? []) {
     if (!fp || !inside(a)) continue;
     const t = a.t;
-    // the main radar's colours, data tag, trail and vector (toolbar time)
+    // the main radar's colours, data tag, trail and vector (toolbar time), both relative to the ship
     const red = conflictIds.has(t.id);
     const c = red ? '#FF8A85' : TRK;
     const tc = red ? '#B8433F' : TRK_TRAIL;
@@ -569,7 +569,8 @@ export const FinalView: React.FC<{
     const trE: [number, number][] = [];
     const trA: [number, number][] = [];
     t.trail.forEach((q, i) => {
-      const [al, la] = fp.toFinal(q);
+      // in the ship's frame of the dot's time: a track that flew the moving centreline trails along it
+      const [al, la] = fp.toFinalAt(q, t.trailT?.[i]);
       const pa = pc(X(al), Ya(la));
       trA.push([pa[0], pa[1]]);
       const qa = t.trailAlt?.[i];
@@ -580,11 +581,9 @@ export const FinalView: React.FC<{
     });
     let vE: number[] | undefined;
     let vA: number[] | undefined;
-    const ve = velocityEnd(t, vecS);
-    if (ve) {
-      const [eal, ela] = fp.toFinal(ve);
-      // the Elevation display's vector: the climb or descent over the same time
-      const altEnd = t.alt + ((t.vs ?? 0) * vecS) / 60;
+    if ((t.gs ?? 0) >= 20) {
+      // relative to the ship (ground velocity less the ship's), the climb or descent over the same time
+      const [eal, ela, altEnd] = finalProjection(fp, a, vecS);
       vE = [X(a.f.along), Ye(t.alt), X(eal), Ye(altEnd)];
       vA = [X(a.f.along), Ya(a.f.lat), X(eal), Ya(ela)];
     }
@@ -1052,7 +1051,7 @@ export const FinalView: React.FC<{
           </div>
         </aside>
         <div style={{ padding: '8px 10px 10px 0' }}>
-          <AzElScope fp={fp} tol={ov.tol} conflictIds={conflictIds} locks={lockOn} pick={azPick} onPick={pickAzEl} style={{ width: sz.h || 334, height: sz.h || 334 }} />
+          <AzElScope fp={fp} vecS={vecS} tol={ov.tol} conflictIds={conflictIds} locks={lockOn} pick={azPick} onPick={pickAzEl} style={{ width: sz.h || 334, height: sz.h || 334 }} />
         </div>
       </div>
     </div>
