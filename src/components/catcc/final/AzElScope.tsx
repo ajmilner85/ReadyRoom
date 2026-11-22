@@ -149,8 +149,8 @@ export const AzElScope: React.FC<{
       <svg className="par" viewBox="0 0 400 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
         <rect x={200 - H} y={Y(AZEL_EL_DEG)} width={2 * H} height={2 * H} stroke="rgba(147,161,176,.12)" fill="none" />
         {tol && <path d={tolPath} stroke="rgba(201,211,221,.18)" fill="none" />}
-        {/* the Case III profile (the Elevation display's profile line style): one line per NM out */}
-        {profile && <path d={PROFILE_PATH} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />}
+        {/* the Case III profile, one line per NM out (the Azimuth display's 1° / 2° / 5° line style) */}
+        {profile && <path d={PROFILE_PATH} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />}
         <path d={cross} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
         <path d={ticks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
         {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap="round" />}
