@@ -49,16 +49,16 @@ const K = 13;
 /** leaders stretch as far as needed to keep tags off the final bearing / glidepath */
 const LEADERS = [2.4, 3.8, 5.2, 6.8, 8.6, 10.6, 13, 16];
 /** the main radar's tag geometry: a climb/descent arrow sits left of the altitude row, outside the text inset */
-const tagGeom = (rowsIn: string[]) => {
+const tagGeom = (rowsIn: string[], ball = false) => {
   const arrow = rowsIn[1]?.[0] === '↑' || rowsIn[1]?.[0] === '↓' ? rowsIn[1][0] : '';
   const rows = arrow ? [rowsIn[0], rowsIn[1].slice(1), ...rowsIn.slice(2)] : rowsIn;
-  const inset = arrow ? 0.85 : 0.3;
+  // the arrow's column, left of the text, also holds the ball dot (above the arrow)
+  const inset = arrow || ball ? 0.85 : 0.3;
   return { arrow, rows, inset, w: Math.max(...rows.map((r) => r.length)) * 0.54 + inset + 0.3, h: rows.length + 0.35 };
 };
 const f1 = (n: number) => n.toFixed(1);
-/** the ball dot (inside 3/4 NM): amber, the gap and dot right of a data tag in tag units */
+/** the ball dot (inside 3/4 NM): amber, left of the board number, above the climb / descent arrow */
 const BALL_C = '#E7B04F';
-const BALL_DOT_W = 0.8;
 const ms = (t: number) => {
   const n = Math.round(Math.abs(t));
   // the sign of the rounded value: −0.3 s reads 0:00, never −0:00
@@ -686,8 +686,7 @@ export const FinalView: React.FC<{
             own.push({ x0: x - 3, y0: y - 3, x1: x + 3, y1: y + 3 });
           }
         }
-        const g = tagGeom(b.rows);
-        return { id: b.id, p, ...g, w: g.w + (b.ball ? BALL_DOT_W : 0), pref: b.pref, keepOff: own, priority: b.red ? 0 : 2 + b.x / 100 };
+        return { id: b.id, p, ...tagGeom(b.rows, b.ball), pref: b.pref, keepOff: own, priority: b.red ? 0 : 2 + b.x / 100 };
       }),
       { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx), keepOff: keep, lengths: LEADERS },
     );
@@ -732,15 +731,13 @@ export const FinalView: React.FC<{
           {sz.w > 0 &&
             blips.map((b) => {
               const pl = places.get(b.id) ?? { q: [1, -1] as [number, number], L: 2.4 };
-              const { arrow, rows, inset, w, h } = tagGeom(b.rows);
+              const { arrow, rows, inset, w, h } = tagGeom(b.rows, b.ball);
               const px = (b.x / 100) * sz.w;
               const py = (b.y / 100) * sz.h;
               const s = Math.SQRT1_2;
               const L0 = [pl.q[0] * 0.7 * s, pl.q[1] * 0.7 * s];
               const L1 = [pl.q[0] * pl.L * s, pl.q[1] * pl.L * s];
-              // the ball dot sits right of the box: a tag west of its contact moves left to make room
-              const dotW = b.ball ? BALL_DOT_W : 0;
-              const rx = pl.q[0] > 0 ? L1[0] + 0.05 : L1[0] - 0.05 - w - dotW;
+              const rx = pl.q[0] > 0 ? L1[0] + 0.05 : L1[0] - 0.05 - w;
               const ty = L1[1] + 0.32;
               return (
                 <g key={`tag${b.id}`} transform={`translate(${f1(px)} ${f1(py)}) scale(${K})`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
@@ -756,7 +753,7 @@ export const FinalView: React.FC<{
                       {arrow}
                     </text>
                   )}
-                  {b.ball && <circle cx={rx + w + BALL_DOT_W / 2} cy={ty - 0.85 + h / 2} r={3.5 / K} fill={BALL_C} />}
+                  {b.ball && <circle cx={rx + inset - 0.4} cy={ty - 0.3} r={3.5 / K} fill={BALL_C} />}
                 </g>
               );
             })}

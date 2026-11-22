@@ -810,3 +810,4 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 
 - An arrival inside 3/4 NM (on final or inbound, short of the ramp; `flyingBall`) gets an amber dot right of its data tag, centred on the tag, on the Elevation, Azimuth and AZ/EL displays: it should be flying the ball (the user). Tag placement counts the dot; a tag west of its contact moves left to make room.
 - The AZ/EL axis numbers carry the degree symbol (1°, 2°, 3°; the user).
+- The ball dot moved left of the board number (the user): on the Elevation and Azimuth tags in the climb / descent arrow's column, above the arrow (a tag without an arrow gets that column too); on the AZ/EL tag before the board number.

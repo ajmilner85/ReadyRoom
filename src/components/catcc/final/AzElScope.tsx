@@ -180,7 +180,7 @@ export const AzElScope: React.FC<{
                 position: 'absolute',
                 left: `${pp[0]}%`,
                 top: `${pp[1]}%`,
-                transform: pp[0] > 70 ? `translate(calc(-100% - ${ball ? 24 : 10}px), calc(-100% - 8px))` : 'translate(10px, calc(-100% - 8px))',
+                transform: pp[0] > 70 ? 'translate(calc(-100% - 10px), calc(-100% - 8px))' : 'translate(10px, calc(-100% - 8px))',
                 padding: '1px 4px',
                 background: 'rgba(11,14,18,.72)',
                 border: red ? '1px solid #E0524E' : undefined,
@@ -191,10 +191,13 @@ export const AzElScope: React.FC<{
                 whiteSpace: 'nowrap',
               }}
             >
-              <div>{label(prim.a.t)}</div>
+              {/* inside 3/4 NM: should be flying the ball (amber dot left of the board number) */}
+              <div>
+                {ball && <span style={{ display: 'inline-block', width: 7, height: 7, marginRight: 4, borderRadius: '50%', background: '#E7B04F', verticalAlign: 'middle' }} />}
+                {label(prim.a.t)}
+              </div>
               <div>{prim.dev.r.toFixed(1)} NM</div>
-              {/* inside 3/4 NM: should be flying the ball */}
-              {ball && <span style={{ position: 'absolute', left: '100%', top: '50%', width: 7, height: 7, margin: '-3.5px 0 0 7px', borderRadius: '50%', background: '#E7B04F' }} />}
+
             </span>
           </>
         )}
