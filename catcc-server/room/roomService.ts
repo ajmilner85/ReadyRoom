@@ -9,6 +9,8 @@ import { bellFor, hasAirBoss } from '../../src/catcc/core/dcs/bells.ts';
 import { formationFor } from '../../src/catcc/core/geometry/formation.ts';
 import { orderChanged, stationOrder } from '../../src/catcc/core/geometry/stationKeeping.ts';
 import {
+  CLOSE_AUTH_FAILED,
+  CLOSE_FORBIDDEN,
   ROOM_PROTO,
   PLAN_ROLES,
   SEAT_ROLES,
@@ -30,7 +32,7 @@ import {
 import { TrackStore, type Track } from '../../src/catcc/core/tracks/trackStore.ts';
 import { HookClient } from '../dcs/hookClient.ts';
 import { TacviewRealtimeClient } from '../tacview/realtimeClient.ts';
-import type { VerifyToken } from './auth.ts';
+import { isRefused, type VerifyToken } from './auth.ts';
 import type { PersistedState, RoomStore } from './persist.ts';
 import { aircraftOnDeck, chockedPlayers, computeLaunch, heldPlayers, launchAuthority, type LaunchState } from '../../src/catcc/core/room/launch.ts';
 
@@ -706,7 +708,12 @@ export class RoomService {
       }
       const user = await this.opts.verify(msg.token);
       if (!user) {
-        c.ws.close(4003, 'auth failed');
+        c.ws.close(CLOSE_AUTH_FAILED, 'auth failed');
+        return;
+      }
+      if (isRefused(user)) {
+        // signed in, but not a member of the wing
+        c.ws.close(CLOSE_FORBIDDEN, user.refused);
         return;
       }
       clearTimeout(authTimer);
