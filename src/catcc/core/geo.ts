@@ -28,6 +28,18 @@ export function bearingDeg(lat1: number, lon1: number, lat2: number, lon2: numbe
   return norm360(Math.atan2(y, x) / D2R);
 }
 
+/** Faster than anything the radars track (kt): a groundspeed above it is a bad sample, not a speed. */
+export const MAX_PLAUSIBLE_GS_KT = 1500;
+
+/**
+ * A move of `nm` in `dtS` seconds that no aircraft or ship makes: a teleport (respawn, replay loop or
+ * seek, mission restart) or time running backwards. Intervals under 1 s count as 1 s, so sample
+ * jitter on closely spaced frames doesn't trip it.
+ */
+export function implausibleMove(nm: number, dtS: number): boolean {
+  return dtS < 0 || (nm * 3600) / Math.max(dtS, 1) > MAX_PLAUSIBLE_GS_KT;
+}
+
 /** Point at bearing/range (NM) from an origin. */
 export function destination(lat: number, lon: number, brgDeg: number, rangeNm: number): { lat: number; lon: number } {
   const d = (rangeNm * M_PER_NM) / R_EARTH_M;

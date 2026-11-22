@@ -246,6 +246,8 @@ export const FinalView: React.FC<{
     saveAzPick(id);
   };
   const fp = useMemo(() => finalPicture(pic), [pic]);
+  // conflicts within the Final display's own look-ahead (FINAL_CONFLICT_LOOKAHEAD_S): red tags and bubbles alike
+  const finalCf = pic.finalConflicts ?? [];
   // the displays' size in px, for tag placement (both displays are the same size)
   const dispRef = useRef<HTMLElement>(null);
   const [sz, setSz] = useState({ w: 0, h: 0 });
@@ -387,7 +389,7 @@ export const FinalView: React.FC<{
     for (const a of fp.acs) {
       if (!(a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LM && a.t.alt <= AMAX[RG])) continue;
       const s = sepStd(a);
-      const bad = sepViolated(a, pic.conflicts);
+      const bad = sepViolated(a, finalCf);
       const st = { stroke: bad ? 'rgba(255,138,133,.75)' : 'rgba(201,211,221,.4)', fill: bad ? 'rgba(224,82,78,.1)' : 'rgba(201,211,221,.05)', strokeDasharray: '4 3' };
       const cx = X(a.f.along);
       const rx = s.nm * pxNm;
@@ -552,7 +554,7 @@ export const FinalView: React.FC<{
   const aBlips: Blip[] = [];
   // only what is inside the displays' coverage: no contacts pinned to the edges
   const inside = (a: FinalAc) => a.f.along >= R0 && a.f.along <= RG && Math.abs(a.f.lat) <= LM && a.t.alt <= AMAX[RG];
-  const conflictIds = new Set(pic.conflicts.flatMap((k) => [k.a.id, k.b.id]));
+  const conflictIds = new Set(finalCf.flatMap((k) => [k.a.id, k.b.id]));
   for (const a of fp?.acs ?? []) {
     if (!fp || !inside(a)) continue;
     const t = a.t;

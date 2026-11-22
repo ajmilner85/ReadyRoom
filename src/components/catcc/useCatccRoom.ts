@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import type { HookEnv } from '../../catcc/core/dcs/hookProtocol.ts';
+import { distanceNm, implausibleMove } from '../../catcc/core/geo.ts';
 import { CLOSE_AUTH_FAILED, CLOSE_FORBIDDEN, type Assignment, type CarrierPlan, type OrderStatus, type RoomUser, type SeatHolder, type SeatKey, type ServerMsg, type SourceStatus, type WireTrack } from '../../catcc/core/room/protocol.ts';
 import type { OpsState, Ownership } from '../../catcc/core/room/ops.ts';
 import type { LaunchState } from '../../catcc/core/room/launch.ts';
@@ -142,6 +143,8 @@ export function useCatccRoom(preferredSrc?: string) {
               if (!arr) h.set(t.id, (arr = []));
               // mission time ran backwards (mission restart, replay loop): the old trail is from another run
               if (arr.length && arr[arr.length - 1].t > m.mt + 5) arr.length = 0;
+              // or it jumped further than anything flies (respawn, replay loop or seek): a new trail
+              else if (arr.length && implausibleMove(distanceNm(arr[arr.length - 1].lat, arr[arr.length - 1].lon, t.lat, t.lon), Math.max(0, m.mt - arr[arr.length - 1].t))) arr.length = 0;
               if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon, alt: t.alt, ...(t.air === false ? { gnd: true } : {}) });
               const keep = t.k === 'ship' || t.k === 'carrier' ? SHIP_HISTORY_S : HISTORY_S;
               while (arr.length > 2 && arr[0].t < m.mt - keep) arr.shift();

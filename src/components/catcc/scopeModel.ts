@@ -6,7 +6,7 @@ import { aeqd, type Projection } from '../../catcc/core/geometry/projection.ts';
 import { predictConflict, type Cpa } from '../../catcc/core/geometry/maneuver.ts';
 import { defaultMarshalRadial, type ShipRef } from '../../catcc/core/geometry/procedures.ts';
 import { angDiff, bearingOf, dir, len, sub, type Pt } from '../../catcc/core/geometry/vec.ts';
-import { norm360 } from '../../catcc/core/geo.ts';
+import { MAX_PLAUSIBLE_GS_KT, norm360 } from '../../catcc/core/geo.ts';
 import type { WireTrack } from '../../catcc/core/room/protocol.ts';
 
 /** Nimitz-class angled deck: final bearing is 9° left of the BRC. */
@@ -71,8 +71,18 @@ export interface Picture {
   /** surface ships other than carriers (radar donors) */
   ships?: ScopeTrack[];
   formations: Formation[];
+  /** predicted losses of separation within the radar's look-ahead (the user's option, default 120 s) */
   conflicts: Conflict[];
+  /** the same within FINAL_CONFLICT_LOOKAHEAD_S: what the Approach / Final display alerts */
+  finalConflicts?: Conflict[];
 }
+
+/**
+ * Look-ahead of the Approach / Final display's conflict alerts (s). The final controller works
+ * traffic seconds apart in the pattern; at the radar's two minutes nearly every arrival and bolter
+ * would be red. Fixed: the radar's look-ahead option doesn't change it.
+ */
+export const FINAL_CONFLICT_LOOKAHEAD_S = 30;
 
 const isAir = (t: WireTrack) => t.k === 'fixedwing' || t.k === 'rotary';
 
@@ -125,7 +135,7 @@ export function buildPicture(
 ): Picture {
   const cvs = tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
   const focusTrack = cvs.find((c) => c.hull === focusHull) ?? cvs[0];
-  if (!focusTrack) return { carriers: [], air: [], ground: [], formations: [], conflicts: [] };
+  if (!focusTrack) return { carriers: [], air: [], ground: [], formations: [], conflicts: [], finalConflicts: [] };
   const proj = aeqd(focusTrack.lat, focusTrack.lon);
   const toScope = (t: WireTrack): ScopeTrack => {
     const p = proj.toScope(t.lat, t.lon);
@@ -170,9 +180,11 @@ export function buildPicture(
   const formations = groupFormations(live);
   const fb = carriers.find((c) => c.focus)!.ship.fb;
   const ft = focusTrack;
-  const conflicts = findConflicts(live, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors, { crs: ft.crs ?? ft.hdg ?? 0, gs: ft.gs ?? 0 });
+  const shipMv = { crs: ft.crs ?? ft.hdg ?? 0, gs: ft.gs ?? 0 };
+  const conflicts = findConflicts(live, fb, opts.conflictLookAheadS ?? 120, opts.vertCapS ?? 30, opts.floors, shipMv);
+  const finalConflicts = findConflicts(live, fb, FINAL_CONFLICT_LOOKAHEAD_S, opts.vertCapS ?? 30, opts.floors, shipMv);
   const ships = tracks.filter((t) => t.k === 'ship').map(toScope);
-  return { proj, focus: carriers.find((c) => c.focus), carriers, air, ground, ships, formations, conflicts };
+  return { proj, focus: carriers.find((c) => c.focus), carriers, air, ground, ships, formations, conflicts, finalConflicts };
 }
 
 /** Lead = lowest element number in the callsign (x-1), else lowest id. */
@@ -257,7 +269,8 @@ export function inCompany(a: ScopeTrack, b: ScopeTrack): boolean {
 }
 
 export function findConflicts(air: ScopeTrack[], fb: number, lookAheadS: number, vertCapS = 30, floors?: Map<string, number>, ship?: { crs: number; gs: number }): Conflict[] {
-  const cand = air.filter((t) => t.air !== false && t.rng <= 60 && (t.gs ?? 0) > 60);
+  // a groundspeed no aircraft flies is a bad sample (a jump): no prediction from it
+  const cand = air.filter((t) => t.air !== false && t.rng <= 60 && (t.gs ?? 0) > 60 && (t.gs ?? 0) <= MAX_PLAUSIBLE_GS_KT);
   const best = new Map<string, Conflict>();
   for (let i = 0; i < cand.length; i++) {
     for (let j = i + 1; j < cand.length; j++) {

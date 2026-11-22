@@ -8,7 +8,7 @@
  * two aircraft on final continuously, so those repaint every data frame.
  */
 import { useEffect, useRef, useState } from 'react';
-import { bearingDeg, distanceNm } from '../../../catcc/core/geo.ts';
+import { bearingDeg, distanceNm, implausibleMove, MAX_PLAUSIBLE_GS_KT } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { SHIP_HISTORY_S, type Trail } from '../scopeModel.ts';
 import { antennaFtOf, coverageNm, radarOf, type RadarSpec } from '../../../catcc/core/sensors/radar.ts';
@@ -99,6 +99,9 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
     if (h?.length && h[h.length - 1].t === mt && P.painted.has(t.id)) continue;
     if (!h) P.hist.set(t.id, (h = []));
     if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
+    // jumped further than anything flies since its last paint (respawn, replay loop or seek): a new track,
+    // not thousands of knots of tracker velocity
+    else if (h.length && implausibleMove(distanceNm(h[h.length - 1].lat, h[h.length - 1].lon, t.lat, t.lon), Math.max(0, mt - h[h.length - 1].t))) h.length = 0;
     P.painted.set(t.id, trackerVelocity(t, h, mt));
     if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lat: t.lat, lon: t.lon, alt: t.alt, ...(t.air === false ? { gnd: true } : {}) });
     while (h.length > 2 && h[0].t < mt - (isShip(t) ? Math.max(keepS, SHIP_HISTORY_S) : keepS)) h.shift();
@@ -129,6 +132,7 @@ export function trackerVelocity(t: WireTrack, h: Trail[], mt: number): WireTrack
     if (dt > 30) break; // a stale paint says nothing about the present
     const nm = distanceNm(p.lat, p.lon, t.lat, t.lon);
     const gs = (nm / dt) * 3600;
+    if (gs > MAX_PLAUSIBLE_GS_KT) return t; // a jump, not a velocity (paintRadars resyncs the history on one)
     return { ...t, gs, crs: gs > 1 ? bearingDeg(p.lat, p.lon, t.lat, t.lon) : t.crs };
   }
   return t;

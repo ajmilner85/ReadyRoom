@@ -103,8 +103,8 @@ export function sepStd(a: FinalAc): { nm: number; ft: number } {
 }
 
 /**
- * Whether an aircraft's separation bubble draws as violated: it is in one of the picture's conflicts
- * (predictConflict: a predicted loss of separation, by relative motion, arrivals cut off at touchdown),
+ * Whether an aircraft's separation bubble draws as violated: it is in one of the Final display's conflicts
+ * (the picture's finalConflicts, FINAL_CONFLICT_LOOKAHEAD_S; predictConflict: a predicted loss of separation, by relative motion, arrivals cut off at touchdown),
  * not merely another aircraft inside the bubble, so the bubbles and the red tags always agree.
  */
 export function sepViolated(a: FinalAc, conflicts: { a: { id: string }; b: { id: string } }[]): boolean {

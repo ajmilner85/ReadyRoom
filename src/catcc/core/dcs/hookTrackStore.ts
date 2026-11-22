@@ -1,4 +1,4 @@
-import { M_PER_FT, MS_PER_KT } from '../geo.ts';
+import { M_PER_FT, MAX_PLAUSIBLE_GS_KT, MS_PER_KT } from '../geo.ts';
 import { CARRIER_HULLS, parsePilot } from '../tracks/naming.ts';
 import type { Side, Track, TrackKind } from '../tracks/trackStore.ts';
 import { fuelLb, THEATRE_UTC_OFFSET_H } from './aircraft.ts';
@@ -85,7 +85,9 @@ export class HookTrackStore {
     tr.altFt = altFt;
     tr.headingDeg = u.hdg;
     tr.courseDeg = u.crs ?? undefined;
-    tr.gsKt = u.gs / MS_PER_KT;
+    // DCS's own velocity; a value no aircraft flies is a bad sample, shown and predicted as unknown
+    const gs = u.gs / MS_PER_KT;
+    tr.gsKt = gs <= MAX_PLAUSIBLE_GS_KT ? gs : undefined;
     tr.vsFpm = (u.vs / M_PER_FT) * 60;
     tr.fuelFrac = u.f;
     tr.fuelLb = fuelLb(u.t, u.f);

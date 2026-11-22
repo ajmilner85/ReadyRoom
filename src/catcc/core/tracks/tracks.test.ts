@@ -49,6 +49,31 @@ describe('TrackStore kinematics', () => {
     expect(tr.headingDeg).toBe(crs);
   });
 
+  it('a teleport or time running backwards resyncs instead of producing thousands of knots', () => {
+    const store = new TrackStore();
+    store.apply({ kind: 'update', id: '0', props: { ReferenceLatitude: '26', ReferenceLongitude: '56' } });
+    const fly = (t: number, nm: number, first = false) => {
+      const p = destination(26.2, 56.2, 0, nm);
+      store.apply({ kind: 'time', t });
+      store.apply({ kind: 'update', id: '2b', props: { T: `${p.lon - 56}|${p.lat - 26}|366|0|0|0|0|0|0`, ...(first ? { Type: 'Air+FixedWing', Name: 'FA-18C_hornet', Color: 'Blue' } : {}) } });
+    };
+    // 250 kt for 10 s
+    for (let i = 0; i <= 50; i++) fly(i * 0.2, (250 * i * 0.2) / 3600, i === 0);
+    const tr = store.tracks.get('2b')!;
+    expect(tr.gsKt!).toBeCloseTo(250, 0);
+    // back to the loop's start, 14 NM away, in one 0.2 s step
+    fly(10.2, 14);
+    expect(tr.gsKt).toBeUndefined();
+    expect(tr.courseDeg).toBeUndefined();
+    expect(tr.history.length).toBe(1);
+    for (let i = 1; i <= 25; i++) fly(10.2 + i * 0.2, 14 + (250 * i * 0.2) / 3600);
+    expect(tr.gsKt!).toBeCloseTo(250, 0); // resynced: the new window only
+    // seek back in time: no difference across it either
+    fly(3, 14.5);
+    expect(tr.gsKt).toBeUndefined();
+    expect(tr.history.map((s) => s.t)).toEqual([3]);
+  });
+
   it('recognises supercarriers but not other "AircraftCarrier" types', () => {
     const store = new TrackStore();
     store.apply({ kind: 'update', id: '602', props: { T: '1|1|0', Type: 'Sea+Watercraft+AircraftCarrier', Name: 'CVN_72', Color: 'Blue' } });
