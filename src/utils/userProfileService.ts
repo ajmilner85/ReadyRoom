@@ -223,40 +223,9 @@ async function findMatchingPilot(discordData: DiscordUserData | null): Promise<{
       console.log('[PILOT-MATCH] No pilot found with discord_id:', discordData.id);
     }
 
-    // If no direct match, try to match by username pattern (board number + callsign)
-    console.log('[PILOT-MATCH] No discord_id match, attempting username pattern match:', discordData.username);
-    const usernameMatch = discordData.username.match(/^(\d{3})[\s|\/\-_]+(.+)$/);
-    if (usernameMatch) {
-      const [, boardNumber, callsign] = usernameMatch;
-      console.log('[PILOT-MATCH] Username pattern matched:', { boardNumber, callsign });
-
-      const { data: pilotByPattern, error: patternError } = await supabase
-        .from('pilots')
-        .select('*')
-        .eq('boardNumber', parseInt(boardNumber))
-        .ilike('callsign', callsign)
-        .single();
-
-      if (patternError) {
-        if (patternError.code === 'PGRST116') {
-          console.log('[PILOT-MATCH] No pilot found with pattern match');
-        } else {
-          console.error('[PILOT-MATCH] Error querying pilots by pattern:', patternError);
-        }
-      }
-
-      if (!patternError && pilotByPattern) {
-        console.log('[PILOT-MATCH] ✓ Found pilot by username pattern:', {
-          pilotId: pilotByPattern.id,
-          callsign: pilotByPattern.callsign,
-          boardNumber: pilotByPattern.boardNumber
-        });
-        return { pilotId: pilotByPattern.id, pilotData: pilotByPattern };
-      }
-    } else {
-      console.log('[PILOT-MATCH] Username does not match expected pattern (###-Callsign)');
-    }
-
+    // No fallback by Discord username (board number + callsign): anyone can pick that
+    // name. A pilot is linked only by pilots.discord_id, which roster managers set, and
+    // the user_profiles trigger (migration pilot_id_lock) enforces the same rule.
     console.log('[PILOT-MATCH] ✗ No matching pilot found');
     return { pilotId: null, pilotData: null };
 
