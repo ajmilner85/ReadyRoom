@@ -327,9 +327,10 @@ const scope: KitSection = {
     // the precision displays as FinalView draws them (12 NM, default layers, the demo arrivals): parts of the layout specimen
     ...(['Elevation', 'Azimuth'] as const).map((v): Specimen => ({ name: 'Scope/Precision display', variant: `display=${v.toLowerCase()}`, from: FINAL_KEY, pick: `section[aria-label="${v} display"]`, render: () => null })),
     { name: 'Scope/Approach toolbar', from: FINAL_KEY, pick: '[role="toolbar"][aria-label="Approach tools"]', render: () => null },
-    ...each('Scope/AZ EL display', ['contact', 'conflict', 'none'] as const, (v) => `contact=${v}`, (v) => {
+    // the SPN-46 holding both demo arrivals (f1 at 2.6 NM, f2 at 5.2 NM); not-nearest: f2 picked as primary
+    ...each('Scope/AZ EL display', ['contact', 'conflict', 'not-nearest', 'none'] as const, (v) => `contact=${v}`, (v) => {
       const fp = v === 'none' ? null : finalPicture(pic());
-      return <AzElScope fp={fp} tol conflictIds={new Set(v === 'conflict' ? ['f1'] : [])} style={{ width: 334, height: 334 }} />;
+      return <AzElScope fp={fp} tol conflictIds={new Set(v === 'conflict' ? ['f1'] : [])} locks={v === 'none' ? [] : ['f1', 'f2']} pick={v === 'not-nearest' ? 'f2' : null} style={{ width: 334, height: 334 }} />;
     }),
     ...each('Scope/Precision blip', ['own', 'red'] as const, (v) => `side=${v}`, (v) => <div style={{ position: 'relative', width: 24, height: 24, background: '#0B0E12' }}><S.ParBlip x={50} y={50} color={v === 'red' ? '#FF8A85' : undefined} /></div>),
   ],
