@@ -126,6 +126,23 @@ const saveLayers = (v: Record<FinalLayer, boolean>) => {
   }
 };
 
+const AZPICK_KEY = 'catcc.final.azelPrimary';
+const loadAzPick = (): string | null => {
+  try {
+    return localStorage.getItem(AZPICK_KEY);
+  } catch {
+    return null;
+  }
+};
+const saveAzPick = (id: string | null) => {
+  try {
+    if (id) localStorage.setItem(AZPICK_KEY, id);
+    else localStorage.removeItem(AZPICK_KEY);
+  } catch {
+    /* private window */
+  }
+};
+
 /** A mark on the slot timeline: s from now, its label, its colour (arrivals are white). */
 interface SlotMark {
   id: string;
@@ -219,6 +236,14 @@ export const FinalView: React.FC<{
     saveLayers(LAYER_DEFAULT);
   };
   const [pick, setPick] = useState<string | null>(null);
+  // the AZ/EL display's picked primary track, this seat's browser only
+  const [azPick, setAzPick] = useState<string | null>(loadAzPick);
+  const azPickSeen = useRef(false);
+  const pickAzEl = (id: string | null) => {
+    azPickSeen.current = false;
+    setAzPick(id);
+    saveAzPick(id);
+  };
   const fp = useMemo(() => finalPicture(pic), [pic]);
   // the displays' size in px, for tag placement (both displays are the same size)
   const dispRef = useRef<HTMLElement>(null);
@@ -573,6 +598,17 @@ export const FinalView: React.FC<{
   const aids = { icls: ops?.aids?.icls ?? true, acls: ops?.aids?.acls ?? true, modes: ops?.aids?.modes ?? {} };
   const setAids = (p: Partial<typeof aids>) => setOps({ aids: { ...aids, ...p } });
   const locks = fp ? aclsList(fp, ops, aclsLocks) : [];
+  // the AZ/EL track table lists the LOCK-ON aircraft; a pick is dropped once its aircraft, seen held, drops out
+  // (so a later pass starts on the nearest again), and kept over a reload until the room has it held again
+  const lockOn = locks.filter((l) => l.st === 'LOCK-ON').map((l) => l.a.t.id);
+  const pickHeld = !!azPick && lockOn.includes(azPick);
+  useEffect(() => {
+    if (pickHeld) azPickSeen.current = true;
+    else if (azPickSeen.current) {
+      azPickSeen.current = false;
+      pickAzEl(null);
+    }
+  });
   const fmOf = (t: ScopeTrack) => pic.formations.find((f) => f.members.some((m) => m.id === t.id));
   const keyOf = (t: ScopeTrack) => {
     const f = fmOf(t);
@@ -1006,7 +1042,7 @@ export const FinalView: React.FC<{
           </div>
         </aside>
         <div style={{ padding: '8px 10px 10px 0' }}>
-          <AzElScope fp={fp} tol={ov.tol} conflictIds={conflictIds} style={{ width: sz.h || 334, height: sz.h || 334 }} />
+          <AzElScope fp={fp} tol={ov.tol} conflictIds={conflictIds} locks={lockOn} pick={azPick} onPick={pickAzEl} style={{ width: sz.h || 334, height: sz.h || 334 }} />
         </div>
       </div>
     </div>

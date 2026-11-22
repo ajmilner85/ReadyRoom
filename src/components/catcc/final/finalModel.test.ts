@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { azElPicture, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
+import { azElPicture, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -111,6 +111,19 @@ describe('AZ/EL scope', () => {
     expect(glideDeviation(-1, 0, 100)).toBeNull();
   });
 
+  it('draws the scope as seen from the ship: right of course on the left, high up', () => {
+    expect(azElX(0)).toBe(200);
+    expect(azElY(0)).toBe(200);
+    // high and right of course (the pilot's view) is high and left on the scope
+    const rh = glideDeviation(4, 0.1, 4 * GP_FT_PER_NM + 200)!;
+    expect(azElX(rh.az)).toBeLessThan(200);
+    expect(azElY(rh.el)).toBeLessThan(200);
+    // the field's ends are the plot's edges: full right deflection at the left edge
+    expect(azElX(AZEL_AZ_DEG)).toBe(200 - AZEL_HALF);
+    expect(azElX(-AZEL_AZ_DEG)).toBe(200 + AZEL_HALF);
+    expect(azElY(AZEL_EL_DEG)).toBe(200 - AZEL_HALF);
+  });
+
   const ac = (id: string, along: number, lat: number, alt: number): FinalAc => ({ t: { id, alt } as FinalAc['t'], f: { along, lat, alongKt: -130, closureKt: 130 }, kind: 'final', tBall: 0 });
   const fpOf = (acs: FinalAc[]) => ({ acs }) as FinalPicture;
 
@@ -140,5 +153,37 @@ describe('AZ/EL scope', () => {
     expect(list.map((c) => c.a.t.id)).toEqual(['205', '207']);
     expect(Math.abs(list[0].dev.az)).toBeLessThan(0.2);
     expect(Math.abs(list[0].dev.el)).toBeLessThan(0.1);
+  });
+
+  describe('track table and primary', () => {
+    const gp = (r: number) => r * GP_FT_PER_NM;
+    const fp = fpOf([ac('a', 2, 0, gp(2)), ac('b', 4, 0.1, gp(4)), ac('c', 5, 0, gp(5)), ac('d', 7.5, 0, gp(7.5))]);
+    const ids = (s: ReturnType<typeof azElSelect>) => ({ prim: s.prim?.a.t.id ?? null, ghosts: s.ghosts.map((g) => g.a.t.id), rows: s.tracked.map((k) => k.a.t.id), primaryId: s.primaryId, notNearest: s.notNearest });
+
+    it('with nothing held: no rows, the nearest in the field is the contact', () => {
+      for (const locks of [undefined, null, []]) expect(ids(azElSelect(fp, locks, 'b'))).toEqual({ prim: 'a', ghosts: ['b', 'c'], rows: [], primaryId: null, notNearest: false });
+      expect(ids(azElSelect(null, ['a'], null))).toEqual({ prim: null, ghosts: [], rows: [], primaryId: null, notNearest: false });
+    });
+
+    it('lists the held aircraft nearest first; the nearest is primary unless another is picked', () => {
+      expect(ids(azElSelect(fp, ['c', 'b'], null))).toEqual({ prim: 'b', ghosts: ['a', 'c'], rows: ['b', 'c'], primaryId: 'b', notNearest: false });
+      expect(ids(azElSelect(fp, ['c', 'b'], 'c'))).toEqual({ prim: 'c', ghosts: ['a', 'b'], rows: ['b', 'c'], primaryId: 'c', notNearest: true });
+      const s = azElSelect(fp, ['c', 'b'], 'c');
+      expect(s.tracked[0].r).toBeCloseTo(Math.hypot(4, 0.1), 9);
+      expect(s.tracked[1].dev).not.toBeNull();
+    });
+
+    it('falls back to the nearest held when the pick is not held', () => {
+      expect(ids(azElSelect(fp, ['a', 'b'], 'c'))).toMatchObject({ prim: 'a', primaryId: 'a', notNearest: false });
+      expect(ids(azElSelect(fp, ['a', 'b'], 'gone'))).toMatchObject({ prim: 'a', primaryId: 'a' });
+    });
+
+    it('lists a held aircraft outside the field without drawing it, at most two rows', () => {
+      const s = azElSelect(fp, ['d', 'c'], 'd');
+      expect(ids(s)).toEqual({ prim: null, ghosts: ['a', 'b', 'c'], rows: ['c', 'd'], primaryId: 'd', notNearest: true });
+      expect(s.tracked[1].dev).toBeNull();
+      expect(s.tracked[1].r).toBeCloseTo(7.5, 9);
+      expect(azElSelect(fp, ['a', 'b', 'c'], null).tracked.map((k) => k.a.t.id)).toEqual(['a', 'b']);
+    });
   });
 });
