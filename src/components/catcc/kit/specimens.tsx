@@ -135,7 +135,7 @@ const controls: KitSection = {
           <K.ToolButton state="on" label="Select"><Ic.IcSelect /></K.ToolButton>
           <K.ToolButton label="BRA"><Ic.IcBra /></K.ToolButton>
           <K.ToolButton label="Marshal"><Ic.IcMarshal /></K.ToolButton>
-          <K.ToolButton label="Vector"><Ic.IcVec /></K.ToolButton>
+          <K.ToolButton label="Vector / heading line"><Ic.IcVec /></K.ToolButton>
           <K.ToolButton label="CPA"><Ic.IcCpa /></K.ToolButton>
           <K.ToolDivider />
           <K.ToolButton label="Comms scripts"><Ic.IcComms /></K.ToolButton>
@@ -143,10 +143,13 @@ const controls: KitSection = {
           <K.ToolButton label="Zoom out"><Ic.IcZoomOut /></K.ToolButton>
           <K.RangeReadout nm={25} />
           <K.ToolButton label="Zoom in"><Ic.IcZoomIn /></K.ToolButton>
+          <K.ToolDivider />
+          <K.VectorButton s={30} />
         </K.Toolbar>
       ),
     },
     { name: 'Control/Toolbar divider', render: () => <K.ToolDivider /> },
+    ...each('Control/Vector button', [1, 2, 5, 10, 30] as const, (v) => `time=${v}s`, (v) => <K.VectorButton s={v} />),
     ...each('Control/Range button', ['on', 'off'] as const, (v) => `state=${v}`, (v) => <K.RangeButton on={v === 'on'}>12 NM</K.RangeButton>),
     ...each('Control/Outline button', ['md', 'sm'] as const, (v) => `size=${v}`, (v) => <K.OutlineButton size={v}>{v === 'md' ? 'Order' : 'Plot'}</K.OutlineButton>),
     ...each('Control/Toggle button', ['on', 'off', 'disabled'] as const, (v) => `state=${v}`, (v) => <K.ToggleButton on={v === 'on'} enabled={v !== 'disabled'}>Hold</K.ToggleButton>),

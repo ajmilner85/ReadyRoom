@@ -395,10 +395,14 @@ export function smoothedCourse(t: ScopeTrack, dots = 3): number {
   return bearingOf(d);
 }
 
-/** 30 s of travel, capped at 2.5 NM (handoff §5.2). */
-export function velocityEnd(t: ScopeTrack): Pt | undefined {
+/**
+ * The projection (velocity) vector's end: exactly `seconds` of travel at groundspeed along the course,
+ * none under 20 kt. Uncapped: the display's toolbar picks the time (1 / 2 / 5 / 10 / 30 s), so the
+ * length always means that many seconds (handoff §5.2's 2.5 NM cap dropped, DECISIONS).
+ */
+export function velocityEnd(t: ScopeTrack, seconds = 30): Pt | undefined {
   if (t.gs === undefined || t.gs < 20) return undefined;
-  const d = Math.min(2.5, (t.gs * 30) / 3600);
+  const d = (t.gs * seconds) / 3600;
   const v = dir(t.crs ?? t.hdg ?? 0);
   return [t.p[0] + v[0] * d, t.p[1] + v[1] * d];
 }

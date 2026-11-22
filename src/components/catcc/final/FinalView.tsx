@@ -12,6 +12,7 @@ import { windOverDeck } from '../../../catcc/core/env/wod.ts';
 import { HandoffRow } from '../Handoff.tsx';
 import { IcLayers } from '../icons.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
+import { useVecSeconds } from '../vecLength.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
@@ -215,6 +216,8 @@ export const FinalView: React.FC<{
   aclsLocks?: readonly string[];
 }> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly, recoveryCase, aclsLocks }) => {
   const [RG, setRG] = useState<ParRange>(defaultRange);
+  // projection-vector time (toolbar Vector button), shared by the Approach / Final displays in this browser
+  const [vecS, stepVec] = useVecSeconds('final');
   const [ghost, setGhost] = useState(true);
   const [sep, setSep] = useState(false);
   const [layersOpen, setLayersOpen] = useState(false);
@@ -558,7 +561,7 @@ export const FinalView: React.FC<{
   for (const a of fp?.acs ?? []) {
     if (!fp || !inside(a)) continue;
     const t = a.t;
-    // the main radar's colours, data tag, trail and 30 s vector
+    // the main radar's colours, data tag, trail and vector (toolbar time)
     const red = conflictIds.has(t.id);
     const c = red ? '#FF8A85' : TRK;
     const tc = red ? '#B8433F' : TRK_TRAIL;
@@ -577,11 +580,11 @@ export const FinalView: React.FC<{
     });
     let vE: number[] | undefined;
     let vA: number[] | undefined;
-    const ve = velocityEnd(t);
-    if (ve && t.gs) {
+    const ve = velocityEnd(t, vecS);
+    if (ve) {
       const [eal, ela] = fp.toFinal(ve);
-      const s30 = (Math.hypot(ve[0] - t.p[0], ve[1] - t.p[1]) / t.gs) * 3600;
-      const altEnd = t.alt + ((t.vs ?? 0) * s30) / 60;
+      // the Elevation display's vector: the climb or descent over the same time
+      const altEnd = t.alt + ((t.vs ?? 0) * vecS) / 60;
       vE = [X(a.f.along), Ye(t.alt), X(eal), Ye(altEnd)];
       vA = [X(a.f.along), Ya(a.f.lat), X(eal), Ya(ela)];
     }
@@ -806,6 +809,10 @@ export const FinalView: React.FC<{
                 {r} NM
               </button>
             ))}
+            <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+            <button aria-label="Vector" title="Vector" onClick={stepVec} style={{ height: 32, padding: '0 9px', borderRadius: 5, border: '1px solid #374250', background: 'transparent', color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, cursor: 'pointer' }}>
+              {vecS}s
+            </button>
           </div>
           <div style={{ position: 'absolute', right: 0, top: 4, zIndex: 5, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 6 }}>
             <button className="tbtn" aria-label="Layers" title="Layers" aria-expanded={layersOpen} onClick={() => setLayersOpen(!layersOpen)} style={{ background: layersOpen ? '#3D2521' : 'rgba(21,26,33,.96)', color: layersOpen ? '#FFB08F' : '#E6EDF3', borderColor: '#374250' }}>

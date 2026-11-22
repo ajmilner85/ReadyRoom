@@ -783,3 +783,11 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 
 - The user asked for the same scale on both axes and chose to keep the scope square: azimuth is now ±3° (was ±6°), the same as elevation (±3° about the glideslope). Ticks every 0.5°, whole degrees labelled, on both axes. An aircraft more than 3° off course is outside the field.
 - The track table now sits inset in the plot's top-right corner (inside the frame, just below the HI label, sized to its rows) instead of the pane's corner (the user).
+
+## Projection vectors: a Vector button on every radar display (2026-11-22)
+
+- The user asked for a toolbar button on all radar displays that cycles the projection (velocity) vector time 1 → 2 → 5 → 10 → 30 → 1 s. The radar scope (every seat that shows it: CATCC, CDC, Bridge) defaults to 30 s; the Approach / Final displays (Elevation and Azimuth) to 2 s. The AZ/EL display draws no vectors, so it has no button.
+- The button sits in each display's centred toolbar: on the radar after the zoom group (Zoom out · RNG · Zoom in | Vector |), on Approach / Final after the 6 / 12 / 24 NM range buttons. It is styled as an unlit range button (h 32, IBM Plex Mono 11.5) and shows the time, e.g. "30s"; label and title "Vector". It is not the Vector / heading line tool (IcVec), which keeps its icon.
+- The vector is now exactly the chosen time of travel at groundspeed along the course, with no length cap: handoff §5.2's 2.5 NM cap is dropped, since a capped vector would no longer mean the seconds the button shows (at 30 s it only bit above 300 kt). Still no vector under 20 kt. The Elevation display's vector projects the climb or descent over the same time.
+- The setting is kept per display type, not per seat: one value for the radar scope and one for Approach / Final, saved in this browser (`catcc.vec.radar`, `catcc.vec.final`), matching the user's defaults, which are given per display type.
+- Tag placement copes with any length: the radar's layout keeps tags off the vector's direction, and Approach / Final keeps tags off the drawn vector itself.

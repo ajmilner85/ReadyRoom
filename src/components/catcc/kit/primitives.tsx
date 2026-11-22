@@ -114,6 +114,13 @@ export const RangeButton: React.FC<{ on: boolean; children: React.ReactNode; onC
   </button>
 );
 
+/** Projection-vector time in a toolbar (Scope / FinalView Vector: an unlit range preset showing the seconds; click steps 1 / 2 / 5 / 10 / 30). */
+export const VectorButton: React.FC<{ s: number; onClick?: () => void }> = ({ s, onClick }) => (
+  <button aria-label="Vector" title="Vector" onClick={onClick} style={{ height: 32, padding: '0 9px', borderRadius: 5, border: '1px solid #374250', background: 'transparent', color: '#E6EDF3', fontFamily: MONO, fontSize: 11.5, cursor: 'pointer' }}>
+    {s}s
+  </button>
+);
+
 /** Small mono button (LayersPanel Reset / All on). */
 export const SmallButton: React.FC<{ children: React.ReactNode; onClick?: () => void }> = ({ children, onClick }) => (
   <button onClick={onClick} style={{ background: '#222C37', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, padding: '3px 8px', fontFamily: MONO, fontSize: 10.5, cursor: 'pointer' }}>

@@ -128,6 +128,7 @@ const DonorBeam: React.FC<{ x: number; y: number; r: number; scanS: number; phas
 import { inAltBlock, smoothedCourse, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
+import { useVecSeconds } from '../vecLength.ts';
 import { IcBra, IcBulls, IcCpa, IcComms, IcIntercept, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
@@ -613,6 +614,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   // wheel-zooming unlocks it: the view centre is then pinned to a geographic point until the
   // centre-on-carrier button or a range preset locks it again.
   const [lock, setLock] = useState(true);
+  // projection-vector time (toolbar Vector button), shared by every radar seat in this browser
+  const [vecS, stepVec] = useVecSeconds('radar');
   // wheel/zoom-button activity: the marine layer is scaled as an image meanwhile and redrawn once idle
   const zoomedAt = useRef(0);
   const zoomIdleT = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
@@ -2701,7 +2704,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             {pic.air
               .filter((t) => !hidden.has(t.id))
               .map((t) => {
-                const e = velocityEnd(t);
+                const e = velocityEnd(t, vecS);
                 if (!e) return null;
                 const c = dimC(t.id, conflictIds.has(t.id) ? '#FF8A85' : isBlue(t) ? BLUE_TAG : TRK);
                 return <line key={`v${t.id}`} x1={f2(t.p[0])} y1={f2(t.p[1])} x2={f2(e[0])} y2={f2(e[1])} stroke={c} />;
@@ -2982,6 +2985,10 @@ export const Scope: React.FC<ScopeProps> = (props) => {
             </span>
             <button className="tbtn" aria-label="Zoom in" title="Zoom in" onClick={() => zoomBy(1 / 1.4)} style={{ color: '#E6EDF3' }}>
               <IcZoomIn />
+            </button>
+            <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+            <button aria-label="Vector" title="Vector" onClick={stepVec} style={{ height: 32, padding: '0 9px', borderRadius: 5, border: '1px solid #374250', background: 'transparent', color: '#E6EDF3', fontFamily: "'IBM Plex Mono', monospace", fontSize: 11.5, cursor: 'pointer' }}>
+              {vecS}s
             </button>
             <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
             {props.onCsg && (
