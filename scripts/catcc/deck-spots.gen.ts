@@ -100,12 +100,13 @@ export function edgeAdjusted(x: number, z: number, hdgCw: number): [number, numb
     }
   }
   if (lo === null || hi === null) return [x, z, 0];
+  let [l, h]: [number, number] = [lo, hi];
   for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (f(lo) * f(mid) <= 0) hi = mid;
-    else lo = mid;
+    const mid = (l + h) / 2;
+    if (f(l) * f(mid) <= 0) h = mid;
+    else l = mid;
   }
-  const t = (lo + hi) / 2;
+  const t = (l + h) / 2;
   return [x + t * hx, z + t * hz, t];
 }
 
