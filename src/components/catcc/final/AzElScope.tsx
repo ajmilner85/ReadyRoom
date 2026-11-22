@@ -26,7 +26,8 @@ const SEA = (() => {
   const n = 17;
   const w = (2 * H) / n;
   let d = `M${200 - H} ${y}`;
-  for (let i = 0; i < n; i++) d += `q${(w / 2).toFixed(2)} -4 ${w.toFixed(2)} 0`;
+  // each scallop dips between pointed crests that face up
+  for (let i = 0; i < n; i++) d += `q${(w / 2).toFixed(2)} 4 ${w.toFixed(2)} 0`;
   return d;
 })();
 /** seen from the ship: right of course (az +) draws left of centre */

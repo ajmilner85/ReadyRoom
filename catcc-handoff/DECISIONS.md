@@ -801,3 +801,4 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 
 - The user: the Approach / Final displays' projection vectors default to 10 s (were 2 s). The radar stays 30 s. A value already chosen in a browser is kept.
 - A scalloped sea line runs under the plot frame (the user), in the Azimuth display's BRC line stroke (rgba(111,182,230,.45), 1.2); nothing else moves.
+- The sea line's scallops are flipped (the user): each dips between pointed crests that face up.
