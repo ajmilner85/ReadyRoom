@@ -168,6 +168,48 @@ export function upwindSlot(fp: FinalPicture, u: FinalAc): SlotResult & { x0: num
   return { ...r, x0, offNm: off };
 }
 
+/** The AZ/EL scope's coverage: out to 6 NM of the glidepath origin, ±6° in azimuth, ±3° about the glideslope. */
+export const AZEL_NM = 6;
+export const AZEL_AZ_DEG = 6;
+export const AZEL_EL_DEG = 3;
+
+export interface GlideDev {
+  /** azimuth (localizer) deviation, °: right of course (the pilot's right, inbound) positive */
+  az: number;
+  /** elevation (glideslope) deviation, °: above the glidepath positive */
+  el: number;
+  /** range from the glidepath origin over the ground, NM */
+  r: number;
+}
+
+/**
+ * Angular deviation from the glidepath centreline, seen from its origin: the touchdown point
+ * (along 0, lat 0 in the final frame, 0 ft, as on the Elevation and Azimuth scopes). Null at or
+ * past the origin, where there are no angles to measure.
+ */
+export function glideDeviation(along: number, lat: number, altFt: number): GlideDev | null {
+  if (along <= 0.05) return null;
+  const r = Math.hypot(along, lat);
+  const D = 180 / Math.PI;
+  return { az: Math.atan2(lat, along) * D, el: Math.atan2(altFt / 6076.12, r) * D - GS_DEG, r };
+}
+
+export interface AzElContact {
+  a: FinalAc;
+  dev: GlideDev;
+}
+
+/** Aircraft inside the AZ/EL scope's coverage, nearest the origin first: the first is the primary contact, the rest ghosts. */
+export function azElPicture(fp: FinalPicture | null): AzElContact[] {
+  const out: AzElContact[] = [];
+  for (const a of fp?.acs ?? []) {
+    const dev = glideDeviation(a.f.along, a.f.lat, a.t.alt);
+    if (!dev || dev.r > AZEL_NM || Math.abs(dev.az) > AZEL_AZ_DEG || Math.abs(dev.el) > AZEL_EL_DEG) continue;
+    out.push({ a, dev });
+  }
+  return out.sort((x, y) => x.dev.r - y.dev.r);
+}
+
 /** turn-downwind ranges offered for an aircraft on the upwind, NM ahead */
 export const UPWIND_DME = [1.5, 2.5, 3.5];
 

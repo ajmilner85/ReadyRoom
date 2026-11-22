@@ -1,7 +1,7 @@
 /**
  * CATCC Approach / Final: two precision-approach (PAR-style) displays stacked on one range axis,
- * touchdown on the left, plus deck status, ICLS / ACLS, the bolter slot tool and the arrival
- * sequence. Ported from carrier-ops-handoff-2/mockup/Final.dc.html; live data from the picture.
+ * touchdown on the left, a square AZ/EL display on the glidepath beside the Azimuth display, plus
+ * deck status, ICLS / ACLS, the bolter slot tool and the arrival sequence in two columns above it. Ported from carrier-ops-handoff-2/mockup/Final.dc.html; live data from the picture.
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { layoutTags, type Box, type TagPlace } from '../radar/tagLayout.ts';
@@ -14,6 +14,7 @@ import { IcLayers } from '../icons.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
+import { AzElScope } from './AzElScope.tsx';
 import { bolterSlot, upwindSlot, dmeAt, finalPicture, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
@@ -59,6 +60,7 @@ const ms = (t: number) => {
 const C = { ok: '#7FD397', marginal: '#E7B04F', bad: '#FF8A85' } as const;
 const SEG: React.CSSProperties = { display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 };
 const segBtn = (on: boolean, extra: React.CSSProperties = {}): React.CSSProperties => ({ border: 0, height: 28, padding: '0 10px', borderRadius: 4, fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer', background: on ? '#222C37' : 'transparent', color: on ? '#E6EDF3' : '#93A1B0', ...extra });
+const COL: React.CSSProperties = { display: 'flex', flexDirection: 'column', gap: 10, minWidth: 0, minHeight: 0, overflowY: 'auto' };
 const kv = (k: React.ReactNode, v: React.ReactNode) => (
   <div style={{ display: 'flex', justifyContent: 'space-between', gap: 10, fontFamily: "'IBM Plex Mono', monospace", fontSize: 12.5, padding: '3px 0' }}>
     <span style={{ color: '#93A1B0' }}>{k}</span>
@@ -521,6 +523,8 @@ export const FinalView: React.FC<{
   const upw = fp?.upwinds[0];
   const uslot = fp && upw ? upwindSlot(fp, upw) : null;
   const foul = !!deck?.foul;
+  // the right-hand column is as wide as the square AZ/EL display (the Azimuth display's height) plus its margin
+  const sideW = sz.h ? sz.h + 10 : 344;
 
   // slot timeline (s from now, scaled to the latest mark) and the options against the arrivals
   const slotDetail = (sl: SlotResult) => {
@@ -544,9 +548,9 @@ export const FinalView: React.FC<{
           {sl.ballS && <span style={{ position: 'absolute', left: `${mx(sl.ballS[0])}%`, width: `${Math.max(0.5, mx(sl.ballS[1]) - mx(sl.ballS[0]))}%`, top: -3, height: 6, background: 'rgba(95,208,104,.35)', borderRadius: 2 }} />}
         </div>
         {sl.options.map((o) => (
-          <div key={o.key} className="mono" style={{ display: 'grid', gridTemplateColumns: '48px 104px 1fr', gap: 6, fontSize: 12, padding: '3px 0', whiteSpace: 'nowrap' }}>
-            <span style={{ color: C[o.cls], fontWeight: 600 }}>{o.key}</span>
-            <span>3/4 {tod(o.t)}</span>
+          <div key={o.key} className="mono" style={{ display: 'flex', flexWrap: 'wrap', columnGap: 6, fontSize: 12, padding: '3px 0', whiteSpace: 'nowrap' }}>
+            <span style={{ color: C[o.cls], fontWeight: 600, width: 48 }}>{o.key}</span>
+            <span style={{ width: 104 }}>3/4 {tod(o.t)}</span>
             <span style={{ color: C[o.cls] }}>
               {o.gapAhead < 0 ? `${ms(-o.gapAhead)} ahead of ${o.ahead}` : o.gapBehind < 0 ? `${ms(-o.gapBehind)} behind ${o.behind}` : `${Number.isFinite(o.gapAhead) ? `+${ms(o.gapAhead)}` : '—'} / ${Number.isFinite(o.gapBehind) ? `−${ms(o.gapBehind)}` : '—'}`}
             </span>
@@ -806,140 +810,150 @@ export const FinalView: React.FC<{
         )}
       </main>
 
-      <aside aria-label="Deck, landing aids and sequence" style={{ flex: '0 0 344px', width: 344, borderLeft: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, boxSizing: 'border-box', overflowY: 'auto' }}>
-        {deck && (
-          <section className="pnl" aria-label="Deck status" style={{ borderColor: foul ? '#E0524E' : '#2E5E3A', background: foul ? 'rgba(224,82,78,.08)' : 'rgba(64,168,91,.06)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <span className="lbl" style={{ color: foul ? '#FF8A85' : '#7FD397' }}>Deck</span>
-              {next && <span className="mono" style={{ fontSize: 11.5, color: foul ? '#FF8A85' : '#93A1B0' }}>{`${label(next.t)} 3/4 NM in ${ms(next.tBall!)}`}</span>}
-            </div>
-            <div className={foul ? 'blink' : undefined} style={{ fontSize: 26, fontWeight: 700, letterSpacing: '.04em', color: foul ? '#FF8A85' : '#7FD397', lineHeight: 1.15 }}>
-              {foul ? `FOUL${deck.reason ? ` · ${deck.reason.toUpperCase()}` : ''}` : 'CLEAR'}
-            </div>
-            {kv('Wind over deck', wod ? `${Math.round(wod.kt)} KT · ${Math.abs(wodAng)}° ${wodAng >= 0 ? 'R' : 'L'} of angle` : '—')}
-            {kv('Arresting gear', next ? `${shortType(next.t.ty)} · ${nextW ? nextW.toLocaleString('en-US') : '—'}` : '—')}
-            {kv('Lens', `${GS_DEG}° · HTR 13.5 FT`)}
-            {!deck.called && <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>From the picture · PriFly hasn't called it</div>}
-          </section>
-        )}
+      {/* right: the panels in two columns beside the Elevation display, the square AZ/EL display beside the Azimuth display */}
+      <div style={{ flex: `0 0 ${sideW}px`, width: sideW, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
+        <aside aria-label="Deck, landing aids and sequence" style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10, borderLeft: '1px solid #262F3A', borderBottom: '1px solid #262F3A', borderBottomLeftRadius: 8, background: '#151A21', padding: 12, boxSizing: 'border-box' }}>
+          <div style={COL}>
+            {deck && (
+              <section className="pnl" aria-label="Deck status" style={{ borderColor: foul ? '#E0524E' : '#2E5E3A', background: foul ? 'rgba(224,82,78,.08)' : 'rgba(64,168,91,.06)' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                  <span className="lbl" style={{ color: foul ? '#FF8A85' : '#7FD397' }}>Deck</span>
+                  {next && <span className="mono" style={{ fontSize: 11.5, color: foul ? '#FF8A85' : '#93A1B0' }}>{`${label(next.t)} 3/4 NM in ${ms(next.tBall!)}`}</span>}
+                </div>
+                <div className={foul ? 'blink' : undefined} style={{ fontSize: 26, fontWeight: 700, letterSpacing: '.04em', color: foul ? '#FF8A85' : '#7FD397', lineHeight: 1.15 }}>
+                  {foul ? `FOUL${deck.reason ? ` · ${deck.reason.toUpperCase()}` : ''}` : 'CLEAR'}
+                </div>
+                {kv('Wind over deck', wod ? `${Math.round(wod.kt)} KT · ${Math.abs(wodAng)}° ${wodAng >= 0 ? 'R' : 'L'} of angle` : '—')}
+                {kv('Arresting gear', next ? `${shortType(next.t.ty)} · ${nextW ? nextW.toLocaleString('en-US') : '—'}` : '—')}
+                {kv('Lens', `${GS_DEG}° · HTR 13.5 FT`)}
+                {!deck.called && <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>From the picture · PriFly hasn't called it</div>}
+              </section>
+            )}
 
-        <section className="pnl" aria-label="Landing aids">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
-            <span className="lbl">ICLS</span>
-            <div style={SEG}>
-              {(['ON', 'OFF'] as const).map((k) => (
-                <button key={k} disabled={readOnly} aria-pressed={aids.icls === (k === 'ON')} onClick={() => setAids({ icls: k === 'ON' })} style={segBtn(aids.icls === (k === 'ON'), { height: 24, fontSize: 11 })}>
-                  {k}
-                </button>
-              ))}
-            </div>
-          </div>
-          {kv('Channel · glideslope', `CH 13 · ${GS_DEG}°`)}
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0 4px' }}>
-            <span className="lbl">ACLS · SPN-46</span>
-            <div style={SEG}>
-              {(['UP', 'DOWN'] as const).map((k) => (
-                <button key={k} disabled={readOnly} aria-pressed={aids.acls === (k === 'UP')} onClick={() => setAids({ acls: k === 'UP' })} style={segBtn(aids.acls === (k === 'UP'), { height: 24, fontSize: 11 })}>
-                  {k}
-                </button>
-              ))}
-            </div>
-          </div>
-          {kv('Link 4', '373.000')}
-          {locks.map((a) => {
-            const st = lockOf(a, ops)!;
-            const key = keyOf(a.t);
-            const mode = aids.modes[key] ?? 'II';
-            return (
-              <div key={a.t.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '4px 0' }}>
-                <span className="mono" style={{ fontSize: 12 }}>
-                  <b>{label(a.t)}</b> <span style={{ color: st === 'LOCK-ON' ? '#7FD397' : '#E7B04F' }}>{st}</span>
-                </span>
+            <section className="pnl" aria-label="Landing aids">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 4 }}>
+                <span className="lbl">ICLS</span>
                 <div style={SEG}>
-                  {(['I', 'IA', 'II', 'III'] as AclsMode[]).map((m) => (
-                    <button key={m} disabled={readOnly} aria-pressed={mode === m} onClick={() => setAids({ modes: { ...aids.modes, [key]: m } })} style={segBtn(mode === m, { height: 24, fontSize: 11, padding: '0 7px' })}>
-                      {m}
+                  {(['ON', 'OFF'] as const).map((k) => (
+                    <button key={k} disabled={readOnly} aria-pressed={aids.icls === (k === 'ON')} onClick={() => setAids({ icls: k === 'ON' })} style={segBtn(aids.icls === (k === 'ON'), { height: 24, fontSize: 11 })}>
+                      {k}
                     </button>
                   ))}
                 </div>
               </div>
-            );
-          })}
-          {!locks.length && <div className="mono" style={{ fontSize: 11.5, color: '#6B7683', paddingTop: 4 }}>{aids.acls ? 'No aircraft in ACLS coverage' : 'ACLS down'}</div>}
-        </section>
-
-        <section className="pnl" aria-label="Bolter slot">
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-            <span className="lbl">Bolter slot{bolter ? ` · ${label(bolter.t)}` : ''}</span>
-            {bolter && <span className="mono" style={{ fontSize: 11.5, color: (bolter.t.lb ?? 99999) < 4500 ? '#E7B04F' : '#93A1B0' }}>STATE {fuelK(bolter.t.lb) || '—'}</span>}
-          </div>
-          {!bolter || !slot ? (
-            <div className="mono" style={{ fontSize: 12, color: '#6B7683' }}>No aircraft on the bolter downwind</div>
-          ) : (
-            <>
-              {slot.window ? (
-                <>
-                  <div style={{ fontSize: 18, fontWeight: 700, color: '#7FD397' }}>
-                    Turn between {dmeAt(slot.window[0], bolter!.f.lat).toFixed(1)}–{dmeAt(slot.window[1], bolter!.f.lat).toFixed(1)} DME
-                  </div>
-                  <div className="mono" style={{ fontSize: 12, color: '#93A1B0', marginBottom: 8 }}>
-                    in {ms(slot.inS![0])}–{ms(slot.inS![1])} · 3/4 {tod(slot.ballS![0])}–{tod(slot.ballS![1]).slice(3)}
-                  </div>
-                </>
-              ) : (
-                <div style={{ fontSize: 16, fontWeight: 700, color: '#FF8A85', marginBottom: 8 }}>No slot on this downwind</div>
-              )}
-              {slotDetail(slot)}
-            </>
-          )}
-        </section>
-
-        {upw && uslot && (
-          <section className="pnl" aria-label="Upwind turn">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
-              <span className="lbl">Upwind turn · {label(upw.t)}</span>
-              <span className="mono" style={{ fontSize: 11.5, color: (upw.t.lb ?? 99999) < 4500 ? '#E7B04F' : '#93A1B0' }}>STATE {fuelK(upw.t.lb) || '—'}</span>
-            </div>
-            {uslot.window ? (
-              <>
-                <div style={{ fontSize: 18, fontWeight: 700, color: '#7FD397' }}>
-                  Turn downwind {uslot.window[0].toFixed(1)}–{uslot.window[1].toFixed(1)} NM ahead
+              {kv('Channel · glideslope', `CH 13 · ${GS_DEG}°`)}
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', margin: '10px 0 4px' }}>
+                <span className="lbl">ACLS · SPN-46</span>
+                <div style={SEG}>
+                  {(['UP', 'DOWN'] as const).map((k) => (
+                    <button key={k} disabled={readOnly} aria-pressed={aids.acls === (k === 'UP')} onClick={() => setAids({ acls: k === 'UP' })} style={segBtn(aids.acls === (k === 'UP'), { height: 24, fontSize: 11 })}>
+                      {k}
+                    </button>
+                  ))}
                 </div>
-                <div className="mono" style={{ fontSize: 12, color: '#93A1B0', marginBottom: 8 }}>
-                  in {ms(uslot.inS![0])}–{ms(uslot.inS![1])} · 3/4 {tod(uslot.ballS![0])}–{tod(uslot.ballS![1]).slice(3)}
-                </div>
-              </>
-            ) : (
-              <div style={{ fontSize: 16, fontWeight: 700, color: '#FF8A85', marginBottom: 8 }}>No slot from this upwind</div>
-            )}
-            {slotDetail(uslot)}
-            <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>Turn-in to final at {UPWIND_TURN_IN_NM} DME assumed</div>
-          </section>
-        )}
-
-        <section className="pnl" aria-label="Sequence">
-          <div className="lbl" style={{ marginBottom: 6 }}>Sequence</div>
-          {seq.map((a) => {
-            const t = a.t;
-            // pattern traffic (arrivals, bolters) belongs to Approach / Final, whatever its sortie phase
-            const v = ownerOf(keyOf(t), hull, 'approach', Math.max(0, a.f.along), handoffCtx.layout, owners);
-            const where = a.kind === 'bolter' ? 'BOLTER · DOWNWIND' : a.kind === 'upwind' ? 'UPWIND' : a.f.along <= 12 ? `3/4 in ${ms(a.tBall!)}` : `${a.f.along.toFixed(1)} NM · 3/4 in ${ms(a.tBall!)}`;
-            const low = (t.lb ?? 99999) < 4500;
-            return (
-              <div key={t.id} style={{ padding: '6px 8px', marginTop: 4, border: `1px solid ${v.pending ? '#E7B04F' : '#262F3A'}`, borderRadius: 5, background: '#1A212A' }}>
-                <div className="mono" style={{ fontSize: 12 }}>
-                  <div>
-                    <b>{label(t)}</b> <span style={{ color: '#93A1B0' }}>{t.cs ?? shortType(t.ty)}</span> <span style={{ color: low ? '#E7B04F' : '#E6EDF3' }}>{fuelK(t.lb)}</span>
-                  </div>
-                  <div style={{ color: '#93A1B0' }}>{where}</div>
-                </div>
-                <HandoffRow v={v} ctx={handoffCtx} />
               </div>
-            );
-          })}
-          {!seq.length && <div className="mono" style={{ fontSize: 12, color: '#6B7683' }}>No arrivals</div>}
-        </section>
-      </aside>
+              {kv('Link 4', '373.000')}
+              {locks.map((a) => {
+                const st = lockOf(a, ops)!;
+                const key = keyOf(a.t);
+                const mode = aids.modes[key] ?? 'II';
+                return (
+                  <div key={a.t.id} style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '4px 0' }}>
+                    <span className="mono" style={{ fontSize: 12 }}>
+                      <b>{label(a.t)}</b> <span style={{ color: st === 'LOCK-ON' ? '#7FD397' : '#E7B04F' }}>{st}</span>
+                    </span>
+                    <div style={SEG}>
+                      {(['I', 'IA', 'II', 'III'] as AclsMode[]).map((m) => (
+                        <button key={m} disabled={readOnly} aria-pressed={mode === m} onClick={() => setAids({ modes: { ...aids.modes, [key]: m } })} style={segBtn(mode === m, { height: 24, fontSize: 11, padding: '0 7px' })}>
+                          {m}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+              {!locks.length && <div className="mono" style={{ fontSize: 11.5, color: '#6B7683', paddingTop: 4 }}>{aids.acls ? 'No aircraft in ACLS coverage' : 'ACLS down'}</div>}
+            </section>
+          </div>
+
+          <div style={COL}>
+            <section className="pnl" aria-label="Bolter slot">
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                <span className="lbl">Bolter slot{bolter ? ` · ${label(bolter.t)}` : ''}</span>
+                {bolter && <span className="mono" style={{ fontSize: 11.5, color: (bolter.t.lb ?? 99999) < 4500 ? '#E7B04F' : '#93A1B0' }}>STATE {fuelK(bolter.t.lb) || '—'}</span>}
+              </div>
+              {!bolter || !slot ? (
+                <div className="mono" style={{ fontSize: 12, color: '#6B7683' }}>No aircraft on the bolter downwind</div>
+              ) : (
+                <>
+                  {slot.window ? (
+                    <>
+                      <div style={{ fontSize: 18, fontWeight: 700, color: '#7FD397' }}>
+                        Turn between {dmeAt(slot.window[0], bolter!.f.lat).toFixed(1)}–{dmeAt(slot.window[1], bolter!.f.lat).toFixed(1)} DME
+                      </div>
+                      <div className="mono" style={{ fontSize: 12, color: '#93A1B0', marginBottom: 8 }}>
+                        in {ms(slot.inS![0])}–{ms(slot.inS![1])} · 3/4 {tod(slot.ballS![0])}–{tod(slot.ballS![1]).slice(3)}
+                      </div>
+                    </>
+                  ) : (
+                    <div style={{ fontSize: 16, fontWeight: 700, color: '#FF8A85', marginBottom: 8 }}>No slot on this downwind</div>
+                  )}
+                  {slotDetail(slot)}
+                </>
+              )}
+            </section>
+
+            {upw && uslot && (
+              <section className="pnl" aria-label="Upwind turn">
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
+                  <span className="lbl">Upwind turn · {label(upw.t)}</span>
+                  <span className="mono" style={{ fontSize: 11.5, color: (upw.t.lb ?? 99999) < 4500 ? '#E7B04F' : '#93A1B0' }}>STATE {fuelK(upw.t.lb) || '—'}</span>
+                </div>
+                {uslot.window ? (
+                  <>
+                    <div style={{ fontSize: 18, fontWeight: 700, color: '#7FD397' }}>
+                      Turn downwind {uslot.window[0].toFixed(1)}–{uslot.window[1].toFixed(1)} NM ahead
+                    </div>
+                    <div className="mono" style={{ fontSize: 12, color: '#93A1B0', marginBottom: 8 }}>
+                      in {ms(uslot.inS![0])}–{ms(uslot.inS![1])} · 3/4 {tod(uslot.ballS![0])}–{tod(uslot.ballS![1]).slice(3)}
+                    </div>
+                  </>
+                ) : (
+                  <div style={{ fontSize: 16, fontWeight: 700, color: '#FF8A85', marginBottom: 8 }}>No slot from this upwind</div>
+                )}
+                {slotDetail(uslot)}
+                <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>Turn-in to final at {UPWIND_TURN_IN_NM} DME assumed</div>
+              </section>
+            )}
+
+            <section className="pnl" aria-label="Sequence">
+              <div className="lbl" style={{ marginBottom: 6 }}>Sequence</div>
+              {seq.map((a) => {
+                const t = a.t;
+                // pattern traffic (arrivals, bolters) belongs to Approach / Final, whatever its sortie phase
+                const v = ownerOf(keyOf(t), hull, 'approach', Math.max(0, a.f.along), handoffCtx.layout, owners);
+                const where = a.kind === 'bolter' ? 'BOLTER · DOWNWIND' : a.kind === 'upwind' ? 'UPWIND' : a.f.along <= 12 ? `3/4 in ${ms(a.tBall!)}` : `${a.f.along.toFixed(1)} NM · 3/4 in ${ms(a.tBall!)}`;
+                const low = (t.lb ?? 99999) < 4500;
+                return (
+                  <div key={t.id} style={{ padding: '6px 8px', marginTop: 4, border: `1px solid ${v.pending ? '#E7B04F' : '#262F3A'}`, borderRadius: 5, background: '#1A212A' }}>
+                    <div className="mono" style={{ fontSize: 12 }}>
+                      <div>
+                        <b>{label(t)}</b> <span style={{ color: '#93A1B0' }}>{t.cs ?? shortType(t.ty)}</span> <span style={{ color: low ? '#E7B04F' : '#E6EDF3' }}>{fuelK(t.lb)}</span>
+                      </div>
+                      <div style={{ color: '#93A1B0' }}>{where}</div>
+                    </div>
+                    <HandoffRow v={v} ctx={handoffCtx} />
+                  </div>
+                );
+              })}
+              {!seq.length && <div className="mono" style={{ fontSize: 12, color: '#6B7683' }}>No arrivals</div>}
+            </section>
+          </div>
+        </aside>
+        <div style={{ padding: '8px 10px 10px 0' }}>
+          <AzElScope fp={fp} tol={ov.tol} conflictIds={conflictIds} style={{ width: sz.h || 334, height: sz.h || 334 }} />
+        </div>
+      </div>
     </div>
   );
 };
