@@ -47,6 +47,17 @@ npm run build
 - `figma/catcc-kit/` is a Figma development plugin built from that page. It makes CATCC colour variables, text styles and components with variants for sketching new CATCC features. To import it, open the Figma desktop app, choose **Plugins → Development → Import plugin from manifest…**, pick `figma/catcc-kit/manifest.json`, then run **CATCC Kit**. See `figma/catcc-kit/README.md`.
 - After changing the kit, regenerate the plugin's data with `node scripts/catcc/figma-kit.gen.ts`. It needs headless Chromium (playwright-core) and the network for the Google fonts. The tests check that it is current.
 
+## CATCC access
+
+The CATCC interface (`/catcc`) and the deck kneeboard read their picture from the CATCC room, which lets in members of the wing only. The room checks every sign-in against the roster (`catcc-server/room/membership.ts`):
+
+- The pilot record whose Discord ID is the Discord account the user signed in with (a pilot record linked only through the user's own profile doesn't count).
+- That pilot has a current squadron assignment, in a squadron that isn't deactivated.
+- That pilot's current roster status is one marked active in Settings > Roster (today only Active; On Leave, Retired, AWOL and Removed are not).
+- Or the user is a ReadyRoom admin: they have a manual-override Developer Settings permission.
+
+Anyone else who signs in sees "Access denied" with the reason (for example "No roster pilot for this Discord account"). Answers are cached for 5 minutes (a refusal for 1 minute), so a roster change takes effect within that time; after a refusal, reload the page. Local development with `CATCC_DEV_NOAUTH` (`npm run catcc:replay`, `npm run catcc:local`) lets anyone in.
+
 ## Customization
 
 Squadron-specific configurations can be adjusted in the settings panel, allowing customization of callsigns, qualifications, and roles specific to your unit.

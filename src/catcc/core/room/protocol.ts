@@ -22,6 +22,8 @@
  *   { t:'orders', src, orders }            what the DCS hook did with each ship order (helm, route, station)
  *   { t:'launch', src, launch }            launch clearance per carrier (see core/room/launch.ts)
  *   { t:'pong' } | { t:'error', error }
+ * Close codes: 4001 no auth message in time, 4003 the sign-in isn't valid, 4403 signed in but not a
+ * member of the wing (the close reason says why; see catcc-server/room/membership.ts).
  */
 import type { CarrierWx, HookEnv, OrderPoint } from '../dcs/hookProtocol.ts';
 import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
@@ -79,6 +81,11 @@ export interface SeatHolder extends SeatKey {
   /** true while the holder has no live connection (seat kept for a grace period) */
   away?: boolean;
 }
+
+/** the sign-in token isn't valid */
+export const CLOSE_AUTH_FAILED = 4003;
+/** a valid sign-in that isn't a member of the wing; the close reason says why */
+export const CLOSE_FORBIDDEN = 4403;
 
 export interface RoomUser {
   userId: string;

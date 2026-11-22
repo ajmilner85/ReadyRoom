@@ -10,7 +10,7 @@ import { RoomService, type SourceConfig } from './roomService.ts';
  *                        [{"id":"fox3","name":"Fox3","kind":"hook","host":"dcs.example.com","port":10310,"token":"..."},
  *                         {"id":"fox3-tv","name":"Fox3 (Tacview)","kind":"tacview","host":"dcs.example.com"}]
  *   CATCC_TOKEN          or just this: the hook token, with the source at CATCC_HOOK (default DEFAULT_HOOK)
- *   SUPABASE_URL, SUPABASE_SERVICE_KEY   verify ReadyRoom users' access tokens
+ *   SUPABASE_URL, SUPABASE_SERVICE_KEY   verify ReadyRoom users' access tokens and wing membership (membership.ts)
  *   CATCC_DEV_NOAUTH=1   accept any token (local development only; refused when NODE_ENV=production)
  *   CATCC_WS_PATH        default /catcc/ws
  *   CATCC_PERSIST=0      don't keep room state in Supabase (public.catcc_room_state); it is kept

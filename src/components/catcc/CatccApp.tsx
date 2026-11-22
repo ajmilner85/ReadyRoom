@@ -27,6 +27,7 @@ import { Reference } from './radar/Panels.tsx';
 import { FinalView } from './final/FinalView.tsx';
 import { deckCall } from './deck.ts';
 import type { HandoffCtx } from './ownership.ts';
+import { EmptyState } from '../ui/primitives/Display';
 import './catcc.css';
 
 const hms = (d: Date) => [d.getUTCHours(), d.getUTCMinutes(), d.getUTCSeconds()].map((n) => String(n).padStart(2, '0')).join(':');
@@ -263,6 +264,14 @@ const CatccApp: React.FC = () => {
   const caseBadge = (text: string) => (
     <div style={{ padding: '4px 10px', borderRadius: 4, background: 'rgba(241,88,34,.15)', border: '1px solid #F15822', color: '#FFB08F', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 600, letterSpacing: '.1em' }}>{text}</div>
   );
+
+  // the room refused this user (not a member of the wing): nothing of the interface
+  if (state.conn === 'forbidden')
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-bg">
+        <EmptyState icon="lock" title="Access denied" message={state.refused} />
+      </div>
+    );
 
   return (
     <div className="cc-root" data-theme="dark" onContextMenu={(e) => e.preventDefault()}>
