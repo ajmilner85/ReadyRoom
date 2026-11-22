@@ -191,9 +191,10 @@ export const AzElScope: React.FC<{
                 whiteSpace: 'nowrap',
               }}
             >
-              {/* inside 3/4 NM: should be flying the ball (amber dot left of the board number) */}
-              <div>
-                {ball && <span style={{ display: 'inline-block', width: 7, height: 7, marginRight: 4, borderRadius: '50%', background: '#E7B04F', verticalAlign: 'middle' }} />}
+              {/* inside 3/4 NM: should be flying the ball (amber dot left of the board number, outside the
+                  text so the number stays aligned with the range below it) */}
+              <div style={{ position: 'relative' }}>
+                {ball && <span style={{ position: 'absolute', right: '100%', top: '50%', width: 7, height: 7, margin: '-3.5px 3px 0 0', borderRadius: '50%', background: '#E7B04F' }} />}
                 {label(prim.a.t)}
               </div>
               <div>{prim.dev.r.toFixed(1)} NM</div>
