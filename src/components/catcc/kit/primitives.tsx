@@ -408,8 +408,8 @@ export const DeckBadge: React.FC<{ foul: boolean }> = ({ foul }) => (
   <div style={{ padding: '4px 12px', borderRadius: 5, background: foul ? 'rgba(224,82,78,.2)' : 'rgba(64,168,91,.2)', border: `1px solid ${foul ? '#E0524E' : '#40A85B'}`, color: foul ? '#FF9C98' : '#8FE0A6', fontFamily: MONO, fontWeight: 600, fontSize: 12.5, letterSpacing: '.12em' }}>{foul ? 'FOUL DECK' : 'CLEAR DECK'}</div>
 );
 
-/** Approach / Final deck status panel (FinalView `aria-label="Deck status"`). */
-export const DeckStatusPanel: React.FC<{ foul: boolean; reason?: string; next?: string; rows: [string, string][] }> = ({ foul, reason, next, rows }) => (
+/** Approach / Final deck status panel (FinalView `aria-label="Deck status"`; `called` false: derived from the picture, PriFly hasn't called it). */
+export const DeckStatusPanel: React.FC<{ foul: boolean; reason?: string; next?: string; rows: [string, string][]; called?: boolean }> = ({ foul, reason, next, rows, called = true }) => (
   <section className="pnl" aria-label="Deck status" style={{ borderColor: foul ? '#E0524E' : '#2E5E3A', background: foul ? 'rgba(224,82,78,.08)' : 'rgba(64,168,91,.06)' }}>
     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
       <span className="lbl" style={{ color: foul ? '#FF8A85' : '#7FD397' }}>Deck</span>
@@ -419,7 +419,18 @@ export const DeckStatusPanel: React.FC<{ foul: boolean; reason?: string; next?: 
     {rows.map(([k, v]) => (
       <KvWide key={k} k={k} v={v} />
     ))}
+    {!called && <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>From the picture · PriFly hasn't called it</div>}
   </section>
+);
+
+/** An aircraft in ACLS coverage with its mode (FinalView Landing aids `locks`). */
+export const AclsRow: React.FC<{ id: string; state: 'LOCK-ON' | 'ACQUIRING'; mode: string; onMode?: (m: string) => void }> = ({ id, state, mode, onMode }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'center', padding: '4px 0' }}>
+    <span className="mono" style={{ fontSize: 12 }}>
+      <b>{id}</b> <span style={{ color: state === 'LOCK-ON' ? '#7FD397' : '#E7B04F' }}>{state}</span>
+    </span>
+    <Segmented size="xs" options={['I', 'IA', 'II', 'III']} value={mode} onChange={onMode} />
+  </div>
 );
 
 /** Approach / Final sequence card (FinalView Sequence). */

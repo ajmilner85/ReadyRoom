@@ -17,6 +17,9 @@ import { LightsPanel, DeckBar } from '../prifly/BossPanels.tsx';
 import { PRIFLY_LIGHTS } from '../prifly/lights.ts';
 import { flightOf } from '../strips.ts';
 import { tagRows, velocityEnd, type Picture } from '../scopeModel.ts';
+import { FinalView } from '../final/FinalView.tsx';
+import { AzElScope } from '../final/AzElScope.tsx';
+import { finalPicture } from '../final/finalModel.ts';
 import FlightCard from '../../ui/flight cards/FlightCard';
 import * as K from './primitives.tsx';
 import * as S from './scopeKit.tsx';
@@ -28,6 +31,13 @@ export interface Specimen {
   /** Figma variant properties, "prop=value, prop=value" */
   variant?: string;
   render: () => React.ReactNode;
+  /**
+   * A part of another specimen rather than a render of its own: `from` is that specimen's key
+   * ("name|variant"), `pick` a CSS selector inside it. The page shows a pointer to it; the Figma
+   * generator takes the picked element as the component.
+   */
+  from?: string;
+  pick?: string;
 }
 export interface KitSection {
   id: string;
@@ -40,6 +50,10 @@ export interface KitSection {
 const noop = () => undefined;
 let picCache: Picture | null = null;
 const pic = () => (picCache ??= demoPicture());
+/** a column of the Approach / Final sidebar, as wide as in the layout specimen (Layout/Approach Final) */
+const FINAL_COL = 180;
+/** the key of the Approach / Final layout specimen, whose parts some specimens are */
+const FINAL_KEY = 'Layout/Approach Final|';
 const col = (children: React.ReactNode, w = 320) => <div style={{ width: w, display: 'flex', flexDirection: 'column', gap: 10 }}>{children}</div>;
 const each = <T,>(name: string, list: T[], variant: (x: T) => string, render: (x: T) => React.ReactNode): Specimen[] => list.map((x) => ({ name, variant: variant(x), render: () => render(x) }));
 
@@ -178,7 +192,7 @@ const panels: KitSection = {
           </K.Panel>,
         ),
     },
-    ...each('Panel/Deck status', [false, true], (f) => `deck=${f ? 'foul' : 'clear'}`, (f) => col(<K.DeckStatusPanel foul={f} reason={f ? 'Clearing landing area' : undefined} next="201 3/4 NM in 1:12" rows={[['Wind over deck', '27 KT · 4° R of angle'], ['Arresting gear', 'F18C · 33,000'], ['Lens', '3.5° · HTR 13.5 FT']]} />)),
+    ...each('Panel/Deck status', [[false, true], [true, true], [false, false]] as const, ([f, c]) => `deck=${f ? 'foul' : 'clear'}, called=${c ? 'yes' : 'no'}`, ([f, c]) => col(<K.DeckStatusPanel foul={f} called={c} reason={f ? 'Clearing landing area' : undefined} next="201 3/4 NM in 1:12" rows={[['Wind over deck', '27 KT · 4° R of angle'], ['Arresting gear', 'F18C · 33,000'], ['Lens', '3.5° · HTR 13.5 FT']]} />, FINAL_COL)),
     {
       name: 'Panel/Landing aids',
       render: () =>
@@ -194,10 +208,13 @@ const panels: KitSection = {
               <K.Segmented size="sm" options={['UP', 'DOWN']} value="UP" />
             </div>
             <K.KvWide k="Link 4" v="373.000" />
+            <K.AclsRow id="401" state="LOCK-ON" mode="II" />
+            <K.AclsRow id="410" state="ACQUIRING" mode="IA" />
           </K.Panel>,
+          FINAL_COL,
         ),
     },
-    ...each('Panel/Sequence card', ['normal', 'pending'] as const, (v) => `handoff=${v}`, (v) => col(<K.SequenceCard id="201" sub="Hawk 2-1" fuel="6.4" where="3/4 in 1:12" pending={v === 'pending'} />)),
+    ...each('Panel/Sequence card', ['normal', 'pending'] as const, (v) => `handoff=${v}`, (v) => col(<K.SequenceCard id="201" sub="Hawk 2-1" fuel="6.4" where="3/4 in 1:12" pending={v === 'pending'} />, FINAL_COL)),
     ...each('Panel/Notification', ['conflict', 'handoff', 'warn', 'coord', 'info'] as const, (v) => `kind=${v}`, (v) => {
       const n = DEMO_NOTES.find((x) => x.k === v)!;
       return col(<K.NoteCard kind={v} label={n.kind} time={n.t} title={n.title} body={n.body} action={n.action?.label} />);
@@ -307,18 +324,42 @@ const scope: KitSection = {
     ...each('Scope/Off-scope pointer', ['own', 'red'] as const, (v) => `side=${v}`, (v) => <div style={{ background: '#0B0E12', padding: 16 }}><S.OffScope side={v} /></div>),
     { name: 'Scope/Pinned conflict', render: () => <S.PinnedConflict>201 / 305 · CPA 0.8 NM · 1:12</S.PinnedConflict> },
     { name: 'Scope/Assigned tag', render: () => <S.AssignedTag>201 · A6 · EAT 22</S.AssignedTag> },
-    ...each('Scope/Precision display', ['Elevation', 'Azimuth'], (v) => `display=${v.toLowerCase()}`, (v) => (
-      <S.ParFrame title={v} w={860} h={300}>
-        <S.ParBlip x={52} y={48} trail={[[55, 46], [58, 44], [61, 42], [64, 40], [67, 38]]} />
-        <S.ParLabel x={10} y={86}>3/4</S.ParLabel>
-        <S.ParLabel x={30} y={70} kind="ring">1</S.ParLabel>
-      </S.ParFrame>
-    )),
+    // the precision displays as FinalView draws them (12 NM, default layers, the demo arrivals): parts of the layout specimen
+    ...(['Elevation', 'Azimuth'] as const).map((v): Specimen => ({ name: 'Scope/Precision display', variant: `display=${v.toLowerCase()}`, from: FINAL_KEY, pick: `section[aria-label="${v} display"]`, render: () => null })),
+    { name: 'Scope/Approach toolbar', from: FINAL_KEY, pick: '[role="toolbar"][aria-label="Approach tools"]', render: () => null },
+    ...each('Scope/AZ EL display', ['contact', 'conflict', 'none'] as const, (v) => `contact=${v}`, (v) => {
+      const fp = v === 'none' ? null : finalPicture(pic());
+      return <AzElScope fp={fp} tol conflictIds={new Set(v === 'conflict' ? ['f1'] : [])} style={{ width: 334, height: 334 }} />;
+    }),
     ...each('Scope/Precision blip', ['own', 'red'] as const, (v) => `side=${v}`, (v) => <div style={{ position: 'relative', width: 24, height: 24, background: '#0B0E12' }}><S.ParBlip x={50} y={50} color={v === 'red' ? '#FF8A85' : undefined} /></div>),
   ],
 };
 
 // ---------------------------------------------------------------- contacts & tags
+
+// ---------------------------------------------------------------- layouts
+
+const layouts: KitSection = {
+  id: 'layouts',
+  title: 'Layouts',
+  source: 'final/FinalView.tsx itself, fed the demo picture: the Approach / Final seat below the header',
+  specimens: [
+    {
+      name: 'Layout/Approach Final',
+      // the seat's view as CatccApp places it: everything under the header, here 1520 × 860
+      render: () => {
+        const { ctx } = demoHandoff();
+        return (
+          <div style={{ width: 1520, height: 860, display: 'flex', flexDirection: 'column', background: '#0E1116' }}>
+            <FinalView pic={pic()} setOps={noop} deck={{ foul: false, called: true, aboard: 3 }} local={new Date(DEMO_UTC.getTime() + DEMO_OFFH * 3_600_000)} defaultRange={12} handoffCtx={ctx} owners={{}} readOnly={false} recoveryCase="III" />
+          </div>
+        );
+      },
+    },
+    { name: 'Layout/Final sidebar', from: FINAL_KEY, pick: 'aside[aria-label="Deck, landing aids and sequence"]', render: () => null },
+    { name: 'Panel/Bolter slot', variant: 'bolter=none', from: FINAL_KEY, pick: 'section[aria-label="Bolter slot"]', render: () => null },
+  ],
+};
 
 const contacts: KitSection = {
   id: 'contacts',
@@ -402,7 +443,7 @@ const icons: KitSection = {
   specimens: ICONS.map(([n, r]) => ({ name: `Icon/${n}`, render: () => <span style={{ display: 'inline-flex', color: '#E6EDF3', background: n === 'Catcc' || n === 'Prifly' ? '#F15822' : undefined, borderRadius: 5 }}>{r()}</span> })),
 };
 
-export const SECTIONS: KitSection[] = [header, controls, panels, live, rows, scope, contacts, overlays, icons];
+export const SECTIONS: KitSection[] = [header, controls, panels, live, rows, scope, contacts, overlays, layouts, icons];
 
 /** every specimen's Figma key, "name|variant" */
 export const specimenKeys = (): string[] => SECTIONS.flatMap((s) => s.specimens.map((x) => `${x.name}|${x.variant ?? ''}`));

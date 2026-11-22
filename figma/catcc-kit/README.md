@@ -6,7 +6,7 @@ When it runs it makes:
 
 - **Variables**: a `CATCC` collection (mode `Dark`) with every CATCC colour (`surface/…`, `border/…`, `text/…`, `accent/…`, `status/…`, `scope/…`).
 - **Text styles**: `CATCC/Label`, `CATCC/Mono/Row`, `CATCC/Title/Logo`, `CATCC/Scope/Tag` and the others in `src/components/catcc/kit/tokens.ts`.
-- **A page, "CATCC Kit"**: colour swatches and type samples, then one section per kit section (Header & seats, Controls, Panels, Sidebar panels, Strips & rows, Scope, Contacts & tags, Overlays & dialogs, Icons). Each component is a Figma **Component**, and a component with states is a **Component Set** with variant properties (for example `Control/Tool button` → `state=off | on | float | open`, `Contact/Symbol` → `shape`, `side`, `mark`).
+- **A page, "CATCC Kit"**: colour swatches and type samples, then one section per kit section (Header & seats, Controls, Panels, Sidebar panels, Strips & rows, Scope, Contacts & tags, Overlays & dialogs, Layouts, Icons). Each component is a Figma **Component**, and a component with states is a **Component Set** with variant properties (for example `Control/Tool button` → `state=off | on | float | open`, `Contact/Symbol` → `shape`, `side`, `mark`). `Layout/Approach Final` is the whole Approach / Final seat (the live FinalView); its precision displays, toolbar, two-column sidebar and bolter slot are also components of their own, picked out of it.
 - Fills and strokes that match a CATCC colour are bound to its variable. Text that matches a CATCC text style uses it.
 - Flex rows and columns become auto layout, so buttons, rows and panels resize as you edit them. Scope graphics (rings, symbols, tags) are vector layers. Their lettering is real text in IBM Plex Mono.
 
