@@ -812,3 +812,4 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 - The AZ/EL axis numbers carry the degree symbol (1°, 2°, 3°; the user).
 - The ball dot moved left of the board number (the user): on the Elevation and Azimuth tags in the climb / descent arrow's column, above the arrow (a tag without an arrow gets that column too); on the AZ/EL tag before the board number.
 - On the AZ/EL tag the dot sits left of the board number outside the text, so the number stays aligned with the range below it (the user).
+- The AZ/EL plot has no frame outline (the user).

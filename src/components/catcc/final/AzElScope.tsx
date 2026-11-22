@@ -148,7 +148,6 @@ export const AzElScope: React.FC<{
     <section aria-label="AZ/EL display" style={{ position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden', boxSizing: 'border-box', ...style }}>
       <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>AZ / EL</span>
       <svg className="par" viewBox="0 0 400 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
-        <rect x={200 - H} y={Y(AZEL_EL_DEG)} width={2 * H} height={2 * H} stroke="rgba(147,161,176,.12)" fill="none" />
         {tol && <path d={tolPath} stroke="rgba(201,211,221,.18)" fill="none" />}
         {/* the Case III profile, one line per NM out (the Azimuth display's 1° / 2° / 5° line style) */}
         {profile && <path d={PROFILE_PATH} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />}
