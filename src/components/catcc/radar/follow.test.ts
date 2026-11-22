@@ -47,11 +47,14 @@ describe('radar Follow', () => {
   it('double-click on empty map (Select tool) centres there', () => {
     expect(dblClickAction('select', false, undefined, [3, 4])).toEqual({ kind: 'centre', p: [3, 4] });
   });
-  it('double-click leaves the other tools and placements alone', () => {
-    for (const tool of ['bra', 'marshal', 'cpa', 'vec', 'int', 'wp']) {
-      expect(dblClickAction(tool, false, 'a', [0, 0])).toEqual({ kind: 'none' });
-      expect(dblClickAction(tool, false, undefined, [0, 0])).toEqual({ kind: 'none' });
+  it('double-click follows / centres under every tool (marshal included)', () => {
+    for (const tool of ['select', 'bra', 'marshal', 'cpa', 'vec', 'int', 'wp']) {
+      expect(dblClickAction(tool, false, 'a', [0, 0])).toEqual({ kind: 'follow', id: 'a' });
+      expect(dblClickAction(tool, false, undefined, [1, 2])).toEqual({ kind: 'centre', p: [1, 2] });
     }
+  });
+  it('double-click does nothing while a radial or coordinate is being placed', () => {
     expect(dblClickAction('select', true, 'a', [0, 0])).toEqual({ kind: 'none' });
+    expect(dblClickAction('marshal', true, undefined, [0, 0])).toEqual({ kind: 'none' });
   });
 });

@@ -32,12 +32,13 @@ export function zoomCentre(c: Pt, w: number, nw: number, about: Pt | undefined, 
 export type DblAction = { kind: 'none' } | { kind: 'follow'; id: string } | { kind: 'centre'; p: Pt };
 
 /**
- * A double-click on the scope. Only with the Select tool and nothing being placed: the other tools and
- * placements keep their own clicks (a marshal / vector / intercept click commits, BRA / CPA / waypoint
- * clicks set points), so a double-click there is just their two clicks. On a contact: hook it and follow
- * it. On empty map: stop following and centre the view on that point.
+ * A double-click on the scope, under any tool (the user: it must work with the marshal tool selected).
+ * Its two clicks still do what the tool does with a click (marshal / vector / intercept clicks on a
+ * contact hook it, as Select does; BRA / CPA / waypoint clicks set points). Not while a radial or a
+ * coordinate is being placed: those clicks place it. On a contact: hook it and follow it. On empty
+ * map: stop following and centre the view on that point.
  */
-export function dblClickAction(tool: string, placing: boolean, trackId: string | undefined, q: Pt): DblAction {
-  if (tool !== 'select' || placing) return { kind: 'none' };
+export function dblClickAction(_tool: string, placing: boolean, trackId: string | undefined, q: Pt): DblAction {
+  if (placing) return { kind: 'none' };
   return trackId ? { kind: 'follow', id: trackId } : { kind: 'centre', p: q };
 }
