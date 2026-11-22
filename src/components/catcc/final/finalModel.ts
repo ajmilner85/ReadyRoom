@@ -172,9 +172,9 @@ export function upwindSlot(fp: FinalPicture, u: FinalAc): SlotResult & { x0: num
   return { ...r, x0, offNm: off };
 }
 
-/** The AZ/EL scope's coverage: out to 6 NM of the glidepath origin, ±6° in azimuth, ±3° about the glideslope. */
+/** The AZ/EL scope's coverage: out to 6 NM of the glidepath origin, ±3° in azimuth, ±3° about the glideslope (one scale on both axes). */
 export const AZEL_NM = 6;
-export const AZEL_AZ_DEG = 6;
+export const AZEL_AZ_DEG = 3;
 export const AZEL_EL_DEG = 3;
 
 export interface GlideDev {

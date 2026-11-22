@@ -778,3 +778,7 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 - **Differences from the old calculator, by design:** ended squadron assignments no longer count as a basis (no rules use that basis today); `canBulkEditRoster` gets the own-wing-includes-own-squadron entry like every other scoped permission (grants nothing new). Unchanged: `delegate_debriefs` stays empty because the database permission is named `delegate_debrief`, and nine database permissions with no cache key (`manage_teams`, `assign_team_members`, `set_flight_status`, ...) are still ignored.
 - **Ship order:** step 1 migration (`permission_cache_server`) first; the old frontend keeps working because its upserts are recomputed and the server hash matches the old client hash. Then the frontend. Step 2 (`permission_cache_lock`) after old tabs have reloaded: drops the client INSERT/UPDATE/DELETE policies and grants.
 - Still open, outside this change: `pilot_teams` accepts inserts from any signed-in user and updates/deletes from anyone, so a user can join a team and get its permissions; a separate migration (`pilot_teams_write_lock`) gives it the `pilot_roles` write rule and waits on the user's decision.
+
+## AZ/EL: one scale on both axes (2026-11-22)
+
+- The user asked for the same scale on both axes and chose to keep the scope square: azimuth is now ±3° (was ±6°), the same as elevation (±3° about the glideslope). Ticks every 0.5°, whole degrees labelled, on both axes. An aircraft more than 3° off course is outside the field.

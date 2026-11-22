@@ -138,7 +138,8 @@ describe('AZ/EL scope', () => {
         ac('high', 3, 0, Math.tan((7 * Math.PI) / 180) * 3 * 6076.12), // 3.5° high
         ac('low', 3, 0, 0), // 3.5° low
         ac('past', -0.5, 0, 300),
-        ac('mid', 3.5, -0.2, gp(3.5)),
+        ac('mid', 3.5, -0.15, gp(3.5)), // 2.5° off course: inside ±3°
+        ac('az4', 3, 0.21, gp(3)), // 4° off course: outside ±3°
       ]),
     );
     expect(list.map((c) => c.a.t.id)).toEqual(['near', 'mid', 'far']);
