@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { azElPicture, azElSelect, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
+import { azElPicture, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -96,6 +96,19 @@ describe('AZ/EL scope', () => {
     // at or past the origin there are no angles
     expect(glideDeviation(0, 0, 100)).toBeNull();
     expect(glideDeviation(-1, 0, 100)).toBeNull();
+  });
+
+  it('draws the scope as seen from the ship: right of course on the left, high up', () => {
+    expect(azElX(0)).toBe(200);
+    expect(azElY(0)).toBe(200);
+    // high and right of course (the pilot's view) is high and left on the scope
+    const rh = glideDeviation(4, 0.1, 4 * GP_FT_PER_NM + 200)!;
+    expect(azElX(rh.az)).toBeLessThan(200);
+    expect(azElY(rh.el)).toBeLessThan(200);
+    // the field's ends are the plot's edges: full right deflection at the left edge
+    expect(azElX(AZEL_AZ_DEG)).toBe(200 - AZEL_HALF);
+    expect(azElX(-AZEL_AZ_DEG)).toBe(200 + AZEL_HALF);
+    expect(azElY(AZEL_EL_DEG)).toBe(200 - AZEL_HALF);
   });
 
   const ac = (id: string, along: number, lat: number, alt: number): FinalAc => ({ t: { id, alt } as FinalAc['t'], f: { along, lat, alongKt: -130, closureKt: 130 }, kind: 'final', tBall: 0 });

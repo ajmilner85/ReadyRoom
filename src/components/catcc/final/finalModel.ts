@@ -195,6 +195,16 @@ export function glideDeviation(along: number, lat: number, altFt: number): Glide
   return { az: Math.atan2(lat, along) * D, el: Math.atan2(altFt / 6076.12, r) * D - GS_DEG, r };
 }
 
+/** the AZ/EL plot's half-width in display units (viewBox 400 × 400, centre 200 200) */
+export const AZEL_HALF = 170;
+/**
+ * Where a deviation is drawn on the AZ/EL display (viewBox 400 × 400): as seen from the ship looking
+ * out along the approach, so high is up but azimuth is mirrored. An aircraft right of course (the
+ * pilot's right, inbound, az +) is drawn left of centre.
+ */
+export const azElX = (az: number) => 200 - (az / AZEL_AZ_DEG) * AZEL_HALF;
+export const azElY = (el: number) => 200 - (el / AZEL_EL_DEG) * AZEL_HALF;
+
 export interface AzElContact {
   a: FinalAc;
   dev: GlideDev;
