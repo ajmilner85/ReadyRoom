@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../catcc/core/geo.ts';
 import type { WireTrack } from '../../catcc/core/room/protocol.ts';
-import { buildPicture, inAltBlock, phaseOf, proximityClusters, shortType, specificEnergyFt, tagRows, type ScopeTrack, type Trail } from './scopeModel.ts';
+import { buildPicture, inAltBlock, phaseOf, proximityClusters, shortType, specificEnergyFt, tagRows, typeName, type ScopeTrack, type Trail } from './scopeModel.ts';
 
 const CV = { lat: 26.2, lon: 56.8 };
 function at(brg: number, rng: number) {
@@ -136,6 +136,9 @@ describe('tags and phases', () => {
     const [carrierless] = buildPicture([carrier, jet('a', 90, 20, { bd: '106', lb: 7400, vs: -2000, alt: 16800 })], 'CVN-72', new Map(), 0).air;
     expect(tagRows(carrierless)).toEqual(['106 F18C 7.4', '↓168 420']);
     expect(shortType('Some_New-Type')).toBe('SOME');
+    expect(typeName('FA-18C_hornet')).toBe('F/A-18C');
+    expect(typeName('Some_New-Type')).toBe('Some');
+    expect(typeName('MiG-29A')).toBe('MiG-29A');
   });
 
   it('classifies phases', () => {

@@ -8,6 +8,7 @@ import type { CarrierWx } from '../../../catcc/core/dcs/hookProtocol.ts';
 import { angDiff, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { turnRadiusNm } from '../../../catcc/core/geometry/maneuver.ts';
 import type { Picture, ScopeTrack } from '../scopeModel.ts';
+import { SPN46_CHANNELS } from '../radar/spn46.ts';
 
 export const GS_DEG = 3.5;
 /** feet per NM of the 3.5° glidepath */
@@ -208,6 +209,48 @@ export function azElPicture(fp: FinalPicture | null): AzElContact[] {
     out.push({ a, dev });
   }
   return out.sort((x, y) => x.dev.r - y.dev.r);
+}
+
+/** A row of the AZ/EL track table: an aircraft the SPN-46 holds, its ground range from the glidepath origin. */
+export interface AzElTrack {
+  a: FinalAc;
+  /** NM over the ground from the glidepath origin */
+  r: number;
+  /** where it is on the scope; null while it is outside the AZ/EL field (the SPN-46 locks out to 8 NM, the scope shows 6) */
+  dev: GlideDev | null;
+}
+
+export interface AzElSelection {
+  /** the contact drawn bright, with its trail and tag; null when the primary track is outside the field */
+  prim: AzElContact | null;
+  /** everything else in the field */
+  ghosts: AzElContact[];
+  /** the table: the held aircraft, nearest first, at most the SPN-46's two channels */
+  tracked: AzElTrack[];
+  /** the primary row's aircraft id */
+  primaryId: string | null;
+  /** the primary track is not the nearest one */
+  notNearest: boolean;
+}
+
+/**
+ * The AZ/EL display's contacts and track table. With the SPN-46 holding aircraft (`locks`, as the
+ * Landing aids LOCK-ON list shows them), the table lists them nearest first and the primary is the one
+ * picked (`pick`), or the nearest when nothing is picked or the pick is no longer held; every other
+ * aircraft in the field, held or not, is a ghost. With nothing held (ACLS off, or nobody in the gate)
+ * the table is empty and the nearest aircraft in the field is the contact, as before.
+ */
+export function azElSelect(fp: FinalPicture | null, locks: readonly string[] | null | undefined, pick: string | null | undefined): AzElSelection {
+  const field = azElPicture(fp);
+  const tracked: AzElTrack[] = (fp?.acs ?? [])
+    .filter((a) => locks?.includes(a.t.id))
+    .map((a) => ({ a, r: Math.hypot(a.f.along, a.f.lat), dev: field.find((c) => c.a === a)?.dev ?? null }))
+    .sort((x, y) => x.r - y.r)
+    .slice(0, SPN46_CHANNELS);
+  if (!tracked.length) return { prim: field[0] ?? null, ghosts: field.slice(1), tracked, primaryId: null, notNearest: false };
+  const primary = tracked.find((k) => k.a.t.id === pick) ?? tracked[0];
+  const prim = field.find((c) => c.a === primary.a) ?? null;
+  return { prim, ghosts: field.filter((c) => c !== prim), tracked, primaryId: primary.a.t.id, notNearest: primary !== tracked[0] };
 }
 
 /** turn-downwind ranges offered for an aircraft on the upwind, NM ahead */

@@ -1,13 +1,18 @@
 /**
  * CATCC Approach / Final: the AZ/EL display. One scope centred on the ICLS / ACLS glidepath, azimuth
  * (localizer) deviation across and elevation (glideslope) deviation up, both in degrees from the
- * glidepath origin. The nearest aircraft inside 6 NM is the contact; any others in the field are
- * ghosts behind it.
+ * glidepath origin. The track table (top right) lists the aircraft the SPN-46 holds; the primary one
+ * (green dot, picked from the table or the scope, else the nearest) is the contact and everything
+ * else in the field a ghost. With nothing held, the nearest aircraft inside 6 NM is the contact.
  */
 import React from 'react';
-import { azElPicture, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, type FinalPicture } from './finalModel.ts';
+import { azElSelect, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, type FinalPicture } from './finalModel.ts';
+import { typeName, type ScopeTrack } from '../scopeModel.ts';
 
 const TRK = '#5FD068';
+const AMBER = '#E7B04F';
+const ROW_H = 18;
+const label = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
 const TRK_TRAIL = '#3E9A4C';
 const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
 /** the plot's half-width in display units (viewBox 400 × 400, centre 200 200) */
@@ -17,9 +22,18 @@ const Y = (el: number) => 200 - (el / AZEL_EL_DEG) * H;
 const f1 = (n: number) => n.toFixed(1);
 const pc = (x: number, y: number) => [x / 4, y / 4] as const;
 
-export const AzElScope: React.FC<{ fp: FinalPicture | null; tol: boolean; conflictIds: Set<string>; style?: React.CSSProperties }> = ({ fp, tol, conflictIds, style }) => {
-  const list = azElPicture(fp);
-  const [prim, ...ghosts] = list;
+export const AzElScope: React.FC<{
+  fp: FinalPicture | null;
+  tol: boolean;
+  conflictIds: Set<string>;
+  /** the aircraft the SPN-46 holds (the Landing aids LOCK-ON list); none: no table, the nearest is the contact */
+  locks?: readonly string[];
+  /** the picked primary track */
+  pick?: string | null;
+  onPick?: (id: string) => void;
+  style?: React.CSSProperties;
+}> = ({ fp, tol, conflictIds, locks, pick, onPick, style }) => {
+  const { prim, ghosts, tracked, primaryId, notNearest } = azElSelect(fp, locks, pick);
 
   // crosshair through the glidepath, hash marks every 0.5°, longer at whole degrees
   const cross = `M${X(-AZEL_AZ_DEG)} 200H${X(AZEL_AZ_DEG)}M200 ${Y(AZEL_EL_DEG)}V${Y(-AZEL_EL_DEG)}`;
@@ -118,11 +132,54 @@ export const AzElScope: React.FC<{ fp: FinalPicture | null; tol: boolean; confli
                 whiteSpace: 'nowrap',
               }}
             >
-              <div>{prim.a.t.bd ?? prim.a.t.cs ?? prim.a.t.pi ?? prim.a.t.id}</div>
+              <div>{label(prim.a.t)}</div>
               <div>{prim.dev.r.toFixed(1)} NM</div>
             </span>
           </>
         )}
+        {/* the held tracks on the scope: click one to make it primary */}
+        {tracked.map((k) => {
+          if (!k.dev) return null;
+          const p = pc(X(k.dev.az), Y(k.dev.el));
+          return (
+            <button
+              key={`h${k.a.t.id}`}
+              type="button"
+              aria-label={label(k.a.t)}
+              aria-pressed={k.a.t.id === primaryId}
+              onClick={() => onPick?.(k.a.t.id)}
+              style={{ position: 'absolute', left: `${p[0]}%`, top: `${p[1]}%`, width: 24, height: 24, margin: '-12px 0 0 -12px', padding: 0, border: 0, background: 'transparent', cursor: 'pointer', pointerEvents: 'auto' }}
+            />
+          );
+        })}
+      </div>
+      {/* the track table: always two rows and the flag line, so nothing moves as tracks come and go */}
+      <div className="mono" role="list" aria-label="AZ/EL tracks" style={{ position: 'absolute', right: 8, top: 8, zIndex: 3, width: 136, boxSizing: 'border-box', fontSize: 10.5, lineHeight: `${ROW_H}px` }}>
+        {[0, 1].map((i) => {
+          const k = tracked[i];
+          if (!k) return <div key={i} style={{ height: ROW_H }} />;
+          const on = k.a.t.id === primaryId;
+          const c = on && notNearest ? AMBER : on ? '#E6EDF3' : '#93A1B0';
+          return (
+            <button
+              key={k.a.t.id}
+              type="button"
+              role="listitem"
+              aria-current={on}
+              onClick={() => onPick?.(k.a.t.id)}
+              style={{ display: 'grid', gridTemplateColumns: '7px 1fr auto', columnGap: 5, alignItems: 'center', width: '100%', height: ROW_H, padding: '0 4px', border: 0, borderRadius: 2, background: 'rgba(11,14,18,.72)', color: c, font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+            >
+              <span style={{ width: 7, height: 7, borderRadius: '50%', background: on ? TRK : 'transparent' }} />
+              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {label(k.a.t)} {typeName(k.a.t.ty)}
+              </span>
+              <span style={{ whiteSpace: 'nowrap' }}>{k.r.toFixed(1)} NM</span>
+            </button>
+          );
+        })}
+        <div style={{ height: 16, lineHeight: '16px', textAlign: 'right', fontSize: 10.5, letterSpacing: '.04em', color: AMBER }}>
+          {notNearest && <span style={{ padding: '1px 5px', borderRadius: 2, background: 'rgba(11,14,18,.72)' }}>NOT NEAREST</span>}
+        </div>
       </div>
     </section>
   );

@@ -299,6 +299,21 @@ const SHORT_TYPES: Record<string, string> = {
 };
 export const shortType = (ty: string): string => SHORT_TYPES[ty] ?? ty.replace(/[^A-Za-z0-9]/g, '').toUpperCase().slice(0, 4);
 
+const TYPE_NAMES: Record<string, string> = {
+  'FA-18C_hornet': 'F/A-18C',
+  'FA-18A': 'F/A-18A',
+  'F-14B': 'F-14B',
+  'F-14A-135-GR': 'F-14A',
+  AV8BNA: 'AV-8B',
+  'S-3B Tanker': 'S-3B',
+  KC135MPRS: 'KC-135',
+  KC130: 'KC-130',
+  'F-16C_50': 'F-16C',
+  'F-15ESE': 'F-15E',
+};
+/** the type as people write it (F/A-18C), for lists with room; DCS's own name up to any `_suffix` otherwise */
+export const typeName = (ty: string): string => TYPE_NAMES[ty] ?? ty.replace(/_.*$/, '');
+
 export const fuelK = (lb: number | undefined): string => (lb === undefined ? '' : (lb / 1000).toFixed(1));
 
 export function tagRows(t: ScopeTrack, formation?: Formation, collapsed = false): string[] {
