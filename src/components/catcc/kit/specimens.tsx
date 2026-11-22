@@ -192,7 +192,7 @@ const panels: KitSection = {
           </K.Panel>,
         ),
     },
-    ...each('Panel/Deck status', [[false, true], [true, true], [false, false]] as const, ([f, c]) => `deck=${f ? 'foul' : 'clear'}, called=${c ? 'yes' : 'no'}`, ([f, c]) => col(<K.DeckStatusPanel foul={f} called={c} reason={f ? 'Clearing landing area' : undefined} next="201 3/4 NM in 1:12" rows={[['Wind over deck', '27 KT · 4° R of angle'], ['Arresting gear', 'F18C · 33,000'], ['Lens', '3.5° · HTR 13.5 FT']]} />, FINAL_COL)),
+    ...each('Panel/Deck status', [false, true], (f) => `deck=${f ? 'foul' : 'clear'}`, (f) => col(<K.DeckStatusPanel foul={f} next={{ id: '201', at: '3/4 in 1:12' }} rows={[['Wind over deck', '27 KT · 4° R of angle'], ['Arresting gear', 'F18C · 33,000'], ['Lens', '3.5° · HTR 13.5 FT']]} />, FINAL_COL)),
     {
       name: 'Panel/Landing aids',
       render: () =>

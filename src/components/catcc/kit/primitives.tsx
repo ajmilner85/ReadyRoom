@@ -408,18 +408,22 @@ export const DeckBadge: React.FC<{ foul: boolean }> = ({ foul }) => (
   <div style={{ padding: '4px 12px', borderRadius: 5, background: foul ? 'rgba(224,82,78,.2)' : 'rgba(64,168,91,.2)', border: `1px solid ${foul ? '#E0524E' : '#40A85B'}`, color: foul ? '#FF9C98' : '#8FE0A6', fontFamily: MONO, fontWeight: 600, fontSize: 12.5, letterSpacing: '.12em' }}>{foul ? 'FOUL DECK' : 'CLEAR DECK'}</div>
 );
 
-/** Approach / Final deck status panel (FinalView `aria-label="Deck status"`; `called` false: derived from the picture, PriFly hasn't called it). */
-export const DeckStatusPanel: React.FC<{ foul: boolean; reason?: string; next?: string; rows: [string, string][]; called?: boolean }> = ({ foul, reason, next, rows, called = true }) => (
+/** Approach / Final deck status panel (FinalView `aria-label="Deck status"`): CLEAR or FOUL only, one-line header (the callsign gives way), constant height. */
+export const DeckStatusPanel: React.FC<{ foul: boolean; next?: { id: string; at: string }; rows: [string, string][] }> = ({ foul, next, rows }) => (
   <section className="pnl" aria-label="Deck status" style={{ borderColor: foul ? '#E0524E' : '#2E5E3A', background: foul ? 'rgba(224,82,78,.08)' : 'rgba(64,168,91,.06)' }}>
-    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
       <span className="lbl" style={{ color: foul ? '#FF8A85' : '#7FD397' }}>Deck</span>
-      {next && <span className="mono" style={{ fontSize: 11.5, color: foul ? '#FF8A85' : '#93A1B0' }}>{next}</span>}
+      {next && (
+        <span className="mono" style={{ display: 'flex', minWidth: 0, gap: '1ch', whiteSpace: 'nowrap', fontSize: 11.5, color: foul ? '#FF8A85' : '#93A1B0' }}>
+          <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{next.id}</span>
+          <span>{next.at}</span>
+        </span>
+      )}
     </div>
-    <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '.04em', color: foul ? '#FF8A85' : '#7FD397', lineHeight: 1.15 }}>{foul ? `FOUL${reason ? ` · ${reason.toUpperCase()}` : ''}` : 'CLEAR'}</div>
+    <div style={{ fontSize: 26, fontWeight: 700, letterSpacing: '.04em', color: foul ? '#FF8A85' : '#7FD397', lineHeight: 1.15, whiteSpace: 'nowrap' }}>{foul ? 'FOUL' : 'CLEAR'}</div>
     {rows.map(([k, v]) => (
       <KvWide key={k} k={k} v={v} />
     ))}
-    {!called && <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>From the picture · PriFly hasn't called it</div>}
   </section>
 );
 

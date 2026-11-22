@@ -866,17 +866,23 @@ export const FinalView: React.FC<{
           <div style={COL}>
             {deck && (
               <section className="pnl" aria-label="Deck status" style={{ borderColor: foul ? '#E0524E' : '#2E5E3A', background: foul ? 'rgba(224,82,78,.08)' : 'rgba(64,168,91,.06)' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+                {/* one line whatever the callsign: the callsign gives way, the time stays */}
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', gap: 8 }}>
                   <span className="lbl" style={{ color: foul ? '#FF8A85' : '#7FD397' }}>Deck</span>
-                  {next && <span className="mono" style={{ fontSize: 11.5, color: foul ? '#FF8A85' : '#93A1B0' }}>{`${label(next.t)} 3/4 NM in ${ms(next.tBall!)}`}</span>}
+                  {next && (
+                    <span className="mono" style={{ display: 'flex', minWidth: 0, gap: '1ch', whiteSpace: 'nowrap', fontSize: 11.5, color: foul ? '#FF8A85' : '#93A1B0' }}>
+                      <span style={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>{label(next.t)}</span>
+                      <span>{`3/4 in ${ms(next.tBall!)}`}</span>
+                    </span>
+                  )}
                 </div>
-                <div className={foul ? 'blink' : undefined} style={{ fontSize: 26, fontWeight: 700, letterSpacing: '.04em', color: foul ? '#FF8A85' : '#7FD397', lineHeight: 1.15 }}>
-                  {foul ? `FOUL${deck.reason ? ` · ${deck.reason.toUpperCase()}` : ''}` : 'CLEAR'}
+                {/* CLEAR or FOUL only: who fouls the deck is PriFly's business, and the panel keeps its height */}
+                <div className={foul ? 'blink' : undefined} style={{ fontSize: 26, fontWeight: 700, letterSpacing: '.04em', color: foul ? '#FF8A85' : '#7FD397', lineHeight: 1.15, whiteSpace: 'nowrap' }}>
+                  {foul ? 'FOUL' : 'CLEAR'}
                 </div>
                 {kv('Wind over deck', wod ? `${Math.round(wod.kt)} KT · ${Math.abs(wodAng)}° ${wodAng >= 0 ? 'R' : 'L'} of angle` : '—')}
                 {kv('Arresting gear', next ? `${shortType(next.t.ty)} · ${nextW ? nextW.toLocaleString('en-US') : '—'}` : '—')}
                 {kv('Lens', `${GS_DEG}° · HTR 13.5 FT`)}
-                {!deck.called && <div className="mono" style={{ fontSize: 10.5, color: '#6B7683', marginTop: 4 }}>From the picture · PriFly hasn't called it</div>}
               </section>
             )}
 
