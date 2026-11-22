@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { destination, distanceNm } from '../geo.ts';
-import { lightDay, moon, sunAltitude } from './astro.ts';
+import { lightDay, moon, opsClock, sunAltitude } from './astro.ts';
 import { ceilingFt, cloudsText, coverageOf, nextPimTurn, pimAt, recoveryCase, visibilityNm } from './weather.ts';
 
 describe('astro', () => {
@@ -73,5 +73,39 @@ describe('weather', () => {
     expect(second.leg).toBe(2);
     expect(distanceNm(b.lat, b.lon, second.lat, second.lon)).toBeCloseTo(3, 1);
     expect(pimAt(pts, 9000)).toMatchObject({ lat: c.lat, lon: c.lon, leg: 3, crs: null });
+  });
+});
+
+describe('opsClock (day / night ops countdown)', () => {
+  // 26°N 56°E, 21 Jun 2026: the sunset and sunrise around it, from lightDay
+  const d = lightDay(new Date('2026-06-21T08:16:00Z'), 26, 56, 1);
+  const ss = d.sunset!.getTime();
+  const sr = d.sunrise!.getTime(); // the morning of 22 Jun
+  const at = (ms: number) => new Date(ms);
+  const near = (a: Date | undefined, b: number) => expect(Math.abs(a!.getTime() - b)).toBeLessThan(2 * 60_000);
+  it("in the morning (after sunrise, before the chart's noon) counts to tonight, not last night", () => {
+    const c = opsClock(new Date('2026-06-21T04:00:00Z'), 26, 56);
+    expect(c.night).toBe(false);
+    near(c.until, ss + 30 * 60_000);
+  });
+  it('in the afternoon counts to 30 min after sunset', () => {
+    const c = opsClock(new Date('2026-06-21T12:00:00Z'), 26, 56);
+    expect(c.night).toBe(false);
+    near(c.until, ss + 30 * 60_000);
+  });
+  it('between sunset and night ops it is still day', () => {
+    const c = opsClock(at(ss + 10 * 60_000), 26, 56);
+    expect(c.night).toBe(false);
+    near(c.until, ss + 30 * 60_000);
+  });
+  it('at night counts to 30 min before sunrise', () => {
+    const c = opsClock(at(ss + 3 * 3.6e6), 26, 56);
+    expect(c.night).toBe(true);
+    near(c.until, sr - 30 * 60_000);
+  });
+  it('in the half hour before sunrise it is day again, counting to the next night', () => {
+    const c = opsClock(at(sr - 10 * 60_000), 26, 56);
+    expect(c.night).toBe(false);
+    expect(c.until!.getTime()).toBeGreaterThan(sr + 10 * 3.6e6);
   });
 });
