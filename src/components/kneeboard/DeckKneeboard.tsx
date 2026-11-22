@@ -127,7 +127,9 @@ export const DeckKneeboardView: React.FC<Props & { state: RoomState; history: Ma
 
   const live = state.lastFrameAt !== undefined && Date.now() - state.lastFrameAt < 5000;
   const feed =
-    state.conn === 'denied'
+    state.conn === 'forbidden'
+      ? `Access denied · ${state.refused ?? ''}`
+      : state.conn === 'denied'
       ? 'CATCC room refused the sign-in'
       : state.conn !== 'open'
         ? 'Connecting to the CATCC room…'

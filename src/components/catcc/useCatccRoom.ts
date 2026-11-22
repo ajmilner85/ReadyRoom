@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
 import type { HookEnv } from '../../catcc/core/dcs/hookProtocol.ts';
-import type { Assignment, CarrierPlan, OrderStatus, RoomUser, SeatHolder, SeatKey, ServerMsg, SourceStatus, WireTrack } from '../../catcc/core/room/protocol.ts';
+import { CLOSE_AUTH_FAILED, CLOSE_FORBIDDEN, type Assignment, type CarrierPlan, type OrderStatus, type RoomUser, type SeatHolder, type SeatKey, type ServerMsg, type SourceStatus, type WireTrack } from '../../catcc/core/room/protocol.ts';
 import type { OpsState, Ownership } from '../../catcc/core/room/ops.ts';
 import type { LaunchState } from '../../catcc/core/room/launch.ts';
 import { SHIP_HISTORY_S, type Trail } from './scopeModel.ts';
@@ -21,7 +21,8 @@ export function catccWsUrl(): string {
   return api.replace(/^http/, 'ws').replace(/\/$/, '') + '/catcc/ws';
 }
 
-export type ConnState = 'connecting' | 'open' | 'closed' | 'denied';
+/** denied: the sign-in isn't valid; forbidden: signed in, but not a member of the wing (see `refused`) */
+export type ConnState = 'connecting' | 'open' | 'closed' | 'denied' | 'forbidden';
 
 export interface RoomState {
   conn: ConnState;
@@ -49,6 +50,8 @@ export interface RoomState {
   theatre?: string;
   lastFrameAt?: number;
   error?: string;
+  /** why the room refused this user (conn 'forbidden') */
+  refused?: string;
 }
 
 const HISTORY_S = 40;
@@ -165,7 +168,12 @@ export function useCatccRoom(preferredSrc?: string) {
       ws.onclose = (ev) => {
         if (wsRef.current === ws) wsRef.current = null;
         if (stopped) return;
-        const denied = ev.code === 4003;
+        if (ev.code === CLOSE_FORBIDDEN) {
+          // a decision, not a fault: no retry (a reload tries again once the roster is changed)
+          setState((s) => ({ ...s, conn: 'forbidden', refused: ev.reason || 'Not a member of the wing' }));
+          return;
+        }
+        const denied = ev.code === CLOSE_AUTH_FAILED;
         setState((s) => ({ ...s, conn: denied ? 'denied' : 'closed' }));
         retry = setTimeout(connect, denied ? 30_000 : backoff);
         backoff = Math.min(backoff * 2, 15_000);
