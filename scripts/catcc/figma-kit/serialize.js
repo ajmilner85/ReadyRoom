@@ -360,7 +360,12 @@
   window.__catccFigmaKit = () => {
     const out = [];
     for (const host of document.querySelectorAll('[data-figma]')) {
-      const el = host.children.length === 1 ? host.children[0] : host;
+      // a part of another specimen (data-figma-from / data-figma-pick): the picked element of that one
+      const from = host.getAttribute('data-figma-from');
+      const src = from ? [...document.querySelectorAll('[data-figma-key]')].find((e) => e.getAttribute('data-figma-key') === from) : null;
+      if (from && !src) throw new Error(`data-figma-from: no specimen ${from}`);
+      const el = src ? src.querySelector(host.getAttribute('data-figma-pick')) : host.children.length === 1 ? host.children[0] : host;
+      if (!el) throw new Error(`data-figma-pick: nothing matches ${host.getAttribute('data-figma-pick')} in ${from}`);
       const r = el.getBoundingClientRect();
       const origin = { left: r.left, top: r.top };
       const node = walk(el, origin);

@@ -21,11 +21,21 @@ const SectionHead: React.FC<{ id: string; title: string; source?: string }> = ({
 const Tile: React.FC<{ s: Specimen }> = ({ s }) => (
   <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-start', minWidth: 0 }}>
     {s.variant && <span className="mono" style={{ fontSize: 10, color: '#6B7683' }}>{s.variant}</span>}
-    <div data-figma={s.name} data-variant={s.variant ?? ''} style={{ display: 'inline-block', maxWidth: '100%' }}>
-      {s.render()}
-    </div>
+    {s.from ? (
+      // a part of another specimen: the generator picks it out of that one
+      <div data-figma={s.name} data-variant={s.variant ?? ''} data-figma-from={s.from} data-figma-pick={s.pick}>
+        <a className="mono" href={`#${keyId(s.from)}`} style={{ fontSize: 11.5, textDecoration: 'none' }}>
+          {`in ${s.from.replace(/\|$/, '')}`}
+        </a>
+      </div>
+    ) : (
+      <div id={keyId(`${s.name}|${s.variant ?? ''}`)} data-figma={s.name} data-variant={s.variant ?? ''} data-figma-key={`${s.name}|${s.variant ?? ''}`} style={{ display: 'inline-block', maxWidth: '100%' }}>
+        {s.render()}
+      </div>
+    )}
   </div>
 );
+const keyId = (key: string) => `k-${key.replace(/[^A-Za-z0-9]+/g, '-')}`;
 
 const Section: React.FC<{ sec: KitSection }> = ({ sec }) => {
   // specimens grouped by component name: one card each

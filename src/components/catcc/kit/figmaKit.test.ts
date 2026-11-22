@@ -38,6 +38,14 @@ describe('figma/catcc-kit is current', () => {
     const got = KIT.specimens.map((s: { name: string; variant: string }) => `${s.name}|${s.variant}`);
     expect(new Set(want).size).toBe(want.length);
     expect(got).toEqual(want);
+    // a part of another specimen points at one that renders
+    const { SECTIONS } = await import('./specimens.tsx');
+    const all = SECTIONS.flatMap((x) => x.specimens);
+    for (const sp of all.filter((x) => x.from)) {
+      expect(want, `${sp.name} from`).toContain(sp.from);
+      expect(all.find((x) => `${x.name}|${x.variant ?? ''}` === sp.from)?.from, `${sp.name}: from a part`).toBeUndefined();
+      expect(sp.pick).toBeTruthy();
+    }
     vi.unstubAllEnvs();
   });
 

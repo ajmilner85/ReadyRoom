@@ -27,6 +27,9 @@ export const DEMO_TRACKS: WireTrack[] = [
   ac('t1', 120, 12, { cs: 'Texaco 1-1', fl: 'Texaco 1', bd: '700', g: 'Texaco 1', ty: 'S-3B Tanker', alt: 8000, hdg: 250, crs: 250, gs: 260, lb: 9800 }),
   ac('h1', 30, 3, { cs: 'Angel 1-1', fl: 'Angel 1', g: 'Angel 1', k: 'rotary', ty: 'SH-60B', alt: 300, hdg: 120, crs: 120, gs: 90 }),
   ac('r1', 45, 34, { cs: 'Bandit', g: 'Red 1', sd: 'red', ty: 'MiG-29A', alt: 22000, hdg: 220, crs: 220, gs: 420 }),
+  // on final (the final bearing is 336: astern of the ship along 156), on and a little high of the 3.5° glidepath, and one further out behind it
+  ac('f1', 156, 2.6, { cs: 'Sting 1-1', fl: 'Sting 1', bd: '401', g: 'Sting 1', alt: 1050, hdg: 336, crs: 336, gs: 140, lb: 5200, vs: -700 }),
+  ac('f2', 157.5, 5.2, { cs: 'Sting 2-1', fl: 'Sting 2', bd: '410', g: 'Sting 2', alt: 2100, hdg: 336, crs: 336, gs: 150, lb: 6100, vs: -600 }),
   { id: 's1', k: 'ship', ty: 'TICONDEROG', sd: 'blue', dn: 'CG Ticonderoga', g: 'CSG-1 escort', ...at(300, 4), alt: 0, hdg: 345, crs: 345, gs: 22 },
 ];
 

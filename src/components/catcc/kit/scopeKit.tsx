@@ -254,26 +254,6 @@ export const ScopeFrame: React.FC<{ w: number; h: number; range?: number; grid?:
   );
 };
 
-/**
- * Precision approach display frame (FinalView `disp`): the titled scope box with its grid, the ramp and a
- * glidepath / centreline. Chrome only; FinalView's displays are being redesigned, so this is the look as of
- * the kit's commit.
- */
-export const ParFrame: React.FC<{ title: string; w: number; h: number; children?: React.ReactNode }> = ({ title, w, h, children }) => {
-  const grid = [...Array.from({ length: 11 }, (_, i) => `M${60 + i * 92} 0V400`), ...Array.from({ length: 5 }, (_, i) => `M60 ${i * 80 + 40}H980`)].join('');
-  return (
-    <section aria-label={`${title} display`} style={{ width: w, height: h, position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden' }}>
-      <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>{title}</span>
-      <svg className="par" viewBox="0 0 1000 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
-        <path d={grid} stroke="rgba(147,161,176,.12)" fill="none" />
-        <path d="M60 370L980 120" stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
-        <path d="M60 370H40" stroke="rgba(201,211,221,.4)" fill="none" />
-      </svg>
-      <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>{children}</div>
-    </section>
-  );
-};
-
 /** Precision display blip (FinalView): a 10 px square, trail dots 4 px, at % positions. */
 export const ParBlip: React.FC<{ x: number; y: number; color?: string; trail?: [number, number][] }> = ({ x, y, color = TRK, trail = [] }) => (
   <>
