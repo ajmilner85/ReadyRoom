@@ -7,7 +7,7 @@
  * else in the field a ghost. With nothing held, the nearest aircraft inside 6 NM is the contact.
  */
 import React from 'react';
-import { azElSelect, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
+import { azElProfileMarks, azElSelect, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
 import { typeName, type ScopeTrack } from '../scopeModel.ts';
 
 const TRK = '#5FD068';
@@ -30,6 +30,9 @@ const SEA = (() => {
   for (let i = 0; i < n; i++) d += `q${(w / 2).toFixed(2)} 4 ${w.toFixed(2)} 0`;
   return d;
 })();
+/** the Case III profile marks and their lines, across the whole field */
+const PROFILE_MARKS = azElProfileMarks();
+const PROFILE_PATH = PROFILE_MARKS.map((m) => `M${200 - H} ${azElY(m.el).toFixed(1)}H${200 + H}`).join('');
 /** seen from the ship: right of course (az +) draws left of centre */
 const X = azElX;
 const Y = azElY;
@@ -41,6 +44,8 @@ export const AzElScope: React.FC<{
   /** projection-vector time, s (the Approach / Final toolbar's Vector) */
   vecS?: number;
   tol: boolean;
+  /** the Case III profile layer: where a level 1,200 ft aircraft shows at each NM past the glideslope intercept */
+  profile?: boolean;
   conflictIds: Set<string>;
   /** the aircraft the SPN-46 holds (the Landing aids LOCK-ON list); none: no table, the nearest is the contact */
   locks?: readonly string[];
@@ -48,7 +53,7 @@ export const AzElScope: React.FC<{
   pick?: string | null;
   onPick?: (id: string) => void;
   style?: React.CSSProperties;
-}> = ({ fp, vecS = 2, tol, conflictIds, locks, pick, onPick, style }) => {
+}> = ({ fp, vecS = 2, tol, profile = false, conflictIds, locks, pick, onPick, style }) => {
   const { prim, ghosts, tracked, primaryId, notNearest } = azElSelect(fp, locks, pick);
 
   // crosshair through the glidepath, hash marks every 0.5°, longer at whole degrees
@@ -80,6 +85,12 @@ export const AzElScope: React.FC<{
     const l = pc(X(-AZEL_AZ_DEG), 192);
     const hi = pc(208, Y(AZEL_EL_DEG));
     const lo = pc(208, Y(-AZEL_EL_DEG));
+    if (profile) {
+      for (const m of PROFILE_MARKS) {
+        const q = pc(X(-AZEL_AZ_DEG) - 4, Y(m.el));
+        labs.push({ x: q[0], y: q[1], tf: 'translate(-100%, -100%)', t: `${m.nm} NM` });
+      }
+    }
     labs.push(
       { x: r[0], y: r[1], tf: 'translate(0, -100%)', t: 'RIGHT' },
       { x: l[0], y: l[1], tf: 'translate(-100%, -100%)', t: 'LEFT' },
@@ -138,6 +149,8 @@ export const AzElScope: React.FC<{
       <svg className="par" viewBox="0 0 400 400" preserveAspectRatio="none" style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }} aria-hidden="true">
         <rect x={200 - H} y={Y(AZEL_EL_DEG)} width={2 * H} height={2 * H} stroke="rgba(147,161,176,.12)" fill="none" />
         {tol && <path d={tolPath} stroke="rgba(201,211,221,.18)" fill="none" />}
+        {/* the Case III profile (the Elevation display's profile line style): one line per NM out */}
+        {profile && <path d={PROFILE_PATH} stroke="rgba(201,211,221,.45)" fill="none" strokeDasharray="2 4" />}
         <path d={cross} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
         <path d={ticks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
         {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap="round" />}

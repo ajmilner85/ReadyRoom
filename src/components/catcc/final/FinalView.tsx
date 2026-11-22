@@ -1051,7 +1051,7 @@ export const FinalView: React.FC<{
           </div>
         </aside>
         <div style={{ padding: '8px 10px 10px 0' }}>
-          <AzElScope fp={fp} vecS={vecS} tol={ov.tol} conflictIds={conflictIds} locks={lockOn} pick={azPick} onPick={pickAzEl} style={{ width: sz.h || 334, height: sz.h || 334 }} />
+          <AzElScope fp={fp} vecS={vecS} tol={ov.tol} profile={ov.profile} conflictIds={conflictIds} locks={lockOn} pick={azPick} onPick={pickAzEl} style={{ width: sz.h || 334, height: sz.h || 334 }} />
         </div>
       </div>
     </div>

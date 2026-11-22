@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { azElPicture, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
+import { azElPicture, azElProfileMarks, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -91,6 +91,15 @@ describe('approach / final picture', () => {
 });
 
 describe('AZ/EL scope', () => {
+  it('marks where the 1,200 ft level segment shows at each NM past the glideslope intercept', () => {
+    const m = azElProfileMarks();
+    expect(m.map((x) => x.nm)).toEqual([4, 5, 6]);
+    // level 1,200 ft: atan(1200 / (r * 6076)) - 3.5
+    expect(m[0].el).toBeCloseTo(-0.67, 1);
+    expect(m[1].el).toBeCloseTo(-1.24, 1);
+    expect(m[2].el).toBeCloseTo(-1.61, 1);
+  });
+
   it('measures deviation from the glidepath origin with its sign conventions', () => {
     // on the glidepath and the centreline
     const on = glideDeviation(4, 0, 4 * GP_FT_PER_NM)!;

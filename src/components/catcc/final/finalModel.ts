@@ -269,6 +269,23 @@ export function glideDeviation(along: number, lat: number, altFt: number): Glide
   return { az: Math.atan2(lat, along) * D, el: Math.atan2(altFt / 6076.12, r) * D - GS_DEG, r };
 }
 
+/**
+ * Where an aircraft flying the Case III profile (level at 1,200 ft until it meets the glideslope)
+ * shows on the AZ/EL display at each whole NM from the glidepath origin, beyond the glideslope
+ * intercept, out to the display's range: its elevation deviation (°, negative = below the
+ * glideslope). Range is from the origin, as the display measures it, so each mark is the same at
+ * every azimuth: a horizontal line.
+ */
+export function azElProfileMarks(): { nm: number; el: number }[] {
+  const out: { nm: number; el: number }[] = [];
+  for (let nm = 1; nm <= AZEL_NM; nm++) {
+    const el = glideDeviation(nm, 0, profileAlt(nm))!.el;
+    // only where the profile is below the glideslope (past the intercept) and inside the field
+    if (el < -0.05 && el >= -AZEL_EL_DEG) out.push({ nm, el });
+  }
+  return out;
+}
+
 /** the AZ/EL plot's half-width in display units (viewBox 400 × 400, centre 200 200) */
 export const AZEL_HALF = 170;
 /**
