@@ -116,6 +116,22 @@ export const AzElScope: React.FC<{
   const c = red ? '#FF8A85' : TRK;
   const pp = prim ? pc(X(prim.dev.az), Y(prim.dev.el)) : null;
 
+  // The track table sits as far in from the frame's top as from its right (its text 10 px from
+  // both); where it would run into the HIGH label (a narrow scope, a long callsign) it drops below it.
+  const highRef = React.useRef<HTMLSpanElement>(null);
+  const tableRef = React.useRef<HTMLDivElement>(null);
+  const [belowHigh, setBelowHigh] = React.useState(false);
+  // what sets the table's width, and the scope's size
+  const rowsKey = tracked.map((k) => `${label(k.a.t)} ${typeName(k.a.t.ty)} ${k.r.toFixed(1)}`).join('|');
+  const sizeKey = `${style?.width ?? ''}x${style?.height ?? ''}`;
+  React.useLayoutEffect(() => {
+    const h = highRef.current?.getBoundingClientRect();
+    const t = tableRef.current?.getBoundingClientRect();
+    if (!h || !t) return;
+    const clash = t.left < h.right + 6;
+    if (clash !== belowHigh) setBelowHigh(clash);
+  }, [belowHigh, rowsKey, sizeKey]);
+
   return (
     <section aria-label="AZ/EL display" style={{ position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden', boxSizing: 'border-box', ...style }}>
       <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>AZ / EL</span>
@@ -130,7 +146,7 @@ export const AzElScope: React.FC<{
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {labs.map((l, i) => (
-          <span key={i} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, fontSize: 10.5, color: '#7D8896', whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
+          <span key={i} ref={l.t === 'HIGH' ? highRef : undefined} className="mono" style={{ position: 'absolute', left: `${l.x}%`, top: `${l.y}%`, transform: l.tf, fontSize: 10.5, color: '#7D8896', whiteSpace: 'nowrap', letterSpacing: '.04em' }}>
             {l.t}
           </span>
         ))}
@@ -182,13 +198,14 @@ export const AzElScope: React.FC<{
           );
         })}
       </div>
-      {/* the track table, inset in the plot's top-right corner (below the HIGH label, sized to its rows):
+      {/* the track table, inset in the plot's top-right corner (text 10 px from the top and right, below HIGH if it would touch it; sized to its rows):
           always two rows and the flag line, so nothing moves as tracks come and go */}
       <div
         className="mono"
+        ref={tableRef}
         role="list"
         aria-label="AZ/EL tracks"
-        style={{ position: 'absolute', right: `calc(${FRAME_INSET}% + 6px)`, top: `calc(${FRAME_INSET}% + 18px)`, zIndex: 3, width: 'max-content', boxSizing: 'border-box', fontSize: 10.5, lineHeight: `${ROW_H}px` }}
+        style={{ position: 'absolute', right: `calc(${FRAME_INSET}% + 6px)`, top: `calc(${FRAME_INSET}% + ${belowHigh ? 18 : 5}px)`, zIndex: 3, width: 'max-content', boxSizing: 'border-box', fontSize: 10.5, lineHeight: `${ROW_H}px` }}
       >
         {[0, 1].map((i) => {
           const k = tracked[i];
