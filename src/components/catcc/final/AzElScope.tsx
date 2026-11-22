@@ -20,6 +20,15 @@ const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
 const H = AZEL_HALF;
 /** the plot frame's inset from the scope's edge, % (the 400-unit viewBox's frame starts at 200 − H) */
 const FRAME_INSET = ((200 - H) / 400) * 100;
+/** the sea: a scalloped line across the frame's width, halfway between the frame's bottom and the pane's edge */
+const SEA = (() => {
+  const y = (400 + (200 + H)) / 2;
+  const n = 17;
+  const w = (2 * H) / n;
+  let d = `M${200 - H} ${y}`;
+  for (let i = 0; i < n; i++) d += `q${(w / 2).toFixed(2)} -4 ${w.toFixed(2)} 0`;
+  return d;
+})();
 /** seen from the ship: right of course (az +) draws left of centre */
 const X = azElX;
 const Y = azElY;
@@ -115,6 +124,8 @@ export const AzElScope: React.FC<{
         <path d={cross} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
         <path d={ticks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
         {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap="round" />}
+        {/* the sea, under the plot frame: the Azimuth display's BRC line colour */}
+        <path d={SEA} stroke="rgba(111,182,230,.45)" strokeWidth="1.2" fill="none" strokeLinejoin="round" />
       </svg>
       <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
         {labs.map((l, i) => (
