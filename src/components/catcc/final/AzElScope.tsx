@@ -7,7 +7,7 @@
  * else in the field a ghost. With nothing held, the nearest aircraft inside 6 NM is the contact.
  */
 import React from 'react';
-import { azElProfileMarks, azElSelect, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
+import { azElProfileMarks, azElSelect, flyingBall, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
 import { typeName, type ScopeTrack } from '../scopeModel.ts';
 
 const TRK = '#5FD068';
@@ -66,7 +66,7 @@ export const AzElScope: React.FC<{
     ticks += `M${f1(X(d))} ${f1(200 - h)}v${f1(2 * h)}`;
     if (Number.isInteger(d)) {
       const p = pc(X(d), 210);
-      labs.push({ x: p[0], y: p[1], tf: 'translate(-50%, 0)', t: `${Math.abs(d)}` });
+      labs.push({ x: p[0], y: p[1], tf: 'translate(-50%, 0)', t: `${Math.abs(d)}°` });
     }
   }
   for (let d = -AZEL_EL_DEG; d <= AZEL_EL_DEG + 1e-9; d += 0.5) {
@@ -75,7 +75,7 @@ export const AzElScope: React.FC<{
     ticks += `M${f1(200 - h)} ${f1(Y(d))}h${f1(2 * h)}`;
     if (Number.isInteger(d)) {
       const p = pc(190, Y(d));
-      labs.push({ x: p[0], y: p[1], tf: 'translate(-100%, -50%)', t: `${Math.abs(d)}` });
+      labs.push({ x: p[0], y: p[1], tf: 'translate(-100%, -50%)', t: `${Math.abs(d)}°` });
     }
   }
   // the ends of the scales: each names the side of course an aircraft drawn there is on (as the
@@ -126,6 +126,7 @@ export const AzElScope: React.FC<{
   const red = prim ? conflictIds.has(prim.a.t.id) : false;
   const c = red ? '#FF8A85' : TRK;
   const pp = prim ? pc(X(prim.dev.az), Y(prim.dev.el)) : null;
+  const ball = !!prim && flyingBall(prim.a);
 
   // The track table sits as far in from the frame's top as from its right (its text 10 px from
   // both); where it would run into the HIGH label (a narrow scope, a long callsign) it drops below it.
@@ -179,7 +180,7 @@ export const AzElScope: React.FC<{
                 position: 'absolute',
                 left: `${pp[0]}%`,
                 top: `${pp[1]}%`,
-                transform: pp[0] > 70 ? 'translate(calc(-100% - 10px), calc(-100% - 8px))' : 'translate(10px, calc(-100% - 8px))',
+                transform: pp[0] > 70 ? `translate(calc(-100% - ${ball ? 24 : 10}px), calc(-100% - 8px))` : 'translate(10px, calc(-100% - 8px))',
                 padding: '1px 4px',
                 background: 'rgba(11,14,18,.72)',
                 border: red ? '1px solid #E0524E' : undefined,
@@ -192,6 +193,8 @@ export const AzElScope: React.FC<{
             >
               <div>{label(prim.a.t)}</div>
               <div>{prim.dev.r.toFixed(1)} NM</div>
+              {/* inside 3/4 NM: should be flying the ball */}
+              {ball && <span style={{ position: 'absolute', left: '100%', top: '50%', width: 7, height: 7, margin: '-3.5px 0 0 7px', borderRadius: '50%', background: '#E7B04F' }} />}
             </span>
           </>
         )}

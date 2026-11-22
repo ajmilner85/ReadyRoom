@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { azElPicture, azElProfileMarks, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
+import { azElPicture, azElProfileMarks, flyingBall, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -135,6 +135,13 @@ describe('AZ/EL scope', () => {
 
   const ac = (id: string, along: number, lat: number, alt: number): FinalAc => ({ t: { id, alt } as FinalAc['t'], f: { along, lat, alongKt: -130, closureKt: 130 }, kind: 'final', tBall: 0 });
   const fpOf = (acs: FinalAc[]) => ({ acs }) as FinalPicture;
+
+  it('an arrival inside 3/4 NM, short of the ramp, should be flying the ball', () => {
+    expect(flyingBall(ac('a', 0.7, 0, 250))).toBe(true);
+    expect(flyingBall(ac('b', 0.8, 0, 280))).toBe(false);
+    expect(flyingBall(ac('c', -0.1, 0, 50))).toBe(false);
+    expect(flyingBall({ ...ac('d', 0.5, 0, 300), kind: 'bolter' })).toBe(false);
+  });
 
   it('keeps aircraft inside 6 NM and the field of regard, nearest first', () => {
     const gp = (r: number) => r * GP_FT_PER_NM;

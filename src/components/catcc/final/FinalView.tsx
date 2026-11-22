@@ -18,7 +18,7 @@ import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
 import { SPN46_ACQ_DEG, SPN46_ACQ_NM, SPN46_CHANNELS, SPN46_RANGE_NM } from '../radar/spn46.ts';
 import { LABEL_FONT_PX, LABEL_ROW_PX, TICK_PX, TIMELINE_H, TIMELINE_LINE_Y, labelTop, placeTimelineLabels } from './timelineLabels.ts';
-import { bolterSlot, upwindSlot, dmeAt, finalPicture, finalProjection, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
+import { bolterSlot, flyingBall, upwindSlot, dmeAt, finalPicture, finalProjection, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
@@ -56,6 +56,9 @@ const tagGeom = (rowsIn: string[]) => {
   return { arrow, rows, inset, w: Math.max(...rows.map((r) => r.length)) * 0.54 + inset + 0.3, h: rows.length + 0.35 };
 };
 const f1 = (n: number) => n.toFixed(1);
+/** the ball dot (inside 3/4 NM): amber, the gap and dot right of a data tag in tag units */
+const BALL_C = '#E7B04F';
+const BALL_DOT_W = 0.8;
 const ms = (t: number) => {
   const n = Math.round(Math.abs(t));
   // the sign of the rounded value: −0.3 s reads 0:00, never −0:00
@@ -95,6 +98,8 @@ interface Blip {
   tr: [number, number][];
   /** velocity vector in display units: x1 y1 x2 y2 */
   v?: number[];
+  /** inside 3/4 NM: should be flying the ball (an amber dot right of the tag) */
+  ball?: boolean;
 }
 
 const label = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
@@ -589,9 +594,10 @@ export const FinalView: React.FC<{
     }
     const e = pc(X(a.f.along), Ye(t.alt));
     const pref: [number, number] = a.kind === 'bolter' ? [-1, 1] : [1, -1];
-    eBlips.push({ id: t.id, x: e[0], y: e[1], c, red, pref, tc, rows, tr: trE, v: vE });
+    const ball = flyingBall(a);
+    eBlips.push({ id: t.id, x: e[0], y: e[1], c, red, pref, tc, rows, tr: trE, v: vE, ball });
     const z = pc(X(a.f.along), Ya(a.f.lat));
-    aBlips.push({ id: t.id, x: z[0], y: z[1], c, red, pref, tc, rows, tr: trA, v: vA });
+    aBlips.push({ id: t.id, x: z[0], y: z[1], c, red, pref, tc, rows, tr: trA, v: vA, ball });
   }
 
   // ------------------------------------------------ panels
@@ -680,7 +686,8 @@ export const FinalView: React.FC<{
             own.push({ x0: x - 3, y0: y - 3, x1: x + 3, y1: y + 3 });
           }
         }
-        return { id: b.id, p, ...tagGeom(b.rows), pref: b.pref, keepOff: own, priority: b.red ? 0 : 2 + b.x / 100 };
+        const g = tagGeom(b.rows);
+        return { id: b.id, p, ...g, w: g.w + (b.ball ? BALL_DOT_W : 0), pref: b.pref, keepOff: own, priority: b.red ? 0 : 2 + b.x / 100 };
       }),
       { k: K, hitK: K, view: { x0: 0, y0: 0, x1: sz.w, y1: sz.h }, prev: prevPlaces.current[key], obstacles: blips.map(toPx), keepOff: keep, lengths: LEADERS },
     );
@@ -731,7 +738,9 @@ export const FinalView: React.FC<{
               const s = Math.SQRT1_2;
               const L0 = [pl.q[0] * 0.7 * s, pl.q[1] * 0.7 * s];
               const L1 = [pl.q[0] * pl.L * s, pl.q[1] * pl.L * s];
-              const rx = pl.q[0] > 0 ? L1[0] + 0.05 : L1[0] - 0.05 - w;
+              // the ball dot sits right of the box: a tag west of its contact moves left to make room
+              const dotW = b.ball ? BALL_DOT_W : 0;
+              const rx = pl.q[0] > 0 ? L1[0] + 0.05 : L1[0] - 0.05 - w - dotW;
               const ty = L1[1] + 0.32;
               return (
                 <g key={`tag${b.id}`} transform={`translate(${f1(px)} ${f1(py)}) scale(${K})`} style={{ fontFamily: "'IBM Plex Mono', monospace" }}>
@@ -747,6 +756,7 @@ export const FinalView: React.FC<{
                       {arrow}
                     </text>
                   )}
+                  {b.ball && <circle cx={rx + w + BALL_DOT_W / 2} cy={ty - 0.85 + h / 2} r={3.5 / K} fill={BALL_C} />}
                 </g>
               );
             })}

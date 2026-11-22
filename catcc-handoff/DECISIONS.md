@@ -805,3 +805,8 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 - The track table's text is as far from the frame's top as from its right (about 10 px; the user). Where that would run into the HIGH label (a scope under roughly 450–500 px, or a long callsign) the table drops below HIGH instead, measured on screen.
 - Case III profile marks (the user): a dotted line at each whole NM from the glidepath origin past the glideslope intercept (4, 5, 6 NM) where an aircraft level at 1,200 ft shows (about 0.67°, 1.24°, 1.61° below the glideslope), labelled "4 NM"… at the right end. Straight lines, not arcs: range is measured from the origin, so a mark is the same at every azimuth. From `profileAlt`, so they follow the profile. On the Layers panel's Profile switch, in the Elevation display's profile line style.
 - The profile marks now use the Azimuth display's 1° / 2° / 5° line style (rgba(147,161,176,.17), dash 4 4; the user).
+
+## Approach / Final: the ball dot, degree labels (2026-11-22)
+
+- An arrival inside 3/4 NM (on final or inbound, short of the ramp; `flyingBall`) gets an amber dot right of its data tag, centred on the tag, on the Elevation, Azimuth and AZ/EL displays: it should be flying the ball (the user). Tag placement counts the dot; a tag west of its contact moves left to make room.
+- The AZ/EL axis numbers carry the degree symbol (1°, 2°, 3°; the user).

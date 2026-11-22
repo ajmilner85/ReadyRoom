@@ -269,6 +269,11 @@ export function glideDeviation(along: number, lat: number, altFt: number): Glide
   return { az: Math.atan2(lat, along) * D, el: Math.atan2(altFt / 6076.12, r) * D - GS_DEG, r };
 }
 
+/** the ball call: inside 3/4 NM an arrival should be flying the ball (the lens) */
+export const BALL_NM = 0.75;
+/** An arrival (on final or inbound to it) inside the ball call, short of the ramp. */
+export const flyingBall = (a: FinalAc): boolean => (a.kind === 'final' || a.kind === 'inbound') && a.f.along > 0 && a.f.along <= BALL_NM;
+
 /**
  * Where an aircraft flying the Case III profile (level at 1,200 ft until it meets the glideslope)
  * shows on the AZ/EL display at each whole NM from the glidepath origin, beyond the glideslope
