@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { destination } from '../../../catcc/core/geo.ts';
 import type { WireTrack } from '../../../catcc/core/room/protocol.ts';
 import { buildPicture } from '../scopeModel.ts';
-import { azElPicture, azElProfileMarks, flyingBall, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
+import { clipVector, azElPicture, azElProfileMarks, flyingBall, azElSelect, azElX, azElY, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, bolterSlot, finalPicture, glideDeviation, landingWeightLb, profileAlt, sepStd, sepViolated, GP_FT_PER_NM, type FinalAc, type FinalPicture } from './finalModel.ts';
 
 // BRC 345 → FB 336: final is flown on 336 from the south-south-east (astern is 156)
 const CV = { lat: 26.2, lon: 56.8 };
@@ -87,6 +87,28 @@ describe('approach / final picture', () => {
     expect(profileAlt(2)).toBeLessThan(1200);
     expect(landingWeightLb('FA-18C_hornet', 4100)).toBe(31000);
     expect(landingWeightLb('KC135MPRS', 1000)).toBeNull();
+  });
+});
+
+describe('projection vectors stop at the plot edge', () => {
+  const box = [60, 40, 980, 370] as [number, number, number, number];
+  it('a vector inside the plot is left alone', () => {
+    expect(clipVector(100, 100, 200, 150, box)).toEqual({ x: 200, y: 150, cut: false });
+  });
+  it('a vector running out of the top is cut at the edge', () => {
+    const c = clipVector(500, 60, 540, 0, box)!;
+    expect(c.cut).toBe(true);
+    expect(c.y).toBeCloseTo(40);
+    expect(c.x).toBeCloseTo(500 + 40 * (20 / 60));
+  });
+  it('the first edge crossed wins (out through the right before the bottom)', () => {
+    const c = clipVector(970, 360, 1010, 380, box)!;
+    expect(c.cut).toBe(true);
+    expect(c.x).toBeCloseTo(980);
+    expect(c.y).toBeCloseTo(365);
+  });
+  it('nothing to draw from outside the plot', () => {
+    expect(clipVector(10, 100, 200, 100, box)).toBeNull();
   });
 });
 

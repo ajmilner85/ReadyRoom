@@ -269,6 +269,28 @@ export function glideDeviation(along: number, lat: number, altFt: number): Glide
   return { az: Math.atan2(lat, along) * D, el: Math.atan2(altFt / 6076.12, r) * D - GS_DEG, r };
 }
 
+/** A display's plot area in its own drawing units: x0, y0, x1, y1. */
+export type PlotBox = [number, number, number, number];
+
+/**
+ * A projection vector cut where it leaves the plot: from (x1, y1), which must be inside the box,
+ * toward (x2, y2). Returns the end point inside the box and whether it was cut there (then the
+ * display draws an arrowhead at it). Null when the start is outside.
+ */
+export function clipVector(x1: number, y1: number, x2: number, y2: number, box: PlotBox): { x: number; y: number; cut: boolean } | null {
+  const [bx0, by0, bx1, by1] = box;
+  if (x1 < bx0 || x1 > bx1 || y1 < by0 || y1 > by1) return null;
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  let t = 1;
+  // the first box edge the segment crosses, as a fraction of its length
+  if (dx > 0) t = Math.min(t, (bx1 - x1) / dx);
+  if (dx < 0) t = Math.min(t, (bx0 - x1) / dx);
+  if (dy > 0) t = Math.min(t, (by1 - y1) / dy);
+  if (dy < 0) t = Math.min(t, (by0 - y1) / dy);
+  return { x: x1 + dx * t, y: y1 + dy * t, cut: t < 1 };
+}
+
 /** the ball call: inside 3/4 NM an arrival should be flying the ball (the lens) */
 export const BALL_NM = 0.75;
 /** An arrival (on final or inbound to it) inside the ball call, short of the ramp. */

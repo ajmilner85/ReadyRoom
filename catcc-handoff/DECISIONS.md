@@ -813,3 +813,7 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 - The ball dot moved left of the board number (the user): on the Elevation and Azimuth tags in the climb / descent arrow's column, above the arrow (a tag without an arrow gets that column too); on the AZ/EL tag before the board number.
 - On the AZ/EL tag the dot sits left of the board number outside the text, so the number stays aligned with the range below it (the user).
 - The AZ/EL plot has no frame outline (the user).
+
+## Approach / Final: vectors stop at the plot edge (2026-11-22)
+
+- A projection vector that would run out of its display's plot (the Elevation, Azimuth or AZ/EL plot area; the frame outline is gone but the area is the same) is cut at the edge with a filled arrowhead there, in the vector's colour (the user). `clipVector` in finalModel.ts; the arrowhead is 9 px long, 4.5 px half-width, drawn in pixels on the Elevation / Azimuth displays (their plots stretch).

@@ -18,7 +18,7 @@ import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
 import { SPN46_ACQ_DEG, SPN46_ACQ_NM, SPN46_CHANNELS, SPN46_RANGE_NM } from '../radar/spn46.ts';
 import { LABEL_FONT_PX, LABEL_ROW_PX, TICK_PX, TIMELINE_H, TIMELINE_LINE_Y, labelTop, placeTimelineLabels } from './timelineLabels.ts';
-import { bolterSlot, flyingBall, upwindSlot, dmeAt, finalPicture, finalProjection, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
+import { bolterSlot, clipVector, flyingBall, type PlotBox, upwindSlot, dmeAt, finalPicture, finalProjection, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
 const AMAX: Record<ParRange, number> = { 6: 1500, 12: 3000, 24: 7000 };
@@ -59,6 +59,9 @@ const tagGeom = (rowsIn: string[], ball = false) => {
 const f1 = (n: number) => n.toFixed(1);
 /** the ball dot (inside 3/4 NM): amber, left of the board number, above the climb / descent arrow */
 const BALL_C = '#E7B04F';
+/** the arrowhead where a projection vector is cut at the plot's edge: length and half-width, px */
+const ARROW_L = 9;
+const ARROW_W = 4.5;
 const ms = (t: number) => {
   const n = Math.round(Math.abs(t));
   // the sign of the rounded value: −0.3 s reads 0:00, never −0:00
@@ -696,6 +699,28 @@ export const FinalView: React.FC<{
 
   const disp = (title: string, grid: string, extra: React.ReactNode, labs: Lab[], blips: Blip[], datum: (x: number) => number | null, ref?: React.Ref<HTMLElement>) => {
     const places = sz.w ? placeTags(title, blips, datum) : new Map<string, TagPlace>();
+    // projection vectors stop at the plot's edge with an arrowhead there (drawn in pixels: the plot stretches)
+    const box: PlotBox = title === 'Elevation' ? [60, Ye(AMAX[RG]), 980, Ye(0)] : [60, Ya(LM), 980, Ya(-LM)];
+    const kx = sz.w / 1000;
+    const ky = sz.h / 400;
+    const vecs = blips.flatMap((b): { b: Blip; end: [number, number]; head: string | null }[] => {
+      if (!b.v) return [];
+      const c = clipVector(b.v[0], b.v[1], b.v[2], b.v[3], box);
+      if (!c) return [];
+      if (!c.cut || !sz.w) return [{ b, end: [c.x, c.y] as [number, number], head: null }];
+      // the tip on the edge; the line ends at the arrowhead's base
+      const tx = c.x * kx;
+      const ty = c.y * ky;
+      const dx = tx - b.v[0] * kx;
+      const dy = ty - b.v[1] * ky;
+      const n = Math.hypot(dx, dy) || 1;
+      const [ux, uy] = [dx / n, dy / n];
+      const L = Math.min(ARROW_L, n);
+      const bx = tx - ux * L;
+      const by = ty - uy * L;
+      const head = `${f1(tx)},${f1(ty)} ${f1(bx - uy * ARROW_W)},${f1(by + ux * ARROW_W)} ${f1(bx + uy * ARROW_W)},${f1(by - ux * ARROW_W)}`;
+      return [{ b, end: [bx / kx, by / ky] as [number, number], head }];
+    });
     return (
       <section ref={ref} aria-label={`${title} display`} style={{ flex: 1, minHeight: 0, position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 8, overflow: 'hidden' }}>
         <span className="lbl" style={{ position: 'absolute', left: 10, top: 8, zIndex: 2 }}>{title}</span>
@@ -703,7 +728,9 @@ export const FinalView: React.FC<{
           <path d={grid} stroke="rgba(147,161,176,.12)" fill="none" />
           <path d={ramp} stroke="rgba(201,211,221,.4)" fill="none" />
           {extra}
-          {blips.map((b) => b.v && <line key={`v${b.id}`} x1={f1(b.v[0])} y1={f1(b.v[1])} x2={f1(b.v[2])} y2={f1(b.v[3])} stroke={b.c} strokeWidth="1.8" strokeLinecap="round" />)}
+          {vecs.map(({ b, end, head }) => (
+            <line key={`v${b.id}`} x1={f1(b.v![0])} y1={f1(b.v![1])} x2={f1(end[0])} y2={f1(end[1])} stroke={b.c} strokeWidth="1.8" strokeLinecap={head ? 'butt' : 'round'} />
+          ))}
         </svg>
         <div style={{ position: 'absolute', inset: 0, pointerEvents: 'none' }}>
           {labs.map((l, i) =>
@@ -728,6 +755,7 @@ export const FinalView: React.FC<{
         </div>
         {/* data tags: leader on the 45° from 0.7 to L, box starting (east) or ending (west) at the leader's end */}
         <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', overflow: 'hidden' }} aria-hidden="true">
+          {vecs.map(({ b, head }) => head && <polygon key={`h${b.id}`} points={head} fill={b.c} />)}
           {sz.w > 0 &&
             blips.map((b) => {
               const pl = places.get(b.id) ?? { q: [1, -1] as [number, number], L: 2.4 };

@@ -7,7 +7,7 @@
  * else in the field a ghost. With nothing held, the nearest aircraft inside 6 NM is the contact.
  */
 import React from 'react';
-import { azElProfileMarks, azElSelect, flyingBall, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
+import { azElProfileMarks, azElSelect, clipVector, flyingBall, azElX, azElY, finalProjection, glideDeviation, AZEL_AZ_DEG, AZEL_EL_DEG, AZEL_HALF, type FinalPicture } from './finalModel.ts';
 import { typeName, type ScopeTrack } from '../scopeModel.ts';
 
 const TRK = '#5FD068';
@@ -125,6 +125,25 @@ export const AzElScope: React.FC<{
   }
   const red = prim ? conflictIds.has(prim.a.t.id) : false;
   const c = red ? '#FF8A85' : TRK;
+  // the vector stops at the plot's edge, with an arrowhead there (9 px long, 4.5 px half-width)
+  let vecHead: string | null = null;
+  if (vec) {
+    const cut = clipVector(vec[0], vec[1], vec[2], vec[3], [200 - H, 200 - H, 200 + H, 200 + H]);
+    if (!cut) vec = null;
+    else if (cut.cut) {
+      const px = 400 / (typeof style?.width === 'number' ? style.width : 334);
+      const dx = cut.x - vec[0];
+      const dy = cut.y - vec[1];
+      const n = Math.hypot(dx, dy) || 1;
+      const [ux, uy] = [dx / n, dy / n];
+      const L = Math.min(9 * px, n);
+      const W = 4.5 * px;
+      const bx = cut.x - ux * L;
+      const by = cut.y - uy * L;
+      vecHead = `${f1(cut.x)},${f1(cut.y)} ${f1(bx - uy * W)},${f1(by + ux * W)} ${f1(bx + uy * W)},${f1(by - ux * W)}`;
+      vec = [vec[0], vec[1], bx, by];
+    } else vec = [vec[0], vec[1], cut.x, cut.y];
+  }
   const pp = prim ? pc(X(prim.dev.az), Y(prim.dev.el)) : null;
   const ball = !!prim && flyingBall(prim.a);
 
@@ -153,7 +172,8 @@ export const AzElScope: React.FC<{
         {profile && <path d={PROFILE_PATH} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />}
         <path d={cross} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
         <path d={ticks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
-        {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap="round" />}
+        {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap={vecHead ? 'butt' : 'round'} />}
+        {vecHead && <polygon points={vecHead} fill={red ? '#FF8A85' : TRK} />}
         {/* the sea, under the plot frame: the Azimuth display's BRC line colour */}
         <path d={SEA} stroke="rgba(111,182,230,.45)" strokeWidth="1.2" fill="none" strokeLinejoin="round" />
       </svg>
