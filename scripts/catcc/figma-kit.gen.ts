@@ -1,7 +1,8 @@
 // THE CATCC KIT FOR FIGMA: renders the CATCC UI kit page (src/components/catcc/kit, the /catcc/kit route) in a
 // headless Chromium, reads every [data-figma] specimen as the browser laid it out (scripts/catcc/figma-kit/
 // serialize.js) and writes the Figma development plugin's data:
-//   node scripts/catcc/figma-kit.gen.ts            → figma/catcc-kit/kit.json and code.js
+//   node scripts/catcc/figma-kit.gen.ts            → figma/catcc-kit/kit.json and code.js, and the SVG export (svg/,
+//                                                    scripts/catcc/figma-kit-svg.ts on its own redoes only that)
 //   node scripts/catcc/figma-kit.gen.ts --shot DIR → also screenshots of the kit: DIR/catcc-kit.png and one per section
 // The page is served by a Vite server of its own on a free port (never the app's 5173 / 3001 / 3002), stopped at
 // the end. Needs playwright-core and a Chromium of ms-playwright (PWCORE / CHROME in the environment, or found in
@@ -14,6 +15,7 @@ import { fileURLToPath } from 'node:url';
 import { createServer, type Plugin } from 'vite';
 import { COLORS, FONTS, RADII, TEXT_STYLES } from '../../src/components/catcc/kit/tokens.ts';
 import { assembleCode, formatKit } from './figma-kit/assemble.ts';
+import { writeKitSvg } from './figma-kit/svg.ts';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const OUT = path.join(ROOT, 'figma/catcc-kit');
@@ -130,7 +132,8 @@ try {
   const json = formatKit(kit);
   fs.writeFileSync(path.join(OUT, 'kit.json'), json);
   fs.writeFileSync(path.join(OUT, 'code.js'), assembleCode(fs.readFileSync(path.join(OUT, 'plugin.cjs'), 'utf8'), json));
-  console.log(`written: figma/catcc-kit/kit.json (${specimens.length} specimens), code.js (${Math.round(fs.statSync(path.join(OUT, 'code.js')).size / 1024)} KB)`);
+  const svgBytes = writeKitSvg(path.join(OUT, 'svg'), JSON.parse(json));
+  console.log(`written: figma/catcc-kit/kit.json (${specimens.length} specimens), code.js (${Math.round(fs.statSync(path.join(OUT, 'code.js')).size / 1024)} KB), svg/ (${Math.round(svgBytes / 1024)} KB)`);
 } finally {
   await browser?.close();
   await server.close();
