@@ -71,10 +71,10 @@ export const AzElScope: React.FC<{
     const hi = pc(208, Y(AZEL_EL_DEG));
     const lo = pc(208, Y(-AZEL_EL_DEG));
     labs.push(
-      { x: r[0], y: r[1], tf: 'translate(0, -100%)', t: 'R' },
-      { x: l[0], y: l[1], tf: 'translate(-100%, -100%)', t: 'L' },
-      { x: hi[0], y: hi[1], tf: 'translate(0, 0)', t: 'HI' },
-      { x: lo[0], y: lo[1], tf: 'translate(0, -100%)', t: 'LO' },
+      { x: r[0], y: r[1], tf: 'translate(0, -100%)', t: 'RIGHT' },
+      { x: l[0], y: l[1], tf: 'translate(-100%, -100%)', t: 'LEFT' },
+      { x: hi[0], y: hi[1], tf: 'translate(0, 0)', t: 'HIGH' },
+      { x: lo[0], y: lo[1], tf: 'translate(0, -100%)', t: 'LOW' },
     );
   }
   // ±0.5° about the glideslope, as on the Elevation display
@@ -170,7 +170,7 @@ export const AzElScope: React.FC<{
           );
         })}
       </div>
-      {/* the track table, inset in the plot's top-right corner (below the HI label, sized to its rows):
+      {/* the track table, inset in the plot's top-right corner (below the HIGH label, sized to its rows):
           always two rows and the flag line, so nothing moves as tracks come and go */}
       <div
         className="mono"
