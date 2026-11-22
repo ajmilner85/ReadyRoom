@@ -143,7 +143,7 @@ export const BossView: React.FC<{
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
   const hull = pic.focus?.track.hull;
 
-  // seed the sand table from live positions when entering it
+  // seed the Ouija Board from live positions when entering it
   useEffect(() => {
     if (mode !== 'sand' || !st) return;
     setChits(Object.fromEntries(st.jets.map((j) => [j.t.id, { x: j.x, y: j.y, a: j.a }])));
@@ -161,7 +161,7 @@ export const BossView: React.FC<{
     return [v.x, -v.y];
   };
 
-  // ------------------------------------------------ aircraft on deck, where they are drawn (the sand table moves them)
+  // ------------------------------------------------ aircraft on deck, where they are drawn (the Ouija Board moves them)
   const placed: DeckJet[] = useMemo(() => {
     if (!st) return [];
     return st.jets.map((j) => {
@@ -346,7 +346,7 @@ export const BossView: React.FC<{
         <DeckBar pic={pic} deck={deck} ops={ops} setOps={setOps} readOnly={readOnly} />
         <section aria-label="Flight deck" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span className="lbl">Flight deck · {mode === 'live' ? 'live from DCS' : 'sand table (manual chits)'}</span>
+            <span className="lbl">Flight deck · {mode === 'live' ? 'live from DCS' : 'Ouija Board (manual chits)'}</span>
             <div style={{ flex: 1 }} />
             <div role="group" aria-label="Deck layers" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }}>
               {DECK_LAYERS.map((l) => (

@@ -322,7 +322,7 @@ const CatccApp: React.FC = () => {
         <div role="toolbar" aria-label="View status" style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '6px 16px', borderBottom: '1px solid #262F3A', background: '#11161C', flex: 'none', overflowX: 'auto', whiteSpace: 'nowrap' }}>
           {mod === 'boss' && (
             <div style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }} aria-label="Deck view mode">
-              {([['live', 'Live positions'], ['sand', 'Sand table']] as const).map(([k, l]) => (
+              {([['live', 'Live positions'], ['sand', 'Ouija Board']] as const).map(([k, l]) => (
                 <button key={k} onClick={() => setBossMode(k)} style={{ border: 0, padding: '5px 11px', borderRadius: 4, background: bossMode === k ? '#222C37' : 'transparent', color: bossMode === k ? '#E6EDF3' : '#93A1B0', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' }}>
                   {l}
                 </button>
