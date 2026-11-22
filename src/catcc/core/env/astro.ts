@@ -66,6 +66,41 @@ export interface LightDay {
   moonIllum: number;
 }
 
+/** The first time after `from` (within `spanH`) the sun crosses -0.833° going down (sunset) or up (sunrise). */
+export function nextSunCross(from: Date, lat: number, lon: number, dir: 'set' | 'rise', spanH = 48, stepMin = 5): Date | undefined {
+  let prev = sunAltitude(from, lat, lon);
+  for (let i = 1; i <= (spanH * 60) / stepMin; i++) {
+    const t = new Date(from.getTime() + i * stepMin * 60_000);
+    const s = sunAltitude(t, lat, lon);
+    if (dir === 'set' ? prev >= -0.833 && s < -0.833 : prev < -0.833 && s >= -0.833) {
+      return new Date(t.getTime() - stepMin * 60_000 * (1 - (-0.833 - prev) / (s - prev)));
+    }
+    prev = s;
+  }
+  return undefined;
+}
+
+/** Case III night: from 30 min after sunset to 30 min before sunrise. */
+export const NIGHT_OPS_PAD_MIN = 30;
+
+/**
+ * Day or night ops now, and when that changes next: night ops begin 30 min after the next sunset
+ * and end 30 min before the next sunrise. `until` is undefined when the sun neither sets nor rises
+ * in the next two days (polar day or night).
+ */
+export function opsClock(utc: Date, lat: number, lon: number): { night: boolean; until?: Date } {
+  const pad = NIGHT_OPS_PAD_MIN * 60_000;
+  // the next night start / end still ahead of now
+  const ss = nextSunCross(new Date(utc.getTime() - pad), lat, lon, 'set');
+  const sr = nextSunCross(new Date(utc.getTime() + pad), lat, lon, 'rise');
+  const start = ss && new Date(ss.getTime() + pad);
+  const end = sr && new Date(sr.getTime() - pad);
+  if (start && end) return end < start ? { night: true, until: end } : { night: false, until: start };
+  // no sunset ahead: polar night if the sun is down, else polar day
+  const night = sunAltitude(utc, lat, lon) < -6;
+  return { night, until: night ? end : start };
+}
+
 /** Sun/moon events over the 24 h starting at `from` (sunrise/sunset at -0.833°, moonrise at +0.125°). */
 export function lightDay(from: Date, lat: number, lon: number, stepMin = 5): LightDay {
   const samples: { t: Date; sun: number }[] = [];

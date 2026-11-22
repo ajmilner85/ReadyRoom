@@ -1,7 +1,7 @@
 /** Left sidebar Info tab: ship, weather, light/case. Ported from the mockup markup. */
 import React from 'react';
 import type { HookEnv } from '../../../catcc/core/dcs/hookProtocol.ts';
-import { lightDay, sunAltitude } from '../../../catcc/core/env/astro.ts';
+import { lightDay, opsClock, sunAltitude } from '../../../catcc/core/env/astro.ts';
 import { ceilingFt, cloudsText, nextPimTurn, precipText, recoveryCase, visibilityNm } from '../../../catcc/core/env/weather.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import { carrierByHull } from '../../../catcc/core/tracks/naming.ts';
@@ -147,11 +147,14 @@ const LightPanel: React.FC<{ focus: Carrier; utc: Date; offH: number; ceiling: n
   const c3b = sr ? new Date(sr.getTime() - 30 * 60_000) : undefined;
   const sunNow = sunAltitude(utc, lat, lon);
   const nowX = X(utc);
-  const night = c3a && c3b ? utc >= c3a && utc <= c3b : sunNow < -6;
+  // the next change may lie past the chart's noon-to-noon window (in the morning, the next night is tonight's)
+  const { night, until } = React.useMemo(() => opsClock(utc, lat, lon), [key, lat, lon]); // eslint-disable-line react-hooks/exhaustive-deps
   const kase = recoveryCase(night, ceiling, vis);
-  const until = night ? c3b : c3a;
   const dt = until ? Math.max(0, until.getTime() - utc.getTime()) / 60_000 : null;
-  const hm = (m: number) => `${Math.floor(m / 60)}:${String(Math.round(m % 60)).padStart(2, '0')}`;
+  const hm = (m: number) => {
+    const t = Math.ceil(m);
+    return `${Math.floor(t / 60)}:${String(t % 60).padStart(2, '0')}`;
+  };
   const mr = data.day.moonrise;
   return (
     <section className="pnl" aria-label="Light and case">
