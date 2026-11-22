@@ -57,7 +57,8 @@ const tagGeom = (rowsIn: string[]) => {
 const f1 = (n: number) => n.toFixed(1);
 const ms = (t: number) => {
   const n = Math.round(Math.abs(t));
-  return `${t < 0 ? '−' : ''}${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
+  // the sign of the rounded value: −0.3 s reads 0:00, never −0:00
+  return `${t < 0 && n > 0 ? '−' : ''}${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`;
 };
 const C = { ok: '#7FD397', marginal: '#E7B04F', bad: '#FF8A85' } as const;
 const SEG: React.CSSProperties = { display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 };
