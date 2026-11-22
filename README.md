@@ -45,7 +45,8 @@ npm run build
 
 - `/catcc/kit` (signed in, like `/catcc`) is the CATCC UI kit: the CATCC interface's tokens, type and components (header, controls, panels, scope symbols, data tags, strips, overlays, icons) rendered live with demo data. The source is `src/components/catcc/kit/`.
 - `figma/catcc-kit/` is a Figma development plugin built from that page. It makes CATCC colour variables, text styles and components with variants for sketching new CATCC features. To import it, open the Figma desktop app, choose **Plugins → Development → Import plugin from manifest…**, pick `figma/catcc-kit/manifest.json`, then run **CATCC Kit**. See `figma/catcc-kit/README.md`.
-- After changing the kit, regenerate the plugin's data with `node scripts/catcc/figma-kit.gen.ts`. It needs headless Chromium (playwright-core) and the network for the Google fonts. The tests check that it is current.
+- On Figma's free (Starter) plan, use the SVG export instead: drag `figma/catcc-kit/svg/CATCC Kit.svg` (the whole kit by section) or a file from `figma/catcc-kit/svg/parts/` (one per component and variant) into a draft. Text comes in as editable text and layers are named after the components. Then make components with **Create component** / **Create multiple components** → **Combine as variants**. The steps are in `figma/catcc-kit/README.md`.
+- After changing the kit, regenerate the plugin's data and the SVGs with `node scripts/catcc/figma-kit.gen.ts`. `node scripts/catcc/figma-kit-svg.ts` redoes only the SVGs from `kit.json`, with no browser. It needs headless Chromium (playwright-core) and the network for the Google fonts. The tests check that it is current.
 
 ## CATCC access
 
