@@ -3647,40 +3647,97 @@ __export(attach_exports, {
 });
 module.exports = __toCommonJS(attach_exports);
 
+// catcc-server/room/membership.ts
+var REASON = {
+  noPilot: "No roster pilot for this Discord account",
+  noSquadron: "Not assigned to a squadron",
+  inactive: (status) => `Roster status: ${status}`,
+  noStatus: "No roster status"
+};
+var todayUtc = (now = /* @__PURE__ */ new Date()) => now.toISOString().slice(0, 10);
+var isCurrent = (r2, today) => (!r2.start_date || r2.start_date.slice(0, 10) <= today) && (!r2.end_date || r2.end_date.slice(0, 10) > today);
+function decideMembership(f, today) {
+  if (f.admin) return { ok: true };
+  if (!f.pilot) return { ok: false, reason: REASON.noPilot };
+  const live = new Set(f.squadrons.filter((s) => !s.deactivated_date || s.deactivated_date.slice(0, 10) > today).map((s) => s.id));
+  if (!f.assignments.some((a) => a.squadron_id && live.has(a.squadron_id) && isCurrent(a, today))) return { ok: false, reason: REASON.noSquadron };
+  const cur = f.statusRows.filter((r2) => isCurrent(r2, today)).sort((a, b) => (b.start_date ?? "").localeCompare(a.start_date ?? ""))[0];
+  const st = cur && f.statuses.find((s) => s.id === cur.status_id);
+  if (!st) return { ok: false, reason: REASON.noStatus };
+  if (!st.isActive) return { ok: false, reason: REASON.inactive(st.name) };
+  return { ok: true };
+}
+function discordIdOf(authUser) {
+  const i = authUser.identities?.find((x) => x.provider === "discord");
+  if (!i) return void 0;
+  const v = i.identity_data?.provider_id ?? i.identity_data?.sub ?? i.id;
+  return v != null && String(v) ? String(v) : void 0;
+}
+
 // catcc-server/room/auth.ts
+var isRefused = (r2) => !!r2 && "refused" in r2;
+var MEMBER_TTL_MS = 5 * 6e4;
+var REFUSED_TTL_MS = 6e4;
 function supabaseVerifier(url, serviceKey) {
   const cache = /* @__PURE__ */ new Map();
   const headers = (bearer) => ({ apikey: serviceKey, Authorization: `Bearer ${bearer}` });
+  const rest = async (path) => {
+    const res = await fetch(`${url}/rest/v1/${path}`, { headers: headers(serviceKey) });
+    if (!res.ok) throw new Error(`supabase ${res.status} on ${path.split("?")[0]}`);
+    return await res.json();
+  };
+  const q = encodeURIComponent;
+  const inList = (ids) => `in.(${ids.map((id) => q(id)).join(",")})`;
   return async (token) => {
     const hit = cache.get(token);
-    if (hit && hit.until > Date.now()) return hit.user;
+    if (hit && hit.until > Date.now()) return hit.result;
+    for (const [k, v] of cache) if (v.until <= Date.now()) cache.delete(k);
     try {
       const res = await fetch(`${url}/auth/v1/user`, { headers: headers(token) });
       if (!res.ok) return null;
       const authUser = await res.json();
       let name = String(authUser.user_metadata?.full_name ?? authUser.user_metadata?.name ?? authUser.email ?? "Unknown");
       let board;
-      const prof = await fetch(
-        `${url}/rest/v1/user_profiles?auth_user_id=eq.${encodeURIComponent(authUser.id)}&select=pilot_id,discord_username&limit=1`,
-        { headers: headers(serviceKey) }
+      const [prof] = await rest(
+        `user_profiles?auth_user_id=eq.${q(authUser.id)}&select=id,discord_username&limit=1`
       );
-      if (prof.ok) {
-        const [p] = await prof.json();
-        if (p?.discord_username) name = p.discord_username;
-        if (p?.pilot_id) {
-          const pil = await fetch(`${url}/rest/v1/pilots?id=eq.${encodeURIComponent(p.pilot_id)}&select=callsign,boardNumber&limit=1`, {
-            headers: headers(serviceKey)
-          });
-          if (pil.ok) {
-            const [pilot] = await pil.json();
-            if (pilot?.callsign) name = pilot.callsign;
-            if (pilot?.boardNumber != null) board = pilot.boardNumber;
-          }
+      if (prof?.discord_username) name = prof.discord_username;
+      let admin = false;
+      if (prof) {
+        const [perm] = await rest(`app_permissions?name=eq.access_developer_settings&select=id&limit=1`);
+        if (perm) {
+          const rules = await rest(
+            `permission_rules?basis_type=eq.manual_override&basis_id=eq.${q(prof.id)}&permission_id=eq.${q(perm.id)}&active=is.true&select=id&limit=1`
+          );
+          admin = rules.length > 0;
         }
       }
-      const user = { userId: authUser.id, name, board };
-      cache.set(token, { user, until: Date.now() + 5 * 6e4 });
-      return user;
+      const discordId = discordIdOf(authUser);
+      const [pilot] = discordId ? await rest(
+        `pilots?discord_id=eq.${q(discordId)}&select=id,callsign,boardNumber&limit=1`
+      ) : [];
+      let assignments = [];
+      let squadrons = [];
+      let statusRows = [];
+      let statuses = [];
+      if (pilot) {
+        if (pilot.callsign) name = pilot.callsign;
+        if (pilot.boardNumber != null) board = pilot.boardNumber;
+        [assignments, statusRows] = await Promise.all([
+          rest(`pilot_assignments?pilot_id=eq.${q(pilot.id)}&select=squadron_id,start_date,end_date`),
+          rest(`pilot_statuses?pilot_id=eq.${q(pilot.id)}&select=status_id,start_date,end_date`)
+        ]);
+        const sqIds = [...new Set(assignments.map((a) => a.squadron_id).filter((x) => !!x))];
+        const stIds = [...new Set(statusRows.map((r2) => r2.status_id))];
+        [squadrons, statuses] = await Promise.all([
+          sqIds.length ? rest(`org_squadrons?id=${inList(sqIds)}&select=id,deactivated_date`) : [],
+          stIds.length ? rest(`statuses?id=${inList(stIds)}&select=id,name,isActive`) : []
+        ]);
+      }
+      const d = decideMembership({ pilot: !!pilot, assignments, squadrons, statusRows, statuses, admin }, todayUtc());
+      const result = d.ok ? { userId: authUser.id, name, board } : { refused: d.reason };
+      cache.set(token, { result, until: Date.now() + (d.ok ? MEMBER_TTL_MS : REFUSED_TTL_MS) });
+      return result;
     } catch {
       return null;
     }
@@ -3737,6 +3794,8 @@ function supabaseStore(url, serviceKey, log = () => void 0) {
 var ROOM_PROTO = 1;
 var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
 var SEAT_ROLES = ["strike", "aw", "suw", "catcc", "airops", "departure", "marshal", "approach", "final", "boss", "miniboss", "shooter", "ood", "lso", "clso", "blso", "writer", "mission_commander"];
+var CLOSE_AUTH_FAILED = 4003;
+var CLOSE_FORBIDDEN = 4403;
 var r = (n, dp) => n === void 0 || !Number.isFinite(n) ? void 0 : Math.round(n * 10 ** dp) / 10 ** dp;
 function toWire(t) {
   return {
@@ -5408,7 +5467,11 @@ var RoomService = class {
       }
       const user = await this.opts.verify(msg.token);
       if (!user) {
-        c.ws.close(4003, "auth failed");
+        c.ws.close(CLOSE_AUTH_FAILED, "auth failed");
+        return;
+      }
+      if (isRefused(user)) {
+        c.ws.close(CLOSE_FORBIDDEN, user.refused);
         return;
       }
       clearTimeout(authTimer);
