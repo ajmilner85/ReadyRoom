@@ -15,6 +15,8 @@ import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { shortType, fuelK, tagRows, velocityEnd, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
+import { SPN46_ACQ_DEG, SPN46_ACQ_NM, SPN46_CHANNELS, SPN46_RANGE_NM } from '../radar/spn46.ts';
+import { LABEL_FONT_PX, LABEL_ROW_PX, TICK_PX, TIMELINE_H, TIMELINE_LINE_Y, labelTop, placeTimelineLabels } from './timelineLabels.ts';
 import { bolterSlot, upwindSlot, dmeAt, finalPicture, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
 export type ParRange = 6 | 12 | 24;
@@ -124,6 +126,62 @@ const saveLayers = (v: Record<FinalLayer, boolean>) => {
   }
 };
 
+/** A mark on the slot timeline: s from now, its label, its colour (arrivals are white). */
+interface SlotMark {
+  id: string;
+  t: number;
+  text: string;
+  c?: string;
+}
+/**
+ * The slot timeline (Bolter slot, Upwind turn): the options' ticks and keys above the line, the
+ * arrivals' below, the ¾ NM window on it. Two label rows each side are always reserved
+ * (timelineLabels.ts places the labels), so its height never changes with the picture.
+ */
+const SlotTimeline: React.FC<{ span: number; arrivals: SlotMark[]; options: SlotMark[]; ballS?: [number, number] | null }> = ({ span, arrivals, options, ballS }) => {
+  const ref = useRef<HTMLDivElement>(null);
+  const [w, setW] = useState(0);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    setW(el.clientWidth);
+    const ro = new ResizeObserver(() => setW(el.clientWidth));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
+  const px = (t: number) => (mx(t) / 100) * w;
+  const side = (marks: SlotMark[], where: 'above' | 'below', c0: string) => {
+    if (!w) return null;
+    const byId = new Map(marks.map((m) => [m.id, m]));
+    return placeTimelineLabels(marks.map((m) => ({ id: m.id, x: px(m.t), text: m.text })), w).map((l) => {
+      const c = l.chip ? '#93A1B0' : (byId.get(l.ids[0])?.c ?? c0);
+      const top = labelTop(where, l.row);
+      // far row: a leader from the tick's end through the near row to the label
+      const lead = l.row === 1 && (where === 'above' ? [top + LABEL_ROW_PX, TIMELINE_LINE_Y - TICK_PX] : [TIMELINE_LINE_Y + TICK_PX, top]);
+      return (
+        <React.Fragment key={`${where}${l.ids[0]}`}>
+          {lead && <span style={{ position: 'absolute', left: l.x - 0.5, top: lead[0], width: 1, height: lead[1] - lead[0], background: c, opacity: 0.55 }} />}
+          <span className="mono" style={{ position: 'absolute', left: l.left, top, width: l.w, height: LABEL_ROW_PX, lineHeight: `${LABEL_ROW_PX}px`, textAlign: 'center', fontSize: LABEL_FONT_PX, color: c, whiteSpace: 'nowrap' }}>
+            {l.text}
+          </span>
+        </React.Fragment>
+      );
+    });
+  };
+  const tick = (key: string, t: number, c: string) => <span key={key} style={{ position: 'absolute', left: `${mx(t)}%`, top: TIMELINE_LINE_Y - TICK_PX, width: 2, height: 2 * TICK_PX, marginLeft: -1, background: c }} />;
+  return (
+    <div ref={ref} style={{ position: 'relative', height: TIMELINE_H, margin: '2px 0 6px' }}>
+      <span style={{ position: 'absolute', left: 0, right: 0, top: TIMELINE_LINE_Y - 1, height: 1, background: '#374250' }} />
+      {arrivals.map((a) => tick(`a${a.id}`, a.t, '#E6EDF3'))}
+      {options.map((o) => tick(`o${o.id}`, o.t, o.c ?? '#E6EDF3'))}
+      {ballS && <span style={{ position: 'absolute', left: `${mx(ballS[0])}%`, width: `${Math.max(0.5, mx(ballS[1]) - mx(ballS[0]))}%`, top: TIMELINE_LINE_Y - 3, height: 6, background: 'rgba(95,208,104,.35)', borderRadius: 2 }} />}
+      {side(options, 'above', '#E6EDF3')}
+      {side(arrivals, 'below', '#E6EDF3')}
+    </div>
+  );
+};
+
 export const FinalView: React.FC<{
   pic: Picture;
   ops?: OpsState;
@@ -135,7 +193,9 @@ export const FinalView: React.FC<{
   owners: Record<string, Ownership>;
   readOnly: boolean;
   recoveryCase?: RecoveryCase;
-}> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly, recoveryCase }) => {
+  /** the aircraft the SPN-46 holds (CatccApp, spn46Locks); without it the nearest two in the gate */
+  aclsLocks?: readonly string[];
+}> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly, recoveryCase, aclsLocks }) => {
   const [RG, setRG] = useState<ParRange>(defaultRange);
   const [ghost, setGhost] = useState(true);
   const [sep, setSep] = useState(false);
@@ -512,7 +572,7 @@ export const FinalView: React.FC<{
   const nextW = next ? landingWeightLb(next.t.ty, next.t.lb) : null;
   const aids = { icls: ops?.aids?.icls ?? true, acls: ops?.aids?.acls ?? true, modes: ops?.aids?.modes ?? {} };
   const setAids = (p: Partial<typeof aids>) => setOps({ aids: { ...aids, ...p } });
-  const locks = (fp?.arrivals ?? []).filter((a) => lockOf(a, ops));
+  const locks = fp ? aclsList(fp, ops, aclsLocks) : [];
   const fmOf = (t: ScopeTrack) => pic.formations.find((f) => f.members.some((m) => m.id === t.id));
   const keyOf = (t: ScopeTrack) => {
     const f = fmOf(t);
@@ -529,29 +589,19 @@ export const FinalView: React.FC<{
   // slot timeline (s from now, scaled to the latest mark) and the options against the arrivals
   const slotDetail = (sl: SlotResult) => {
     const span = Math.max(240, ...(fp?.arrivals ?? []).map((a) => a.tBall! + 30), ...sl.options.map((o) => o.t + 30));
-    const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
     return (
       <>
-        <div style={{ position: 'relative', height: 34, margin: '6px 0 14px', borderTop: '1px solid #374250' }}>
-          {(fp?.arrivals ?? []).map((a) => (
-            <React.Fragment key={a.t.id}>
-              <span style={{ position: 'absolute', left: `${mx(a.tBall!)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: '#E6EDF3' }} />
-              <span className="mono" style={{ position: 'absolute', left: `${mx(a.tBall!)}%`, top: 8, transform: 'translateX(-50%)', fontSize: 10.5, color: '#E6EDF3', whiteSpace: 'nowrap' }}>{label(a.t)}</span>
-            </React.Fragment>
-          ))}
-          {sl.options.map((o) => (
-            <React.Fragment key={o.key}>
-              <span style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -5, width: 2, height: 10, marginLeft: -1, background: C[o.cls] }} />
-              <span className="mono" style={{ position: 'absolute', left: `${mx(o.t)}%`, top: -20, transform: 'translateX(-50%)', fontSize: 10.5, color: C[o.cls], whiteSpace: 'nowrap' }}>{o.key === 'NOW' ? 'NOW' : o.key.replace(/ (DME|NM)$/, '')}</span>
-            </React.Fragment>
-          ))}
-          {sl.ballS && <span style={{ position: 'absolute', left: `${mx(sl.ballS[0])}%`, width: `${Math.max(0.5, mx(sl.ballS[1]) - mx(sl.ballS[0]))}%`, top: -3, height: 6, background: 'rgba(95,208,104,.35)', borderRadius: 2 }} />}
-        </div>
+        <SlotTimeline
+          span={span}
+          arrivals={(fp?.arrivals ?? []).map((a) => ({ id: a.t.id, t: a.tBall!, text: label(a.t) }))}
+          options={sl.options.map((o) => ({ id: o.key, t: o.t, text: o.key === 'NOW' ? 'NOW' : o.key.replace(/ (DME|NM)$/, ''), c: C[o.cls] }))}
+          ballS={sl.ballS}
+        />
         {sl.options.map((o) => (
           <div key={o.key} className="mono" style={{ display: 'flex', flexWrap: 'wrap', columnGap: 6, fontSize: 12, padding: '3px 0', whiteSpace: 'nowrap' }}>
             <span style={{ color: C[o.cls], fontWeight: 600, width: 48 }}>{o.key}</span>
             <span style={{ width: 104 }}>3/4 {tod(o.t)}</span>
-            <span style={{ color: C[o.cls] }}>
+            <span style={{ color: C[o.cls], minWidth: 0, whiteSpace: 'normal' }}>
               {o.gapAhead < 0 ? `${ms(-o.gapAhead)} ahead of ${o.ahead}` : o.gapBehind < 0 ? `${ms(-o.gapBehind)} behind ${o.behind}` : `${Number.isFinite(o.gapAhead) ? `+${ms(o.gapAhead)}` : '—'} / ${Number.isFinite(o.gapBehind) ? `−${ms(o.gapBehind)}` : '—'}`}
             </span>
           </div>
@@ -853,8 +903,7 @@ export const FinalView: React.FC<{
                 </div>
               </div>
               {kv('Link 4', '373.000')}
-              {locks.map((a) => {
-                const st = lockOf(a, ops)!;
+              {locks.map(({ a, st }) => {
                 const key = keyOf(a.t);
                 const mode = aids.modes[key] ?? 'II';
                 return (
@@ -958,11 +1007,20 @@ export const FinalView: React.FC<{
   );
 };
 
-/** ACLS status for an arrival: lock-on inside 8 NM on centreline, acquiring to 10 NM. */
-function lockOf(a: FinalAc, ops?: OpsState): 'LOCK-ON' | 'ACQUIRING' | null {
-  if (ops?.aids?.acls === false || a.kind !== 'final') return null;
-  const offDeg = Math.abs((Math.atan2(a.f.lat, Math.max(0.05, a.f.along)) * 180) / Math.PI);
-  if (a.f.along <= 8 && offDeg < 3) return 'LOCK-ON';
-  if (a.f.along <= 10 && offDeg < 6) return 'ACQUIRING';
-  return null;
+/** off the final bearing, degrees */
+const offDegOf = (a: FinalAc) => Math.abs((Math.atan2(a.f.lat, Math.max(0.05, a.f.along)) * 180) / Math.PI);
+/**
+ * The Landing aids ACLS list, agreeing with the radar: LOCK-ON only for the aircraft the SPN-46
+ * holds (two channels, spn46.ts), ACQUIRING for the other arrivals on final inside 10 NM and 6° of
+ * the centreline (approaching the gate, or waiting for a free channel). Without the held set (the kit),
+ * the same gate statelessly: the nearest two inside it.
+ */
+function aclsList(fp: NonNullable<ReturnType<typeof finalPicture>>, ops: OpsState | undefined, held?: readonly string[]): { a: FinalAc; st: 'LOCK-ON' | 'ACQUIRING' }[] {
+  if (ops?.aids?.acls === false) return [];
+  const locked = held
+    ? fp.acs.filter((a) => held.includes(a.t.id))
+    : fp.arrivals.filter((a) => a.kind === 'final' && a.f.along > 0 && a.f.along <= SPN46_ACQ_NM && offDegOf(a) <= SPN46_ACQ_DEG);
+  const on = [...locked].sort((x, y) => x.f.along - y.f.along).slice(0, SPN46_CHANNELS);
+  const acq = fp.arrivals.filter((a) => a.kind === 'final' && !on.includes(a) && a.f.along <= SPN46_RANGE_NM && offDegOf(a) < 6);
+  return [...on.map((a) => ({ a, st: 'LOCK-ON' as const })), ...acq.map((a) => ({ a, st: 'ACQUIRING' as const }))];
 }

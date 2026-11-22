@@ -4,7 +4,7 @@
  * interface (radar with the seat's preset, PriFly boss, LSO). Headers ported from
  * catcc-handoff/mockup/*.dc.html.
  */
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { THEATRE_UTC_OFFSET_H } from '../../catcc/core/dcs/aircraft.ts';
 import { carrierByHull } from '../../catcc/core/tracks/naming.ts';
 import type { SeatKey, SeatRole } from '../../catcc/core/room/protocol.ts';
@@ -17,6 +17,7 @@ import { envSummary } from './radar/InfoPanels.tsx';
 import RadarView from './radar/RadarView.tsx';
 import { buildPicture } from './scopeModel.ts';
 import { SCAN_S, useSweep } from './radar/sweep.ts';
+import { spn46Locks } from './radar/spn46.ts';
 import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
 import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
@@ -100,6 +101,14 @@ const CatccApp: React.FC = () => {
   const refHull = state.tracks.find((t) => t.id === refId)?.hull;
   const aclsUp = (refHull ? state.ops[refHull]?.aids?.acls : undefined) ?? true;
   const sw = useSweep(state.tracks, state.mt, refId, conflict.sweep && mod === 'radar', !!conflict.datalink, cview === 'final' && aclsUp);
+  // the aircraft the SPN-46 holds (two channels, leapfrog), for the Final view's ACLS list: the same rule
+  // over the same live tracks as the sweep's painter, kept whether or not the realistic sweep is on
+  const aclsHeld = useRef<string[]>([]);
+  const aclsLocks = useMemo(() => {
+    const cv = state.tracks.find((t) => t.id === refId);
+    aclsHeld.current = cv ? spn46Locks(aclsHeld.current, state.tracks, cv, aclsUp) : [];
+    return aclsHeld.current;
+  }, [state.tracks, refId, aclsUp]);
   const pic = useMemo(
     () =>
       buildPicture(sw?.tracks ?? state.tracks, focusHull, sw?.hist ?? history, state.mt, {
@@ -365,6 +374,7 @@ const CatccApp: React.FC = () => {
           owners={state.owners}
           readOnly={!mayEditOps}
           recoveryCase={env?.case}
+          aclsLocks={aclsLocks}
         />
       )}
       {mod === 'radar' && cview === 'radar' && (
