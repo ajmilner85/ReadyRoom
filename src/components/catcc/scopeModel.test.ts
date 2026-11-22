@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { destination } from '../../catcc/core/geo.ts';
 import type { WireTrack } from '../../catcc/core/room/protocol.ts';
-import { buildPicture, inAltBlock, phaseOf, proximityClusters, shortType, specificEnergyFt, tagRows, typeName, type ScopeTrack, type Trail } from './scopeModel.ts';
+import { buildPicture, FINAL_CONFLICT_LOOKAHEAD_S, inAltBlock, phaseOf, proximityClusters, shortType, specificEnergyFt, tagRows, typeName, type ScopeTrack, type Trail } from './scopeModel.ts';
 
 const CV = { lat: 26.2, lon: 56.8 };
 function at(brg: number, rng: number) {
@@ -128,6 +128,58 @@ describe('conflict predictor tuning', () => {
     const held = buildPicture([carrier, jet('a', 0, 20, a), jet('b', 30, 20, b)], 'CVN-72', new Map(), 0, { vertCapS: 120, floors: new Map([['a', 9000]]) });
     expect(free.conflicts).toHaveLength(1);
     expect(held.conflicts).toHaveLength(0);
+  });
+
+  it('never predicts from a groundspeed no aircraft flies (a replay jump read as 16,336 kt)', () => {
+    const pic = buildPicture([carrier, jet('a', 0, 20, { crs: 90, gs: 16336, g: 'A' }), jet('b', 30, 20, { crs: 270, g: 'B' })], 'CVN-72', new Map(), 0);
+    expect(pic.conflicts).toHaveLength(0);
+    expect(pic.finalConflicts).toHaveLength(0);
+  });
+});
+
+describe('Approach / Final conflict look-ahead', () => {
+  // the user's replay screenshot: CVN-71 on 000 at 20 kt, final bearing 351
+  const cv71: WireTrack = { id: 'cv', k: 'carrier', ty: 'CVN_71', hull: 'CVN-71', sd: 'blue', alt: 60, gs: 20, crs: 0, hdg: 0, ...CV };
+  const FB = 351;
+  /** `along` NM astern on the final bearing, `lat` NM right of it; inbound on the FB unless `out` (the bolter downwind) */
+  const fin = (id: string, along: number, lat: number, alt: number, gs: number, o: { out?: boolean; vs?: number } = {}): WireTrack => {
+    const a = destination(CV.lat, CV.lon, FB + 180, along);
+    const p = destination(a.lat, a.lon, FB + 90, lat);
+    const crs = o.out ? FB - 180 : FB;
+    return { id, k: 'fixedwing', ty: 'FA-18C_hornet', sd: 'blue', lat: p.lat, lon: p.lon, alt, gs, crs, hdg: crs, vs: o.vs ?? 0, g: id, air: true };
+  };
+  const pairs = (cs: { a: { id: string }; b: { id: string } }[]) => cs.map((c) => [c.a.id, c.b.id].sort().join('-')).sort();
+
+  it('is 30 s whatever the radar option: an overtake 87 s out is on the radar, not on Final', () => {
+    expect(FINAL_CONFLICT_LOOKAHEAD_S).toBe(30);
+    // screenshot 2: 203 at 13.8 NM / 275 kt runs down HAWK 1-2 at 11 NM / 192 kt; 211 on the bolter downwind 2 NM left
+    const tracks = [cv71, fin('211', 4.4, -2, 1200, 125, { out: true }), fin('623', 3.5, 0, 1100, 129), fin('hawk', 11, 0, 700, 192), fin('203', 13.8, 0.15, 2100, 275, { vs: -1980 })];
+    for (const look of [120, 240]) {
+      const pic = buildPicture(tracks, 'CVN-71', new Map(), 0, { conflictLookAheadS: look });
+      expect(pairs(pic.conflicts)).toEqual(['203-hawk']);
+      expect(pic.finalConflicts).toEqual([]);
+    }
+    const cpa = buildPicture(tracks, 'CVN-71', new Map(), 0).conflicts[0].cpa;
+    expect(cpa.tS).toBeGreaterThan(80);
+    expect(cpa.tS).toBeLessThan(95);
+    expect(cpa.latNm).toBeLessThan(cpa.latStd);
+  });
+
+  it('flags on Final once the loss is within 30 s', () => {
+    // the same overtake later: 203 2.6 NM behind HAWK 1-2, both on final, in-trail standard 2 NM
+    const pic = buildPicture([cv71, fin('hawk', 8, 0, 700, 192), fin('203', 10.6, 0.15, 1200, 275)], 'CVN-71', new Map(), 0);
+    expect(pairs(pic.finalConflicts!)).toEqual(['203-hawk']);
+    expect(pairs(pic.conflicts)).toEqual(['203-hawk']);
+  });
+
+  it('a bolter downwind passing an arrival head-on ~1 NM abeam is a 120 s alert, not a Final one', () => {
+    // screenshot 1: 211 ~1 NM astern / 1 NM left outbound at 124 kt; HAWK 1-2 inbound at 12.5 NM, 190 kt, descending.
+    // HAWK is outside the 10 NM pattern area now, so the pair takes 2 NM / 800 ft, and the 120 s window ends
+    // with them ~1.4 NM apart: red on the radar's look-ahead, not within 30 s.
+    const tracks = [cv71, fin('211', 1, -1, 1200, 124, { out: true }), fin('hawk', 12.5, 0, 2100, 190, { vs: -1000 })];
+    const pic = buildPicture(tracks, 'CVN-71', new Map(), 0);
+    expect(pairs(pic.conflicts)).toEqual(['211-hawk']);
+    expect(pic.finalConflicts).toEqual([]);
   });
 });
 
