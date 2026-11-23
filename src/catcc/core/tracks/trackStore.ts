@@ -1,8 +1,8 @@
 import type { AcmiEvent } from '../acmi/parser.ts';
 import type { CarrierWx } from '../dcs/hookProtocol.ts';
-import { AcmiState, type AcmiObject } from '../acmi/state.ts';
+import { AcmiState, type AcmiObject, type AcmiSnapshot } from '../acmi/state.ts';
 import { bearingDeg, distanceNm, implausibleMove, M_PER_FT, MS_PER_KT } from '../geo.ts';
-import { CARRIER_HULLS, parsePilot } from './naming.ts';
+import { CARRIER_HULLS, isUnitName, parsePilot } from './naming.ts';
 
 export type TrackKind = 'fixedwing' | 'rotary' | 'carrier' | 'ship' | 'ground' | 'other';
 export type Side = 'blue' | 'red' | 'neutral';
@@ -69,6 +69,12 @@ export interface TrackStoreOptions {
   kinematicsWindowS?: number;
 }
 
+/** TrackStore.snapshot() */
+export interface TrackStoreSnapshot {
+  acmi: AcmiSnapshot;
+  tracks: Track[];
+}
+
 const DEFAULT_KINDS: TrackKind[] = ['fixedwing', 'rotary', 'carrier', 'ship'];
 
 export function classify(type: string | undefined, name: string | undefined): TrackKind | undefined {
@@ -118,6 +124,23 @@ export class TrackStore {
   reset(): void {
     this.acmi.reset();
     this.tracks.clear();
+  }
+
+  /**
+   * The store at this moment, for a replay's keyframes. Position history is left out (it would make
+   * keyframes large): after restore() the kinematics keep their values until new samples build a fresh
+   * window, so a replay seek plays a warm-up of forward-ordered events before showing the picture.
+   */
+  snapshot(): TrackStoreSnapshot {
+    const tracks: Track[] = [];
+    for (const t of this.tracks.values()) tracks.push({ ...t, history: [] });
+    return { acmi: this.acmi.snapshot(), tracks };
+  }
+
+  restore(s: TrackStoreSnapshot): void {
+    this.acmi.restore(s.acmi);
+    this.tracks.clear();
+    for (const t of s.tracks) this.tracks.set(t.id, { ...t, history: [] });
   }
 
   apply(ev: AcmiEvent): void {
@@ -185,7 +208,8 @@ export class TrackStore {
     track.callsign = name.callsign;
     track.flight = name.flight;
     track.board = name.board;
-    track.player = name.player;
+    // an AI aircraft's Pilot is its DCS unit name ("Arco 1-1", "Jeff Group 1-1-2", "Harrier Group 1"): no player
+    track.player = isUnitName(p.Pilot, p.Group, name.player) ? undefined : name.player;
     track.hull = track.kind === 'carrier' ? CARRIER_HULLS[track.type]?.hull : undefined;
   }
 

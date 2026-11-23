@@ -6,7 +6,7 @@
  * on as a thinner dashed amber line.
  */
 import React from 'react';
-import { CATS, FOLDED, SPREAD, jetShape, line } from './deck.ts';
+import { CATS, FOLDED, jetShape, line } from './deck.ts';
 import { destName, type QueueGhost } from './catQueue.ts';
 import { ROADS, TAXI_COL, TAXI_DESTS, destCat, type TaxiDest, type TaxiPlan } from './taxiNet.ts';
 
@@ -47,11 +47,24 @@ export const TaxiDests: React.FC<{
   who: string;
   /** its present destination, if it has one */
   current: string | null;
+  /** parking spots another aircraft is sent to: drawn amber, not a destination (nothing on hover or click) */
+  taken?: ReadonlySet<string>;
   hover: string | null;
   onHover: (id: string | null) => void;
   onPick: (id: string) => void;
-}> = ({ who, current, hover, onHover, onPick }) => {
+}> = ({ who, current, taken, hover, onHover, onPick }) => {
   const marker = (d: TaxiDest) => {
+    if (!destCat(d.id) && taken?.has(d.id))
+      return (
+        <g key={d.id} aria-disabled="true" aria-label={`${d.label}: taken`} style={{ cursor: 'not-allowed' }} onMouseDown={(e) => e.stopPropagation()} onClick={(e) => e.stopPropagation()}>
+          <title>{d.label}</title>
+          <circle cx={d.p[0]} cy={-d.p[1]} r={5} fill="#000" fillOpacity={0} />
+          <circle cx={d.p[0]} cy={-d.p[1]} r={2.7} fill="#0B0E12" stroke={TAXI_COL.blocked} strokeWidth={0.45} />
+          <text x={d.p[0]} y={-d.p[1]} textAnchor="middle" dominantBaseline="central" style={{ fontSize: 1.75, fontWeight: 600, fill: TAXI_COL.blocked, pointerEvents: 'none' }}>
+            {d.short}
+          </text>
+        </g>
+      );
     const on = hover === d.id;
     const k = destCat(d.id);
     const cur = current === d.id;
@@ -101,8 +114,11 @@ export const TaxiRoute: React.FC<{
   plan: TaxiPlan;
   /** the selected aircraft's route, or the one being previewed: drawn heavier, with the hold or parked outline, and a ring where the aircraft in its way is (or will be) */
   strong: boolean;
-}> = ({ plan, strong }) => {
+  /** where the outline stands instead of the plan's stop (a catapult queue's place for it) */
+  stop?: { x: number; y: number; a: number };
+}> = ({ plan, strong, stop }) => {
   if (plan.arrived) return null;
+  const at0 = stop ?? plan.stop;
   const at = plan.blocked[0];
   return (
     <g fill="none" strokeLinejoin="round" strokeLinecap="round" style={{ pointerEvents: 'none' }}>
@@ -111,7 +127,7 @@ export const TaxiRoute: React.FC<{
       {at && <circle cx={at[0]} cy={-at[1]} r={strong ? 1.5 : 1.1} fill={TAXI_COL.blocked} stroke="#0B0E12" strokeWidth={0.3} />}
       {strong && (
         <>
-          <path d={jetShape(FOLDED, plan.stop.x, plan.stop.y, plan.stop.a)} stroke={plan.blockedBy ? TAXI_COL.blocked : TAXI_COL.clear} strokeWidth={0.3} strokeDasharray="1 0.7" strokeLinecap="butt" />
+          <path d={jetShape(FOLDED, at0.x, at0.y, at0.a)} stroke={plan.blockedBy && !stop ? TAXI_COL.blocked : TAXI_COL.clear} strokeWidth={0.3} strokeDasharray="1 0.7" strokeLinecap="butt" />
           {plan.blockedAt && <circle cx={plan.blockedAt[0]} cy={-plan.blockedAt[1]} r={10.5} stroke={TAXI_COL.blocked} strokeWidth={0.5} strokeDasharray="2 1.4" strokeLinecap="butt" />}
         </>
       )}
@@ -123,8 +139,9 @@ export const TaxiRoute: React.FC<{
 const GHOST_W = 0.3;
 
 /**
- * The catapult queues: a ghost aircraft where each queued aircraft stands in its catapult's queue. Amber
- * (the deck's TAXI_COL.blocked), dashed, no fill; the ghost of the aircraft under the pointer is brighter.
+ * The catapult queues: a ghost aircraft, wings folded like the taxi preview's, where each queued aircraft
+ * waits on its route into its catapult. Amber (the deck's TAXI_COL.blocked), dashed, no fill; the ghost
+ * of the aircraft under the pointer is brighter.
  * The planform is several overlapping polygons (fuselage, wings, stabilators): each is stroked at twice
  * the width through a mask that blacks out the inside of all of them, so only the outer half of the
  * strokes on the aircraft's perimeter shows, one outline round the whole aircraft.
@@ -132,7 +149,7 @@ const GHOST_W = 0.3;
 export const QueueGhosts: React.FC<{ ghosts: QueueGhost[]; hover: string | null }> = ({ ghosts, hover }) => {
   const id = `ghost${React.useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
   if (!ghosts.length) return null;
-  const shapes = ghosts.map((g) => ({ g, d: jetShape(SPREAD, g.x, g.y, g.a) }));
+  const shapes = ghosts.map((g) => ({ g, d: jetShape(FOLDED, g.x, g.y, g.a) }));
   return (
     <g style={{ pointerEvents: 'none' }}>
       <defs>

@@ -38,6 +38,20 @@ export function parsePilot(raw: string | undefined): PilotName {
   return out;
 }
 
+/**
+ * Is a Tacview Pilot field just the DCS unit name (an AI aircraft) rather than a player's name? AI
+ * units carry their unit name: the callsign alone ("Arco 1-1"), the callsign with a unit number
+ * ("Jeff Group 1-1-2": what parsePilot leaves is "2"), or the group's name ("Harrier Group 1",
+ * "Aerial-1-8"). A player's name has letters beyond the callsign ("Hawk 2-1 | 511 Hobo").
+ */
+export function isUnitName(pilot: string | undefined, group: string | undefined, player: string | undefined): boolean {
+  if (!pilot || !player) return true;
+  if (!/[A-Za-z]/.test(player)) return true;
+  const norm = (s: string) => s.toLowerCase().replace(/[\s_-]+/g, ' ').trim();
+  if (group && (norm(pilot) === norm(group) || new RegExp(`^${norm(group).replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}( \\d+)+$`).test(norm(pilot)))) return true;
+  return false;
+}
+
 /** Known carriers that CATCC controls, by DCS unit type name. */
 export const CARRIER_HULLS: Record<string, { hull: string; name: string; nick: string }> = {
   CVN_71: { hull: 'CVN-71', name: 'THEODORE ROOSEVELT', nick: 'Rough Rider' },

@@ -1,6 +1,6 @@
 import net from 'node:net';
 import type { AcmiEvent } from '../../src/catcc/core/acmi/parser.ts';
-import type { HookEnv, HookFrame, HookUnit } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import { REPLAY_COMMANDS, type HookEnv, type HookFrame, type HookUnit, type ReplayCommand, type ReplayState } from '../../src/catcc/core/dcs/hookProtocol.ts';
 import { destination, M_PER_FT, MS_PER_KT } from '../../src/catcc/core/geo.ts';
 import { TrackStore, type Track } from '../../src/catcc/core/tracks/trackStore.ts';
 import { THEATRE_UTC_OFFSET_H } from '../../src/catcc/core/dcs/aircraft.ts';
@@ -18,6 +18,13 @@ export interface FakeHookOptions {
   name?: string;
   /** announce Air Boss ship control (the hello's "ab") */
   ab?: boolean;
+}
+
+/** a replay's playback, steered through the hook's orders (catcc-server/tacview/replayClock.ts) */
+export interface ReplayControl {
+  readonly state: ReplayState;
+  /** null when done, else why not */
+  command(cmd: ReplayCommand, s?: number): string | null;
 }
 
 const KIND_CODE: Record<string, HookUnit['c'] | undefined> = { fixedwing: 'A', rotary: 'H', carrier: 'S', ship: 'S' };
@@ -69,29 +76,47 @@ export class FakeHookServer {
     this.opts = { rateHz: 1, name: 'CATCC-fake-hook', ab: false, ...opts };
   }
 
-  private ref = { lat: 0, lon: 0 };
-  private readonly bulls = new Map<string, { side: 'blue' | 'red'; lat: number; lon: number }>();
-
-  /** Feed replayed ACMI events (e.g. from replayAcmi). Bullseyes (Navaid objects) are kept for env. */
+  /** Feed replayed ACMI events (e.g. from replayAcmi or a ReplayPlayer). */
   apply = (ev: AcmiEvent): void => {
-    if (ev.kind === 'update' && ev.id === '0') {
-      // the reference point is a property of the global object 0 ("0,ReferenceLongitude=140")
-      if (ev.props.ReferenceLatitude) this.ref.lat = Number(ev.props.ReferenceLatitude) || 0;
-      if (ev.props.ReferenceLongitude) this.ref.lon = Number(ev.props.ReferenceLongitude) || 0;
-    } else if (ev.kind === 'update') {
-      const b = this.bulls.get(ev.id);
-      const isBulls = ev.props.Type?.includes('Bullseye');
-      const side = ev.props.Color === 'Blue' ? 'blue' : ev.props.Color === 'Red' ? 'red' : undefined;
-      if ((isBulls && side) || b) {
-        const [lo, la] = (ev.props.T ?? '').split('|');
-        const cur = b ?? { side: side!, lat: NaN, lon: NaN };
-        if (lo) cur.lon = this.ref.lon + Number(lo);
-        if (la) cur.lat = this.ref.lat + Number(la);
-        this.bulls.set(ev.id, cur);
-      }
-    }
     this.store.apply(ev);
   };
+
+  /**
+   * Bullseyes: the recording's Navaid objects, read from the store's object table (not from the events
+   * seen), so a replay that seeks still has the ones placed before its keyframe.
+   */
+  private bulls(): { side: 'blue' | 'red'; lat: number; lon: number }[] {
+    const out: { side: 'blue' | 'red'; lat: number; lon: number }[] = [];
+    for (const o of this.store.acmi.objects.values()) {
+      if (!o.props.Type?.includes('Bullseye')) continue;
+      const side = o.props.Color === 'Blue' ? 'blue' : o.props.Color === 'Red' ? 'red' : undefined;
+      const { lat, lon } = o.transform;
+      if (side && lat !== undefined && lon !== undefined && Number.isFinite(lat) && Number.isFinite(lon)) out.push({ side, lat, lon });
+    }
+    return out;
+  }
+
+  private replay?: ReplayControl;
+
+  /**
+   * Make this a replay source: the hello announces it, `CMD {"op":"replay"}` orders go to `ctl`, and its
+   * state goes to the room on connect and with replayChanged().
+   */
+  setReplay(ctl: ReplayControl): void {
+    this.replay = ctl;
+  }
+
+  private replayLine(): string {
+    return `${JSON.stringify({ type: 'replay', ...this.replay!.state })}\n`;
+  }
+
+  /** the replay's clock changed (a command, a loop): tell the room, with a frame of the new picture */
+  replayChanged(): void {
+    if (!this.replay) return;
+    const line = this.replayLine();
+    for (const c of this.clients) if (c.authed) c.sock.write(line);
+    this.broadcastFrame();
+  }
 
   listen(): Promise<number> {
     this.server = net.createServer((sock) => this.accept(sock));
@@ -175,7 +200,7 @@ export class FakeHookServer {
       theatre: theatre ?? null,
       wx: { cb: 244, ct: 900, cd: 7, cp: 'RainyPreset1', pr: 1, vis: 7400, fog: null, dust: null },
       routes,
-      bulls: [...this.bulls.values()].filter((b) => Number.isFinite(b.lat) && Number.isFinite(b.lon)),
+      bulls: this.bulls(),
     };
   }
 
@@ -190,7 +215,7 @@ export class FakeHookServer {
     this.clients.add(c);
     sock.on('close', () => this.clients.delete(c));
     sock.on('error', () => this.clients.delete(c));
-    sock.write(JSON.stringify({ type: 'hello', proto: 1, version: 'fake', server: this.opts.name, cmds: true, ab: this.opts.ab }) + '\n');
+    sock.write(JSON.stringify({ type: 'hello', proto: 1, version: 'fake', server: this.opts.name, cmds: true, ab: this.opts.ab, ...(this.replay ? { replay: true } : {}) }) + '\n');
     let buf = '';
     sock.on('data', (d) => {
       buf += d.toString('utf8');
@@ -202,6 +227,7 @@ export class FakeHookServer {
           if (line === `AUTH ${this.opts.token}`) {
             c.authed = true;
             sock.write('{"type":"auth","ok":true}\n{"type":"mission","state":"running","name":"replay"}\n');
+            if (this.replay) sock.write(this.replayLine());
             this.envAt = -1e9;
           } else {
             sock.end('{"type":"error","error":"auth"}\n');
@@ -213,9 +239,16 @@ export class FakeHookServer {
           let id: number | null = null;
           let refused: string | null = null;
           try {
-            const m = JSON.parse(line.slice(4)) as { id?: number; op?: string; g?: string; hold?: string[]; chocks?: string[] };
+            const m = JSON.parse(line.slice(4)) as { id?: number; op?: string; g?: string; hold?: string[]; chocks?: string[]; cmd?: string; s?: number };
             id = typeof m.id === 'number' ? m.id : null;
-            if (m.op === 'launch') {
+            if (m.op === 'replay') {
+              // playback: the one order a replay obeys
+              if (!this.replay) refused = 'not a replay';
+              else if (!REPLAY_COMMANDS.includes(m.cmd as ReplayCommand)) refused = 'unknown replay command';
+              else refused = this.replay.command(m.cmd as ReplayCommand, m.s);
+              // after the reply below
+              if (!refused) queueMicrotask(() => this.replayChanged());
+            } else if (m.op === 'launch') {
               // launch holds: kept for tests (and the pilots' side of a replay has nobody to hold)
               this.hold = Array.isArray(m.hold) ? m.hold : [];
               this.chocks = Array.isArray(m.chocks) ? m.chocks : [];

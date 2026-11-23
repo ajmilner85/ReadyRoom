@@ -46,6 +46,23 @@ export interface Formation {
   presets: Record<string, Record<string, Station>>;
 }
 
+/**
+ * One catapult's launch state: its status and the queue of flights with an aircraft bound for it.
+ * `jets`: for each flight on the queue, the aircraft (track ids) the launch tab assigned to this
+ * catapult (a flight queued from the launch tab is spread over the catapults, one aircraft each); an
+ * aircraft sent here from the deck goes on its own instruction and is not listed, so a flight queued
+ * only that way has an empty list. A flight with no entry in `jets` (older state) sends every aircraft
+ * of it without an instruction of its own here, except those in `skip`; `fromDeck` (older state) marks
+ * flights with an empty list.
+ */
+export interface CatLaunch {
+  status: CatStatus;
+  queue: string[];
+  jets?: Record<string, string[]>;
+  fromDeck?: string[];
+  skip?: string[];
+}
+
 export interface OpsState {
   /** PriFly's deck call. Absent: derived from the picture (aircraft in the landing area). */
   deck?: { foul: boolean; reason?: string; at: number };
@@ -54,7 +71,7 @@ export interface OpsState {
   /** lights panel: item → setting */
   lights?: Record<string, LightSetting>;
   /** catapults: status and the queue of flight keys */
-  launch?: Record<string, { status: CatStatus; queue: string[] }>;
+  launch?: Record<string, CatLaunch>;
   /** PriFly's taxi instructions: aircraft (track id) → deck destination (a catapult or parking spot id) and when it was given */
   taxi?: Record<string, { to: string; at: number }>;
   formation?: Formation;
@@ -123,11 +140,25 @@ export function cleanOpsPatch(p: unknown): Partial<Record<keyof OpsState, unknow
       case 'launch': {
         const ce = entries(v, 4);
         if (!ce) return null;
-        const cats: Record<string, { status: CatStatus; queue: string[] }> = {};
+        const cats: Record<string, CatLaunch> = {};
+        const ids = (a: unknown, max: number): a is string[] | undefined => a === undefined || (Array.isArray(a) && a.length <= max && a.every(okFlightKey));
         for (const [cat, c] of ce) {
-          const x = c as { status: CatStatus; queue: string[] };
+          const x = c as CatLaunch;
           if (!/^[1-4]$/.test(cat) || !x || !CAT_STATUS.includes(x.status) || !Array.isArray(x.queue) || x.queue.length > 12 || !x.queue.every(okFlightKey)) return null;
-          cats[cat] = { status: x.status, queue: [...x.queue] };
+          if (!ids(x.fromDeck, 12) || !ids(x.skip, 40)) return null;
+          let jets: Record<string, string[]> | undefined;
+          if (x.jets !== undefined) {
+            const je = entries(x.jets, 12);
+            if (!je || !je.every(([k, a]) => okFlightKey(k) && Array.isArray(a) && ids(a, 12))) return null;
+            jets = Object.fromEntries(je.map(([k, a]) => [k, [...(a as string[])]]));
+          }
+          cats[cat] = {
+            status: x.status,
+            queue: [...x.queue],
+            ...(jets ? { jets } : {}),
+            ...(x.fromDeck?.length ? { fromDeck: [...x.fromDeck] } : {}),
+            ...(x.skip?.length ? { skip: [...x.skip] } : {}),
+          };
         }
         out.launch = cats;
         break;

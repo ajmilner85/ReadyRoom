@@ -19,6 +19,8 @@ const TRAIL_O = [0.8, 0.6, 0.45, 0.3, 0.2];
 /** the plot's half-width in display units (viewBox 400 × 400, centre 200 200) */
 const H = AZEL_HALF;
 /** the plot frame's inset from the scope's edge, % (the 400-unit viewBox's frame starts at 200 − H) */
+/** space between the lock-on boxes in the track table, px */
+const ROW_SEP = 3;
 const FRAME_INSET = ((200 - H) / 400) * 100;
 /** the sea: a scalloped line across the frame's width, halfway between the frame's bottom and the pane's edge */
 const SEA = (() => {
@@ -145,6 +147,23 @@ export const AzElScope: React.FC<{
     } else vec = [vec[0], vec[1], cut.x, cut.y];
   }
   const pp = prim ? pc(X(prim.dev.az), Y(prim.dev.el)) : null;
+  // each ACLS lock-on bracketed by a crosshair out to the plot's edges, clear of its hit by GAP px:
+  // the primary in its hit's colour, the other lock faded as its hit is
+  const GAP = 11;
+  const gx = GAP * (400 / (typeof style?.width === 'number' ? style.width : 334));
+  const gy = GAP * (400 / (typeof style?.height === 'number' ? style.height : 334));
+  const lockLines = tracked.flatMap((k) => {
+    if (!k.dev || Math.abs(k.dev.az) > AZEL_AZ_DEG || Math.abs(k.dev.el) > AZEL_EL_DEG) return [];
+    const [x, y] = [X(k.dev.az), Y(k.dev.el)];
+    const [x0, x1, y0, y1] = [200 - H, 200 + H, 200 - H, 200 + H];
+    let d = '';
+    if (x - gx > x0) d += `M${f1(x0)} ${f1(y)}H${f1(x - gx)}`;
+    if (x + gx < x1) d += `M${f1(x + gx)} ${f1(y)}H${f1(x1)}`;
+    if (y - gy > y0) d += `M${f1(x)} ${f1(y0)}V${f1(y - gy)}`;
+    if (y + gy < y1) d += `M${f1(x)} ${f1(y + gy)}V${f1(y1)}`;
+    const primary = k.a.t.id === prim?.a.t.id;
+    return d ? [{ id: k.a.t.id, d, stroke: primary ? c : TRK_TRAIL, opacity: primary ? 1 : 0.35 }] : [];
+  });
   const ball = !!prim && flyingBall(prim.a);
 
   // The track table sits as far in from the frame's top as from its right (its text 10 px from
@@ -172,6 +191,9 @@ export const AzElScope: React.FC<{
         {profile && <path d={PROFILE_PATH} stroke="rgba(147,161,176,.17)" fill="none" strokeDasharray="4 4" />}
         <path d={cross} stroke="#C9D3DD" strokeOpacity=".6" strokeWidth="1.6" fill="none" />
         <path d={ticks} stroke="#C9D3DD" strokeOpacity=".5" fill="none" />
+        {lockLines.map((l) => (
+          <path key={`lk${l.id}`} d={l.d} stroke={l.stroke} strokeOpacity={l.opacity} strokeWidth="1.2" fill="none" />
+        ))}
         {vec && <line x1={f1(vec[0])} y1={f1(vec[1])} x2={f1(vec[2])} y2={f1(vec[3])} stroke={red ? '#FF8A85' : TRK} strokeWidth="1.8" strokeLinecap={vecHead ? 'butt' : 'round'} />}
         {vecHead && <polygon points={vecHead} fill={red ? '#FF8A85' : TRK} />}
         {/* the sea, under the plot frame: the Azimuth display's BRC line colour */}
@@ -248,7 +270,7 @@ export const AzElScope: React.FC<{
       >
         {[0, 1].map((i) => {
           const k = tracked[i];
-          if (!k) return <div key={i} style={{ height: ROW_H }} />;
+          if (!k) return <div key={i} style={{ height: ROW_H, marginBottom: ROW_SEP }} />;
           const on = k.a.t.id === primaryId;
           const c = on && notNearest ? AMBER : on ? '#E6EDF3' : '#93A1B0';
           return (
@@ -258,13 +280,16 @@ export const AzElScope: React.FC<{
               role="listitem"
               aria-current={on}
               onClick={() => onPick?.(k.a.t.id)}
-              style={{ display: 'grid', gridTemplateColumns: '7px 1fr auto', columnGap: 5, alignItems: 'center', width: '100%', height: ROW_H, padding: '0 4px', border: 0, borderRadius: 2, background: 'rgba(11,14,18,.72)', color: c, font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
+              style={{ display: 'grid', gridTemplateColumns: '7px 1fr', columnGap: 5, alignItems: 'center', width: '100%', height: ROW_H, marginBottom: ROW_SEP, padding: 0, border: 0, background: 'transparent', color: c, font: 'inherit', textAlign: 'left', cursor: 'pointer' }}
             >
+              {/* the primary's dot, outside the lock-on box */}
               <span style={{ width: 7, height: 7, borderRadius: '50%', background: on ? TRK : 'transparent' }} />
-              <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {label(k.a.t)} {typeName(k.a.t.ty)}
+              <span style={{ display: 'grid', gridTemplateColumns: '1fr auto', columnGap: 5, alignItems: 'center', height: '100%', padding: '0 4px', boxSizing: 'border-box', border: `1px solid ${on ? TRK : 'rgba(62,154,76,.55)'}`, borderRadius: 2, background: 'rgba(11,14,18,.72)' }}>
+                <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {label(k.a.t)} {typeName(k.a.t.ty)}
+                </span>
+                <span style={{ whiteSpace: 'nowrap' }}>{k.r.toFixed(1)} NM</span>
               </span>
-              <span style={{ whiteSpace: 'nowrap' }}>{k.r.toFixed(1)} NM</span>
             </button>
           );
         })}

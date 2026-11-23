@@ -25,6 +25,17 @@ export interface AcmiObject {
   lastSeen: number;
 }
 
+/** AcmiState.snapshot(): the object table at one moment */
+export interface AcmiSnapshot {
+  t: number;
+  refLon: number;
+  refLat: number;
+  referenceTime?: Date;
+  header: Record<string, string>;
+  globals: Record<string, string>;
+  objects: AcmiObject[];
+}
+
 const T_FIELDS: Record<number, (keyof AcmiTransform)[]> = {
   3: ['lon', 'lat', 'alt'],
   5: ['lon', 'lat', 'alt', 'u', 'v'],
@@ -53,6 +64,25 @@ export class AcmiState {
     for (const k of Object.keys(this.header)) delete this.header[k];
     for (const k of Object.keys(this.globals)) delete this.globals[k];
     this.objects.clear();
+  }
+
+  /** A copy of the whole table (a replay's keyframe); restore() puts it back. */
+  snapshot(): AcmiSnapshot {
+    const objects: AcmiObject[] = [];
+    for (const o of this.objects.values()) objects.push({ ...o, props: { ...o.props }, transform: { ...o.transform } });
+    return { t: this.t, refLon: this.refLon, refLat: this.refLat, referenceTime: this.referenceTime, header: { ...this.header }, globals: { ...this.globals }, objects };
+  }
+
+  restore(s: AcmiSnapshot): void {
+    this.reset();
+    this.t = s.t;
+    this.refLon = s.refLon;
+    this.refLat = s.refLat;
+    this.referenceTime = s.referenceTime;
+    Object.assign(this.header, s.header);
+    Object.assign(this.globals, s.globals);
+    // copies again: the keyframe stays as it was however the table moves on
+    for (const o of s.objects) this.objects.set(o.id, { ...o, props: { ...o.props }, transform: { ...o.transform } });
   }
 
   /** Current sim time as UTC, if ReferenceTime is known. */

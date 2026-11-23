@@ -14,7 +14,7 @@ import { IcLayers } from '../icons.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { useVecSeconds } from '../vecLength.ts';
 import { useBoxSize } from '../useBoxSize.ts';
-import { shortType, fuelK, tagRows, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { shortType, fuelK, tagRows, type Picture, type ScopeTrack, type TagId } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
 import { SPN46_ACQ_DEG, SPN46_ACQ_NM, SPN46_CHANNELS, SPN46_RANGE_NM } from '../radar/spn46.ts';
@@ -216,7 +216,9 @@ export const FinalView: React.FC<{
   recoveryCase?: RecoveryCase;
   /** the aircraft the SPN-46 holds (CatccApp, spn46Locks); without it the nearest two in the gate */
   aclsLocks?: readonly string[];
-}> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly, recoveryCase, aclsLocks }) => {
+  /** what the data tags name aircraft by: the seat's radar setting (MODEX unless given) */
+  tagId?: TagId;
+}> = ({ pic, ops, setOps, deck, local, defaultRange, handoffCtx, owners, readOnly, recoveryCase, aclsLocks, tagId = 'bd' }) => {
   const [RG, setRG] = useState<ParRange>(defaultRange);
   // projection-vector time (toolbar Vector button), shared by the Approach / Final displays in this browser
   const [vecS, stepVec] = useVecSeconds('final');
@@ -561,7 +563,7 @@ export const FinalView: React.FC<{
     const red = conflictIds.has(t.id);
     const c = red ? '#FF8A85' : TRK;
     const tc = red ? '#B8433F' : TRK_TRAIL;
-    const rows = tagRows(t);
+    const rows = tagRows(t, undefined, false, tagId);
     const trE: [number, number][] = [];
     const trA: [number, number][] = [];
     t.trail.forEach((q, i) => {

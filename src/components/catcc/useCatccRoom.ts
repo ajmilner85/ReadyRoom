@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { supabase } from '../../utils/supabaseClient';
-import type { HookEnv } from '../../catcc/core/dcs/hookProtocol.ts';
+import type { HookEnv, ReplayCommand, ReplayState } from '../../catcc/core/dcs/hookProtocol.ts';
 import { distanceNm, implausibleMove } from '../../catcc/core/geo.ts';
 import { CLOSE_AUTH_FAILED, CLOSE_FORBIDDEN, type Assignment, type CarrierPlan, type OrderStatus, type RoomUser, type SeatHolder, type SeatKey, type ServerMsg, type SourceStatus, type WireTrack } from '../../catcc/core/room/protocol.ts';
 import type { OpsState, Ownership } from '../../catcc/core/room/ops.ts';
@@ -38,12 +38,16 @@ export interface RoomState {
   intercepts: Record<string, string>;
   /** flight key → owner seat and pending handoff */
   owners: Record<string, Ownership>;
+  /** track id → the carrier hull the aircraft spawned on (core/room/spawns.ts); aircraft that started elsewhere are absent */
+  spawns: Record<string, string>;
   /** carrier hull → shared ops state */
   ops: Record<string, OpsState>;
   /** ship (carrier hull or escort track id) → the last order sent to DCS and its answer */
   orders: Record<string, OrderStatus>;
   /** carrier hull → launch clearance */
   launch: Record<string, LaunchState>;
+  /** the source is a replay: its playback clock (the header's replay controls) */
+  replay?: ReplayState;
   tracks: WireTrack[];
   /** model time (s) and UTC of the latest frame */
   mt: number;
@@ -58,7 +62,7 @@ export interface RoomState {
 const HISTORY_S = 40;
 
 export function useCatccRoom(preferredSrc?: string) {
-  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, intercepts: {}, owners: {}, ops: {}, orders: {}, launch: {}, tracks: [], mt: 0 });
+  const [state, setState] = useState<RoomState>({ conn: 'connecting', sources: [], seats: [], plans: {}, assignments: {}, intercepts: {}, owners: {}, spawns: {}, ops: {}, orders: {}, launch: {}, tracks: [], mt: 0 });
   const history = useRef(new Map<string, Trail[]>());
   const wsRef = useRef<WebSocket | null>(null);
   const srcRef = useRef<string | undefined>(preferredSrc);
@@ -124,6 +128,9 @@ export function useCatccRoom(preferredSrc?: string) {
           case 'owners':
             if (m.src === srcRef.current) setState((s) => ({ ...s, owners: m.owners }));
             break;
+          case 'spawns':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, spawns: m.spawns }));
+            break;
           case 'ops':
             if (m.src === srcRef.current) setState((s) => ({ ...s, ops: m.ops }));
             break;
@@ -133,6 +140,9 @@ export function useCatccRoom(preferredSrc?: string) {
           case 'launch':
             if (m.src === srcRef.current) setState((s) => ({ ...s, launch: m.launch }));
             break;
+          case 'replayState':
+            if (m.src === srcRef.current) setState((s) => ({ ...s, replay: { playing: m.playing, rate: m.rate, mt: m.mt, start: m.start, end: m.end } }));
+            break;
           case 'frame': {
             if (m.src !== srcRef.current) break;
             const h = history.current;
@@ -141,10 +151,11 @@ export function useCatccRoom(preferredSrc?: string) {
               seen.add(t.id);
               let arr = h.get(t.id);
               if (!arr) h.set(t.id, (arr = []));
-              // mission time ran backwards (mission restart, replay loop): the old trail is from another run
-              if (arr.length && arr[arr.length - 1].t > m.mt + 5) arr.length = 0;
-              // or it jumped further than anything flies (respawn, replay loop or seek): a new trail
-              else if (arr.length && implausibleMove(distanceNm(arr[arr.length - 1].lat, arr[arr.length - 1].lon, t.lat, t.lon), Math.max(0, m.mt - arr[arr.length - 1].t))) arr.length = 0;
+              // mission time ran backwards (mission restart, replay loop, rewind): the points after it aren't
+              // where it has been (a rewind keeps the trail up to the new time; a restart keeps none)
+              while (arr.length && arr[arr.length - 1].t > m.mt) arr.pop();
+              // it jumped further than anything flies (respawn, replay loop or seek): a new trail
+              if (arr.length && implausibleMove(distanceNm(arr[arr.length - 1].lat, arr[arr.length - 1].lon, t.lat, t.lon), Math.max(0, m.mt - arr[arr.length - 1].t))) arr.length = 0;
               if (!arr.length || arr[arr.length - 1].t < m.mt) arr.push({ t: m.mt, lat: t.lat, lon: t.lon, alt: t.alt, ...(t.air === false ? { gnd: true } : {}) });
               const keep = t.k === 'ship' || t.k === 'carrier' ? SHIP_HISTORY_S : HISTORY_S;
               while (arr.length > 2 && arr[0].t < m.mt - keep) arr.shift();
@@ -197,7 +208,7 @@ export function useCatccRoom(preferredSrc?: string) {
     (src: string) => {
       srcRef.current = src;
       history.current.clear();
-      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, intercepts: {}, owners: {}, ops: {}, orders: {}, launch: {}, env: undefined }));
+      setState((s) => ({ ...s, src, tracks: [], seats: [], plans: {}, assignments: {}, intercepts: {}, owners: {}, spawns: {}, ops: {}, orders: {}, launch: {}, env: undefined, replay: undefined }));
       send({ t: 'subscribe', src });
     },
     [send],
@@ -218,7 +229,8 @@ export function useCatccRoom(preferredSrc?: string) {
   const assume = useCallback((key: string, from: SeatKey, to: SeatKey) => send({ t: 'assume', src: srcRef.current, key, from, to }), [send]);
   const setOps = useCallback((carrier: string, patch: Partial<OpsState> | Record<string, unknown>) => send({ t: 'ops', src: srcRef.current, carrier, patch }), [send]);
   const clearLaunch = useCallback((carrier: string, trackId: string, clear: boolean) => send({ t: 'launch', src: srcRef.current, carrier, trackId, clear }), [send]);
+  const replay = useCallback((cmd: ReplayCommand, s?: number) => send({ t: 'replay', src: srcRef.current, cmd, ...(s !== undefined ? { s } : {}) }), [send]);
   const clearError = useCallback(() => setState((s) => ({ ...s, error: undefined })), []);
 
-  return { state, history: history.current, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, assume, setOps, clearLaunch, clearError };
+  return { state, history: history.current, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, assume, setOps, clearLaunch, replay, clearError };
 }

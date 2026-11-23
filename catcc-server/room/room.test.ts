@@ -109,6 +109,9 @@ describe('room service with fake DCS hook', () => {
     expect(cv.wx?.d0).toBe(70);
     const latest = [...c.msgs].reverse().find((m) => m.t === 'status' || m.t === 'hello') as Extract<ServerMsg, { t: 'status' | 'hello' }>;
     expect(latest.sources[0]).toMatchObject({ connected: true, authed: true, mission: { state: 'running' } });
+    // spawn carriers come with the subscription: the Hornet was first seen airborne, so it has none
+    const sp = await c.waitFor('spawns');
+    expect(sp.spawns).toEqual({});
     c.ws.close();
   });
 

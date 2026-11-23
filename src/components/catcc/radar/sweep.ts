@@ -98,10 +98,11 @@ export function paintRadars(P: Painter, tracks: WireTrack[], refId: string, rada
     // already painted from this frame (a tracking radar looks every step; the data changes once a frame)
     if (h?.length && h[h.length - 1].t === mt && P.painted.has(t.id)) continue;
     if (!h) P.hist.set(t.id, (h = []));
-    if (h.length && h[h.length - 1].t > mt + 5) h.length = 0; // time ran backwards: a new run
+    // time ran backwards (a new run, a replay rewound): drop the paints after it
+    while (h.length && h[h.length - 1].t > mt) h.pop();
     // jumped further than anything flies since its last paint (respawn, replay loop or seek): a new track,
     // not thousands of knots of tracker velocity
-    else if (h.length && implausibleMove(distanceNm(h[h.length - 1].lat, h[h.length - 1].lon, t.lat, t.lon), Math.max(0, mt - h[h.length - 1].t))) h.length = 0;
+    if (h.length && implausibleMove(distanceNm(h[h.length - 1].lat, h[h.length - 1].lon, t.lat, t.lon), Math.max(0, mt - h[h.length - 1].t))) h.length = 0;
     P.painted.set(t.id, trackerVelocity(t, h, mt));
     if (!h.length || h[h.length - 1].t < mt) h.push({ t: mt, lat: t.lat, lon: t.lon, alt: t.alt, ...(t.air === false ? { gnd: true } : {}) });
     while (h.length > 2 && h[0].t < mt - (isShip(t) ? Math.max(keepS, SHIP_HISTORY_S) : keepS)) h.shift();

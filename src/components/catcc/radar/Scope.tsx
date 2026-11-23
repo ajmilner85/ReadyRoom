@@ -126,11 +126,12 @@ const DonorBeam: React.FC<{ x: number; y: number; r: number; scanS: number; phas
     </g>
   );
 };
-import { inAltBlock, smoothedCourse, STACK_IDS, stackLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { inAltBlock, smoothedCourse, STACK_IDS, stackLabel, tagLabel, tagRows, velocityEnd, type Carrier, type Formation, type Picture, type ScopeTrack, type TagId } from '../scopeModel.ts';
 import { layoutTags, type TagPlace } from './tagLayout.ts';
 import { IcSliders } from '../icons.tsx';
+const TAG_TITLE: Record<TagId, string> = { bd: 'Tags: MODEX', cs: 'Tags: callsign', both: 'Tags: callsign and MODEX' };
 import { useVecSeconds } from '../vecLength.ts';
-import { IcBra, IcBulls, IcCpa, IcComms, IcFollow, IcIntercept, IcLayers, IcMarshal, IcRadio, IcSelect, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
+import { IcBra, IcBulls, IcCpa, IcComms, IcFollow, IcIntercept, IcLayers, IcMarshal, IcRadio, IcSelect, IcTagBoth, IcTagCallsign, IcTagModex, IcVec, IcWp, IcZoomIn, IcZoomOut } from '../icons.tsx';
 import { canFollow, dblClickAction, followStep, zoomCentre } from './follow.ts';
 
 import { LW_STEPS, UI_STEPS, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale } from './types.ts';
@@ -194,6 +195,10 @@ export interface ScopeProps {
   /** conflict alerts shown; with onConflicts the toolbar has a switch for them */
   conflictsOn?: boolean;
   onConflicts?: (on: boolean) => void;
+  /** what the data tags name aircraft by (MODEX unless given); with onTagId the toolbar switches it, lit while it overrides the seat's default */
+  tagId?: TagId;
+  tagOverride?: boolean;
+  onTagId?: () => void;
   /** the seat's scope tools, range presets and whether it has comms scripts */
   tools?: Tool[];
   fits?: Exclude<Fit, null>[];
@@ -603,6 +608,7 @@ const MarineLayer = React.memo(function MarineLayer(props: {
 
 export const Scope: React.FC<ScopeProps> = (props) => {
   const { pic, ui, ov, ov2, tool, hookedId, onHook, plans, assignments, placement, hl, fit, onFit } = props;
+  const tagBy: TagId = props.tagId ?? 'bd';
   const fTrack = pic.focus?.track;
   // the reported theatre wins unless the carrier is outside its box (e.g. a replay that does not know it)
   const tBox = props.theatre ? THEATRE_BOXES[props.theatre] : undefined;
@@ -1830,12 +1836,14 @@ export const Scope: React.FC<ScopeProps> = (props) => {
     if (pic.formations.some((f) => f.collapsible && f.lead !== t && f.members.includes(t) && (fmSel[f.id] ?? 0) > 0)) continue;
     const fi = fmInfo.get(t.id);
     const color = conflictIds.has(t.id) ? 'red' : isBlue(t) ? 'blue' : 'own';
-    let rows = tagRows(t);
-    if (fi && !fi.sel) rows = tagRows(t, fi.f, true);
+    let rows = tagRows(t, undefined, false, tagBy);
+    if (fi && !fi.sel) rows = tagRows(t, fi.f, true, tagBy);
     else if (fi) {
       const m = fi.f.members[fi.sel - 1] ?? t;
-      const r = tagRows(m);
-      rows = [r[0], r[1], `${m.cs ?? m.pi ?? m.id} · ${fi.sel}/${fi.f.members.length}`];
+      const r = tagRows(m, undefined, false, tagBy);
+      // the third row names the member by the field the first row doesn't
+      // (under 'both' the tag already names it both ways: just its place in the flight)
+      rows = tagBy === 'both' ? [...r, `${fi.sel}/${fi.f.members.length}`] : [r[0], r[1], `${tagBy === 'cs' ? m.bd ?? m.pi ?? m.id : m.cs ?? m.pi ?? m.id} · ${fi.sel}/${fi.f.members.length}`];
     }
     // a radar donor (E-2) with the datalink overlay on: its radar on the tag
     const dn = ov.dl ? props.donors?.find((d) => d.id === t.id) : undefined;
@@ -1945,8 +1953,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   // ------------------------------------------------ helper tag (hook) + assignment tags (HTML)
   const hkTag = (() => {
     if (!hk || !hooked) return null;
-    const label = hooked.bd ?? hooked.cs ?? hooked.pi ?? hooked.id;
-    const intLabel = (t: ScopeTrack) => t.bd ?? t.cs ?? t.pi ?? t.id;
+    const label = tagLabel(hooked, tagBy);
+    const intLabel = (t: ScopeTrack) => tagLabel(t, tagBy);
     // the intercept tag sits at the midpoint of the commanded leg
     const intAt = hk.kind === 'int' ? (hk.sol.ok && hk.sol.solid.length ? hk.sol.solid[Math.floor(hk.sol.solid.length / 2)] : cur!) : cur!;
     const at = hk.kind === 'marshal' ? hk.route.fix : intAt;
@@ -2082,7 +2090,7 @@ export const Scope: React.FC<ScopeProps> = (props) => {
       const q = toPx(fx);
       const spec = holdSpecForTas(tasFromIas(maxEnduranceKias(t.ty), a.angels * 1000));
       const route = marshalRoute(t.p, t.crs ?? t.hdg ?? 0, Math.max(150, Math.round((t.gs ?? 300) / 10) * 10), st.r, fixDme(a.angels), st.rh ? 'right' : 'left', spec);
-      return { id, st, a, fx, route, x: q[0] + 12, y: q[1] + 8, t: `${t.bd ?? t.cs ?? t.pi ?? id} · ${stackLabel(hull, st.id)}·${a.angels} · EAT ${hms(a.eatS).slice(0, 5)}` };
+      return { id, st, a, fx, route, x: q[0] + 12, y: q[1] + 8, t: `${tagLabel(t, tagBy)} · ${stackLabel(hull, st.id)}·${a.angels} · EAT ${hms(a.eatS).slice(0, 5)}` };
     })
     .filter((x): x is NonNullable<typeof x> => !!x)
     .sort((a, b) => a.a.eatS - b.a.eatS);
@@ -3054,6 +3062,21 @@ export const Scope: React.FC<ScopeProps> = (props) => {
                     <path d="M12 12.5l-5 8.5h10z" />
                     <path d="M12 15.6v2.4" />
                   </svg>
+                </button>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+              </>
+            )}
+            {props.onTagId && (
+              <>
+                <button
+                  className="tbtn"
+                  aria-pressed={!!props.tagOverride}
+                  aria-label={TAG_TITLE[tagBy]}
+                  title={TAG_TITLE[tagBy]}
+                  onClick={() => props.onTagId!()}
+                  style={{ background: props.tagOverride ? 'rgba(241,88,34,.18)' : 'transparent', color: props.tagOverride ? '#FFB08F' : '#E6EDF3' }}
+                >
+                  {tagBy === 'cs' ? <IcTagCallsign /> : tagBy === 'both' ? <IcTagBoth /> : <IcTagModex />}
                 </button>
                 <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
               </>

@@ -10,7 +10,7 @@ import { fuelK, shortType, type Picture, type ScopeTrack } from '../scopeModel.t
 import type { DeckCall } from '../deck.ts';
 import { finalPicture, landingWeightLb } from '../final/finalModel.ts';
 import { deckStatus, onCat } from './deck.ts';
-import { catEntry } from './launch.ts';
+import { catEntry, deckIdOf, queueMembers, simultaneous, taxiOrders, unassignedFlights } from './launch.ts';
 import type { LaunchState } from '../../../catcc/core/room/launch.ts';
 
 const SEG: React.CSSProperties = { display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 };
@@ -111,7 +111,9 @@ export const LaunchTab: React.FC<{
   launch?: LaunchState;
   mayClear: boolean;
   onClear?: (trackId: string, clear: boolean) => void;
-}> = ({ pic, ops, setOps, readOnly, launch, mayClear, onClear }) => {
+  /** an individual taxi instruction for one aircraft (as from the deck) */
+  onTaxi?: (trackId: string, to: string) => void;
+}> = ({ pic, ops, setOps, readOnly, launch, mayClear, onClear, onTaxi }) => {
   const st = deckStatus(pic);
   const jets = st?.jets ?? [];
   const keyOf = (t: ScopeTrack) => t.g || t.id;
@@ -126,13 +128,40 @@ export const LaunchTab: React.FC<{
     for (const c of ['1', '2', '3', '4']) all[c] = c === k ? v : { ...cat(c), queue: live(cat(c).queue) };
     setOps({ launch: all });
   };
-  const queued = new Set(['1', '2', '3', '4'].flatMap((k) => live(cat(k).queue)));
-  const free = [...onDeck.entries()].filter(([k]) => !queued.has(k));
+  const deck = jets.map((j) => deckIdOf(j.t));
+  // flights with an aircraft that has no instruction yet: queuing one spreads those over the catapults
+  const unassigned = unassignedFlights(ops, deck);
+  const free = unassigned.map((key) => [key, onDeck.get(key)!] as const);
+  // and each aircraft with no instruction: picked alone, it gets an individual taxi instruction (lead or not)
+  const ordersNow = taxiOrders(ops, deck);
+  const freeJets = jets.map((j) => j.t).filter((t) => !ordersNow[t.id]);
+  const flightName = (key: string, t: ScopeTrack) => {
+    const n = jets.filter((j) => keyOf(j.t) === key).length;
+    return `${t.fl ?? key} · ${n}× ${shortType(t.ty)}`;
+  };
+  // each catapult's queue: the flight, by the aircraft of it bound for that catapult
+  const members = Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, queueMembers(ops, deck, k)]));
   // the launch sequence: catapults take turns, bow cats first
-  const order: { cat: string; key: string }[] = [];
-  const qs = ['1', '2', '3', '4'].map((k) => (cat(k).status === 'ready' ? live(cat(k).queue).map((key) => ({ cat: k, key })) : []));
-  for (let i = 0; qs.some((q) => q.length > i); i++) for (const q of qs) if (q[i]) order.push(q[i]);
-  const name = (k: string) => {
+  // a flight's aircraft at the same place on catapults that can be fired together launch as one ("C1+3")
+  const order: { cats: string[]; key: string; ids: string[] }[] = [];
+  const qs = ['1', '2', '3', '4'].map((k) => (cat(k).status === 'ready' ? members[k].map((m) => ({ cat: k, ...m })) : []));
+  for (let i = 0; qs.some((q) => q.length > i); i++) {
+    const round: typeof order = [];
+    for (const q of qs) {
+      const e = q[i];
+      if (!e) continue;
+      const mate = round.find((r) => r.key === e.key && r.cats.every((c) => simultaneous(c, e.cat)));
+      if (mate) {
+        mate.cats.push(e.cat);
+        mate.ids.push(...e.ids);
+      } else round.push({ cats: [e.cat], key: e.key, ids: [...e.ids] });
+    }
+    order.push(...round);
+  }
+  const track = new Map(jets.map((j) => [j.t.id, j.t]));
+  const name = (k: string, ids: string[] = []) => {
+    const ts = ids.map((x) => track.get(x)).filter((t): t is ScopeTrack => !!t);
+    if (ts.length) return `${ts.map(id).join(', ')} ${shortType(ts[0].ty)}`;
     const t = onDeck.get(k);
     return t ? `${id(t)} ${shortType(t.ty)}` : k;
   };
@@ -157,12 +186,12 @@ export const LaunchTab: React.FC<{
       <section className="pnl" aria-label="Launch sequence" style={{ padding: 10 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 6 }}>
           <span className="lbl">Launch sequence</span>
-          <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{order.length} queued · {free.length} unassigned</span>
+          <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{order.reduce((n, o) => n + o.cats.length, 0)} queued · {unassigned.length} unassigned</span>
         </div>
         <div className="mono" style={{ fontSize: 12, display: 'flex', gap: 6, flexWrap: 'wrap' }}>
           {order.map((o, i) => (
-            <span key={o.key} style={{ padding: '3px 7px', borderRadius: 4, border: `1px solid ${i === 0 ? '#5FD068' : '#374250'}`, background: i === 0 ? 'rgba(95,208,104,.16)' : 'transparent' }}>
-              {i + 1}. {name(o.key)} · C{o.cat}
+            <span key={`${o.cats.join('+')}-${o.key}`} style={{ padding: '3px 7px', borderRadius: 4, border: `1px solid ${i === 0 ? '#5FD068' : '#374250'}`, background: i === 0 ? 'rgba(95,208,104,.16)' : 'transparent' }}>
+              {i + 1}. {name(o.key, o.ids)} · C{o.cats.join('+')}
             </span>
           ))}
           {!order.length && <span style={{ color: '#6B7683' }}>Nothing queued on a ready catapult</span>}
@@ -191,24 +220,45 @@ export const LaunchTab: React.FC<{
               </div>
             </div>
             <div className="mono" style={{ fontSize: 12, display: 'flex', gap: 6, flexWrap: 'wrap', alignItems: 'center' }}>
-              {q.map((key, i) => (
+              {members[k].map(({ key, ids }, i) => (
                 <span key={key} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, padding: '3px 4px 3px 7px', borderRadius: 4, border: `1px solid ${i === 0 && spotted ? '#5FD068' : '#374250'}`, background: i === 0 && spotted ? 'rgba(95,208,104,.16)' : 'transparent' }}>
-                  {name(key)}
+                  {name(key, ids)}
                   {!readOnly && (
-                    <button aria-label={`Remove ${name(key)} from cat ${k}`} onClick={() => save(k, { status: c.status, queue: q.filter((x) => x !== key) })} style={{ border: 0, background: 'transparent', color: '#93A1B0', cursor: 'pointer', padding: '0 2px', fontSize: 12 }}>
+                    <button aria-label={`Remove ${name(key, ids)} from cat ${k}`} onClick={() => save(k, { status: c.status, queue: q.filter((x) => x !== key) })} style={{ border: 0, background: 'transparent', color: '#93A1B0', cursor: 'pointer', padding: '0 2px', fontSize: 12 }}>
                       ×
                     </button>
                   )}
                 </span>
               ))}
               {!readOnly && free.length > 0 && q.length < 12 && (
-                <select aria-label={`Queue an aircraft on cat ${k}`} value="" onChange={(e) => e.target.value && save(k, { status: c.status, queue: [...q, e.target.value] })} style={{ height: 24, background: '#0E1116', color: '#93A1B0', border: '1px dashed #374250', borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11 }}>
+                <select
+                  aria-label={`Queue an aircraft on cat ${k}`}
+                  value=""
+                  onChange={(e) => {
+                    const v = e.target.value;
+                    // a flight: the group instructions (spread over the catapults); one aircraft: its own instruction
+                    if (v.startsWith('f:')) save(k, { status: c.status, queue: [...q, v.slice(2)] });
+                    else if (v.startsWith('j:')) onTaxi?.(v.slice(2), `C${k}`);
+                  }}
+                  style={{ height: 26, padding: '0 8px', background: '#0E1116', color: '#93A1B0', border: '1px dashed #374250', borderRadius: 4, fontFamily: "'IBM Plex Mono', monospace", fontSize: 11, cursor: 'pointer' }}
+                >
                   <option value="">+ queue</option>
-                  {free.map(([key, t]) => (
-                    <option key={key} value={key}>
-                      {id(t)} {shortType(t.ty)} · {fuelK(t.lb)}
-                    </option>
-                  ))}
+                  <optgroup label="Flights">
+                    {free.map(([key, t]) => (
+                      <option key={key} value={`f:${key}`}>
+                        {flightName(key, t)}
+                      </option>
+                    ))}
+                  </optgroup>
+                  {onTaxi && (
+                    <optgroup label="Aircraft">
+                      {freeJets.map((t) => (
+                        <option key={t.id} value={`j:${t.id}`}>
+                          {id(t)} {shortType(t.ty)} · {fuelK(t.lb)}
+                        </option>
+                      ))}
+                    </optgroup>
+                  )}
                 </select>
               )}
               {!q.length && (readOnly || !free.length) && <span style={{ color: '#6B7683' }}>Empty</span>}

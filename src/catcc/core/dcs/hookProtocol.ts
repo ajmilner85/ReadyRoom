@@ -132,6 +132,24 @@ export type ShipCmd =
  */
 export type LaunchCmd = { op: 'launch'; hold: string[]; /** players whose chocks are held (no taxi instruction yet) */ chocks?: string[] };
 
+/**
+ * Playback of a recording (dev replay sources only: catcc-server/dcs/fakeHook.ts; the DCS hook has none).
+ * play: 1x forward; ff / rew: 2x, then 4x, 8x on each further press; restart: back to the replay's start
+ * point at 1x; skip: `s` seconds ahead.
+ */
+export type ReplayCommand = 'play' | 'pause' | 'ff' | 'rew' | 'restart' | 'skip';
+export const REPLAY_COMMANDS: ReplayCommand[] = ['play', 'pause', 'ff', 'rew', 'restart', 'skip'];
+export type ReplayCmd = { op: 'replay'; cmd: ReplayCommand; s?: number };
+
+/** A replay's clock: rate is signed (-8 .. 8, never 0); mt is the recording's time (s), start/end its first and last frame. */
+export interface ReplayState {
+  playing: boolean;
+  rate: number;
+  mt: number;
+  start: number;
+  end: number;
+}
+
 /** What a pilot's mod reports besides the salute: */
 export type PilotEvent =
   /** asked for the chocks to come off (held: ready to taxi) */
@@ -141,7 +159,8 @@ export type PilotEvent =
   | 'lb0';
 
 export type HookMessage =
-  | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean; ab?: boolean }
+  /** replay: a recording played back, whose clock takes ReplayCmd orders */
+  | { type: 'hello'; proto: number; version: string; server: string; cmds?: boolean; ab?: boolean; replay?: boolean }
   | { type: 'cmd'; id: number | null; ok: boolean; error?: string }
   /** a pilot's mod reports the pilot's salute (player name) */
   | { type: 'salute'; p: string }
@@ -151,4 +170,6 @@ export type HookMessage =
   | { type: 'pong' }
   | { type: 'error'; error: string }
   | HookFrame
-  | ({ type: 'env' } & HookEnv);
+  | ({ type: 'env' } & HookEnv)
+  /** a replay's clock, sent on connect and whenever it changes other than by playing on */
+  | ({ type: 'replay' } & ReplayState);

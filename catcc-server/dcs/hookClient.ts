@@ -1,5 +1,5 @@
 import net from 'node:net';
-import type { HookEnv, HookFrame, HookMessage, LaunchCmd, PilotEvent, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { HookEnv, HookFrame, HookMessage, LaunchCmd, PilotEvent, ReplayCmd, ReplayState, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
 
 /**
  * Client for the CATCC DCS export hook (protocol v1): newline-delimited JSON, AUTH <token>.
@@ -18,6 +18,8 @@ export interface HookClientOptions {
   onSalute?: (player: string) => void;
   /** a pilot's mod reported something else (chocks request, launch bar) */
   onPilotEvent?: (player: string, e: PilotEvent) => void;
+  /** a replay source's playback clock (on connect and whenever it changes) */
+  onReplay?: (state: ReplayState) => void;
   onStatus?: (status: HookClientStatus) => void;
 }
 
@@ -29,6 +31,8 @@ export interface HookClientStatus {
   cmds?: boolean;
   /** the hook can use the Supercarrier's Air Boss ship control (heading orders, bells, astern) */
   ab?: boolean;
+  /** the source is a replay whose playback takes orders (ReplayCmd) */
+  replay?: boolean;
   mission?: { state: 'running' | 'stopped'; name: string };
   lastError?: string;
   bytesIn: number;
@@ -68,11 +72,12 @@ export class HookClient {
   }
 
   /** Send a ship order; resolves with the hook's reply (or a local failure after 10 s). */
-  command(cmd: ShipCmd | LaunchCmd): Promise<{ ok: boolean; error?: string }> {
+  command(cmd: ShipCmd | LaunchCmd | ReplayCmd): Promise<{ ok: boolean; error?: string }> {
     const sock = this.sock;
     if (!sock || !this.status.authed) return Promise.resolve({ ok: false, error: 'not connected to the DCS hook' });
     // launch holds aren't ship orders: the hook takes them whatever its commands setting
-    if (!this.status.cmds && cmd.op !== 'launch') return Promise.resolve({ ok: false, error: 'the DCS hook does not accept orders (commands = true in Config/CATCC.lua)' });
+    if (cmd.op === 'replay' && !this.status.replay) return Promise.resolve({ ok: false, error: 'this source is not a replay' });
+    if (!this.status.cmds && cmd.op !== 'launch' && cmd.op !== 'replay') return Promise.resolve({ ok: false, error: 'the DCS hook does not accept orders (commands = true in Config/CATCC.lua)' });
     const id = ++this.cmdSeq;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -150,6 +155,7 @@ export class HookClient {
         this.status.server = msg.server;
         this.status.cmds = msg.cmds === true;
         this.status.ab = msg.ab === true;
+        this.status.replay = msg.replay === true;
         if (msg.proto !== 1) {
           sock.destroy(new Error(`unsupported hook protocol ${msg.proto}`));
           return;
@@ -188,6 +194,11 @@ export class HookClient {
         break;
       case 'pilotev':
         if (typeof msg.p === 'string' && (msg.e === 'taxi' || msg.e === 'lb1' || msg.e === 'lb0')) this.opts.onPilotEvent?.(msg.p, msg.e);
+        break;
+      case 'replay':
+        if (typeof msg.playing === 'boolean' && [msg.rate, msg.mt, msg.start, msg.end].every((n) => typeof n === 'number' && Number.isFinite(n))) {
+          this.opts.onReplay?.({ playing: msg.playing, rate: msg.rate, mt: msg.mt, start: msg.start, end: msg.end });
+        }
         break;
       case 'env': {
         // every HookEnv field is passed on (bulls was being dropped here, so no bullseye reached the scope)

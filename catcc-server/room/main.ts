@@ -2,9 +2,11 @@
  * Standalone CATCC room server (future dedicated Fly app; local development today).
  *
  *   node catcc-server/room/main.ts                       sources from CATCC_SOURCES
- *   node catcc-server/room/main.ts --acmi <file.acmi> [--speed 1] [--from 2300]
+ *   node catcc-server/room/main.ts --acmi <file.acmi> [--speed 1|2|4|8] [--from 2300] [--once]
  *        dev mode: runs a fake DCS hook in-process, fed by a Tacview recording, as source "replay",
- *        and accepts any token (CATCC_DEV_NOAUTH).
+ *        and accepts any token (CATCC_DEV_NOAUTH). The header's replay controls steer the playback
+ *        (play / pause, 2-8x forward and back, restart, skip ahead: tacview/replayClock.ts); it loops
+ *        from --from at the end (--once: stops on the last frame).
  *        --acmi latest: CATCC_ACMI if set, else the newest .acmi in ~/Downloads (then
  *        ~/Documents/Tacview). `npm run catcc:replay` is that, from 3300 s.
  *        --demo-pattern adds synthetic pattern traffic (final, bolter downwind, inbound) for the
@@ -22,7 +24,8 @@ import os from 'node:os';
 import path from 'node:path';
 import { FakeHookServer } from '../dcs/fakeHook.ts';
 import { withDemoPattern } from '../dcs/demoPattern.ts';
-import { readAcmiFile, replayAcmi } from '../tacview/replay.ts';
+import { readAcmiFile } from '../tacview/replay.ts';
+import { indexAcmi, parseAcmi, ReplayPlayer } from '../tacview/replayClock.ts';
 import { attachCatccRoom } from './attach.ts';
 import type { SourceConfig } from './roomService.ts';
 
@@ -75,21 +78,28 @@ async function main() {
     const token = 'dev-token-dev-token';
     const fake = new FakeHookServer({ port: 0, token, name: 'replay' });
     const fakePort = await fake.listen();
-    const text = readAcmiFile(acmi);
+    const t0 = Date.now();
+    const index = indexAcmi(parseAcmi(readAcmiFile(acmi)));
+    console.log(`[CATCC] indexed ${index.events.length} events, ${index.start.toFixed(0)}-${index.end.toFixed(0)} s, ${index.keyframes.length} keyframes in ${Date.now() - t0} ms`);
     // --demo-pattern: synthetic final / bolter / inbound traffic around the first carrier
-    const sink = args.includes('--demo-pattern') ? withDemoPattern(fake.apply, fake.store) : fake.apply;
-    // loops: at the end the store is cleared and the recording starts again from --from (--once to stop)
-    void (async () => {
-      for (;;) {
-        await replayAcmi(text, sink, { speed: Number(opt('speed') ?? 1), from: opt('from') ? Number(opt('from')) : undefined });
-        if (args.includes('--once')) {
-          console.log('[CATCC] replay finished');
-          return;
-        }
-        console.log('[CATCC] replay finished, looping');
-        fake.store.reset();
-      }
-    })();
+    const demo = args.includes('--demo-pattern') ? withDemoPattern(fake.apply, fake.store) : undefined;
+    // playback under the room's control (the header's replay controls); at the end it starts again
+    // from --from (--once: it stops on the last frame)
+    const player = new ReplayPlayer(index, {
+      sink: demo ?? fake.apply,
+      store: fake.store,
+      from: opt('from') ? Number(opt('from')) : undefined,
+      loop: !args.includes('--once'),
+      onRestore: () => demo?.reset(),
+      onChange: (s) => {
+        console.log(`[CATCC] replay ${s.playing ? `playing ${s.rate}x` : 'paused'} at ${s.mt.toFixed(0)} s`);
+        fake.replayChanged();
+      },
+    });
+    const speed = Number(opt('speed') ?? 1);
+    if (speed !== 1 && [2, 4, 8].includes(Math.abs(speed))) for (let r = 2; r <= Math.abs(speed); r *= 2) player.command(speed > 0 ? 'ff' : 'rew');
+    fake.setReplay(player);
+    player.start();
     extra.push({ id: 'replay', name: 'Replay', kind: 'hook', host: '127.0.0.1', port: fakePort, token });
     env.CATCC_DEV_NOAUTH = '1';
     console.log(`[CATCC] dev replay of ${acmi} via fake hook on :${fakePort}`);

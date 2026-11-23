@@ -9,6 +9,7 @@
  *   { t:'plan', src, carrier, plan }      replace one carrier's radials/stacks
  *   { t:'assign', src, trackId, assignment|null }
  *   { t:'launch', src, carrier, trackId, clear }  PriFly clears (or un-clears) an aircraft to launch
+ *   { t:'replay', src, cmd, s? }           playback of a replay source (play, pause, ff, rew, restart, skip s seconds)
  *   { t:'ping' }
  * Plan/assign edits are open to any signed-in user until someone holds a seat on that
  * carrier (or MC); then only seat holders may edit.
@@ -21,11 +22,13 @@
  *   { t:'env', src, env }                  mission weather + ship routes (hook sources), ~30 s
  *   { t:'orders', src, orders }            what the DCS hook did with each ship order (helm, route, station)
  *   { t:'launch', src, launch }            launch clearance per carrier (see core/room/launch.ts)
+ *   { t:'spawns', src, spawns }            the carrier each aircraft spawned on (see core/room/spawns.ts)
+ *   { t:'replayState', src, playing, rate, mt, start, end }   a replay source's clock: on subscribe and on every change
  *   { t:'pong' } | { t:'error', error }
  * Close codes: 4001 no auth message in time, 4003 the sign-in isn't valid, 4403 signed in but not a
  * member of the wing (the close reason says why; see catcc-server/room/membership.ts).
  */
-import type { CarrierWx, HookEnv, OrderPoint } from '../dcs/hookProtocol.ts';
+import { REPLAY_COMMANDS, type CarrierWx, type HookEnv, type OrderPoint, type ReplayCommand, type ReplayState } from '../dcs/hookProtocol.ts';
 import type { Track, TrackKind, Side } from '../tracks/trackStore.ts';
 import type { OpsState, Ownership } from './ops.ts';
 import type { LaunchState } from './launch.ts';
@@ -107,6 +110,8 @@ export interface SourceStatus {
   cmds?: boolean;
   /** hook: Air Boss ship control is available (helm orders steer to a heading and ring bells, astern too) */
   ab?: boolean;
+  /** hook: a recording played back (dev), whose playback any member may steer ({ t:'replay' }) */
+  replay?: boolean;
 }
 
 /**
@@ -209,6 +214,8 @@ export type ClientMsg =
   | { t: 'ops'; src: string; carrier: string; patch: Partial<Record<keyof OpsState, unknown>> }
   /** the carrier's clearing seat (Shooter, else Air Boss) clears an aircraft on deck to launch, or takes it back */
   | { t: 'launch'; src: string; carrier: string; trackId: string; clear: boolean }
+  /** steer a replay source's playback (skip: s seconds ahead) */
+  | { t: 'replay'; src: string; cmd: ReplayCommand; s?: number }
   | { t: 'ping' };
 
 export type ServerMsg =
@@ -225,6 +232,10 @@ export type ServerMsg =
   | { t: 'ops'; src: string; ops: Record<string, OpsState> }
   | { t: 'orders'; src: string; orders: Record<string, OrderStatus> }
   | { t: 'launch'; src: string; launch: Record<string, LaunchState> }
+  /** the carrier each aircraft spawned on (track id → hull; see core/room/spawns.ts): aircraft that started elsewhere aren't listed */
+  | { t: 'spawns'; src: string; spawns: Record<string, string> }
+  /** a replay source's clock (mt: the recording's time, s; rate signed, -8 .. 8) */
+  | ({ t: 'replayState'; src: string } & ReplayState)
   | { t: 'pong' }
   | { t: 'error'; error: string };
 
@@ -327,4 +338,15 @@ export function cleanAssignment(a: unknown): Assignment | null {
   if (typeof x.stackId !== 'string' || x.stackId.length > 2 || !fin(x.angels) || !fin(x.eatS) || !fin(x.fixS)) return null;
   if (x.carrier !== undefined && (typeof x.carrier !== 'string' || x.carrier.length > 16)) return null;
   return { stackId: x.stackId, angels: x.angels, eatS: x.eatS, fixS: x.fixS, carrier: x.carrier };
+}
+
+/** the longest skip ahead a client may ask for (s) */
+export const MAX_REPLAY_SKIP_S = 3600;
+
+/** Validate a client's replay command (skip takes 1 .. MAX_REPLAY_SKIP_S seconds). Returns a clean copy or null. */
+export function cleanReplayCmd(cmd: unknown, s: unknown): { cmd: ReplayCommand; s?: number } | null {
+  if (typeof cmd !== 'string' || !REPLAY_COMMANDS.includes(cmd as ReplayCommand)) return null;
+  if (cmd !== 'skip') return { cmd: cmd as ReplayCommand };
+  if (typeof s !== 'number' || !Number.isFinite(s) || s < 1 || s > MAX_REPLAY_SKIP_S) return null;
+  return { cmd: 'skip', s: Math.round(s) };
 }

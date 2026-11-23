@@ -341,11 +341,21 @@ export const typeName = (ty: string): string => TYPE_NAMES[ty] ?? ty.replace(/_.
 
 export const fuelK = (lb: number | undefined): string => (lb === undefined ? '' : (lb / 1000).toFixed(1));
 
-export function tagRows(t: ScopeTrack, formation?: Formation, collapsed = false): string[] {
-  const label = t.bd ?? t.cs ?? t.pi ?? t.id;
+/** What a data tag names an aircraft by: its MODEX (board number), its tactical callsign, or both (the callsign on a line of its own above the MODEX line). */
+export type TagId = 'bd' | 'cs' | 'both';
+/** the order the toolbar switch steps through */
+export const TAG_IDS: TagId[] = ['bd', 'cs', 'both'];
+/** the tag's name for a track: the chosen field, else the other one, else the pilot, else the track id (one-line labels go by MODEX under 'both') */
+export const tagLabel = (t: { bd?: string; cs?: string; pi?: string; id: string }, by: TagId = 'bd'): string =>
+  (by === 'cs' ? t.cs ?? t.bd : t.bd ?? t.cs) ?? t.pi ?? t.id;
+
+export function tagRows(t: ScopeTrack, formation?: Formation, collapsed = false, by: TagId = 'bd'): string[] {
+  const label = tagLabel(t, by);
   const fuel = t.lb !== undefined ? fuelK(t.lb) : t.f !== undefined ? `${Math.round(t.f * 100)}%` : '';
   const arrow = (t.vs ?? 0) > 300 ? '↑' : (t.vs ?? 0) < -300 ? '↓' : '';
   const rows = [`${label} ${shortType(t.ty)}${fuel ? ` ${fuel}` : ''}`, `${arrow}${String(Math.round(t.alt / 100)).padStart(3, '0')} ${Math.round(t.gs ?? 0)}`];
+  // both: the tactical callsign on a line of its own above (when the track has both, so the first line isn't already it)
+  if (by === 'both' && t.cs && t.bd) rows.unshift(t.cs);
   if (collapsed && formation) rows.push(`FLT ×${formation.members.length}${formation.lowFuelLb !== undefined ? ` · LOW ${fuelK(formation.lowFuelLb)}` : ''}`);
   return rows;
 }

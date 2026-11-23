@@ -41,6 +41,11 @@ npm run dev
 npm run build
 ```
 
+### CATCC replay
+
+- `npm run catcc:replay` runs the CATCC room on port 3002 with a Tacview recording as its source "Replay" (`CATCC_ACMI`, else the newest `.acmi` in Downloads, then Documents/Tacview), from 3300 s. `npm run catcc:replay:demo` adds synthetic pattern traffic. Options of `node catcc-server/room/main.ts --acmi <file|latest>`: `--from <s>` (start and restart point), `--speed 2|4|8` (start fast forward), `--once` (stop on the last frame instead of looping), `--demo-pattern`; `CATCC_PORT` sets the port.
+- With a replay source, `/catcc` shows playback controls after the "Replay feed" indicator: Rewind, Play / Pause, Fast forward, Restart, Skip ahead, and the skip interval (30 s to 10 min, or any number of seconds up to an hour; kept per browser). Fast forward and Rewind play at 2x, then 4x and 8x with each further press; Play goes back to 1x. The recording's time and the rate (away from 1x) follow; the indicator reads "paused" while paused. Every viewer sees the same playback, and anyone in the room may steer it. A live DCS source has no controls.
+
 ### CATCC UI kit and Figma plugin
 
 - `/catcc/kit` (signed in, like `/catcc`) is the CATCC UI kit: the CATCC interface's tokens, type and components (header, controls, panels, scope symbols, data tags, strips, overlays, icons) rendered live with demo data. The source is `src/components/catcc/kit/`.

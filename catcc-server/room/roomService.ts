@@ -4,7 +4,7 @@ import type { Duplex } from 'node:stream';
 import { WebSocketServer, type WebSocket } from 'ws';
 import { AcmiLineParser } from '../../src/catcc/core/acmi/parser.ts';
 import { HookTrackStore } from '../../src/catcc/core/dcs/hookTrackStore.ts';
-import type { OrderPoint, PilotEvent, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
+import type { OrderPoint, PilotEvent, ReplayCommand, ReplayState, ShipCmd } from '../../src/catcc/core/dcs/hookProtocol.ts';
 import { bellFor, hasAirBoss } from '../../src/catcc/core/dcs/bells.ts';
 import { formationFor } from '../../src/catcc/core/geometry/formation.ts';
 import { orderChanged, stationOrder } from '../../src/catcc/core/geometry/stationKeeping.ts';
@@ -16,6 +16,7 @@ import {
   SEAT_ROLES,
   cleanAssignment,
   cleanPlan,
+  cleanReplayCmd,
   seatId,
   toWire,
   type Assignment,
@@ -34,6 +35,7 @@ import { HookClient } from '../dcs/hookClient.ts';
 import { TacviewRealtimeClient } from '../tacview/realtimeClient.ts';
 import { isRefused, type VerifyToken } from './auth.ts';
 import type { PersistedState, RoomStore } from './persist.ts';
+import { noteSpawns, spawnHulls } from '../../src/catcc/core/room/spawns.ts';
 import { aircraftOnDeck, chockedPlayers, computeLaunch, heldPlayers, launchAuthority, type LaunchState } from '../../src/catcc/core/room/launch.ts';
 
 export type SourceConfig =
@@ -77,6 +79,8 @@ class Source {
   readonly intercepts: Record<string, string> = {};
   readonly owners: Record<string, Ownership> = {};
   readonly ops: Record<string, OpsState> = {};
+  /** the carrier each aircraft spawned on (track id → hull, null: started elsewhere); kept while the source runs (core/room/spawns.ts) */
+  readonly spawns: Record<string, string | null> = {};
   /** the last ship order sent to DCS per ship (carrier hull or escort track id) and its answer */
   readonly orders: Record<string, OrderStatus> = {};
   readonly subscribers = new Set<Conn>();
@@ -96,6 +100,8 @@ class Source {
   private timer?: NodeJS.Timeout;
   lastFrame?: string;
   lastEnv?: string;
+  /** a replay source's playback clock, as last reported */
+  replayState?: ReplayState;
   readonly cfg: SourceConfig;
   private readonly onStatus: () => void;
   private readonly log: (m: string) => void;
@@ -117,7 +123,7 @@ class Source {
   // ---------------------------------------------------------------- persistence
 
   private snapshot(): PersistedState {
-    return { plans: this.plans, ops: this.ops, assignments: this.assignments, intercepts: this.intercepts, owners: this.owners, seats: [...this.seats.values()].map((x) => ({ ...x, away: undefined })) };
+    return { plans: this.plans, ops: this.ops, assignments: this.assignments, intercepts: this.intercepts, owners: this.owners, spawns: spawnHulls(this.spawns), seats: [...this.seats.values()].map((x) => ({ ...x, away: undefined })) };
   }
 
   /** something shared changed: save it shortly (debounced) */
@@ -142,12 +148,13 @@ class Source {
     if (!name || name === this.mission) return;
     if (this.mission) {
       await this.flush();
-      for (const o of [this.plans, this.ops, this.assignments, this.intercepts, this.owners]) for (const k of Object.keys(o)) delete (o as Record<string, unknown>)[k];
+      for (const o of [this.plans, this.ops, this.assignments, this.intercepts, this.owners, this.spawns]) for (const k of Object.keys(o)) delete (o as Record<string, unknown>)[k];
       this.broadcastPlans();
       this.broadcastOps();
       this.broadcastAssignments();
       this.broadcastIntercepts();
       this.broadcastOwners();
+      this.broadcastSpawns();
     }
     this.mission = name;
     this.loaded = false;
@@ -163,6 +170,8 @@ class Source {
     fill(this.assignments, st.assignments);
     fill(this.intercepts, st.intercepts);
     fill(this.owners, st.owners);
+    // a spawn carrier restored after a restart wins over "started elsewhere" noted for a jet already flying meanwhile
+    for (const [id, hull] of Object.entries(st.spawns ?? {})) if (typeof hull === 'string' && !this.spawns[id]) this.spawns[id] = hull;
     // seats come back held for their users, marked away until they reconnect; unclaimed after the grace period
     for (const h of st.seats ?? []) {
       const k = seatId(h);
@@ -185,6 +194,7 @@ class Source {
     this.broadcastAssignments();
     this.broadcastIntercepts();
     this.broadcastOwners();
+    this.broadcastSpawns();
     this.broadcastSeats();
   }
 
@@ -203,6 +213,11 @@ class Source {
         },
         onSalute: (player) => this.onSalute(player),
         onPilotEvent: (player, e) => this.onPilotEvent(player, e),
+        onReplay: (st) => {
+          this.replayState = st;
+          const m = this.replayMsg()!;
+          for (const c of this.subscribers) send(c, m);
+        },
         onEnv: (env) => {
           const m = JSON.stringify({ t: 'env', src: cfg.id, env } satisfies ServerMsg);
           if (m === this.lastEnv) return;
@@ -211,8 +226,15 @@ class Source {
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
-          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab });
-          if (s.mission?.state === 'stopped') store.reset();
+          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab, replay: s.replay || undefined });
+          if (s.mission?.state === 'stopped') {
+            store.reset();
+            // a stopped mission's aircraft are gone; a restart spawns them anew
+            if (Object.keys(this.spawns).length) {
+              for (const k of Object.keys(this.spawns)) delete this.spawns[k];
+              this.broadcastSpawns();
+            }
+          }
           if (JSON.stringify(this.status) !== was) this.onStatus();
           void this.missionSeen(s.mission?.name);
         },
@@ -293,6 +315,8 @@ class Source {
     }
     if (iDropped) this.broadcastIntercepts();
     this.updateLaunch();
+    // the carrier each new aircraft spawned on
+    if (noteSpawns(this.spawns, msg.tracks)) this.broadcastSpawns();
     // ownership of flights no longer in the picture is dropped
     const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...(t.g ? [t.g] : [])]));
     // and of flights that are all on deck: PriFly has them from touchdown, and Departure (or the chain) from launch
@@ -305,6 +329,20 @@ class Source {
       }
     }
     if (gone) this.broadcastOwners();
+  }
+
+  // ---------------------------------------------------------------- replay playback
+
+  replayMsg(): string | undefined {
+    if (!this.status.replay || !this.replayState) return undefined;
+    return JSON.stringify({ t: 'replayState', src: this.cfg.id, ...this.replayState } satisfies ServerMsg);
+  }
+
+  /** Steer a replay source's playback; null when sent, else why not (a live source refuses). */
+  async replay(cmd: ReplayCommand, s?: number): Promise<string | null> {
+    if (!this.hook || !this.status.replay) return 'this source is not a replay';
+    const r = await this.hook.command({ op: 'replay', cmd, ...(s !== undefined ? { s } : {}) });
+    return r.ok ? null : (r.error ?? 'the replay did not take the command');
   }
 
   // ---------------------------------------------------------------- launch clearance
@@ -498,6 +536,16 @@ class Source {
 
   ownersMsg(): string {
     return JSON.stringify({ t: 'owners', src: this.cfg.id, owners: this.owners } satisfies ServerMsg);
+  }
+
+  spawnsMsg(): string {
+    return JSON.stringify({ t: 'spawns', src: this.cfg.id, spawns: spawnHulls(this.spawns) } satisfies ServerMsg);
+  }
+
+  broadcastSpawns(): void {
+    this.dirty();
+    const m = this.spawnsMsg();
+    for (const c of this.subscribers) send(c, m);
   }
 
   opsMsg(): string {
@@ -738,9 +786,12 @@ export class RoomService {
         send(c, src.assignmentsMsg());
         send(c, src.interceptsMsg());
         send(c, src.ownersMsg());
+        send(c, src.spawnsMsg());
         send(c, src.opsMsg());
         send(c, src.ordersMsg());
         send(c, src.launchMsg());
+        const rp = src.replayMsg();
+        if (rp) send(c, rp);
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -836,6 +887,16 @@ export class RoomService {
           return send(c, { t: 'error', error: 'invalid launch clearance' });
         }
         const why = src.clearLaunch(c.user.userId, msg.carrier, msg.trackId, msg.clear);
+        if (why) send(c, { t: 'error', error: why });
+        return;
+      }
+      case 'replay': {
+        // any member steers a replay (dev sources only): it's one shared picture, so every viewer sees the change
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        const cmd = cleanReplayCmd(msg.cmd, msg.s);
+        if (!cmd) return send(c, { t: 'error', error: 'invalid replay command' });
+        const why = await src.replay(cmd.cmd, cmd.s);
         if (why) send(c, { t: 'error', error: why });
         return;
       }

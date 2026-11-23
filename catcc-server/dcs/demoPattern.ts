@@ -30,8 +30,12 @@ const DEMOS: Demo[] = [
   { id: 'd203', pilot: 'Bullet 1-1 | 203 Demo', group: 'Bullet 2', at: (s) => { const along = 21 - (s / 3600) * 250; return { along, lat: 0.15, alt: along > 12 ? 1200 + ((along - 12) / 8) * 3800 : 1200, crsOff: 0 }; } },
 ];
 
-/** Wrap a replay's event sink so each time step also moves the demo aircraft. */
-export function withDemoPattern(apply: (ev: AcmiEvent) => void, store: TrackStore): (ev: AcmiEvent) => void {
+/**
+ * Wrap a replay's event sink so each time step also moves the demo aircraft. The traffic is a function of
+ * the recording's time, so a seek shows it where it would have been: call reset() after the store was
+ * restored to a keyframe without the demo objects, and the next time step places them afresh.
+ */
+export function withDemoPattern(apply: (ev: AcmiEvent) => void, store: TrackStore): ((ev: AcmiEvent) => void) & { reset: () => void } {
   // the objects flying now, by demo
   const live = new Map<Demo, string>();
   const drop = (d: Demo) => {
@@ -40,7 +44,7 @@ export function withDemoPattern(apply: (ev: AcmiEvent) => void, store: TrackStor
     apply({ kind: 'remove', id });
     live.delete(d);
   };
-  return (ev) => {
+  const sink = (ev: AcmiEvent) => {
     apply(ev);
     if (ev.kind !== 'time') return;
     const cvs = [...store.tracks.values()].filter((t) => t.kind === 'carrier');
@@ -67,4 +71,5 @@ export function withDemoPattern(apply: (ev: AcmiEvent) => void, store: TrackStor
       });
     }
   };
+  return Object.assign(sink, { reset: () => live.clear() });
 }

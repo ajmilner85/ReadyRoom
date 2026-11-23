@@ -9,7 +9,8 @@
  */
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
-import FlightCard from '../../ui/flight cards/FlightCard';
+import { StripCard } from '../StripCard.tsx';
+import { StripFilterButton } from '../StripFilterButton.tsx';
 import { fuelK, groupFormations, phaseOf, shortType, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import { DECK_VIEWBOX, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, line, onCat, routeAhead, type DeckJet, type V } from './deck.ts';
 import { DeckDrawing } from './DeckDrawing.tsx';
@@ -20,8 +21,8 @@ import type { Assignment } from '../../../catcc/core/room/protocol.ts';
 import type { DeckCall } from '../deck.ts';
 import { DeckBar, LaunchTab, LightsPanel } from './BossPanels.tsx';
 import type { LaunchState } from '../../../catcc/core/room/launch.ts';
-import { catEntry, taxiOrders, withLaunch, withTaxi, type DeckId } from './launch.ts';
-import { TAXI_COL, planTaxi, taxiDest, type DeckPose, type TaxiPlan } from './taxiNet.ts';
+import { catEntry, deckIdOf, taxiOrders, withLaunch, withNoTaxi, withTaxi, type DeckId } from './launch.ts';
+import { TAXI_COL, destCat, planTaxi, taxiDest, type DeckPose, type TaxiPlan } from './taxiNet.ts';
 import { QueueGhosts, TaxiDests, TaxiRoute, TaxiSpots } from './TaxiOverlay.tsx';
 import { catQueues, destName, queueGhosts } from './catQueue.ts';
 import { DECK_LAYER_DEFAULT, deckDrawingLayers, loadDeckLayers, saveDeckLayers, type DeckToggle } from './deckLayers.ts';
@@ -30,8 +31,9 @@ import { PRIFLY_LIGHTS } from './lights.ts';
 import { InfoPanels } from '../radar/InfoPanels.tsx';
 import { WindIndicator, type WindMode } from '../bridge/Nav.tsx';
 import { CaseBadge } from '../CaseBadge.tsx';
-import { flightOf } from '../strips.ts';
+import { stripFacts, stripShown, useStripFilter, type StripCtx, type StripFilter } from '../stripFilter.ts';
 import { finalPicture } from '../final/finalModel.ts';
+import { IcCancelTaxi, IcCancelTaxiPick, IcClearPaths, IcDrawPath, IcTaxiNet } from '../icons.tsx';
 
 type Mode = 'live' | 'sand';
 
@@ -128,7 +130,11 @@ export const BossView: React.FC<{
   assignments: Map<string, Assignment>;
   /** Mini Boss opens on the air plan, the Air Boss on launch */
   defaultTab?: 'launch' | 'lights' | 'plan';
-}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, env, recoveryCase, utc, offH, mt, assignments, defaultTab, launch, mayClear, onClear }) => {
+  /** the boards' strip filters: this seat (they are kept per seat) and what they look at */
+  strips?: { seat: string; ctx: StripCtx };
+}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, env, recoveryCase, utc, offH, mt, assignments, defaultTab, launch, mayClear, onClear, strips }) => {
+  const arrF = useStripFilter(strips?.seat ?? 'boss', 'arrivals');
+  const depF = useStripFilter(strips?.seat ?? 'boss', 'departures');
   const [tab, setTab] = useState<'launch' | 'lights' | 'plan'>(defaultTab ?? 'launch');
   const st = deckStatus(pic);
   const plan = useAirPlan();
@@ -178,25 +184,46 @@ export const BossView: React.FC<{
 
   // ------------------------------------------------ launch queues: which catapult each flight on deck is assigned to
   const onDeckKeys = useMemo(() => new Set((st?.jets ?? []).map((j) => keyOf(j.t))), [st]);
+  // a flight queued from the launch tab is spread over several catapults: every one it is on
   const assignedCat = useMemo(() => {
-    const m = new Map<string, { cat: string; pos: number }>();
-    for (const k of ['1', '2', '3', '4']) catEntry(ops, k).queue.filter((x) => onDeckKeys.has(x)).forEach((key, pos) => m.set(key, { cat: k, pos }));
+    const m = new Map<string, { cat: string; pos: number }[]>();
+    for (const k of ['1', '2', '3', '4'])
+      catEntry(ops, k)
+        .queue.filter((x) => onDeckKeys.has(x))
+        .forEach((key, pos) => m.set(key, [...(m.get(key) ?? []), { cat: k, pos }]));
     return m;
   }, [ops, onDeckKeys]);
 
   // ------------------------------------------------ taxi instructions, worked in the order given
-  const deckIds: DeckId[] = useMemo(() => (st?.jets ?? []).map((j) => ({ id: j.t.id, key: keyOf(j.t) })), [st]);
+  const deckIds: DeckId[] = useMemo(() => (st?.jets ?? []).map((j) => deckIdOf(j.t)), [st]);
   const poses: DeckPose[] = useMemo(() => placed.map((j) => ({ id: j.t.id, x: j.x, y: j.y, a: j.a })), [placed]);
   const orders = useMemo(() => taxiOrders(ops, deckIds), [ops, deckIds]);
   const plans = useMemo(() => planTaxi(poses, orders), [poses, orders]);
   /** the selected aircraft's route to the destination under the pointer, as if it were the next instruction given */
-  const preview: TaxiPlan | null = useMemo(
-    () => (selected && hoverDest && !readOnly ? planTaxi(poses, { ...orders, [selected]: { to: hoverDest, at: Number.MAX_SAFE_INTEGER } }).get(selected) ?? null : null),
+  const previewPlans = useMemo(
+    () => (selected && hoverDest && !readOnly ? planTaxi(poses, { ...orders, [selected]: { to: hoverDest, at: Number.MAX_SAFE_INTEGER } }) : null),
     [selected, hoverDest, readOnly, poses, orders],
   );
+  const preview: TaxiPlan | null = (selected && previewPlans?.get(selected)) || null;
   // ------------------------------------------------ catapult queues: a ghost for each aircraft bound for a catapult
-  const ghosts = useMemo(() => queueGhosts(catQueues(plans, Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(placed, k)?.t.id])))), [plans, placed]);
+  const occupants = useMemo(() => Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(placed, k)?.t.id])), [placed]);
+  const ghosts = useMemo(() => queueGhosts(catQueues(plans, occupants), plans), [plans, occupants]);
+  // the outline for the route in hand: bound for a catapult it waits where the queue puts it (behind the
+  // aircraft ahead, clear of the JBDs), as the committed ghosts do; the hovered one as if it were the next instruction
+  const previewGhosts = useMemo(() => (previewPlans ? queueGhosts(catQueues(previewPlans, occupants), previewPlans) : null), [previewPlans, occupants]);
+  const heldAt = (previewGhosts ?? ghosts).find((g) => g.id === selected);
+  /** Selective cancel: while on, clicking an aircraft cancels its taxi order (one at a time) */
+  const [cancelling, setCancelling] = useState(false);
+  useEffect(() => {
+    if (!cancelling) return;
+    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setCancelling(false);
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [cancelling]);
+  /** parking spots another aircraft is already sent to: only a catapult takes a queue, so they can't be picked */
+  const takenSpots = useMemo(() => new Set(Object.entries(orders).filter(([id, o]) => id !== selected && !destCat(o.to)).map(([, o]) => o.to)), [orders, selected]);
   const sendTo = (id: string, to: string | null) => {
+    if (to && takenSpots.has(to)) return;
     setOps(withTaxi(ops, deckIds, id, to, Date.now()));
     setHoverDest(null);
     setSelected(null);
@@ -299,13 +326,16 @@ export const BossView: React.FC<{
     const cv = pic.focus?.track.p;
     const aboardT = cv ? (pic.ground ?? []).filter((t) => Math.hypot(t.p[0] - cv[0], t.p[1] - cv[1]) < 0.5) : [];
     for (const f of groupFormations(aboardT, 0.3)) {
-      const a = f.members.map((m) => assignedCat.get(keyOf(m))).find(Boolean);
-      const status = a ? catEntry(ops, a.cat).status : null;
-      const spotted = a && st?.cats[a.cat] && f.members.some((m) => m.id === st.cats[a.cat]!.t.id);
+      const as = f.members.map((m) => assignedCat.get(keyOf(m))).find(Boolean) ?? [];
+      const one = (a: { cat: string; pos: number }) => {
+        const status = catEntry(ops, a.cat).status;
+        const spotted = st?.cats[a.cat] && f.members.some((m) => m.id === st.cats[a.cat]!.t.id);
+        return { text: `CAT ${a.cat} · ${spotted ? 'SPOTTED' : `#${a.pos + 1}`}${status !== 'ready' ? ` · ${status.toUpperCase()}` : ''}`, order: a.pos * 10 + Number(a.cat) + (status === 'ready' ? 0 : 1000) };
+      };
       dep.push({
         f,
-        why: a ? `CAT ${a.cat} · ${spotted ? 'SPOTTED' : `#${a.pos + 1}`}${status && status !== 'ready' ? ` · ${status.toUpperCase()}` : ''}` : 'ON DECK',
-        order: a ? a.pos * 10 + Number(a.cat) + (status === 'ready' ? 0 : 1000) : 5000,
+        why: as.length ? as.map((a) => one(a).text).join(' / ') : 'ON DECK',
+        order: as.length ? Math.min(...as.map((a) => one(a).order)) : 5000,
       });
     }
     arr.sort((a, b) => a.order - b.order);
@@ -313,26 +343,35 @@ export const BossView: React.FC<{
     return { arr, dep };
   }, [pic, hull, assignments, assignedCat, ops, st]);
 
-  const board = (title: string, rows: { f: Formation; why: string }[], empty: string, first: string) => (
+  const board = (title: string, all: { f: Formation; why: string }[], empty: string, first: string, [filter, toggle]: [StripFilter, (k: keyof StripFilter) => void]) => {
+    // the strip filter: on deck it is PriFly's flight, whoever had it airborne
+    const onDeck = new Set((pic.ground ?? []).map((t) => t.id));
+    const rows = strips ? all.filter((r) => stripShown(stripFacts(r.f, onDeck.has(r.f.lead.id), strips.ctx), filter)) : all;
+    return (
     <section className="pnl" aria-label={title} style={{ flex: '1 1 340px', minWidth: 0, padding: 10, display: 'flex', flexDirection: 'column', gap: 6 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
         <span className="lbl">{title}</span>
-        <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{`${rows.length} flight${rows.length === 1 ? '' : 's'} · ${rows.reduce((s, r) => s + r.f.members.length, 0)} aircraft`}</span>
+        <span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+          <span className="mono" style={{ fontSize: 11, color: '#93A1B0' }}>{`${rows.length} flight${rows.length === 1 ? '' : 's'} · ${rows.reduce((s, r) => s + r.f.members.length, 0)} aircraft`}</span>
+          {strips && <StripFilterButton value={filter} onToggle={toggle} label={`Filter ${title.toLowerCase()}`} />}
+        </span>
       </div>
-      {rows.map((r, i) => (
+      {/* numbered by place in the whole sequence: a hidden flight still goes first */}
+      {rows.map((r) => ({ r, i: all.indexOf(r) })).map(({ r, i }) => (
         <div key={r.f.id} style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
           <div className="mono" style={{ display: 'flex', gap: 8, fontSize: 11, color: i === 0 ? '#7FD397' : '#93A1B0', letterSpacing: '.04em', padding: '0 2px' }}>
             <span style={{ fontWeight: 600 }}>{i === 0 ? first : String(i + 1)}</span>
             <span>{r.why}</span>
           </div>
           <div style={{ borderRadius: 6, outline: i === 0 ? '1.5px solid #5FD068' : 'none', outlineOffset: -1 }}>
-            <FlightCard {...flightOf(r.f)} />
+            <StripCard f={r.f} />
           </div>
         </div>
       ))}
       {!rows.length && <div className="mono" style={{ fontSize: 12, color: '#6B7683', padding: '4px 2px' }}>{empty}</div>}
     </section>
-  );
+    );
+  };
 
   return (
     <div style={{ flex: 1, display: 'flex', minHeight: 0 }}>
@@ -353,26 +392,81 @@ export const BossView: React.FC<{
       <main aria-label="Deck and boards" style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto', boxSizing: 'border-box' }}>
         <DeckBar pic={pic} deck={deck} ops={ops} setOps={setOps} readOnly={readOnly} />
         <section aria-label="Flight deck" style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
-            <span className="lbl">Flight deck · {mode === 'live' ? 'live from DCS' : 'Ouija Board (manual chits)'}</span>
-            <div style={{ flex: 1 }} />
-            <button aria-pressed={layerOn.taxi} onClick={() => toggleLayer('taxi')} style={btn(layerOn.taxi)}>
-              Taxi Network
-            </button>
-            <button
-              onClick={() => {
-                if (drawing && curPath.length > 1) setPaths((ps) => [...ps, curPath]);
-                setCurPath([]);
-                setDrawing((d) => !d);
-              }}
-              style={btn(drawing)}
-            >
-              {drawing ? 'Finish path' : 'Draw path'}
-            </button>
-            <button onClick={() => { setPaths([]); setCurPath([]); }} style={btn()}>Clear paths</button>
-          </div>
-
-          <div style={{ position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          {/* the top padding leaves room for the toolbar above the deck (12 + its 50 px + a gap) */}
+          <div style={{ position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 10, padding: '70px 10px 10px', display: 'flex', flexDirection: 'column', gap: 8 }}>
+            {/* the frame's name, in its top-left corner (as the AZ / EL display's) */}
+            <span className="lbl" style={{ position: 'absolute', left: 12, top: 12, zIndex: 5 }}>Flight deck</span>
+            {/* ---------------- deck tools: centred at the top of the frame, as the radar's */}
+            <div style={{ position: 'absolute', top: 12, left: '50%', transform: 'translateX(-50%)', zIndex: 5 }}>
+              <div role="toolbar" aria-label="Deck tools" style={{ display: 'flex', alignItems: 'center', gap: 4, padding: 4, background: 'rgba(21,26,33,.96)', border: '1px solid #374250', borderRadius: 8, boxShadow: '0 6px 20px rgba(0,0,0,.45)' }}>
+                <button className="tbtn" aria-label="Taxi Network" aria-pressed={layerOn.taxi} title="Taxi Network" onClick={() => toggleLayer('taxi')} style={{ background: layerOn.taxi ? 'rgba(241,88,34,.18)' : 'transparent', color: layerOn.taxi ? '#FFB08F' : '#E6EDF3' }}>
+                  <IcTaxiNet />
+                </button>
+                <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+                <button
+                  className="tbtn"
+                  aria-label={drawing ? 'Finish path' : 'Draw path'}
+                  aria-pressed={drawing}
+                  title={drawing ? 'Finish path' : 'Draw path'}
+                  onClick={() => {
+                    if (drawing && curPath.length > 1) setPaths((ps) => [...ps, curPath]);
+                    setCurPath([]);
+                    setDrawing((d) => !d);
+                    setCancelling(false);
+                  }}
+                  style={{ background: drawing ? 'rgba(241,88,34,.18)' : 'transparent', color: drawing ? '#FFB08F' : '#E6EDF3' }}
+                >
+                  <IcDrawPath />
+                </button>
+                <button
+                  className="tbtn"
+                  aria-label="Clear paths"
+                  title="Clear paths"
+                  disabled={!paths.length && !curPath.length}
+                  onClick={() => {
+                    setPaths([]);
+                    setCurPath([]);
+                  }}
+                  style={{ background: 'transparent', color: '#E6EDF3', opacity: !paths.length && !curPath.length ? 0.4 : 1, cursor: !paths.length && !curPath.length ? 'default' : 'pointer' }}
+                >
+                  <IcClearPaths />
+                </button>
+                {!readOnly && (
+                  <>
+                    <div style={{ width: 1, height: 26, background: '#374250', margin: '0 4px' }} />
+                    <button
+                      className="tbtn"
+                      aria-label="Selective cancel"
+                      aria-pressed={cancelling}
+                      title="Selective cancel"
+                      onClick={() => {
+                        setCancelling((c) => !c);
+                        setDrawing(false);
+                        setCurPath([]);
+                        setSelected(null);
+                        setHoverDest(null);
+                      }}
+                      style={{ background: cancelling ? 'rgba(241,88,34,.18)' : 'transparent', color: cancelling ? '#FFB08F' : '#E6EDF3' }}
+                    >
+                      <IcCancelTaxiPick />
+                    </button>
+                    <button
+                      className="tbtn"
+                      aria-label="Cancel all taxi"
+                      title="Cancel all taxi"
+                      disabled={!plans.size && !Object.keys(ops?.taxi ?? {}).length}
+                      onClick={() => {
+                        setOps(withNoTaxi(ops));
+                        setHoverDest(null);
+                      }}
+                      style={{ background: 'transparent', color: '#E6EDF3', opacity: !plans.size && !Object.keys(ops?.taxi ?? {}).length ? 0.4 : 1, cursor: !plans.size && !Object.keys(ops?.taxi ?? {}).length ? 'default' : 'pointer' }}
+                    >
+                      <IcCancelTaxi />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
             <DeckLayersButton ov={layerOn} onToggle={toggleLayer} onReset={resetLayers} />
             <svg
               ref={svgRef}
@@ -414,10 +508,10 @@ export const BossView: React.FC<{
                 .map((p) => (
                   <TaxiRoute key={p.id} plan={p} strong={false} />
                 ))}
-              {shown && <TaxiRoute plan={shown} strong />}
+              {shown && <TaxiRoute plan={shown} strong stop={heldAt ? { x: heldAt.x, y: heldAt.y, a: heldAt.a } : undefined} />}
               <QueueGhosts ghosts={ghosts} hover={hoverJet} />
               {layerOn.taxi && !picking && <TaxiSpots hover={hoverSpot} onHover={setHoverSpot} />}
-              {picking && <TaxiDests who={nameOf(selected)} current={selPlan?.to ?? null} hover={hoverDest} onHover={setHoverDest} onPick={(to) => sendTo(selJet.t.id, to)} />}
+              {picking && <TaxiDests who={nameOf(selected)} current={selPlan?.to ?? null} taken={takenSpots} hover={hoverDest} onHover={setHoverDest} onPick={(to) => sendTo(selJet.t.id, to)} />}
               <path d={byCls('gray')} fill={colors.gray} style={{ pointerEvents: 'none' }} />
               <path d={byCls('white')} fill={colors.white} style={{ pointerEvents: 'none' }} />
               <path d={byCls('ready')} fill={colors.ready} style={{ pointerEvents: 'none' }} />
@@ -433,23 +527,28 @@ export const BossView: React.FC<{
               <g className="id">
                 {jets.map((j) => {
                   const p = plans.get(j.t.id);
-                  const a = assignedCat.get(keyOf(j.t));
+                  // the catapult this aircraft is bound for (its flight may be on several)
+                  const cat = destCat(orders[j.t.id]?.to);
                   const pick = (e: React.MouseEvent) => {
                     e.stopPropagation();
                     setHoverDest(null);
+                    if (cancelling) {
+                      if (orders[j.t.id]) setOps(withTaxi(ops, deckIds, j.t.id, null, Date.now()));
+                      return;
+                    }
                     setSelected(j.t.id === selected ? null : j.t.id);
                     if (mode !== 'sand') return;
                     const q = toDeck(e);
                     if (q) dragRef.current = { id: j.t.id, dx: q[0] - j.x, dy: q[1] - j.y };
                   };
                   return (
-                    <g key={j.t.id} style={{ cursor: mode === 'sand' ? 'grab' : 'pointer' }} onMouseDown={pick} onClick={(e) => e.stopPropagation()} onMouseEnter={() => setHoverJet(j.t.id)} onMouseLeave={() => setHoverJet((h) => (h === j.t.id ? null : h))}>
+                    <g key={j.t.id} style={{ cursor: cancelling ? (orders[j.t.id] ? 'pointer' : 'not-allowed') : mode === 'sand' ? 'grab' : 'pointer' }} onMouseDown={pick} onClick={(e) => e.stopPropagation()} onMouseEnter={() => setHoverJet(j.t.id)} onMouseLeave={() => setHoverJet((h) => (h === j.t.id ? null : h))}>
                       {/* the aircraft itself is the click target, not just its board number */}
                       <circle cx={j.x} cy={-j.y} r={7.5} fill="#000" fillOpacity={0} />
                       {/* while a destination is being picked the board numbers let the pointer through to the markers under them */}
                       <text x={j.x} y={Math.max(-j.y - 9.5, p && !p.arrived ? -39.8 : -44)} textAnchor="middle" style={{ fill: labelCol[j.cls], pointerEvents: picking ? 'none' : undefined }}>
                         {j.t.bd ?? j.t.cs ?? ''}
-                        {(!p || p.arrived) && a ? ` C${a.cat}` : ''}
+                        {(!p || p.arrived) && cat ? ` C${cat}` : ''}
                       </text>
                       {/* where it has been sent: a second line over the board number, so neighbours' labels don't run together */}
                       {p && !p.arrived && (
@@ -517,8 +616,8 @@ export const BossView: React.FC<{
         </section>
 
         <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', alignItems: 'flex-start' }}>
-          {board('Arrivals', boards.arr, 'No arrivals', 'NEXT')}
-          {board('Departures', boards.dep, 'Nothing on deck or departing', 'NEXT')}
+          {board('Arrivals', boards.arr, 'No arrivals', 'NEXT', arrF)}
+          {board('Departures', boards.dep, 'Nothing on deck or departing', 'NEXT', depF)}
         </div>
       </main>
 
@@ -540,7 +639,7 @@ export const BossView: React.FC<{
             </button>
           ))}
         </div>
-        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={(p) => setOps(p.launch ? withLaunch(ops, deckIds, p.launch as NonNullable<OpsState['launch']>) : p)} readOnly={readOnly} launch={launch} mayClear={!!mayClear} onClear={onClear} />}
+        {tab === 'launch' && <LaunchTab pic={pic} ops={ops} setOps={(p) => setOps(p.launch ? withLaunch(ops, deckIds, p.launch as NonNullable<OpsState['launch']>) : p)} readOnly={readOnly} launch={launch} mayClear={!!mayClear} onClear={onClear} onTaxi={(id, to) => setOps(withTaxi(ops, deckIds, id, to, Date.now()))} />}
         {tab === 'lights' && <LightsPanel items={PRIFLY_LIGHTS} ops={ops} setOps={setOps} readOnly={readOnly} />}
         {tab === 'plan' && (
           <>

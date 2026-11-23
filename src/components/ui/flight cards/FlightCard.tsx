@@ -10,6 +10,8 @@ interface FlightCardProps extends Flight {
   onUpdateMemberFuel?: (dashNumber: string, newFuel: number) => void;
   /** optional content for the strip's bottom-right corner, after the member chips (e.g. CATCC's handoff tag) */
   corner?: React.ReactNode;
+  /** optional marks right after the callsign (e.g. CATCC's AI aircraft icon) */
+  badge?: React.ReactNode;
   /** Squadron insignia for the greyscale backdrop behind the callsign block. */
   insigniaUrl?: string | null;
 }
@@ -70,6 +72,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
   insigniaUrl,
   onUpdateMemberFuel,
   corner,
+  badge,
 }) => {
   const [isEditingFuel, setIsEditingFuel] = useState(false);
 
@@ -120,6 +123,7 @@ const FlightCard: React.FC<FlightCardProps> = ({
         {/* Header line */}
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="text-[13px] font-bold whitespace-nowrap text-text">{callsign} {flightNumber}</span>
+          {badge ? <span className="self-center inline-flex items-center gap-1 -ml-1">{badge}</span> : null}
           <span className="text-[11px] text-text2 whitespace-nowrap">{members.length}× {formatAircraftType(aircraftType)}</span>
           <span className="flex-1" />
           {bra ? (

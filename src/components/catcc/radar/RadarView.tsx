@@ -1,8 +1,10 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { DndContext, PointerSensor, useSensor, useSensors } from '@dnd-kit/core';
-import FlightCard from '../../ui/flight cards/FlightCard';
 import { flightOf } from '../strips.ts';
 import type { Flight } from '../../../types/FlightData';
+import { StripCard } from '../StripCard.tsx';
+import { StripFilterButton } from '../StripFilterButton.tsx';
+import { stripFacts, stripShown, useStripFilter, type StripCtx } from '../stripFilter.ts';
 import { checkDepartureRadial, checkStackRadial, emergencyMarshalRadial, stackConflict, fixDme, heloMarshalRadial, type RadialCheck } from '../../../catcc/core/geometry/procedures.ts';
 import { add, dir, len, mul, P, sub, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { isCarrierCapable } from '../../../catcc/core/dcs/aircraft.ts';
@@ -32,6 +34,7 @@ import { LightsPanel } from '../prifly/BossPanels.tsx';
 import { BRIDGE_LIGHTS } from '../prifly/lights.ts';
 import type { OpsState } from '../../../catcc/core/room/ops.ts';
 import type { SeatDef } from '../seats.ts';
+import { tagDefault, useTagId } from '../tagId.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
 import { CaseBadge } from '../CaseBadge.tsx';
@@ -162,6 +165,8 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const cfMode = sui?.conflicts ?? 'on';
   const showCf = cfMode === 'on' || (cfMode === 'toggle' && cfOn.on);
   const pic = useMemo(() => (showCf ? picIn : { ...picIn, conflicts: [] }), [picIn, showCf]);
+  // data tags by callsign (CDC) or MODEX (CATCC, Bridge); the toolbar switch overrides it for this seat
+  const [tagBy, switchTag] = useTagId(seat);
   // ------------------------------------------------ intercept target groups (split tracking)
   const acLabel = (t?: ScopeTrack) => (t ? t.bd ?? t.cs ?? t.pi ?? t.id : '?');
   // the element (same side+group, single-linkage within 3 NM) currently holding a target track
@@ -408,12 +413,19 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
 
   // ------------------------------------------------ strips
   const marshalled = useMemo(() => new Set(assignments.keys()), [assignments]);
+  // the strip filter (strips only: the scope shows every track)
+  const [stripF, toggleStripF] = useStripFilter(seat.id, 'radar');
+  const meCarrier = handoffCtx.me.carrier;
+  const meRole = handoffCtx.me.role;
+  const layout = handoffCtx.layout;
   const strips = useMemo(() => {
+    const ctx: StripCtx = { hull, me: { carrier: meCarrier, role: meRole }, layout, owners: state.owners, spawns: state.spawns };
     const by = new Map<Phase, { f: Formation; flight: Flight }[]>();
     for (const f of pic.formations) {
       if (!onCarrier(flightKey(f), f.lead.owner, hull, state.owners)) continue; // the other carrier's traffic
       const ph = phaseOf(f, marshalled);
       if (ph === 'other') continue;
+      if (!stripShown(stripFacts(f, false, ctx), stripF)) continue;
       const arr = by.get(ph) ?? [];
       arr.push({ f, flight: flightOf(f) });
       by.set(ph, arr);
@@ -421,10 +433,11 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
     // landed aircraft move to the deck slot (aboard our carrier: within 0.5 NM of it)
     const cv = pic.focus?.track.p;
     const aboard = cv ? (pic.ground ?? []).filter((t) => Math.hypot(t.p[0] - cv[0], t.p[1] - cv[1]) < 0.5) : [];
-    if (aboard.length) by.set('deck', groupFormations(aboard).map((f) => ({ f, flight: flightOf(f) })));
+    const deck = groupFormations(aboard).filter((f) => stripShown(stripFacts(f, true, ctx), stripF));
+    if (deck.length) by.set('deck', deck.map((f) => ({ f, flight: flightOf(f) })));
     for (const arr of by.values()) arr.sort((a, b) => a.f.lead.rng - b.f.lead.rng);
     return by;
-  }, [pic.formations, pic.ground, pic.focus, marshalled, hull, state.owners]);
+  }, [pic.formations, pic.ground, pic.focus, marshalled, hull, state.owners, state.spawns, meCarrier, meRole, layout, stripF]);
   // aircraft in the pattern belong to Approach / Final (the same rule as the Approach / Final screen)
   const inPattern = useMemo(() => patternIds(finalPicture(pic)), [pic]);
   const ownPhase = (f: Formation, p: Phase): Phase => (inPattern.has(f.lead.id) ? 'approach' : p);
@@ -571,6 +584,9 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
           </>
         ) : (
           <DndContext sensors={sensors}>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', margin: '0 2px -4px' }}>
+              <StripFilterButton value={stripF} onToggle={toggleStripF} />
+            </div>
             {PHASES.filter(([p]) => strips.get(p)?.length).map(([p, t]) => (
               <React.Fragment key={p}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', margin: '2px 2px -4px' }}>
@@ -589,7 +605,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
                       aria-label={`${flight.callsign} ${flight.flightNumber} strip`}
                       style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
-                      <FlightCard {...flight} corner={<HandoffRow compact v={ownerOf(flightKey(f), hull, p === 'deck' ? 'deck' : ownPhase(f, p),f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />} />
+                      <StripCard f={f} corner={<HandoffRow compact v={ownerOf(flightKey(f), hull, p === 'deck' ? 'deck' : ownPhase(f, p),f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />} />
                     </div>
                   );
                 })}
@@ -622,6 +638,9 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
         conflictsOn={showCf}
         magYear={state.utc ? state.utc.getUTCFullYear() + (state.utc.getTime() - Date.UTC(state.utc.getUTCFullYear(), 0, 1)) / 31_557_600_000 : undefined}
         onConflicts={cfMode === 'toggle' ? (on) => setCfOn({ on }) : undefined}
+        tagId={tagBy}
+        tagOverride={tagBy !== tagDefault(seat)}
+        onTagId={switchTag}
         onOpenDisplay={() => setUiOpen(true)}
         donors={donors}
         stations={csgStations}

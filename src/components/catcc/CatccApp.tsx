@@ -20,12 +20,14 @@ import { SCAN_S, useSweep } from './radar/sweep.ts';
 import { spn46Locks } from './radar/spn46.ts';
 import { CONFLICT_DEF, type ConflictCfg } from './radar/types.ts';
 import { useCatccRoom } from './useCatccRoom.ts';
+import { ReplayControls } from './ReplayControls.tsx';
 import { PLAN_ROLES } from '../../catcc/core/room/protocol.ts';
 import { launchAuthority } from '../../catcc/core/room/launch.ts';
 import { LOCATIONS, resolveSeat, seatsAt, type SeatLayout } from './seats.ts';
 import { OptionsDialog } from './OptionsDialog.tsx';
 import { Reference } from './radar/Panels.tsx';
 import { FinalView } from './final/FinalView.tsx';
+import { loadTagId } from './tagId.ts';
 import { deckCall } from './deck.ts';
 import type { HandoffCtx } from './ownership.ts';
 import { EmptyState } from '../ui/primitives/Display';
@@ -46,7 +48,7 @@ const CatccApp: React.FC = () => {
   const seatDef = resolveSeat(layout, seatWant);
   const mod = seatDef.view;
   const [optsOpen, setOptsOpen] = useState(false);
-  const { state, history, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, assume, setOps, clearLaunch } = useCatccRoom(params.get('src') ?? undefined);
+  const { state, history, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, assume, setOps, clearLaunch, replay } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
   const [uiOpen, setUiOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
@@ -92,6 +94,9 @@ const CatccApp: React.FC = () => {
       /* private mode */
     }
   };
+  // the Approach / Final display tags aircraft as this seat's radar does (its toolbar switch), read on each view change
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const finalTagId = useMemo(() => loadTagId(seatDef), [seatDef, cview]);
   // realistic radar update rate (radar module only): the picture is what the sweep has painted
   const refId = useMemo(() => {
     const cvs = state.tracks.filter((t) => t.k === 'carrier').sort((a, b) => (a.hull ?? '').localeCompare(b.hull ?? ''));
@@ -156,6 +161,8 @@ const CatccApp: React.FC = () => {
   const assignments = useMemo(() => new Map(Object.entries(state.assignments)), [state.assignments]);
   const src = state.sources.find((s) => s.id === state.src);
   const live = state.lastFrameAt !== undefined && Date.now() - state.lastFrameAt < 5000;
+  // a replay source (dev): its playback controls follow the feed indicator
+  const rp = src?.replay ? state.replay : undefined;
   const user = state.user;
   const mine = state.seats.filter((s) => s.userId === user?.userId);
   // carrier plans are edited from CATCC and the bridge: once any of those seats is held, only its holders may edit
@@ -256,7 +263,7 @@ const CatccApp: React.FC = () => {
           : 'Room · connecting'
         : !src
           ? 'No sources'
-          : `${src.name} feed · ${live ? 'live' : src.mission?.state === 'stopped' ? 'no mission' : src.connected ? 'waiting' : 'offline'}`}
+          : `${src.name} feed · ${live ? (rp && !rp.playing ? 'paused' : 'live') : src.mission?.state === 'stopped' ? 'no mission' : src.connected ? 'waiting' : 'offline'}`}
       </span>
     </div>
   );
@@ -312,6 +319,7 @@ const CatccApp: React.FC = () => {
         </div>
         <div style={{ flex: 1 }} />
         {feed}
+        {rp && <ReplayControls replay={rp} mt={state.mt} onCmd={replay} btn={hdrBtn} />}
         <div style={{ display: 'flex', gap: 14, fontFamily: "'IBM Plex Mono', monospace" }} aria-label="Time">
           <div style={{ textAlign: 'right', lineHeight: 1.1 }}>
             <div style={{ fontSize: 10, color: '#93A1B0', letterSpacing: '.12em' }}>LOCAL{offH !== undefined ? ` · UTC${offH >= 0 ? '+' : ''}${offH}` : ''}</div>
@@ -371,6 +379,7 @@ const CatccApp: React.FC = () => {
           readOnly={!mayEditOps}
           recoveryCase={env?.case}
           aclsLocks={aclsLocks}
+          tagId={finalTagId}
         />
       )}
       {mod === 'radar' && cview === 'radar' && (
@@ -396,7 +405,7 @@ const CatccApp: React.FC = () => {
         />
       )}
       {mod === 'lso' && <LsoView recoveryCase={env?.case} pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
-      {mod === 'boss' && <BossView recoveryCase={env?.case} key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} launch={launch} mayClear={mayClear} onClear={(id, c) => hull && clearLaunch(hull, id, c)} />}
+      {mod === 'boss' && <BossView recoveryCase={env?.case} key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} launch={launch} mayClear={mayClear} onClear={(id, c) => hull && clearLaunch(hull, id, c)} strips={{ seat: seatDef.id, ctx: { hull: hull ?? '', me: handoffCtx.me, layout, owners: state.owners, spawns: state.spawns } }} />}
       {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
       {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull: hull ?? '', ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }} />}
     </div>

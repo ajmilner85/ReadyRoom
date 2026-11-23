@@ -31,9 +31,9 @@ var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__ge
 ));
 var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
 
-// node_modules/ws/lib/constants.js
+// ../../../node_modules/ws/lib/constants.js
 var require_constants = __commonJS({
-  "node_modules/ws/lib/constants.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/constants.js"(exports2, module2) {
     "use strict";
     var BINARY_TYPES = ["nodebuffer", "arraybuffer", "fragments"];
     var hasBlob = typeof Blob !== "undefined";
@@ -53,9 +53,9 @@ var require_constants = __commonJS({
   }
 });
 
-// node_modules/ws/lib/buffer-util.js
+// ../../../node_modules/ws/lib/buffer-util.js
 var require_buffer_util = __commonJS({
-  "node_modules/ws/lib/buffer-util.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/buffer-util.js"(exports2, module2) {
     "use strict";
     var { EMPTY_BUFFER } = require_constants();
     var FastBuffer = Buffer[Symbol.species];
@@ -128,9 +128,9 @@ var require_buffer_util = __commonJS({
   }
 });
 
-// node_modules/ws/lib/limiter.js
+// ../../../node_modules/ws/lib/limiter.js
 var require_limiter = __commonJS({
-  "node_modules/ws/lib/limiter.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/limiter.js"(exports2, module2) {
     "use strict";
     var kDone = Symbol("kDone");
     var kRun = Symbol("kRun");
@@ -178,9 +178,9 @@ var require_limiter = __commonJS({
   }
 });
 
-// node_modules/ws/lib/permessage-deflate.js
+// ../../../node_modules/ws/lib/permessage-deflate.js
 var require_permessage_deflate = __commonJS({
-  "node_modules/ws/lib/permessage-deflate.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/permessage-deflate.js"(exports2, module2) {
     "use strict";
     var zlib = require("zlib");
     var bufferUtil = require_buffer_util();
@@ -561,9 +561,9 @@ var require_permessage_deflate = __commonJS({
   }
 });
 
-// node_modules/ws/lib/validation.js
+// ../../../node_modules/ws/lib/validation.js
 var require_validation = __commonJS({
-  "node_modules/ws/lib/validation.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/validation.js"(exports2, module2) {
     "use strict";
     var { isUtf8 } = require("buffer");
     var { hasBlob } = require_constants();
@@ -762,9 +762,9 @@ var require_validation = __commonJS({
   }
 });
 
-// node_modules/ws/lib/receiver.js
+// ../../../node_modules/ws/lib/receiver.js
 var require_receiver = __commonJS({
-  "node_modules/ws/lib/receiver.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/receiver.js"(exports2, module2) {
     "use strict";
     var { Writable } = require("stream");
     var PerMessageDeflate = require_permessage_deflate();
@@ -1354,9 +1354,9 @@ var require_receiver = __commonJS({
   }
 });
 
-// node_modules/ws/lib/sender.js
+// ../../../node_modules/ws/lib/sender.js
 var require_sender = __commonJS({
-  "node_modules/ws/lib/sender.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/sender.js"(exports2, module2) {
     "use strict";
     var { Duplex } = require("stream");
     var { randomFillSync } = require("crypto");
@@ -1842,9 +1842,9 @@ var require_sender = __commonJS({
   }
 });
 
-// node_modules/ws/lib/event-target.js
+// ../../../node_modules/ws/lib/event-target.js
 var require_event_target = __commonJS({
-  "node_modules/ws/lib/event-target.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/event-target.js"(exports2, module2) {
     "use strict";
     var { kForOnEventAttribute, kListener } = require_constants();
     var kCode = Symbol("kCode");
@@ -2071,9 +2071,9 @@ var require_event_target = __commonJS({
   }
 });
 
-// node_modules/ws/lib/extension.js
+// ../../../node_modules/ws/lib/extension.js
 var require_extension = __commonJS({
-  "node_modules/ws/lib/extension.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/extension.js"(exports2, module2) {
     "use strict";
     var { tokenChars } = require_validation();
     function push(dest, name, elem) {
@@ -2224,9 +2224,9 @@ var require_extension = __commonJS({
   }
 });
 
-// node_modules/ws/lib/websocket.js
+// ../../../node_modules/ws/lib/websocket.js
 var require_websocket = __commonJS({
-  "node_modules/ws/lib/websocket.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/websocket.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events");
     var https = require("https");
@@ -3107,9 +3107,9 @@ var require_websocket = __commonJS({
   }
 });
 
-// node_modules/ws/lib/stream.js
+// ../../../node_modules/ws/lib/stream.js
 var require_stream = __commonJS({
-  "node_modules/ws/lib/stream.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/stream.js"(exports2, module2) {
     "use strict";
     var WebSocket2 = require_websocket();
     var { Duplex } = require("stream");
@@ -3205,9 +3205,9 @@ var require_stream = __commonJS({
   }
 });
 
-// node_modules/ws/lib/subprotocol.js
+// ../../../node_modules/ws/lib/subprotocol.js
 var require_subprotocol = __commonJS({
-  "node_modules/ws/lib/subprotocol.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/subprotocol.js"(exports2, module2) {
     "use strict";
     var { tokenChars } = require_validation();
     function parse(header) {
@@ -3250,9 +3250,9 @@ var require_subprotocol = __commonJS({
   }
 });
 
-// node_modules/ws/lib/websocket-server.js
+// ../../../node_modules/ws/lib/websocket-server.js
 var require_websocket_server = __commonJS({
-  "node_modules/ws/lib/websocket-server.js"(exports2, module2) {
+  "../../../node_modules/ws/lib/websocket-server.js"(exports2, module2) {
     "use strict";
     var EventEmitter = require("events");
     var http = require("http");
@@ -3790,6 +3790,9 @@ function supabaseStore(url, serviceKey, log = () => void 0) {
   };
 }
 
+// src/catcc/core/dcs/hookProtocol.ts
+var REPLAY_COMMANDS = ["play", "pause", "ff", "rew", "restart", "skip"];
+
 // src/catcc/core/room/protocol.ts
 var ROOM_PROTO = 1;
 var PLAN_ROLES = ["catcc", "airops", "departure", "marshal", "approach", "final", "ood", "mission_commander"];
@@ -3890,6 +3893,13 @@ function cleanAssignment(a) {
   if (x.carrier !== void 0 && (typeof x.carrier !== "string" || x.carrier.length > 16)) return null;
   return { stackId: x.stackId, angels: x.angels, eatS: x.eatS, fixS: x.fixS, carrier: x.carrier };
 }
+var MAX_REPLAY_SKIP_S = 3600;
+function cleanReplayCmd(cmd, s) {
+  if (typeof cmd !== "string" || !REPLAY_COMMANDS.includes(cmd)) return null;
+  if (cmd !== "skip") return { cmd };
+  if (typeof s !== "number" || !Number.isFinite(s) || s < 1 || s > MAX_REPLAY_SKIP_S) return null;
+  return { cmd: "skip", s: Math.round(s) };
+}
 
 // src/catcc/core/room/ops.ts
 var okSeat = (s) => {
@@ -3958,10 +3968,24 @@ function cleanOpsPatch(p) {
         const ce = entries(v, 4);
         if (!ce) return null;
         const cats = {};
+        const ids = (a, max) => a === void 0 || Array.isArray(a) && a.length <= max && a.every(okFlightKey);
         for (const [cat, c] of ce) {
           const x = c;
           if (!/^[1-4]$/.test(cat) || !x || !CAT_STATUS.includes(x.status) || !Array.isArray(x.queue) || x.queue.length > 12 || !x.queue.every(okFlightKey)) return null;
-          cats[cat] = { status: x.status, queue: [...x.queue] };
+          if (!ids(x.fromDeck, 12) || !ids(x.skip, 40)) return null;
+          let jets;
+          if (x.jets !== void 0) {
+            const je = entries(x.jets, 12);
+            if (!je || !je.every(([k2, a]) => okFlightKey(k2) && Array.isArray(a) && ids(a, 12))) return null;
+            jets = Object.fromEntries(je.map(([k2, a]) => [k2, [...a]]));
+          }
+          cats[cat] = {
+            status: x.status,
+            queue: [...x.queue],
+            ...jets ? { jets } : {},
+            ...x.fromDeck?.length ? { fromDeck: [...x.fromDeck] } : {},
+            ...x.skip?.length ? { skip: [...x.skip] } : {}
+          };
         }
         out.launch = cats;
         break;
@@ -4014,7 +4038,7 @@ function applyOpsPatch(cur, patch) {
   return next;
 }
 
-// node_modules/ws/wrapper.mjs
+// ../../../node_modules/ws/wrapper.mjs
 var import_stream = __toESM(require_stream(), 1);
 var import_receiver = __toESM(require_receiver(), 1);
 var import_sender = __toESM(require_sender(), 1);
@@ -4167,6 +4191,13 @@ function parsePilot(raw) {
   const player = rest.replace(/^[\s|/:\-–]+|[\s|/:\-–]+$/g, "").replace(/\s{2,}/g, " ");
   if (player) out.player = player;
   return out;
+}
+function isUnitName(pilot, group, player) {
+  if (!pilot || !player) return true;
+  if (!/[A-Za-z]/.test(player)) return true;
+  const norm = (s) => s.toLowerCase().replace(/[\s_-]+/g, " ").trim();
+  if (group && (norm(pilot) === norm(group) || new RegExp(`^${norm(group).replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}( \\d+)+$`).test(norm(pilot)))) return true;
+  return false;
 }
 var CARRIER_HULLS = {
   CVN_71: { hull: "CVN-71", name: "THEODORE ROOSEVELT", nick: "Rough Rider" },
@@ -4420,6 +4451,22 @@ var AcmiState = class {
     for (const k of Object.keys(this.globals)) delete this.globals[k];
     this.objects.clear();
   }
+  /** A copy of the whole table (a replay's keyframe); restore() puts it back. */
+  snapshot() {
+    const objects = [];
+    for (const o of this.objects.values()) objects.push({ ...o, props: { ...o.props }, transform: { ...o.transform } });
+    return { t: this.t, refLon: this.refLon, refLat: this.refLat, referenceTime: this.referenceTime, header: { ...this.header }, globals: { ...this.globals }, objects };
+  }
+  restore(s) {
+    this.reset();
+    this.t = s.t;
+    this.refLon = s.refLon;
+    this.refLat = s.refLat;
+    this.referenceTime = s.referenceTime;
+    Object.assign(this.header, s.header);
+    Object.assign(this.globals, s.globals);
+    for (const o of s.objects) this.objects.set(o.id, { ...o, props: { ...o.props }, transform: { ...o.transform } });
+  }
   /** Current sim time as UTC, if ReferenceTime is known. */
   get utc() {
     return this.referenceTime ? new Date(this.referenceTime.getTime() + this.t * 1e3) : void 0;
@@ -4520,6 +4567,21 @@ var TrackStore = class {
     this.acmi.reset();
     this.tracks.clear();
   }
+  /**
+   * The store at this moment, for a replay's keyframes. Position history is left out (it would make
+   * keyframes large): after restore() the kinematics keep their values until new samples build a fresh
+   * window, so a replay seek plays a warm-up of forward-ordered events before showing the picture.
+   */
+  snapshot() {
+    const tracks = [];
+    for (const t of this.tracks.values()) tracks.push({ ...t, history: [] });
+    return { acmi: this.acmi.snapshot(), tracks };
+  }
+  restore(s) {
+    this.acmi.restore(s.acmi);
+    this.tracks.clear();
+    for (const t of s.tracks) this.tracks.set(t.id, { ...t, history: [] });
+  }
   apply(ev) {
     if (ev.kind === "remove") this.tracks.delete(ev.id);
     const obj = this.acmi.apply(ev);
@@ -4579,7 +4641,7 @@ var TrackStore = class {
     track.callsign = name.callsign;
     track.flight = name.flight;
     track.board = name.board;
-    track.player = name.player;
+    track.player = isUnitName(p.Pilot, p.Group, name.player) ? void 0 : name.player;
     track.hull = track.kind === "carrier" ? CARRIER_HULLS[track.type]?.hull : void 0;
   }
   pushSample(track) {
@@ -4653,7 +4715,8 @@ var HookClient = class {
   command(cmd) {
     const sock = this.sock;
     if (!sock || !this.status.authed) return Promise.resolve({ ok: false, error: "not connected to the DCS hook" });
-    if (!this.status.cmds && cmd.op !== "launch") return Promise.resolve({ ok: false, error: "the DCS hook does not accept orders (commands = true in Config/CATCC.lua)" });
+    if (cmd.op === "replay" && !this.status.replay) return Promise.resolve({ ok: false, error: "this source is not a replay" });
+    if (!this.status.cmds && cmd.op !== "launch" && cmd.op !== "replay") return Promise.resolve({ ok: false, error: "the DCS hook does not accept orders (commands = true in Config/CATCC.lua)" });
     const id = ++this.cmdSeq;
     return new Promise((resolve) => {
       const timer = setTimeout(() => {
@@ -4726,6 +4789,7 @@ var HookClient = class {
         this.status.server = msg.server;
         this.status.cmds = msg.cmds === true;
         this.status.ab = msg.ab === true;
+        this.status.replay = msg.replay === true;
         if (msg.proto !== 1) {
           sock.destroy(new Error(`unsupported hook protocol ${msg.proto}`));
           return;
@@ -4765,6 +4829,11 @@ var HookClient = class {
         break;
       case "pilotev":
         if (typeof msg.p === "string" && (msg.e === "taxi" || msg.e === "lb1" || msg.e === "lb0")) this.opts.onPilotEvent?.(msg.p, msg.e);
+        break;
+      case "replay":
+        if (typeof msg.playing === "boolean" && [msg.rate, msg.mt, msg.start, msg.end].every((n) => typeof n === "number" && Number.isFinite(n))) {
+          this.opts.onReplay?.({ playing: msg.playing, rate: msg.rate, mt: msg.mt, start: msg.start, end: msg.end });
+        }
         break;
       case "env": {
         const env = { start: msg.start, date: msg.date, theatre: msg.theatre, wx: msg.wx, routes: msg.routes, ...msg.bulls ? { bulls: msg.bulls } : {} };
@@ -4843,6 +4912,35 @@ ${this.opts.clientName}
   }
 };
 
+// src/catcc/core/room/spawns.ts
+var SPAWN_RADIUS_NM = 0.5;
+var DECK_MAX_ALT_FT = 200;
+var isAircraft = (t) => t.k === "fixedwing" || t.k === "rotary";
+var onSurface = (t) => t.air !== void 0 ? !t.air : t.alt < DECK_MAX_ALT_FT;
+function noteSpawns(seen, tracks) {
+  const cvs = tracks.filter((t) => t.k === "carrier" && t.hull);
+  if (!cvs.length) return false;
+  let added = false;
+  for (const t of tracks) {
+    if (!isAircraft(t) || t.id in seen) continue;
+    let hull = null;
+    if (onSurface(t)) {
+      let best = SPAWN_RADIUS_NM;
+      for (const c of cvs) {
+        const d = distanceNm(c.lat, c.lon, t.lat, t.lon);
+        if (d <= best) {
+          best = d;
+          hull = c.hull;
+        }
+      }
+    }
+    seen[t.id] = hull;
+    if (hull) added = true;
+  }
+  return added;
+}
+var spawnHulls = (seen) => Object.fromEntries(Object.entries(seen).filter((e) => !!e[1]));
+
 // src/catcc/core/room/launch.ts
 function launchAuthority(seats, carrier) {
   const here = [...seats].filter((s) => s.carrier === carrier && !s.away);
@@ -4853,13 +4951,13 @@ function taxiAuthority(seats, carrier) {
   return here.find((s) => s.role === "boss") ?? here.find((s) => s.role === "miniboss") ?? null;
 }
 var DECK_RADIUS_M = 220;
-var DECK_MAX_ALT_FT = 200;
+var DECK_MAX_ALT_FT2 = 200;
 function aircraftOnDeck(tracks) {
   const out = /* @__PURE__ */ new Map();
   const cvs = tracks.filter((t) => t.k === "carrier" && t.hull);
   for (const t of tracks) {
     if (t.k !== "fixedwing" && t.k !== "rotary") continue;
-    if (t.air || t.alt > DECK_MAX_ALT_FT) continue;
+    if (t.air || t.alt > DECK_MAX_ALT_FT2) continue;
     const cv = cvs.find((c) => distanceNm(c.lat, c.lon, t.lat, t.lon) * M_PER_NM < DECK_RADIUS_M);
     if (!cv) continue;
     const list = out.get(cv.hull) ?? [];
@@ -4918,6 +5016,8 @@ var Source = class {
   intercepts = {};
   owners = {};
   ops = {};
+  /** the carrier each aircraft spawned on (track id → hull, null: started elsewhere); kept while the source runs (core/room/spawns.ts) */
+  spawns = {};
   /** the last ship order sent to DCS per ship (carrier hull or escort track id) and its answer */
   orders = {};
   subscribers = /* @__PURE__ */ new Set();
@@ -4937,6 +5037,8 @@ var Source = class {
   timer;
   lastFrame;
   lastEnv;
+  /** a replay source's playback clock, as last reported */
+  replayState;
   cfg;
   onStatus;
   log;
@@ -4955,7 +5057,7 @@ var Source = class {
   }
   // ---------------------------------------------------------------- persistence
   snapshot() {
-    return { plans: this.plans, ops: this.ops, assignments: this.assignments, intercepts: this.intercepts, owners: this.owners, seats: [...this.seats.values()].map((x) => ({ ...x, away: void 0 })) };
+    return { plans: this.plans, ops: this.ops, assignments: this.assignments, intercepts: this.intercepts, owners: this.owners, spawns: spawnHulls(this.spawns), seats: [...this.seats.values()].map((x) => ({ ...x, away: void 0 })) };
   }
   /** something shared changed: save it shortly (debounced) */
   dirty() {
@@ -4977,12 +5079,13 @@ var Source = class {
     if (!name || name === this.mission) return;
     if (this.mission) {
       await this.flush();
-      for (const o of [this.plans, this.ops, this.assignments, this.intercepts, this.owners]) for (const k of Object.keys(o)) delete o[k];
+      for (const o of [this.plans, this.ops, this.assignments, this.intercepts, this.owners, this.spawns]) for (const k of Object.keys(o)) delete o[k];
       this.broadcastPlans();
       this.broadcastOps();
       this.broadcastAssignments();
       this.broadcastIntercepts();
       this.broadcastOwners();
+      this.broadcastSpawns();
     }
     this.mission = name;
     this.loaded = false;
@@ -4998,6 +5101,7 @@ var Source = class {
     fill(this.assignments, st.assignments);
     fill(this.intercepts, st.intercepts);
     fill(this.owners, st.owners);
+    for (const [id, hull] of Object.entries(st.spawns ?? {})) if (typeof hull === "string" && !this.spawns[id]) this.spawns[id] = hull;
     for (const h of st.seats ?? []) {
       const k = seatId(h);
       if (!this.seats.has(k)) this.seats.set(k, { ...h, away: !this.ctx.connected(h.userId) });
@@ -5019,6 +5123,7 @@ var Source = class {
     this.broadcastAssignments();
     this.broadcastIntercepts();
     this.broadcastOwners();
+    this.broadcastSpawns();
     this.broadcastSeats();
   }
   start() {
@@ -5036,6 +5141,11 @@ var Source = class {
         },
         onSalute: (player) => this.onSalute(player),
         onPilotEvent: (player, e) => this.onPilotEvent(player, e),
+        onReplay: (st) => {
+          this.replayState = st;
+          const m = this.replayMsg();
+          for (const c of this.subscribers) send(c, m);
+        },
         onEnv: (env) => {
           const m = JSON.stringify({ t: "env", src: cfg.id, env });
           if (m === this.lastEnv) return;
@@ -5044,8 +5154,14 @@ var Source = class {
         },
         onStatus: (s) => {
           const was = JSON.stringify(this.status);
-          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab });
-          if (s.mission?.state === "stopped") store.reset();
+          Object.assign(this.status, { connected: s.connected, authed: s.authed, mission: s.mission, lastError: s.lastError, cmds: s.cmds, ab: s.ab, replay: s.replay || void 0 });
+          if (s.mission?.state === "stopped") {
+            store.reset();
+            if (Object.keys(this.spawns).length) {
+              for (const k of Object.keys(this.spawns)) delete this.spawns[k];
+              this.broadcastSpawns();
+            }
+          }
           if (JSON.stringify(this.status) !== was) this.onStatus();
           void this.missionSeen(s.mission?.name);
         }
@@ -5121,6 +5237,7 @@ var Source = class {
     }
     if (iDropped) this.broadcastIntercepts();
     this.updateLaunch();
+    if (noteSpawns(this.spawns, msg.tracks)) this.broadcastSpawns();
     const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...t.g ? [t.g] : []]));
     const airborne = new Set(msg.tracks.filter((t) => t.air !== false).flatMap((t) => [t.id, ...t.g ? [t.g] : []]));
     let gone = false;
@@ -5131,6 +5248,17 @@ var Source = class {
       }
     }
     if (gone) this.broadcastOwners();
+  }
+  // ---------------------------------------------------------------- replay playback
+  replayMsg() {
+    if (!this.status.replay || !this.replayState) return void 0;
+    return JSON.stringify({ t: "replayState", src: this.cfg.id, ...this.replayState });
+  }
+  /** Steer a replay source's playback; null when sent, else why not (a live source refuses). */
+  async replay(cmd, s) {
+    if (!this.hook || !this.status.replay) return "this source is not a replay";
+    const r2 = await this.hook.command({ op: "replay", cmd, ...s !== void 0 ? { s } : {} });
+    return r2.ok ? null : r2.error ?? "the replay did not take the command";
   }
   // ---------------------------------------------------------------- launch clearance
   launchMsg() {
@@ -5301,6 +5429,14 @@ var Source = class {
   }
   ownersMsg() {
     return JSON.stringify({ t: "owners", src: this.cfg.id, owners: this.owners });
+  }
+  spawnsMsg() {
+    return JSON.stringify({ t: "spawns", src: this.cfg.id, spawns: spawnHulls(this.spawns) });
+  }
+  broadcastSpawns() {
+    this.dirty();
+    const m = this.spawnsMsg();
+    for (const c of this.subscribers) send(c, m);
   }
   opsMsg() {
     return JSON.stringify({ t: "ops", src: this.cfg.id, ops: this.ops });
@@ -5509,9 +5645,12 @@ var RoomService = class {
         send(c, src.assignmentsMsg());
         send(c, src.interceptsMsg());
         send(c, src.ownersMsg());
+        send(c, src.spawnsMsg());
         send(c, src.opsMsg());
         send(c, src.ordersMsg());
         send(c, src.launchMsg());
+        const rp = src.replayMsg();
+        if (rp) send(c, rp);
         if (src.lastEnv) send(c, src.lastEnv);
         if (src.lastFrame) send(c, src.lastFrame);
         return;
@@ -5606,6 +5745,15 @@ var RoomService = class {
           return send(c, { t: "error", error: "invalid launch clearance" });
         }
         const why = src.clearLaunch(c.user.userId, msg.carrier, msg.trackId, msg.clear);
+        if (why) send(c, { t: "error", error: why });
+        return;
+      }
+      case "replay": {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: "error", error: `unknown source ${msg.src}` });
+        const cmd = cleanReplayCmd(msg.cmd, msg.s);
+        if (!cmd) return send(c, { t: "error", error: "invalid replay command" });
+        const why = await src.replay(cmd.cmd, cmd.s);
         if (why) send(c, { t: "error", error: why });
         return;
       }

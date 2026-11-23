@@ -3,7 +3,7 @@ import type { Assignment, CarrierPlan, SeatHolder } from '../../src/catcc/core/r
 
 /**
  * What the room keeps across restarts (an SDOBot deploy restarts it), per DCS source and mission:
- * the shared plans, ops, marshal assignments, flight ownership and seat claims. Orders sent to DCS
+ * the shared plans, ops, marshal assignments, flight ownership, spawn carriers and seat claims. Orders sent to DCS
  * and launch clearances are transient and not kept.
  */
 export interface PersistedState {
@@ -12,6 +12,8 @@ export interface PersistedState {
   assignments?: Record<string, Assignment>;
   intercepts?: Record<string, string>;
   owners?: Record<string, Ownership>;
+  /** the carrier each aircraft spawned on (track id → hull) */
+  spawns?: Record<string, string>;
   seats?: SeatHolder[];
 }
 
