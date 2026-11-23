@@ -1,4 +1,3 @@
-# DCS Lua files stay LF in every checkout: the tests read them with patterns that end at "
-" (and a Windows
-# checkout would otherwise turn them CRLF: core.autocrlf)
+# DCS Lua files stay LF in every checkout: the tests read them with patterns that end at a newline, and a Windows
+# checkout (core.autocrlf) would otherwise turn them CRLF
 *.lua text eol=lf
