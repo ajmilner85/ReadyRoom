@@ -24,15 +24,9 @@ export const centroid = (q: V[]): V => {
 
 // ---------------------------------------------------------------- drawing layers
 
-export type DeckLayer = 'areas' | 'taxi' | 'helo' | 'catRoutes' | 'parkRoutes' | 'gear';
-export const DECK_LAYERS: { k: DeckLayer; label: string; title: string }[] = [
-  { k: 'areas', label: 'Areas', title: 'Deck parking areas: Crotch, Point, Corral, Junk Yard, Patio, Finger, Box, Street, Six-pack' },
-  { k: 'taxi', label: 'Taxi Network', title: "PriFly's taxi roads and parking spots: the routes taxi instructions follow (always shown while an aircraft is selected)" },
-  { k: 'catRoutes', label: 'AI Catapult Routes', title: "The DCS deck crew's 16 launch routes, each from its spawn spot (numbered) to a catapult" },
-  { k: 'parkRoutes', label: 'AI Parking Routes', title: "The DCS deck crew's 16 recovery routes, from the landing area to each parking spot (numbered)" },
-  { k: 'helo', label: 'Helo spots', title: 'Helicopter landing spots' },
-  { k: 'gear', label: 'Equipment', title: 'LSO platform, IFLOLS, shooter bubble, weapons elevators, barricade stanchions' },
-];
+export type DeckLayer = 'areas' | 'taxi' | 'helo' | 'gear';
+/** base features of the drawing: shown unless hidden (the Layers panel, deckLayers.ts) */
+export type DeckBase = 'cats' | 'elev';
 
 /** the drawing's frame: stern to bow plus label room; port edge to starboard edge plus the scale bar */
 export const DECK_VIEWBOX = '-172 -47 348 96';

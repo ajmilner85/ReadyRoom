@@ -1,21 +1,39 @@
 /**
- * The taxi network on the PriFly deck drawing (taxiNet.ts): the roads and spots, the destinations an
- * aircraft can be sent to (hover to see the route, click to send it), and the taxi routes themselves.
+ * The taxi network on the PriFly deck drawing (taxiNet.ts): the roads, the destinations with their short
+ * ids (buttons while an aircraft is being sent: hover to see the route, click to send it), the taxi routes
+ * themselves, and the catapult queues' ghosts (catQueue.ts).
  * A route is a thick green line as far as it is clear; beyond the first aircraft in its way it carries
  * on as a thinner dashed amber line.
  */
 import React from 'react';
-import { CATS, FOLDED, jetShape, line } from './deck.ts';
+import { CATS, FOLDED, SPREAD, jetShape, line } from './deck.ts';
+import { destName, type QueueGhost } from './catQueue.ts';
 import { ROADS, TAXI_COL, TAXI_DESTS, destCat, type TaxiDest, type TaxiPlan } from './taxiNet.ts';
 
-/** The road system and its spots, drawn faintly under the aircraft. */
+/** The road system, drawn faintly under the aircraft. Its destinations are TaxiSpots (or TaxiDests while an aircraft is being sent). */
 export const TaxiNet: React.FC = () => (
   <g fill="none" strokeLinejoin="round" strokeLinecap="round" style={{ pointerEvents: 'none' }}>
     {ROADS.map((r) => (
       <path key={r.id} d={line(r.pts)} stroke={TAXI_COL.road} strokeOpacity={r.kind === 'feeder' ? 0.65 : 0.9} strokeWidth={r.kind === 'artery' ? 1.1 : 0.6} strokeDasharray={r.kind === 'cat' ? '1.6 1.2' : undefined} />
     ))}
-    {TAXI_DESTS.filter((d) => d.kind !== 'cat').map((d) => (
-      <circle key={d.id} cx={d.p[0]} cy={-d.p[1]} r={1.6} fill="#0B0E12" stroke={TAXI_COL.road} strokeOpacity={1} strokeWidth={0.45} />
+  </g>
+);
+
+/** A destination's marker: a disc with its short id ("BS1", "E22", "C2"); `on` while hovered, `cur` when it is the aircraft in hand's destination. */
+const DestMark: React.FC<{ d: TaxiDest; on?: boolean; cur?: boolean }> = ({ d, on = false, cur = false }) => (
+  <>
+    <circle cx={d.p[0]} cy={-d.p[1]} r={on ? 3.1 : 2.7} fill={on ? '#1F4A2B' : '#0B0E12'} stroke={TAXI_COL.clear} strokeOpacity={on || cur ? 1 : 0.7} strokeWidth={on || cur ? 0.6 : 0.35} />
+    <text x={d.p[0]} y={-d.p[1]} textAnchor="middle" dominantBaseline="central" style={{ fontSize: 1.75, fontWeight: 600, fill: on ? '#E6EDF3' : '#7FD397', pointerEvents: 'none' }}>
+      {d.short}
+    </text>
+  </>
+);
+
+/** Every destination of the network with its short id, as when an aircraft is being sent, but not buttons: the Taxi Network layer. */
+export const TaxiSpots: React.FC = () => (
+  <g style={{ pointerEvents: 'none' }}>
+    {TAXI_DESTS.map((d) => (
+      <DestMark key={d.id} d={d} />
     ))}
   </g>
 );
@@ -39,7 +57,7 @@ export const TaxiDests: React.FC<{
         key={d.id}
         role="button"
         tabIndex={0}
-        aria-label={`Taxi ${who} to ${d.label}`}
+        aria-label={`Taxi ${who} to ${destName(d.id)}`}
         aria-pressed={cur}
         style={{ cursor: 'pointer', outline: 'none' }}
         onMouseEnter={() => onHover(d.id)}
@@ -58,7 +76,7 @@ export const TaxiDests: React.FC<{
           }
         }}
       >
-        <title>{d.label}</title>
+        <title>{destName(d.id)}</title>
         {k && (
           <>
             {/* the whole catapult is the target: a wide invisible stroke along its track, lit when hovered */}
@@ -67,10 +85,7 @@ export const TaxiDests: React.FC<{
           </>
         )}
         <circle cx={d.p[0]} cy={-d.p[1]} r={5} fill="#000" fillOpacity={0} />
-        <circle cx={d.p[0]} cy={-d.p[1]} r={on ? 3.1 : 2.7} fill={on ? '#1F4A2B' : '#0B0E12'} stroke={TAXI_COL.clear} strokeOpacity={on || cur ? 1 : 0.7} strokeWidth={on || cur ? 0.6 : 0.35} />
-        <text x={d.p[0]} y={-d.p[1]} textAnchor="middle" dominantBaseline="central" style={{ fontSize: 1.75, fontWeight: 600, fill: on ? '#E6EDF3' : '#7FD397', pointerEvents: 'none' }}>
-          {d.short}
-        </text>
+        <DestMark d={d} on={on} cur={cur} />
       </g>
     );
   };
@@ -97,6 +112,39 @@ export const TaxiRoute: React.FC<{
           {plan.blockedAt && <circle cx={plan.blockedAt[0]} cy={-plan.blockedAt[1]} r={10.5} stroke={TAXI_COL.blocked} strokeWidth={0.5} strokeDasharray="2 1.4" strokeLinecap="butt" />}
         </>
       )}
+    </g>
+  );
+};
+
+/** a ghost's outline, metres: drawn twice as wide, the inner half masked off */
+const GHOST_W = 0.3;
+
+/**
+ * The catapult queues: a ghost aircraft where each queued aircraft stands in its catapult's queue. Amber
+ * (the deck's TAXI_COL.blocked), dashed, no fill; the ghost of the aircraft under the pointer is brighter.
+ * The planform is several overlapping polygons (fuselage, wings, stabilators): each is stroked at twice
+ * the width through a mask that blacks out the inside of all of them, so only the outer half of the
+ * strokes on the aircraft's perimeter shows, one outline round the whole aircraft.
+ */
+export const QueueGhosts: React.FC<{ ghosts: QueueGhost[]; hover: string | null }> = ({ ghosts, hover }) => {
+  const id = `ghost${React.useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
+  if (!ghosts.length) return null;
+  const shapes = ghosts.map((g) => ({ g, d: jetShape(SPREAD, g.x, g.y, g.a) }));
+  return (
+    <g style={{ pointerEvents: 'none' }}>
+      <defs>
+        <mask id={id} maskUnits="userSpaceOnUse" x={-200} y={-80} width={400} height={160}>
+          <rect x={-200} y={-80} width={400} height={160} fill="#fff" />
+          {shapes.map(({ g, d }) => (
+            <path key={g.id} d={d} fill="#000" />
+          ))}
+        </mask>
+      </defs>
+      <g fill="none" strokeLinejoin="round" strokeLinecap="butt" mask={`url(#${id})`}>
+        {shapes.map(({ g, d }) => (
+          <path key={g.id} d={d} stroke={TAXI_COL.blocked} strokeWidth={GHOST_W * 2} strokeOpacity={g.id === hover ? 0.9 : 0.4} strokeDasharray="1 0.7" />
+        ))}
+      </g>
     </g>
   );
 };

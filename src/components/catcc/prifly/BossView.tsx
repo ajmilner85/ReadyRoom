@@ -11,9 +11,8 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { supabase } from '../../../utils/supabaseClient';
 import FlightCard from '../../ui/flight cards/FlightCard';
 import { fuelK, groupFormations, phaseOf, shortType, type Formation, type Picture, type ScopeTrack } from '../scopeModel.ts';
-import { DECK_LAYERS, DECK_VIEWBOX, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, line, onCat, routeAhead, type DeckJet, type DeckLayer, type V } from './deck.ts';
+import { DECK_VIEWBOX, FOLDED, SPREAD, deckStatus, inLandingArea, jetShape, line, onCat, routeAhead, type DeckJet, type V } from './deck.ts';
 import { DeckDrawing } from './DeckDrawing.tsx';
-import { IcReset } from '../icons.tsx';
 import type { DeckEvent } from './useDeckLog.ts';
 import type { OpsState } from '../../../catcc/core/room/ops.ts';
 import type { HookEnv } from '../../../catcc/core/dcs/hookProtocol.ts';
@@ -23,7 +22,10 @@ import { DeckBar, LaunchTab, LightsPanel } from './BossPanels.tsx';
 import type { LaunchState } from '../../../catcc/core/room/launch.ts';
 import { catEntry, taxiOrders, withLaunch, withTaxi, type DeckId } from './launch.ts';
 import { TAXI_COL, planTaxi, taxiDest, type DeckPose, type TaxiPlan } from './taxiNet.ts';
-import { TaxiDests, TaxiRoute } from './TaxiOverlay.tsx';
+import { QueueGhosts, TaxiDests, TaxiRoute, TaxiSpots } from './TaxiOverlay.tsx';
+import { catQueues, destName, queueGhosts } from './catQueue.ts';
+import { DECK_LAYER_DEFAULT, deckDrawingLayers, loadDeckLayers, saveDeckLayers, type DeckToggle } from './deckLayers.ts';
+import { DeckLayersButton } from './DeckLayersButton.tsx';
 import { PRIFLY_LIGHTS } from './lights.ts';
 import { InfoPanels } from '../radar/InfoPanels.tsx';
 import { WindIndicator, type WindMode } from '../bridge/Nav.tsx';
@@ -33,7 +35,6 @@ import { finalPicture } from '../final/finalModel.ts';
 
 type Mode = 'live' | 'sand';
 
-const DEFAULT_LAYERS: DeckLayer[] = ['areas', 'gear'];
 const load = <T,>(k: string, d: T): T => {
   try {
     const v = localStorage.getItem(k);
@@ -138,8 +139,9 @@ export const BossView: React.FC<{
   const [selected, setSelected] = useState<string | null>(null);
   /** the destination under the pointer while an aircraft is selected: its route is previewed */
   const [hoverDest, setHoverDest] = useState<string | null>(null);
-  const [layerList, setLayerList] = useState<DeckLayer[]>(() => load('catcc.deck.layers', { l: DEFAULT_LAYERS }).l.filter((k) => DECK_LAYERS.some((x) => x.k === k)));
-  const layers = useMemo(() => new Set(layerList), [layerList]);
+  /** the aircraft under the pointer: its ghost in its catapult's queue is brighter */
+  const [hoverJet, setHoverJet] = useState<string | null>(null);
+  const [layerOn, setLayerOn] = useState<Record<DeckToggle, boolean>>(loadDeckLayers);
   const [wind, setWind] = useState<{ m: WindMode }>(() => load('catcc.wind', { m: 'true' as WindMode }));
   const svgRef = useRef<SVGSVGElement>(null);
   const dragRef = useRef<{ id: string; dx: number; dy: number } | null>(null);
@@ -190,6 +192,8 @@ export const BossView: React.FC<{
     () => (selected && hoverDest && !readOnly ? planTaxi(poses, { ...orders, [selected]: { to: hoverDest, at: Number.MAX_SAFE_INTEGER } }).get(selected) ?? null : null),
     [selected, hoverDest, readOnly, poses, orders],
   );
+  // ------------------------------------------------ catapult queues: a ghost for each aircraft bound for a catapult
+  const ghosts = useMemo(() => queueGhosts(catQueues(plans, Object.fromEntries(['1', '2', '3', '4'].map((k) => [k, onCat(placed, k)?.t.id])))), [plans, placed]);
   const sendTo = (id: string, to: string | null) => {
     setOps(withTaxi(ops, deckIds, id, to, Date.now()));
     setHoverDest(null);
@@ -258,15 +262,15 @@ export const BossView: React.FC<{
   };
   const picking = !!selJet && !readOnly;
   // the road system shows while an aircraft is being sent somewhere
-  const deckLayers = useMemo(() => (picking && !layers.has('taxi') ? new Set([...layers, 'taxi' as DeckLayer]) : layers), [picking, layers]);
-  const toggleLayer = (k: DeckLayer) => {
-    const next = layers.has(k) ? layerList.filter((x) => x !== k) : [...layerList, k];
-    setLayerList(next);
-    save('catcc.deck.layers', { l: next });
+  const deckLayers = useMemo(() => deckDrawingLayers(picking ? { ...layerOn, taxi: true } : layerOn), [picking, layerOn]);
+  const toggleLayer = (k: DeckToggle) => {
+    const next = { ...layerOn, [k]: !layerOn[k] };
+    setLayerOn(next);
+    saveDeckLayers(next);
   };
   const resetLayers = () => {
-    setLayerList(DEFAULT_LAYERS);
-    save('catcc.deck.layers', { l: DEFAULT_LAYERS });
+    setLayerOn({ ...DECK_LAYER_DEFAULT });
+    saveDeckLayers(DECK_LAYER_DEFAULT);
   };
 
   // ------------------------------------------------ arrivals and departures boards
@@ -350,16 +354,9 @@ export const BossView: React.FC<{
           <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
             <span className="lbl">Flight deck · {mode === 'live' ? 'live from DCS' : 'Ouija Board (manual chits)'}</span>
             <div style={{ flex: 1 }} />
-            <div role="group" aria-label="Deck layers" style={{ display: 'flex', gap: 2, background: '#0E1116', border: '1px solid #262F3A', borderRadius: 6, padding: 2 }}>
-              {DECK_LAYERS.map((l) => (
-                <button key={l.k} aria-pressed={layers.has(l.k)} title={l.title} onClick={() => toggleLayer(l.k)} style={{ border: 0, height: 26, padding: '0 8px', borderRadius: 4, fontFamily: "'Saira', sans-serif", fontSize: 12, cursor: 'pointer', background: layers.has(l.k) ? '#222C37' : 'transparent', color: layers.has(l.k) ? '#E6EDF3' : '#93A1B0' }}>
-                  {l.label}
-                </button>
-              ))}
-              <button aria-label="Reset deck layers" title="Reset layers to default (Areas, Equipment)" onClick={resetLayers} style={{ border: 0, height: 26, width: 26, display: 'grid', placeItems: 'center', borderRadius: 4, cursor: 'pointer', background: 'transparent', color: '#93A1B0' }}>
-                <IcReset />
-              </button>
-            </div>
+            <button aria-pressed={layerOn.taxi} onClick={() => toggleLayer('taxi')} style={btn(layerOn.taxi)}>
+              Taxi Network
+            </button>
             <button
               onClick={() => {
                 if (drawing && curPath.length > 1) setPaths((ps) => [...ps, curPath]);
@@ -373,7 +370,8 @@ export const BossView: React.FC<{
             <button onClick={() => { setPaths([]); setCurPath([]); }} style={btn()}>Clear paths</button>
           </div>
 
-          <div style={{ background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+          <div style={{ position: 'relative', background: '#0B0E12', border: '1px solid #262F3A', borderRadius: 10, padding: 10, display: 'flex', flexDirection: 'column', gap: 8 }}>
+            <DeckLayersButton ov={layerOn} onToggle={toggleLayer} onReset={resetLayers} />
             <svg
               ref={svgRef}
               className="deck"
@@ -399,7 +397,7 @@ export const BossView: React.FC<{
               onMouseUp={() => (dragRef.current = null)}
               onMouseLeave={() => (dragRef.current = null)}
             >
-              <DeckDrawing layers={deckLayers} hull={hull} jbdUp={Object.fromEntries(Object.entries(st?.cats ?? {}).map(([k, j]) => [k, !!j]))} />
+              <DeckDrawing layers={deckLayers.layers} hide={deckLayers.hide} hull={hull} jbdUp={Object.fromEntries(Object.entries(st?.cats ?? {}).map(([k, j]) => [k, !!j]))} />
               {[...paths, curPath].filter((p) => p.length > 1).map((p, i) => (
                 <path key={i} d={line(p)} fill="none" stroke="#F15822" strokeWidth={1} strokeDasharray="3 2" />
               ))}
@@ -415,6 +413,8 @@ export const BossView: React.FC<{
                   <TaxiRoute key={p.id} plan={p} strong={false} />
                 ))}
               {shown && <TaxiRoute plan={shown} strong />}
+              <QueueGhosts ghosts={ghosts} hover={hoverJet} />
+              {layerOn.taxi && !picking && <TaxiSpots />}
               {picking && <TaxiDests who={nameOf(selected)} current={selPlan?.to ?? null} hover={hoverDest} onHover={setHoverDest} onPick={(to) => sendTo(selJet.t.id, to)} />}
               <path d={byCls('gray')} fill={colors.gray} style={{ pointerEvents: 'none' }} />
               <path d={byCls('white')} fill={colors.white} style={{ pointerEvents: 'none' }} />
@@ -441,7 +441,7 @@ export const BossView: React.FC<{
                     if (q) dragRef.current = { id: j.t.id, dx: q[0] - j.x, dy: q[1] - j.y };
                   };
                   return (
-                    <g key={j.t.id} style={{ cursor: mode === 'sand' ? 'grab' : 'pointer' }} onMouseDown={pick} onClick={(e) => e.stopPropagation()}>
+                    <g key={j.t.id} style={{ cursor: mode === 'sand' ? 'grab' : 'pointer' }} onMouseDown={pick} onClick={(e) => e.stopPropagation()} onMouseEnter={() => setHoverJet(j.t.id)} onMouseLeave={() => setHoverJet((h) => (h === j.t.id ? null : h))}>
                       {/* the aircraft itself is the click target, not just its board number */}
                       <circle cx={j.x} cy={-j.y} r={7.5} fill="#000" fillOpacity={0} />
                       {/* while a destination is being picked the board numbers let the pointer through to the markers under them */}
@@ -471,7 +471,7 @@ export const BossView: React.FC<{
                   </span>
                   {shown ? (
                     <span className="mono" style={{ fontSize: 12.5, color: shown.arrived ? '#93A1B0' : shown.blockedBy ? TAXI_COL.blocked : '#7FD397' }}>
-                      {preview ? '→' : 'TAXI TO'} {taxiDest(shown.to)?.label.toUpperCase()}
+                      {preview ? '→' : 'TAXI TO'} {destName(shown.to).toUpperCase()}
                       {shown.arrived
                         ? ' · THERE'
                         : shown.blockedBy

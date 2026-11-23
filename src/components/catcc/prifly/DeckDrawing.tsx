@@ -2,12 +2,12 @@
  * The Nimitz flight deck, to scale (1 SVG unit = 1 m), bow right and port up, from the trace over the DCS
  * model (nimitzDeck.gen.ts). Markings are drawn at their painted widths and in the model's colours
  * (white paint, amber-and-red elevator lines, red-and-white foul lines, tan jet blast deflectors), darkened so aircraft,
- * routes and alerts stand out. Base labels (catapults, elevators, island) always show; the rest are
- * layers the boss turns on.
+ * routes and alerts stand out. The catapults and elevators show unless hidden (`hide`), the island always;
+ * the rest are layers the boss turns on.
  */
 import React from 'react';
 import { TaxiNet } from './TaxiOverlay.tsx';
-import { CATS, NIMITZ as G, TAXI_ROUTES, areaCentroid, centroid, line, nearestOn, openAt, ring, roundLine, roundRing, type DeckLayer, type V } from './deck.ts';
+import { CATS, NIMITZ as G, areaCentroid, centroid, line, nearestOn, openAt, ring, roundLine, roundRing, type DeckBase, type DeckLayer, type V } from './deck.ts';
 
 const C = {
   deck: '#1D2228',
@@ -27,9 +27,6 @@ const C = {
   structEdge: '#6E7A88',
   label: '#93A1B0',
 };
-
-/** AI routes: launch (to the catapults) green, recovery (to parking) blue */
-const ROUTE_COL = { to: '#5FD068', park: '#6FB6E6' } as const;
 
 const NAMES: Record<string, string> = { Crotch: 'CROTCH', Point: 'POINT', Corral: 'CORRAL', 'Junk Yard': 'JUNK YARD', Patio: 'PATIO', Finger: 'FINGER', Box: 'BOX', Street: 'STREET', Sixpack: 'SIX-PACK' };
 /** areas whose name runs along the area's long axis instead of level */
@@ -184,13 +181,17 @@ const heloNum = (q: V[]) => {
 
 export const DeckDrawing: React.FC<{
   layers: Set<DeckLayer>;
+  /** base features turned off: the catapults (tracks, jet blast deflectors, labels), the elevators (edge and safety lines, labels) */
+  hide?: ReadonlySet<DeckBase>;
   /** hull number painted on the bow (CVN-71 -> 71) */
   hull?: string;
   /** JBDs raised (a jet spotted on that catapult) */
   jbdUp?: Record<string, boolean>;
   /** drawn inside a rotate(-90) group (bow up): level labels are turned back, the scale bar and BOW arrow left out */
   bowUp?: boolean;
-}> = ({ layers, hull, jbdUp = {}, bowUp = false }) => {
+}> = ({ layers, hide, hull, jbdUp = {}, bowUp = false }) => {
+  const cats = !hide?.has('cats');
+  const elev = !hide?.has('elev');
   const L = G.la;
   const num = /(\d{2})$/.exec(hull ?? '')?.[1];
   const bw = G.bow.stroke;
@@ -210,8 +211,8 @@ export const DeckDrawing: React.FC<{
       {/* hull, elevators, island */}
       <path d={ring(G.outline)} fill={C.deck} stroke={C.edge} strokeWidth={0.5} strokeLinejoin="round" filter="url(#deckShadow)" />
       {/* elevator edge and safety line: alternating amber and red, ~0.4 m each on the model (drawn 0.5 m to stay legible) */}
-      <path d={ELEV_LINES} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="miter" />
-      <path d={ELEV_LINES} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="miter" strokeDasharray="0.5 0.5" />
+      {elev && <path d={ELEV_LINES} fill="none" stroke={C.elevLine} strokeWidth={0.36} strokeLinejoin="miter" />}
+      {elev && <path d={ELEV_LINES} fill="none" stroke={C.red} strokeWidth={0.36} strokeLinejoin="miter" strokeDasharray="0.5 0.5" />}
       <g filter="url(#islandShadow)">
         <path d={roundRing(G.struct['Island'], 1.6)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.35} />
         <path d={roundRing(G.struct['Radar Mast'], 0.8)} fill={C.struct} stroke={C.structEdge} strokeWidth={0.3} />
@@ -249,7 +250,7 @@ export const DeckDrawing: React.FC<{
       <path d={G.wires.map(line).join('')} fill="none" stroke="#6E7882" strokeWidth={0.4} strokeDasharray="0.8 0.6" />
 
       {/* catapults: track with lighter end blocks, jet blast deflector behind it */}
-      {Object.entries(CATS).map(([k, [a, b]]) => (
+      {cats && Object.entries(CATS).map(([k, [a, b]]) => (
         <g key={k}>
           <g>
             <path d={line([a, b])} stroke={C.catTrack} strokeWidth={1.56} strokeLinecap="butt" />
@@ -288,20 +289,10 @@ export const DeckDrawing: React.FC<{
       )}
       {layers.has('areas') && <path d={G.parking.map((a) => ring(a.poly)).join('')} fill="rgba(111,182,230,.05)" stroke="#6FB6E6" strokeOpacity={0.45} strokeWidth={0.35} strokeDasharray="2 1.2" />}
       {layers.has('taxi') && <TaxiNet />}
-      {(['catRoutes', 'parkRoutes'] as const).map(
-        (k) =>
-          layers.has(k) && (
-            <g key={k} fill="none" strokeWidth={0.35} strokeLinejoin="round">
-              {TAXI_ROUTES.filter((r) => r.kind === (k === 'catRoutes' ? 'to' : 'park')).map((r) => (
-                <path key={r.spot} d={line(r.pts)} stroke={ROUTE_COL[r.kind]} strokeOpacity={0.5} />
-              ))}
-            </g>
-          ),
-      )}
 
       {/* labels */}
       <g style={{ pointerEvents: 'none' }}>
-        {Object.keys(CATS).map((k) => (
+        {cats && Object.keys(CATS).map((k) => (
           bowUp ? (
             <g key={k} transform={`rotate(${CAT_LABEL_UP[k].rot} ${CAT_LABEL_UP[k].p[0]} ${-CAT_LABEL_UP[k].p[1]})`}>
               <rect x={CAT_LABEL_UP[k].p[0] - 5} y={-CAT_LABEL_UP[k].p[1] - 1.85} width={10} height={3.7} rx={0.5} fill="#0B0E12" stroke="#7D8896" strokeWidth={0.3} />
@@ -315,7 +306,7 @@ export const DeckDrawing: React.FC<{
           </g>
           )
         ))}
-        {Object.keys(G.elev).map((k) => (
+        {elev && Object.keys(G.elev).map((k) => (
           bowUp ? (
             <T key={k} p={EL_LABEL_UP[k].p} anchor={EL_LABEL_UP[k].anchor} fill={C.elevLine}>{`EL ${k}`}</T>
           ) : (
@@ -359,18 +350,6 @@ export const DeckDrawing: React.FC<{
             <T p={[Math.min(...G.struct['IFLOLS Platform'].map((q) => q[0])) - 1.5, centroid(G.struct['IFLOLS Platform'])[1] + 1]} size={2.4} anchor="end">IFLOLS</T>
           </>
         )}
-        {/* each route's spot, shown with its routes: launch routes start at their spawn spot, recovery routes end at their parking spot */}
-        {TAXI_ROUTES.filter((r) => layers.has(r.kind === 'to' ? 'catRoutes' : 'parkRoutes')).map((r) => {
-          const p = r.kind === 'to' ? r.pts[0] : r.pts[r.pts.length - 1];
-          return (
-            <g key={`${r.kind}${r.spot}`}>
-              <circle cx={p[0]} cy={-p[1]} r={1.9} fill="#0B0E12" stroke={ROUTE_COL[r.kind]} strokeWidth={0.3} />
-              <T p={p} size={2} fill={ROUTE_COL[r.kind]} weight={600}>
-                {r.spot}
-              </T>
-            </g>
-          );
-        })}
       </g>
 
       {/* scale and orientation */}

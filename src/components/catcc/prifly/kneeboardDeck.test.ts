@@ -40,6 +40,6 @@ describe('deck kneeboard', () => {
     expect(b.sub).toMatch(/^Hold short of 311 · clear for \d+ of \d+ m$/);
     expect(clearanceText(undefined, name).tone).toBe('none');
     const there = planTaxi([pose(parked('p', 'CO1'))],{ p: { to: 'CO1', at: 1 } }).get('p');
-    expect(clearanceText(there, name)).toMatchObject({ head: 'AT CORRAL 1', tone: 'there' });
+    expect(clearanceText(there, name)).toMatchObject({ head: 'AT CORRAL - 1', tone: 'there' });
   });
 });

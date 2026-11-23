@@ -5,7 +5,8 @@
  */
 import type { ScopeTrack } from '../scopeModel.ts';
 import { onCat, type DeckJet } from './deck.ts';
-import { destCat, taxiDest, type TaxiPlan } from './taxiNet.ts';
+import { destCat, type TaxiPlan } from './taxiNet.ts';
+import { catQueues, destName } from './catQueue.ts';
 
 /** a flight's key (DCS group, else the track id): launch queues hold flights */
 export const flightKey = (t: Pick<ScopeTrack, 'g' | 'id'>): string => t.g || t.id;
@@ -33,12 +34,11 @@ export interface CatLine {
   plan?: TaxiPlan;
 }
 
-/** The line for catapult k: the aircraft spotted on it, then those sent to it, in the order they were sent. */
+/** The line for catapult k: the aircraft spotted on it, then its queue (catQueue.ts, as PriFly's queue ghosts). */
 export function catLine(jets: DeckJet[], plans: Map<string, TaxiPlan>, k: string): CatLine[] {
   const on = onCat(jets, k);
   const out: CatLine[] = on ? [{ id: on.t.id, spotted: true, plan: plans.get(on.t.id) }] : [];
-  const bound = [...plans.values()].filter((p) => p.to === `C${k}` && p.id !== on?.t.id && !p.arrived).sort((a, b) => a.seq - b.seq);
-  for (const p of bound) out.push({ id: p.id, spotted: false, plan: p });
+  for (const id of catQueues(plans, { [k]: on?.t.id })[k].queue) out.push({ id, spotted: false, plan: plans.get(id) });
   return out;
 }
 
@@ -53,8 +53,7 @@ export interface Clearance {
 /** What the pilot's clearance says, in words. `nameOf` gives an aircraft's board number (or callsign). */
 export function clearanceText(plan: TaxiPlan | undefined, nameOf: (id: string) => string): Clearance {
   if (!plan) return { head: 'NO TAXI CLEARANCE', sub: 'Hold your position. Instructions from PriFly show here.', tone: 'none' };
-  const d = taxiDest(plan.to);
-  const where = d?.label.toUpperCase() ?? plan.to;
+  const where = destName(plan.to).toUpperCase() || plan.to;
   const cat = destCat(plan.to);
   if (plan.arrived) return { head: cat ? `ON ${where}` : `AT ${where}`, sub: cat ? 'Spotted. Await the shooter.' : 'At your parking spot.', tone: 'there' };
   if (plan.blockedBy) {
