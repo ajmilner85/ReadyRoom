@@ -41,6 +41,8 @@ net.allow_dostring_in = {"mission", "server"}
 
 If either line already exists with other values, **add** `"server"` (and `"userhooks"`) to it instead of adding a second line. Edit with a code editor, not Notepad.
 
+The crew test's installer (`deck-test\crew-test\install.ps1`) adds a line marked `-- CATCC slot picker`. It adds `"gui"` to `net.allow_dostring_in` and `"userhooks"` to `net.allow_unsafe_api` without replacing either list. Keep it the last line: a `net.allow_dostring_in = {...}` line after it replaces the list and drops `"gui"`.
+
 ## 4. Restart and check the log
 
 Restart the DCS server, start a mission, then look in `Logs\dcs.log` for:

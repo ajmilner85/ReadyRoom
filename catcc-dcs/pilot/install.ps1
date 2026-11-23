@@ -100,7 +100,8 @@ if ($Uninstall) {
   if (Test-Path $dataDst) { Get-ChildItem $dataDst -Filter 'CATCC_*.csv' | Remove-Item -Force }
   if (Test-Path $autoexec) {
     $auto = [System.IO.File]::ReadAllText($autoexec, $enc)
-    $auto2 = [regex]::Replace($auto, '(?m)^[^\r\n]*-- CATCC[^\r\n]*\r?\n?', '')
+    # (its own lines only: the crew test's slot picker has one too, "-- CATCC slot picker")
+    $auto2 = [regex]::Replace($auto, '(?m)^[^\r\n]*-- CATCC: the pilot hook[^\r\n]*\r?\n?', '')
     if ($auto2 -ne $auto) { [System.IO.File]::WriteAllText($autoexec, $auto2, $enc) }
   }
   Write-Host "CATCC pilot mod removed; common.xml and the Hornet's comm.lua back to stock. Restart DCS."
@@ -262,9 +263,15 @@ if ($null -ne $speechText) {
 function Add-AutoexecEntry([string]$text, [string]$name, [string]$value) {
   $m = [regex]::Match($text, '(?m)^[ \t]*' + [regex]::Escape($name) + '[ \t]*=[ \t]*\{([^}]*)\}')
   if (-not $m.Success) {
+    # no "name = {...}" to add to (no such line, or the file sets the list some other way, as other mods' do-blocks
+    # do): a line that adds the value to whatever the list holds by then, so nothing allowed before it is lost (a
+    # plain "name = {...}" here would drop what earlier lines added, the slot picker's "gui" among them)
+    $line = 'do local function allow(t, v) t = t or {} for _, x in ipairs(t) do if x == v then return t end end table.insert(t, v) return t end ' +
+      $name + ' = allow(' + $name + ', "' + $value + '") end -- CATCC: the pilot hook reaches the F8 menu'
+    if ($text.Contains($line)) { return $text }
     $anl = if ($text.Contains("`r`n") -or $text.Length -eq 0) { "`r`n" } else { "`n" }
     if ($text.Length -gt 0 -and -not $text.EndsWith("`n")) { $text += $anl }
-    return $text + $name + ' = {"' + $value + '"} -- CATCC: the pilot hook reaches the F8 menu' + $anl
+    return $text + $line + $anl
   }
   $list = $m.Groups[1].Value
   if ($list -match ('["'']' + [regex]::Escape($value) + '["'']')) { return $text }

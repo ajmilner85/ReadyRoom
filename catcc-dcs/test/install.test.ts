@@ -1,6 +1,8 @@
 // The pilot mod's installer (pilot/install.ps1) run for real against stand-ins for the DCS files it
 // patches, in a temp folder: what it copies, what it leaves out, the autoexec.cfg entries, and the two
-// lines it adds to the Hornet's radio menu, which are then loaded under fengari and pressed.
+// lines it adds to the Hornet's radio menu, which are then loaded under fengari and pressed. Then the
+// crew test's slot picker line in autoexec.cfg (deck-test/crew-test/autoexec.ps1), alone and beside the
+// pilot mod's; each autoexec.cfg is run under fengari for what DCS would allow.
 // Windows only (PowerShell); skipped elsewhere.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -143,6 +145,24 @@ function pressMenu(comm: string): string[] {
   return out.split('\n');
 }
 
+// what DCS allows once it has run an autoexec.cfg: the file run as Lua, the way DCS runs it, against an empty
+// stand-in for the net table; its two lists, as "unsafe: a,b | dostring_in: c,d" ("-": not set)
+function allowed(cfg: string): string {
+  const L = lauxlib.luaL_newstate();
+  lualib.luaL_openlibs(L);
+  const code = 'net = {}\n' + cfg + '\nlocal function s(t) return t and table.concat(t, ",") or "-" end\n' +
+    'return "unsafe: " .. s(net.allow_unsafe_api) .. " | dostring_in: " .. s(net.allow_dostring_in)';
+  const status = lauxlib.luaL_dostring(L, to_luastring(code));
+  const out = lua.lua_tojsstring(L, -1) as string;
+  if (status !== 0) throw new Error(out);
+  return out;
+}
+
+// the line the pilot installer adds when autoexec.cfg has no "name = {...}" to add the value to
+const pilotLine = (name: string, value: string) =>
+  'do local function allow(t, v) t = t or {} for _, x in ipairs(t) do if x == v then return t end end table.insert(t, v) return t end ' +
+  `${name} = allow(${name}, "${value}") end -- CATCC: the pilot hook reaches the F8 menu`;
+
 describe.skipIf(!windows)('CATCC pilot mod installer', () => {
   const t = setup('net.allow_dostring_in = {\n  "mission",\n}\n');
   const said = t.install('-Server', 'localhost');
@@ -190,7 +210,8 @@ describe.skipIf(!windows)('CATCC pilot mod installer', () => {
   it('lets the hook reach the F8 menu: autoexec.cfg gets what DCS asks for, existing entries kept', () => {
     const cfg = t.read('sg/Config/autoexec.cfg');
     expect(cfg).toContain('net.allow_dostring_in = {\n  "mission", "server"\n}');
-    expect(cfg).toContain('net.allow_unsafe_api = {"userhooks"} -- CATCC');
+    expect(cfg).toContain(pilotLine('net.allow_unsafe_api', 'userhooks'));
+    expect(allowed(cfg)).toBe('unsafe: userhooks | dostring_in: mission,server');
     expect(said).toContain('autoexec.cfg now lets the hook reach the F8 menu');
   });
   it('changes nothing when run again', () => {
@@ -242,14 +263,114 @@ describe.skipIf(!windows)('CATCC pilot mod installer', () => {
   it('writes autoexec.cfg when there is none, and leaves a complete one alone', () => {
     const none = setup();
     none.install();
-    expect(none.read('sg/Config/autoexec.cfg')).toBe(
-      'net.allow_unsafe_api = {"userhooks"} -- CATCC: the pilot hook reaches the F8 menu\r\n' +
-      'net.allow_dostring_in = {"server"} -- CATCC: the pilot hook reaches the F8 menu\r\n');
+    const made = none.read('sg/Config/autoexec.cfg');
+    expect(made).toBe(pilotLine('net.allow_unsafe_api', 'userhooks') + '\r\n' + pilotLine('net.allow_dostring_in', 'server') + '\r\n');
+    expect(allowed(made)).toBe('unsafe: userhooks | dostring_in: server');
     none.done();
     const full = 'net.allow_unsafe_api = {"userhooks"}\r\nnet.allow_dostring_in = {"mission", "server"}\r\n';
     const complete = setup(full);
     complete.install();
     expect(complete.read('sg/Config/autoexec.cfg')).toBe(full);
     complete.done();
+  });
+});
+
+// The crew test's slot picker reaches DCS's slot screen (DCS's GUI Lua state) from its hook with
+// net.dostring_in('gui', ...): crew-test/autoexec.ps1 (run by the crew test's install.ps1) adds "gui" to
+// net.allow_dostring_in and "userhooks" to net.allow_unsafe_api in one marked line, run for real here
+const crewAutoexec = path.resolve(__dirname, '../deck-test/crew-test/autoexec.ps1');
+// another mod's lines, the way some write them: added to what is allowed already
+const OTHER_MOD = [
+  '',
+  '-- another mod: adds to what is allowed already',
+  'do',
+  '  local function allow(t, v) t = t or {} for _, x in ipairs(t) do if x == v then return t end end table.insert(t, v) return t end',
+  '  net.allow_unsafe_api = allow(net.allow_unsafe_api, "userhooks")',
+  '  net.allow_dostring_in = allow(net.allow_dostring_in, "server")',
+  'end',
+  '',
+].join('\r\n');
+
+describe.skipIf(!windows)('CATCC crew test: the slot picker\'s autoexec.cfg line', () => {
+  const picker = (t: ReturnType<typeof setup>, ...more: string[]) =>
+    execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', crewAutoexec, '-SavedGames', path.join(t.root, 'sg'), ...more], { encoding: 'utf8' });
+  const cfgOf = (t: ReturnType<typeof setup>) => t.read('sg/Config/autoexec.cfg');
+  const lastLine = (cfg: string) => cfg.trimEnd().split('\r\n').pop() as string;
+
+  it('adds "gui" (and "userhooks") to what another mod allows, as the last line, and changes nothing when run again', () => {
+    const t = setup(OTHER_MOD);
+    expect(picker(t)).toContain('the slot picker may reach DCS\'s slot screen');
+    const cfg = cfgOf(t);
+    expect(cfg.startsWith(OTHER_MOD)).toBe(true);
+    expect(cfg.slice(OTHER_MOD.length).split('\r\n')).toHaveLength(2);
+    expect(lastLine(cfg)).toMatch(/^do local function allow\(.*-- CATCC slot picker: /);
+    expect(allowed(cfg)).toBe('unsafe: userhooks | dostring_in: server,gui');
+    expect(picker(t)).toContain('the slot picker\'s line is in place');
+    expect(cfgOf(t)).toBe(cfg);
+    t.done();
+  });
+  it('puts its line back at the end when a line after it sets the list outright', () => {
+    const t = setup(OTHER_MOD);
+    picker(t);
+    const later = cfgOf(t) + 'net.allow_dostring_in = {"mission"}\r\n';
+    fs.writeFileSync(path.join(t.root, 'sg/Config/autoexec.cfg'), later);
+    expect(allowed(later)).toBe('unsafe: userhooks | dostring_in: mission');
+    picker(t);
+    const cfg = cfgOf(t);
+    expect(cfg.match(/-- CATCC slot picker/g)).toHaveLength(1);
+    expect(lastLine(cfg)).toContain('-- CATCC slot picker');
+    expect(allowed(cfg)).toBe('unsafe: userhooks | dostring_in: mission,gui');
+    t.done();
+  });
+  it('keeps "gui" when the pilot mod is installed after it, and the pilot mod\'s uninstall leaves its line', () => {
+    const t = setup(OTHER_MOD);
+    picker(t);
+    t.install();
+    expect(allowed(cfgOf(t))).toBe('unsafe: userhooks | dostring_in: server,gui');
+    t.install('-Uninstall');
+    const cfg = cfgOf(t);
+    expect(cfg).toContain('-- CATCC slot picker');
+    expect(cfg).not.toContain('-- CATCC: the pilot hook');
+    expect(allowed(cfg)).toBe('unsafe: userhooks | dostring_in: server,gui');
+    t.done();
+  });
+  it('writes autoexec.cfg when there is none; its uninstall takes out its own line and nothing else', () => {
+    const none = setup();
+    picker(none);
+    const made = cfgOf(none);
+    expect(made.split('\r\n')).toHaveLength(2);
+    expect(allowed(made)).toBe('unsafe: userhooks | dostring_in: gui');
+    expect(picker(none, '-Uninstall')).toContain('the slot picker\'s line taken out');
+    expect(cfgOf(none)).toBe('');
+    none.done();
+    const t = setup(OTHER_MOD);
+    picker(t);
+    picker(t, '-Uninstall');
+    expect(cfgOf(t)).toBe(OTHER_MOD);
+    expect(picker(t, '-Uninstall')).toBe('');
+    t.done();
+  });
+});
+
+// The CATCC app's fonts for the slot picker (crew-test/fonts.ps1, run by the crew test's install.ps1): copied into
+// DCS's own fonts folder (a stand-in here, so no admin is asked for), each as CATCC-<font>.ttf; run again, nothing
+// done; -Uninstall takes out only ours.
+describe.skipIf(!windows)('CATCC crew test: the slot picker\'s fonts', () => {
+  const fontsPs1 = path.resolve(__dirname, '../deck-test/crew-test/fonts.ps1');
+  const run = (dcs: string, ...more: string[]) =>
+    execFileSync('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', fontsPs1, '-DcsDir', dcs, ...more], { encoding: 'utf8' });
+  it('copies Saira and IBM Plex Mono in, does nothing when run again, and takes out only its own', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'catcc-fonts-'));
+    const dst = path.join(root, 'dxgui/skins/fonts');
+    fs.mkdirSync(dst, { recursive: true });
+    fs.writeFileSync(path.join(dst, 'DejaVuLGCSans.ttf'), 'DCS\'s own');
+    expect(run(root)).toContain('Fonts: copied to');
+    const ours = ['CATCC-IBMPlexMono-Regular.ttf', 'CATCC-IBMPlexMono-SemiBold.ttf', 'CATCC-Saira-Medium.ttf', 'CATCC-Saira-Regular.ttf'];
+    expect(fs.readdirSync(dst).sort()).toEqual([...ours, 'DejaVuLGCSans.ttf'].sort());
+    for (const f of ours) expect(fs.readFileSync(path.join(dst, f)).equals(fs.readFileSync(path.resolve(__dirname, '../fonts', f)))).toBe(true);
+    expect(run(root)).toContain('Fonts: in place');
+    expect(run(root, '-Uninstall')).toContain('Fonts: taken out of');
+    expect(fs.readdirSync(dst)).toEqual(['DejaVuLGCSans.ttf']);
+    fs.rmSync(root, { recursive: true, force: true });
   });
 });

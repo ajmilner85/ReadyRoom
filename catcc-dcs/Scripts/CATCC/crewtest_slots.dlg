@@ -1,0 +1,1315 @@
+-- The slot picker's window (crewtest_slots.lua builds everything in it; the children here only lend their skins to
+-- the buttons and labels made there). DCS dialog format, as the mission editor's own .dlg files. Its fonts are the
+-- CATCC app's (Saira, IBM Plex Mono: catcc-dcs/fonts, copied into DCS's fonts folder by crew-test/fonts.ps1) and its
+-- colours the app's. Written by a script once; edit by hand from here.
+dialog = {
+    ["type"] = "Window",
+    ["params"] = {
+        ["bounds"] = {
+            [1] = {
+                ["h"] = 508,
+                ["w"] = 1404,
+                ["x"] = 60,
+                ["y"] = 120
+            }
+        },
+        ["draggable"] = true,
+        ["enabled"] = true,
+        ["hasCursor"] = false,
+        ["lockFlow"] = false,
+        ["modal"] = false,
+        ["offscreen"] = false,
+        ["resizable"] = false,
+        ["zOrder"] = 114,
+        ["text"] = "CATCC: choose your aircraft"
+    },
+    ["skin"] = {
+        ["params"] = {
+            ["name"] = "windowSkin"
+        },
+        ["skins"] = {
+            ["header"] = {
+                ["skinData"] = {
+                    ["params"] = {
+                        ["hasCloseButton"] = false,
+                        ["insets"] = {
+                            ["bottom"] = 2,
+                            ["left"] = 2,
+                            ["right"] = 2,
+                            ["top"] = 2
+                        }
+                    },
+                    ["states"] = {
+                        ["released"] = {
+                            [1] = {
+                                ["bkg"] = {
+                                    ["center_center"] = "0x0b0e12f0"
+                                },
+                                ["text"] = {
+                                    ["color"] = "0xe6edf3ff",
+                                    ["font"] = "CATCC-Saira-Medium.ttf",
+                                    ["fontSize"] = 14,
+                                    ["horzAlign"] = {
+                                        ["type"] = "min"
+                                    },
+                                    ["vertAlign"] = {
+                                        ["type"] = "middle"
+                                    }
+                                }
+                            },
+                            [2] = {
+                                ["bkg"] = {
+                                    ["center_center"] = "0x0b0e12f0"
+                                },
+                                ["text"] = {
+                                    ["color"] = "0xe6edf3ff",
+                                    ["font"] = "CATCC-Saira-Medium.ttf",
+                                    ["fontSize"] = 14,
+                                    ["horzAlign"] = {
+                                        ["type"] = "min"
+                                    },
+                                    ["vertAlign"] = {
+                                        ["type"] = "middle"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        ["states"] = {
+            ["released"] = {
+                [1] = {
+                    ["bkg"] = {
+                        ["center_center"] = "0x101418f0"
+                    }
+                }
+            }
+        }
+    },
+    ["children"] = {
+        ["tplButton"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x00000000",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x374250ff",
+                                ["center_top"] = "0x374250ff",
+                                ["right_top"] = "0x374250ff",
+                                ["left_center"] = "0x374250ff",
+                                ["right_center"] = "0x374250ff",
+                                ["left_bottom"] = "0x374250ff",
+                                ["center_bottom"] = "0x374250ff",
+                                ["right_bottom"] = "0x374250ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf3ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x222c37ff",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x374250ff",
+                                ["center_top"] = "0x374250ff",
+                                ["right_top"] = "0x374250ff",
+                                ["left_center"] = "0x374250ff",
+                                ["right_center"] = "0x374250ff",
+                                ["left_bottom"] = "0x374250ff",
+                                ["center_bottom"] = "0x374250ff",
+                                ["right_bottom"] = "0x374250ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf3ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x2a3542ff",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x374250ff",
+                                ["center_top"] = "0x374250ff",
+                                ["right_top"] = "0x374250ff",
+                                ["left_center"] = "0x374250ff",
+                                ["right_center"] = "0x374250ff",
+                                ["left_bottom"] = "0x374250ff",
+                                ["center_bottom"] = "0x374250ff",
+                                ["right_bottom"] = "0x374250ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf3ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x00000000",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x374250ff",
+                                ["center_top"] = "0x374250ff",
+                                ["right_top"] = "0x374250ff",
+                                ["left_center"] = "0x374250ff",
+                                ["right_center"] = "0x374250ff",
+                                ["left_bottom"] = "0x374250ff",
+                                ["center_bottom"] = "0x374250ff",
+                                ["right_bottom"] = "0x374250ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf3ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplPrimary"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xf15822ff",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf15822ff",
+                                ["center_top"] = "0xf15822ff",
+                                ["right_top"] = "0xf15822ff",
+                                ["left_center"] = "0xf15822ff",
+                                ["right_center"] = "0xf15822ff",
+                                ["left_bottom"] = "0xf15822ff",
+                                ["center_bottom"] = "0xf15822ff",
+                                ["right_bottom"] = "0xf15822ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x0e1116ff",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xff6a33ff",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf15822ff",
+                                ["center_top"] = "0xf15822ff",
+                                ["right_top"] = "0xf15822ff",
+                                ["left_center"] = "0xf15822ff",
+                                ["right_center"] = "0xf15822ff",
+                                ["left_bottom"] = "0xf15822ff",
+                                ["center_bottom"] = "0xf15822ff",
+                                ["right_bottom"] = "0xf15822ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x0e1116ff",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xd94c1aff",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf15822ff",
+                                ["center_top"] = "0xf15822ff",
+                                ["right_top"] = "0xf15822ff",
+                                ["left_center"] = "0xf15822ff",
+                                ["right_center"] = "0xf15822ff",
+                                ["left_bottom"] = "0xf15822ff",
+                                ["center_bottom"] = "0xf15822ff",
+                                ["right_bottom"] = "0xf15822ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x0e1116ff",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xf15822ff",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf15822ff",
+                                ["center_top"] = "0xf15822ff",
+                                ["right_top"] = "0xf15822ff",
+                                ["left_center"] = "0xf15822ff",
+                                ["right_center"] = "0xf15822ff",
+                                ["left_bottom"] = "0xf15822ff",
+                                ["center_bottom"] = "0xf15822ff",
+                                ["right_bottom"] = "0xf15822ff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x0e1116ff",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplAmber"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe7b04f1f",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe7b04fff",
+                                ["center_top"] = "0xe7b04fff",
+                                ["right_top"] = "0xe7b04fff",
+                                ["left_center"] = "0xe7b04fff",
+                                ["right_center"] = "0xe7b04fff",
+                                ["left_bottom"] = "0xe7b04fff",
+                                ["center_bottom"] = "0xe7b04fff",
+                                ["right_bottom"] = "0xe7b04fff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe7b04fff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe7b04f40",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe7b04fff",
+                                ["center_top"] = "0xe7b04fff",
+                                ["right_top"] = "0xe7b04fff",
+                                ["left_center"] = "0xe7b04fff",
+                                ["right_center"] = "0xe7b04fff",
+                                ["left_bottom"] = "0xe7b04fff",
+                                ["center_bottom"] = "0xe7b04fff",
+                                ["right_bottom"] = "0xe7b04fff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe7b04fff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe7b04f60",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe7b04fff",
+                                ["center_top"] = "0xe7b04fff",
+                                ["right_top"] = "0xe7b04fff",
+                                ["left_center"] = "0xe7b04fff",
+                                ["right_center"] = "0xe7b04fff",
+                                ["left_bottom"] = "0xe7b04fff",
+                                ["center_bottom"] = "0xe7b04fff",
+                                ["right_bottom"] = "0xe7b04fff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe7b04fff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe7b04f1f",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe7b04fff",
+                                ["center_top"] = "0xe7b04fff",
+                                ["right_top"] = "0xe7b04fff",
+                                ["left_center"] = "0xe7b04fff",
+                                ["right_center"] = "0xe7b04fff",
+                                ["left_bottom"] = "0xe7b04fff",
+                                ["center_bottom"] = "0xe7b04fff",
+                                ["right_bottom"] = "0xe7b04fff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe7b04fff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplRed"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe0524e1a",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe0524eff",
+                                ["center_top"] = "0xe0524eff",
+                                ["right_top"] = "0xe0524eff",
+                                ["left_center"] = "0xe0524eff",
+                                ["right_center"] = "0xe0524eff",
+                                ["left_bottom"] = "0xe0524eff",
+                                ["center_bottom"] = "0xe0524eff",
+                                ["right_bottom"] = "0xe0524eff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xff8a85ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe0524e40",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe0524eff",
+                                ["center_top"] = "0xe0524eff",
+                                ["right_top"] = "0xe0524eff",
+                                ["left_center"] = "0xe0524eff",
+                                ["right_center"] = "0xe0524eff",
+                                ["left_bottom"] = "0xe0524eff",
+                                ["center_bottom"] = "0xe0524eff",
+                                ["right_bottom"] = "0xe0524eff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xff8a85ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe0524e60",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe0524eff",
+                                ["center_top"] = "0xe0524eff",
+                                ["right_top"] = "0xe0524eff",
+                                ["left_center"] = "0xe0524eff",
+                                ["right_center"] = "0xe0524eff",
+                                ["left_bottom"] = "0xe0524eff",
+                                ["center_bottom"] = "0xe0524eff",
+                                ["right_bottom"] = "0xe0524eff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xff8a85ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xe0524e1a",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xe0524eff",
+                                ["center_top"] = "0xe0524eff",
+                                ["right_top"] = "0xe0524eff",
+                                ["left_center"] = "0xe0524eff",
+                                ["right_center"] = "0xe0524eff",
+                                ["left_bottom"] = "0xe0524eff",
+                                ["center_bottom"] = "0xe0524eff",
+                                ["right_bottom"] = "0xe0524eff"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xff8a85ff",
+                                ["font"] = "CATCC-Saira-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplHit"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x00000000",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x00000000",
+                                ["center_top"] = "0x00000000",
+                                ["right_top"] = "0x00000000",
+                                ["left_center"] = "0x00000000",
+                                ["right_center"] = "0x00000000",
+                                ["left_bottom"] = "0x00000000",
+                                ["center_bottom"] = "0x00000000",
+                                ["right_bottom"] = "0x00000000"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x00000000",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x00000000",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x00000000",
+                                ["center_top"] = "0x00000000",
+                                ["right_top"] = "0x00000000",
+                                ["left_center"] = "0x00000000",
+                                ["right_center"] = "0x00000000",
+                                ["left_bottom"] = "0x00000000",
+                                ["center_bottom"] = "0x00000000",
+                                ["right_bottom"] = "0x00000000"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x00000000",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x00000000",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x00000000",
+                                ["center_top"] = "0x00000000",
+                                ["right_top"] = "0x00000000",
+                                ["left_center"] = "0x00000000",
+                                ["right_center"] = "0x00000000",
+                                ["left_bottom"] = "0x00000000",
+                                ["center_bottom"] = "0x00000000",
+                                ["right_bottom"] = "0x00000000"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x00000000",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0x00000000",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0x00000000",
+                                ["center_top"] = "0x00000000",
+                                ["right_top"] = "0x00000000",
+                                ["left_center"] = "0x00000000",
+                                ["right_center"] = "0x00000000",
+                                ["left_bottom"] = "0x00000000",
+                                ["center_bottom"] = "0x00000000",
+                                ["right_bottom"] = "0x00000000"
+                            },
+                            ["text"] = {
+                                ["color"] = "0x00000000",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplLabel"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0xe6edf3ff",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "min"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "min"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplAsk"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0xe7b04fff",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "min"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "min"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplShip"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0xe6edf3ff",
+                                ["font"] = "CATCC-IBMPlexMono-Regular.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplBoardGray"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0x93a1b0ff",
+                                ["font"] = "CATCC-IBMPlexMono-SemiBold.ttf",
+                                ["fontSize"] = 16,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["shadowColor"] = "0x000000f0",
+                                ["shadowOffset"] = {
+                                    ["horz"] = 2,
+                                    ["vert"] = 2
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplBoardMine"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0xef8ff3ff",
+                                ["font"] = "CATCC-IBMPlexMono-SemiBold.ttf",
+                                ["fontSize"] = 16,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["shadowColor"] = "0x000000f0",
+                                ["shadowOffset"] = {
+                                    ["horz"] = 2,
+                                    ["vert"] = 2
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplBoardReady"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0x7fd397ff",
+                                ["font"] = "CATCC-IBMPlexMono-SemiBold.ttf",
+                                ["fontSize"] = 16,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["shadowColor"] = "0x000000f0",
+                                ["shadowOffset"] = {
+                                    ["horz"] = 2,
+                                    ["vert"] = 2
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplBoardSel"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0xffb08fff",
+                                ["font"] = "CATCC-IBMPlexMono-SemiBold.ttf",
+                                ["fontSize"] = 16,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["shadowColor"] = "0x000000f0",
+                                ["shadowOffset"] = {
+                                    ["horz"] = 2,
+                                    ["vert"] = 2
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        },
+        ["tplPrimaryOff"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xf1582240",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf1582266",
+                                ["center_top"] = "0xf1582266",
+                                ["right_top"] = "0xf1582266",
+                                ["left_center"] = "0xf1582266",
+                                ["right_center"] = "0xf1582266",
+                                ["left_bottom"] = "0xf1582266",
+                                ["center_bottom"] = "0xf1582266",
+                                ["right_bottom"] = "0xf1582266"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf366",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xf1582240",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf1582266",
+                                ["center_top"] = "0xf1582266",
+                                ["right_top"] = "0xf1582266",
+                                ["left_center"] = "0xf1582266",
+                                ["right_center"] = "0xf1582266",
+                                ["left_bottom"] = "0xf1582266",
+                                ["center_bottom"] = "0xf1582266",
+                                ["right_bottom"] = "0xf1582266"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf366",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xf1582240",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf1582266",
+                                ["center_top"] = "0xf1582266",
+                                ["right_top"] = "0xf1582266",
+                                ["left_center"] = "0xf1582266",
+                                ["right_center"] = "0xf1582266",
+                                ["left_bottom"] = "0xf1582266",
+                                ["center_bottom"] = "0xf1582266",
+                                ["right_bottom"] = "0xf1582266"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf366",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                            ["bkg"] = {
+                                ["center_center"] = "0xf1582240",
+                                ["file"] = "$nil$",
+                                ["insets"] = {
+                                    ["bottom"] = 1,
+                                    ["left"] = 1,
+                                    ["right"] = 1,
+                                    ["top"] = 1
+                                },
+                                ["left_top"] = "0xf1582266",
+                                ["center_top"] = "0xf1582266",
+                                ["right_top"] = "0xf1582266",
+                                ["left_center"] = "0xf1582266",
+                                ["right_center"] = "0xf1582266",
+                                ["left_bottom"] = "0xf1582266",
+                                ["center_bottom"] = "0xf1582266",
+                                ["right_bottom"] = "0xf1582266"
+                            },
+                            ["text"] = {
+                                ["color"] = "0xe6edf366",
+                                ["font"] = "CATCC-Saira-Medium.ttf",
+                                ["fontSize"] = 13,
+                                ["horzAlign"] = {
+                                    ["type"] = "middle"
+                                },
+                                ["vertAlign"] = {
+                                    ["type"] = "middle"
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        }
+    }
+}
