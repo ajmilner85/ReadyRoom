@@ -139,6 +139,8 @@ export const BossView: React.FC<{
   const [selected, setSelected] = useState<string | null>(null);
   /** the destination under the pointer while an aircraft is selected: its route is previewed */
   const [hoverDest, setHoverDest] = useState<string | null>(null);
+  // (a spot of the Taxi Network layer under the pointer: its full name in the line under the deck)
+  const [hoverSpot, setHoverSpot] = useState<string | null>(null);
   /** the aircraft under the pointer: its ghost in its catapult's queue is brighter */
   const [hoverJet, setHoverJet] = useState<string | null>(null);
   const [layerOn, setLayerOn] = useState<Record<DeckToggle, boolean>>(loadDeckLayers);
@@ -414,7 +416,7 @@ export const BossView: React.FC<{
                 ))}
               {shown && <TaxiRoute plan={shown} strong />}
               <QueueGhosts ghosts={ghosts} hover={hoverJet} />
-              {layerOn.taxi && !picking && <TaxiSpots />}
+              {layerOn.taxi && !picking && <TaxiSpots hover={hoverSpot} onHover={setHoverSpot} />}
               {picking && <TaxiDests who={nameOf(selected)} current={selPlan?.to ?? null} hover={hoverDest} onHover={setHoverDest} onPick={(to) => sendTo(selJet.t.id, to)} />}
               <path d={byCls('gray')} fill={colors.gray} style={{ pointerEvents: 'none' }} />
               <path d={byCls('white')} fill={colors.white} style={{ pointerEvents: 'none' }} />
@@ -491,6 +493,10 @@ export const BossView: React.FC<{
                     </button>
                   )}
                 </>
+              ) : hoverSpot && layerOn.taxi ? (
+                <span className="mono" style={{ fontSize: 12.5, color: '#7FD397', fontWeight: 600 }}>
+                  {destName(hoverSpot).toUpperCase()}
+                </span>
               ) : (
                 <span className="mono" style={{ fontSize: 11.5, color: '#6B7683' }}>
                   {mode === 'sand' ? 'Drag an aircraft to move its chit (planning only). Click one to send it to a catapult or parking spot.' : 'Click an aircraft, then a catapult or parking spot, to give it a taxi instruction.'}

@@ -29,11 +29,14 @@ const DestMark: React.FC<{ d: TaxiDest; on?: boolean; cur?: boolean }> = ({ d, o
   </>
 );
 
-/** Every destination of the network with its short id, as when an aircraft is being sent, but not buttons: the Taxi Network layer. */
-export const TaxiSpots: React.FC = () => (
-  <g style={{ pointerEvents: 'none' }}>
+/** Every destination of the network with its short id, as when an aircraft is being sent, but not buttons: the Taxi Network layer.
+ * Hovering one names it (`onHover`: its id, null when the pointer leaves). */
+export const TaxiSpots: React.FC<{ hover?: string | null; onHover?: (id: string | null) => void }> = ({ hover = null, onHover }) => (
+  <g>
     {TAXI_DESTS.map((d) => (
-      <DestMark key={d.id} d={d} />
+      <g key={d.id} onMouseEnter={() => onHover?.(d.id)} onMouseLeave={() => onHover?.(null)}>
+        <DestMark d={d} on={hover === d.id} />
+      </g>
     ))}
   </g>
 );
