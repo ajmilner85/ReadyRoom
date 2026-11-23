@@ -1,0 +1,4 @@
+# DCS Lua files stay LF in every checkout: the tests read them with patterns that end at "
+" (and a Windows
+# checkout would otherwise turn them CRLF: core.autocrlf)
+*.lua text eol=lf
