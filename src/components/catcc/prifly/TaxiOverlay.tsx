@@ -19,7 +19,7 @@ export const TaxiNet: React.FC = () => (
   </g>
 );
 
-/** A destination's marker: a disc with its short id ("BS1", "E22", "C2"); `on` while hovered, `cur` when it is the aircraft in hand's destination. */
+/** A destination's marker: a disc with its short id ("SB1", "E22", "C2"); `on` while hovered, `cur` when it is the aircraft in hand's destination. */
 const DestMark: React.FC<{ d: TaxiDest; on?: boolean; cur?: boolean }> = ({ d, on = false, cur = false }) => (
   <>
     <circle cx={d.p[0]} cy={-d.p[1]} r={on ? 3.1 : 2.7} fill={on ? '#1F4A2B' : '#0B0E12'} stroke={TAXI_COL.clear} strokeOpacity={on || cur ? 1 : 0.7} strokeWidth={on || cur ? 0.6 : 0.35} />

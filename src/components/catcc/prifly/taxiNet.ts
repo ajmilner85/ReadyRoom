@@ -67,8 +67,12 @@ const TURN_X = spot('E12').p[0];
 const FAN = art(TURN_X);
 /** the bow lane's forward end */
 const BOW_END = art(150);
-/** the patio road: the artery's aft end, bent to run parallel to the patio's row of spots, clear of their noses */
-const PATIO_JOIN = art(-108);
+/**
+ * The patio road: the artery's aft end, bent to run parallel to the patio's row of spots, clear of their noses.
+ * It bends where the patio's forward spot comes onto the artery, straight ahead of the jet parked there (the
+ * spot as respotted in DCS met the artery 2 m short of a bend at x = -108, and every route past it kinked).
+ */
+const PATIO_JOIN = meet(spot('PA1').p, heading(spot('PA1').hdg), art(-100), unit(sub(art(20), art(-100))));
 const PATIO_DIR = heading(-9.3);
 const PATIO_END = add(PATIO_JOIN, PATIO_DIR, -24);
 /** the artery as one line, stern to bow */
@@ -129,22 +133,30 @@ export interface Road {
  *   main      the artery: the bow lane for the bow, crotch and point rows; the street for the six-pack and
  *             the starboard rows; the patio road for the patio and the starboard quarter. The port side
  *             spots cross the waist catapult lines and the landing area to it.
- *   bow2      EL 1's forward spot and Point 4 run on across the bow lane to the cat 2 feeder
- *   cat3      the port quarter spot whose nose points along the cat 3 line
+ *   bow1      the six-pack's forward spot runs on across the artery to the cat 1 feeder (respotted in DCS on
+ *             2026-11-16 it meets the artery forward of the fan, where the feeder has already left it)
+ *   bow2      EL 1's forward spot and Point 1 run on across the bow lane to the cat 2 feeder
+ *   cat3      Fantail 1, whose nose points along the cat 3 line
+ *   waist     Port quarter 1, which stands at the cat 4 approach's aft end with its nose across the deck: straight ahead it
+ *             crosses the cat 3 line and runs into the waist crossing at a slant, 8 m short of the landing area's
+ *             centreline (run on to the artery by itself it would be a second waist crossing)
+ * The spots are as the user respotted them in DCS (deck-spots-dcs.csv): the starboard bow row has six, the
+ * port bow row two and the crotch two, the patio three. (Listed in spot-number order: the graph is built in this order.)
  */
-const FEED: Record<string, 'main' | 'bow2' | 'cat3'> = {
-  BS1: 'main', BS2: 'main', BS3: 'main', BS4: 'main', BS5: 'main',
-  BP1: 'main', BP2: 'main', BP3: 'main', CR1: 'main', CR2: 'main', CR3: 'main',
-  PT1: 'main', PT2: 'main', PT3: 'main', PT4: 'bow2', E11: 'bow2',
-  SP1: 'main', SP2: 'main', SP3: 'main', SP4: 'main', SP5: 'main', SP6: 'main',
+const FEED: Record<string, 'main' | 'bow1' | 'bow2' | 'cat3' | 'waist'> = {
+  SB6: 'main', SB5: 'main', SB4: 'main', SB3: 'main', SB2: 'main', SB1: 'main',
+  PB2: 'main', PB1: 'main', CR2: 'main', CR1: 'main',
+  PT4: 'main', PT3: 'main', PT2: 'main', PT1: 'bow2', E11: 'bow2',
+  SP1: 'bow1', SP2: 'main', SP3: 'main', SP4: 'main', SP5: 'main', SP6: 'main',
   CO1: 'main', CO2: 'main', E21: 'main', E22: 'main', E31: 'main', E32: 'main',
-  PA1: 'main', PA2: 'main', ST1: 'main',
-  PO1: 'main', PO2: 'main', PO3: 'main', PO4: 'cat3', E41: 'main', E42: 'main',
+  PA1: 'main', PA2: 'main', PA3: 'main', FT4: 'main',
+  PQ1: 'main', PQ2: 'main', PQ3: 'main', FT1: 'cat3', E41: 'main', E42: 'main',
 };
+const BOW1: V[] = [FAN, cat('1')(52)];
 const BOW2: V[] = [FAN, cat('2')(50)];
 const LANDING: V[] = [LA_AFT, LA_END];
 const CAT3: V[] = [CAT_FROM['3'], CATS['3'][0]];
-const FEED_ROAD = { main: MAIN, bow2: BOW2, cat3: CAT3 };
+const FEED_ROAD = { main: MAIN, bow1: BOW1, bow2: BOW2, cat3: CAT3, waist: [CROSS_FROM, CROSS_CAT3] as V[] };
 
 const feeders = (): Road[] => {
   const out: Road[] = [];
@@ -178,7 +190,7 @@ export const ROADS: Road[] = [
   // catapult approaches: each track's own line, so aircraft arrive lined up
   ...['1', '2', '3', '4'].map((k): Road => ({ id: `cat${k}`, kind: 'cat', pts: [CAT_FROM[k], CATS[k][0]] })),
   // the bow fan: off the artery to cat 1 and cat 2
-  { id: 'bow1', kind: 'feeder', pts: [FAN, cat('1')(52)] },
+  { id: 'bow1', kind: 'feeder', pts: BOW1 },
   { id: 'bow2', kind: 'feeder', pts: BOW2 },
   // the turn-round road, across the deck from the landing area to EL 1's aft spot: where aircraft come
   // off the landing area, and where aircraft coming aft down the bow lane turn back up to a bow catapult
@@ -187,11 +199,14 @@ export const ROADS: Road[] = [
   { id: 'crotch', kind: 'feeder', pts: [LA_END, CROTCH_JOIN] },
   { id: 'crotch2', kind: 'feeder', pts: [cat('2')(55.8), CROTCH_JOIN] },
   // the stern spots that point up a road's own line pull straight out 8 m and ease onto its aft end: the landing area's, the cat 3 line's
-  { id: 'spot-ST2', kind: 'feeder', pts: [spot('ST2').p, add(spot('ST2').p, heading(spot('ST2').hdg), 8), LA_AFT] },
-  { id: 'spot-PO5', kind: 'feeder', pts: [spot('PO5').p, add(spot('PO5').p, heading(spot('PO5').hdg), 8), CAT_FROM['3']] },
+  { id: 'spot-FT3', kind: 'feeder', pts: [spot('FT3').p, add(spot('FT3').p, heading(spot('FT3').hdg), 8), LA_AFT] },
+  { id: 'spot-FT2', kind: 'feeder', pts: [spot('FT2').p, add(spot('FT2').p, heading(spot('FT2').hdg), 8), CAT_FROM['3']] },
   ...feeders(),
   pivot('E41', CAT_FROM['4']),
   pivot('E42', CAT_FROM['4']),
+  // Port quarter 1 stands at the cat 4 approach's aft end, nose across the deck (as respotted): it pulls out and swings
+  // left onto the approach 14 m up it
+  pivot('PQ1', cat('4')(-70)),
 ];
 
 const KIND = (s: DeckSpot): DestKind => (s.area.startsWith('El ') ? 'elev' : 'park');

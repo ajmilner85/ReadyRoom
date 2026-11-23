@@ -1,24 +1,32 @@
 // Writes src/components/catcc/prifly/deckSpots.gen.ts from carrier-ops-handoff-2/deck-spots.csv (the
 // F/A-18C spots placed by hand on the Aircraft Spotting layer of Nimitz.svg; scripts/catcc/nimitz-spots.py
-// makes the CSV).
+// makes the CSV) and carrier-ops-handoff-2/deck-spots-dcs.csv: THE SPOTS AS RESPOTTED IN DCS (2026-11-16: the
+// user parked a Hornet on every spot with the crew test's deck spotting tool and moved each until it stood
+// right; the tool's record, Saved Games\DCS\Logs\catcc-deck-spots.lua, became that file). A spot that has a
+// row there (by its number) is where and what that row says: its place, its heading and its NAME (three
+// spots changed area and ten were renamed). It is not touched by the edge rule below: it stands where he
+// put it. A spot without a row is the drawing's, with the edge rule.
 //
 //   node scripts/catcc/deck-spots.gen.ts
 //
 // The CSV is in DCS's ship frame (x forward, z to STARBOARD, heading in degrees CLOCKWISE from the bow);
 // PriFly's deck frame is x forward, y to PORT, headings COUNTER-clockwise from the bow. So y = -z and
 // the heading changes sign. Each spot gets a short id for markers and taxi instructions: the area's two
-// letters and the spot's number in it (BS1 = Bow stbd 1, E21 = El 2 1).
+// letters and the spot's number in it (SB1 = Stbd bow 1, PQ1 = Port quarter 1, FT1 = Fantail 1, E21 = El 2 1).
+// Within an area the numbers run by proximity to the area's catapult (the user, 2026-11-23): 1 is the spot with
+// the shortest taxi route to it (catcc-dcs/deck-test/spots.gen.ts).
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const SPOTS_CSV = path.join(root, 'carrier-ops-handoff-2/deck-spots.csv');
+export const SPOTS_DCS_CSV = path.join(root, 'carrier-ops-handoff-2/deck-spots-dcs.csv');
 export const SPOTS_TS = path.join(root, 'src/components/catcc/prifly/deckSpots.gen.ts');
 
 const AREA: Record<string, string> = {
-  'Bow stbd': 'BS', 'Bow port': 'BP', Crotch: 'CR', Point: 'PT', 'El 1': 'E1', 'El 2': 'E2', 'El 3': 'E3', 'El 4': 'E4',
-  Sixpack: 'SP', Corral: 'CO', Patio: 'PA', Stbd: 'ST', Port: 'PO',
+  'Stbd bow': 'SB', 'Port bow': 'PB', Crotch: 'CR', Point: 'PT', 'El 1': 'E1', 'El 2': 'E2', 'El 3': 'E3', 'El 4': 'E4',
+  Sixpack: 'SP', Corral: 'CO', Patio: 'PA', 'Port quarter': 'PQ', Fantail: 'FT',
 };
 const r2 = (v: number) => Math.round(v * 100) / 100;
 
@@ -100,37 +108,56 @@ export function edgeAdjusted(x: number, z: number, hdgCw: number): [number, numb
     }
   }
   if (lo === null || hi === null) return [x, z, 0];
+  let near: number = lo;
+  let far: number = hi;
   for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (f(lo) * f(mid) <= 0) hi = mid;
-    else lo = mid;
+    const mid: number = (near + far) / 2;
+    if (f(near) * f(mid) <= 0) far = mid;
+    else near = mid;
   }
-  const t = (lo + hi) / 2;
+  const t = (near + far) / 2;
   return [x + t * hx, z + t * hz, t];
 }
 
 /** the spots the last buildSpotsTs moved: how far along the heading (m, + forward), and where the wheels were before */
 export const movedSpots: { name: string; moved: number; was: number }[] = [];
 
-export function buildSpotsTs(csv = fs.readFileSync(SPOTS_CSV, 'utf8')): string {
+/** the spots set in DCS, by spot number: name, x (forward), z (to starboard), heading (clockwise from the bow) */
+export const dcsSpots = (dcs: string): Map<number, { name: string; x: number; z: number; hdg: number }> =>
+  new Map(
+    dcs
+      .trim()
+      .split(/\r?\n/)
+      .slice(1)
+      .filter((l) => l.trim() !== '')
+      .map((l) => l.split(','))
+      .map((c) => [Number(c[0]), { name: c[1], x: Number(c[2]), z: Number(c[3]), hdg: Number(c[4]) }]),
+  );
+
+/** dcs: the text of deck-spots-dcs.csv ('' for none: the drawing's spots, each with the edge rule) */
+export function buildSpotsTs(csv = fs.readFileSync(SPOTS_CSV, 'utf8'), dcs = fs.existsSync(SPOTS_DCS_CSV) ? fs.readFileSync(SPOTS_DCS_CSV, 'utf8') : ''): string {
   movedSpots.length = 0;
+  const set = dcs ? dcsSpots(dcs) : new Map<number, { name: string; x: number; z: number; hdg: number }>();
   const rows = csv.trim().split(/\r?\n/).slice(1).map((l) => l.split(','));
   const lines = rows.map((c) => {
-    const [n, name, x, , z, hdg] = c;
+    const [n] = c;
+    const o = set.get(Number(n));
+    const [name, x, z, hdg] = o ? [o.name, String(o.x), String(o.z), String(o.hdg)] : [c[1], c[2], c[4], c[5]];
     const m = /^(.*) (\d+)$/.exec(name);
     if (!m || !AREA[m[1]]) throw new Error(`deck-spots.csv: no short id for "${name}"`);
     const ccw = r2(-Number(hdg) + (Number(hdg) > 180 ? 360 : 0)); // -180..180, counter-clockwise from the bow
-    const [ax, az, moved] = edgeAdjusted(Number(x), Number(z), Number(hdg));
+    const [ax, az, moved] = o ? [Number(x), Number(z), 0] : edgeAdjusted(Number(x), Number(z), Number(hdg));
     if (moved !== 0) movedSpots.push({ name, moved, was: wheelsInside(Number(x), Number(z), Number(hdg)) });
     return `  { n: ${n}, id: '${AREA[m[1]]}${m[2]}', label: '${name}', area: '${m[1]}', p: [${r2(ax)}, ${r2(-az)}], hdg: ${ccw} },`;
   });
-  return `// GENERATED by scripts/catcc/deck-spots.gen.ts from carrier-ops-handoff-2/deck-spots.csv - do not edit.
+  return `// GENERATED by scripts/catcc/deck-spots.gen.ts from carrier-ops-handoff-2/deck-spots.csv and deck-spots-dcs.csv - do not edit.
 // The F/A-18C deck spots: where aircraft are parked and where players spawn. PriFly's deck frame:
 // metres, x forward, y to port; hdg: the way the parked jet points, degrees counter-clockwise from the bow.
 // p is the jet's DCS reference point (8.58 m behind the nose). n: the spot's number in the CSV, which is
 // also its place in DCS's spawn table (GT.TaxiForTORoutes) when the spots are installed there.
-// A spot whose tail points at the deck edge is not where the CSV has it: it is moved along its heading so
-// that the nearer main wheel is 4 ft from the edge (see the generator).
+// A spot with a row in deck-spots-dcs.csv is where the user stood it in DCS (its name is that row's). Any
+// other, if its tail points at the deck edge, is moved along its heading so that the nearer main wheel is
+// 4 ft from the edge (see the generator).
 export interface DeckSpot {
   n: number;
   id: string;

@@ -64,7 +64,7 @@
 #                    included, does not): one such member was there and took every order on 2026-11-14.
 #   -Crew Model      Extra (its four are the flight directors: yellow shirts), plus two more members of catapult
 #                    crew 1: "catcc-m0", the plane captain (a brown shirt), and "catcc-t0", the tow tractor's
-#                    driver (a green shirt). All stand 12 to 14 m forward, 29 to 33 m to starboard, off elevator 1.
+#                    driver (a blue shirt). All stand 12 to 14 m forward, 29 to 33 m to starboard, off elevator 1.
 #   Goes with the crew test (crew-test\install.ps1: the native module and F10 > CATCC crew test).
 #
 # CATAPULT CREW GATE (common.xml, the catapult crews' behaviour tree):
@@ -276,6 +276,6 @@ if (-not $Revert) {
   if ($CatGate) { Write-Host 'Cat gate: a catapult crew that has cleared its catapult now returns only while operation is allowed. F10 > CATCC crew test > Catapult crews > Catapult N > Close it: they should walk off and stay off; Open it: they return.' }
   if ($Crew -eq 'Draw' -or $Crew -eq 'Full') { Write-Host 'Crew: look for debug drawing around the deck crew (lines, labels, goals).' }
   if ($Crew -eq 'People' -or $Crew -eq 'Full' -or $Crew -eq 'Extra' -or $Crew -eq 'Model') { Write-Host 'Crew people: a green shirt of ours should stand 14 m forward / 27 m to starboard (between spawn spots 1 and 5). Then F10 > CATCC crew test.' }
-  if ($Crew -eq 'Model') { Write-Host 'Crew model: Extra (yellow shirts), plus catcc-m0 (the plane captain, a brown shirt) and catcc-t0 (the tow tractor''s driver, a green shirt), 12 m forward / 31 and 33 m to starboard.' }
+  if ($Crew -eq 'Model') { Write-Host 'Crew model: Extra (yellow shirts), plus catcc-m0 (the plane captain, a brown shirt) and catcc-t0 (the tow tractor''s driver, a blue shirt), 12 m forward / 31 and 33 m to starboard.' }
   if ($Crew -eq 'Extra' -or $Crew -eq 'Model') { Write-Host 'Crew extra: four people of ours (catcc-c0 .. catcc-c3) are in catapult crew 1''s list; they exist with the deck crew option OFF too. The "at mission start" message names them under "People of ours:". If DCS dies loading the mission, run this again with -Crew Full.' }
 }

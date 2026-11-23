@@ -22,7 +22,7 @@ const turn = (a: V, b: V, c: V) => {
 
 describe('taxi network', () => {
   it('has every destination on a road, on the deck, and reachable from every other', () => {
-    expect(TAXI_DESTS.map((d) => d.id)).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C4', 'BS1', 'BP3', 'CR3', 'PT4', 'E11', 'E22', 'E31', 'E42', 'SP6', 'CO2', 'PA2', 'ST2', 'PO5']));
+    expect(TAXI_DESTS.map((d) => d.id)).toEqual(expect.arrayContaining(['C1', 'C2', 'C3', 'C4', 'SB6', 'SB1', 'PB1', 'CR1', 'PT1', 'E11', 'E22', 'E31', 'E42', 'SP6', 'CO2', 'PA3', 'FT3', 'FT2']));
     // the four catapults and the 40 deck spots of the spotting plan
     expect(TAXI_DESTS.length).toBe(44);
     for (const d of TAXI_DESTS) {
@@ -45,7 +45,9 @@ describe('taxi network', () => {
         expect(wp, name).not.toBeNull();
         // the first leg is the spot's own feeder: along the nose, for at least 5 m (the six-pack's aft
         // spot stands 3.9 m from the artery: it turns onto it there)
-        expect(Math.abs(wrap(ang(wp[0], wp[1]) - s.hdg)), name).toBeLessThan(1);
+        // (to within 1.5 degrees: two feeders that meet a road within 0.25 m of each other share the junction, which
+        // bends a short feeder a little: Sixpack 5's and EL 2's forward spot's, as respotted in DCS)
+        expect(Math.abs(wrap(ang(wp[0], wp[1]) - s.hdg)), name).toBeLessThan(1.5);
         let i = 1;
         while (i < wp.length - 1 && Math.abs(wrap(ang(wp[i], wp[i + 1]) - s.hdg)) < 1) i++;
         expect(Math.hypot(wp[i][0] - s.p[0], wp[i][1] - s.p[1]), name).toBeGreaterThanOrEqual(s.id === 'SP6' ? 3.8 : 5);
@@ -78,7 +80,7 @@ describe('taxi network', () => {
   });
 
   it('sends everything from the stern to the bow catapults up the one artery', () => {
-    for (const [from, to] of [['E31', 'C1'], ['E32', 'C2'], ['PA1', 'C1'], ['ST1', 'C2'], ['E21', 'C1'], ['E22', 'C2']]) {
+    for (const [from, to] of [['E31', 'C1'], ['E32', 'C2'], ['PA1', 'C1'], ['FT4', 'C2'], ['E21', 'C1'], ['E22', 'C2']]) {
       const r = route(from, to);
       // from clear of its own feeder's fillet to short of the bow fan
       const x0 = Math.max(-60, at(from)[0] + 12);
@@ -90,7 +92,7 @@ describe('taxi network', () => {
   });
 
   it('arrives at a catapult lined up with its track', () => {
-    for (const [from, k] of [['E31', '1'], ['E31', '2'], ['PA2', '3'], ['E32', '4'], ['E42', '3'], ['E11', '1'], ['BS2', '1'], ['BP2', '2'], ['PT3', '1']]) {
+    for (const [from, k] of [['E31', '1'], ['E31', '2'], ['PA2', '3'], ['E32', '4'], ['E42', '3'], ['E11', '1'], ['SB5', '1'], ['PB1', '2'], ['PT2', '1']]) {
       const r = route(from, `C${k}`);
       const [a, b] = CATS[k];
       const last = r[r.length - 1];
@@ -103,15 +105,15 @@ describe('taxi network', () => {
   it('shares the waist crossing between the patio and EL 3; EL 4 reaches the waist catapults without it', () => {
     const crossing = (r: V[]) => r.filter((p) => p[1] > -8 && p[1] < 10);
     const a = crossing(route('PA2', 'C3'));
-    const b = crossing(route('E32', 'C4'));
     const c = crossing(route('E31', 'C3'));
     expect(a.length).toBeGreaterThan(10);
     // the same line across the landing area: every point of one is on the others' path
     const near = (p: V, r: V[]) => r.some((q) => Math.hypot(p[0] - q[0], p[1] - q[1]) < 0.75);
-    expect(a.every((p) => near(p, b))).toBe(true);
-    expect(c.every((p) => near(p, a))).toBe(true);
+    // (against the whole of the other route: its points are a metre apart, and the band's edge can fall between two)
+    expect(a.every((p) => near(p, route('E32', 'C4')))).toBe(true);
+    expect(c.every((p) => near(p, route('PA2', 'C3')))).toBe(true);
     // EL 4: stays on the port side of the landing area
-    for (const [from, to] of [['E41', 'C3'], ['E42', 'C3'], ['E41', 'C4'], ['E42', 'C4'], ['PO2', 'C3']]) expect(route(from, to).every((p) => p[1] > 10), `${from} -> ${to}`).toBe(true);
+    for (const [from, to] of [['E41', 'C3'], ['E42', 'C3'], ['E41', 'C4'], ['E42', 'C4'], ['PQ2', 'C3']]) expect(route(from, to).every((p) => p[1] > 10), `${from} -> ${to}`).toBe(true);
   });
 
   it('fillets the corners: no route from a spot to a catapult turns sharper than a 2.5 m radius; few between spots do', () => {
@@ -127,13 +129,17 @@ describe('taxi network', () => {
         let worst = 0;
         for (let i = 1; i < r.length - 1; i++) worst = Math.max(worst, turn(r[i - 1], r[i], r[i + 1]));
         // degrees per ~1 m step
-        if (b.kind === 'cat') expect(worst, `${a.id} -> ${b.id}`).toBeLessThan(24);
+        // (one route of the deck as respotted in DCS turns tighter: Port quarter 1, parked across the cat 3 line's aft end,
+        // turns 97 degrees onto it 2 m from where the waist crossing joins it)
+        const limit = a.id === 'PQ1' && b.id === 'C3' ? 32 : 24;
+        if (b.kind === 'cat') expect(worst, `${a.id} -> ${b.id}`).toBeLessThan(limit);
         else if (worst >= 24) tight++;
         if (worst > 12) sharp++;
       }
     // spot to spot, a route ends by running up the other spot's feeder the wrong way: where that feeder
-    // meets its road at a slant a few of these still kink (the crotch's aft spot is most of them)
-    expect(tight).toBeLessThan(routes * 0.02);
+    // meets its road at a slant a few of these still kink (as respotted in DCS: the patio's and the stern quarter's
+    // spots, whose noses now point more along the patio road: 49 of 1720)
+    expect(tight).toBeLessThan(routes * 0.03);
     expect(sharp).toBeLessThan(routes * 0.2);
   });
 

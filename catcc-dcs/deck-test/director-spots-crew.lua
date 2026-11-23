@@ -11,7 +11,8 @@
 -- are meant for the deck crew option OFF (the squadron's setup), where the take-off crew does not exist.
 -- Plain Lua 5.1 (DCS); also run under fengari by the tests.
 
-local SPOTS = 40
+-- (44: DCS's own first four routes, kept in front, and the plan's 40 after them: spots.gen.ts SPAWN_OFFSET)
+local SPOTS = 44
 
 local tt = takeoff_crew and takeoff_crew.takeoff_tasks
 if type(tt) == 'table' and #tt > 0 then

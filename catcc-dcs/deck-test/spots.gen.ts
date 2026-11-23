@@ -12,7 +12,9 @@
 //   then      the corners of PriFly's taxi route (taxiNet.ts) from that spot to a catapult, ending 5 m
 //             short of the shuttle on the track's line, as the stock routes do
 // DCS wants one catapult per route (RunwayIdx). Each deck area is given the catapult on its own side
-// and end of the ship (AREA_CAT), so AI aircraft spread over all four instead of queueing for the nearest.
+// and end of the ship (AREA_CAT), so AI aircraft spread over all four instead of queueing for the nearest. The
+// fantail is the one area across the ship: its two port spots go to catapult 4, its two starboard ones to catapult 3
+// (SPOT_CAT; spotCat gives a spot's catapult).
 // AI aircraft taxi these routes; players only spawn on them (with the deck crew option off nobody
 // directs a player along one).
 //
@@ -43,11 +45,16 @@ export interface SpawnRoute {
 
 /** the catapult each deck area's spots are routed to in DCS's table */
 export const AREA_CAT: Record<string, number> = {
-  'Bow stbd': 1, Point: 1, 'El 1': 1, Corral: 1, 'El 2': 1,
-  'Bow port': 2, Crotch: 2, Sixpack: 2,
-  'El 3': 3, Patio: 3, Stbd: 3,
-  Port: 4, 'El 4': 4,
+  'Stbd bow': 1, Point: 1, 'El 1': 1, Corral: 1, 'El 2': 1,
+  'Port bow': 2, Crotch: 2, Sixpack: 2,
+  'El 3': 3, Patio: 3,
+  'Port quarter': 4, 'El 4': 4,
 };
+/** spots whose catapult is their own, not their area's: the fantail's, each the catapult it had before the fantail was an
+ * area (2026-11-23: its two starboard spots were "Stbd" (catapult 3), its two port ones "Port" 4 and 5 (catapult 4)) */
+export const SPOT_CAT: Record<string, number> = { FT1: 4, FT2: 4, FT3: 3, FT4: 3 };
+/** the catapult a deck spot is routed to in DCS's table (and the one its number in its area counts nearness to) */
+export const spotCat = (s: { id: string; area: string }): number | undefined => SPOT_CAT[s.id] ?? AREA_CAT[s.area];
 
 /** a route's corners: points in line with their neighbours dropped */
 function corners(wp: V[]): V[] {
@@ -73,19 +80,21 @@ function corners(wp: V[]): V[] {
 // ending on a parking place; ten of those places are also spawn spots. With the spawn spots replaced and
 // the parking routes left alone, the AI four-ship held to port and never came aboard (runs 8 and 9,
 // 2026-11-14): so the parking routes are rebuilt to end on the plan's spots.
-//   * 31 of the 40 spots: every spot on the starboard side and the bow. The port side (Port 1-5, El 4)
-//     and the stern (Stbd 1-2) are in or beside the landing area and get no parking route.
+//   * 31 of the 40 spots: every spot on the starboard side and the bow. The port quarter, El 4 and the fantail
+//     are in or beside the landing area and get no parking route.
 //   * The order is DCS's own, place for place where the plan has one: 1-2 the patio, 4-5 EL 3, 10-11
 //     EL 2, 12 the corral, 13-14 the point, 15-16 EL 1; and 6-9, DCS's "blocker" places abeam the island
 //     (GT.BlockerTerminals = {6,7,8,9}: when one is taken, places with greater numbers are looked for),
 //     are four of the six-pack, which stands across the street the same way. The rest follow from 17.
+//     (As respotted in DCS, 2026-11-16: the patio has three spots, its two aft ones places 1-2 and its forward
+//     one among the rest; the starboard bow row has six, the port bow row and the crotch two each.)
 //   * Each route: the stock first point, the bend of PriFly's turn-round road (a right turn off the
 //     landing area), then the corners of PriFly's taxi route from there to the spot. The aircraft arrives
 //     up the spot's feeder, so it parks pointing the opposite way to a jet spawned there (as on DCS's
 //     own elevator places). Elevator spots keep DCS's 180 s wait on the last point.
 export const PARK_ORDER = [
-  'PA2', 'PA1', 'CO2', 'E32', 'E31', 'SP6', 'SP5', 'SP4', 'SP3', 'E22', 'E21', 'CO1', 'PT2', 'PT3', 'E12', 'E11',
-  'PT4', 'PT1', 'SP2', 'SP1', 'BS5', 'BS4', 'BS3', 'BS2', 'BS1', 'CR3', 'CR2', 'CR1', 'BP3', 'BP2', 'BP1',
+  'PA3', 'PA2', 'CO2', 'E32', 'E31', 'SP6', 'SP5', 'SP4', 'SP3', 'E22', 'E21', 'CO1', 'PT3', 'PT2', 'E12', 'E11',
+  'PT1', 'PT4', 'SP2', 'SP1', 'PA1', 'SB1', 'SB2', 'SB3', 'SB4', 'SB5', 'SB6', 'CR1', 'CR2', 'PB1', 'PB2',
 ];
 /** where the roll-out ends: the first point of every stock parking route (PriFly frame: y to port) */
 const LA_EXIT: V = [13, 19];
@@ -117,9 +126,16 @@ export function buildParkRoutes(): ParkRoute[] {
   });
 }
 
+/** the four routes DCS gives only at mission start, in front of the plan's: deck spot n is DCS's spawn route n + SPAWN_OFFSET */
+export const SPAWN_OFFSET = 4;
+/** what those four are: copies of the routes of these deck spots (the six-pack's four nearest its catapult): an aircraft DCS
+ * starts there at mission start stands on a spot of the plan, which the slot picker then finds occupied (the user,
+ * 2026-11-23: "spawns 1-4 are moved so they align with our own six-pack locations. So they are essentially duplicates") */
+export const START_SPOTS = ['SP1', 'SP2', 'SP3', 'SP4'];
+
 export function buildSpawnRoutes(): SpawnRoute[] {
   return DECK_SPOTS.map((s) => {
-    const cat = AREA_CAT[s.area];
+    const cat = spotCat(s);
     const wp = cat ? taxiWaypoints(s.p, `C${cat}`, s.hdg) : null;
     if (!wp) throw new Error(`no route from deck spot ${s.n} (${s.label}) to its catapult`);
     const best = { cat, wp, len: routeLength(smoothRoute(wp)) };
@@ -136,6 +152,11 @@ export function buildSpawnRoutes(): SpawnRoute[] {
 
 export function buildSpotsLua(): string {
   const routes = buildSpawnRoutes();
+  const start = START_SPOTS.map((id) => {
+    const i = DECK_SPOTS.findIndex((s) => s.id === id);
+    if (i < 0) throw new Error(`START_SPOTS: no deck spot ${id}`);
+    return i + 1;
+  });
   const body = routes.map((r) => {
     const last = r.pts.length - 1;
     const lines = r.pts.map((p, i) => {
@@ -155,15 +176,25 @@ export function buildSpotsLua(): string {
   return `-- GENERATED by catcc-dcs/deck-test/spots.gen.ts from the spotting plan (carrier-ops-handoff-2/deck-spots.csv)
 -- and PriFly's taxi network (src/components/catcc/prifly/taxiNet.ts) - do not edit.
 -- director-test.ps1 -Spawn Spots appends this, wrapped in "do ... end", to the end of
--- USS_Nimitz_RunwaysAndRoutes.lua: DCS's 16 deck spawn spots are replaced by the 40 of the spotting plan,
--- and its 16 parking routes by 31 that end on spots of the plan.
+-- USS_Nimitz_RunwaysAndRoutes.lua: DCS's 16 deck spawn spots are replaced by FOUR THAT DCS GIVES ONLY AT MISSION
+-- START (copies of the routes of deck spots ${START_SPOTS.join(', ')}: an aircraft started there stands on that spot of
+-- the plan) followed by the 40 of the spotting plan: deck spot n is DCS's spawn route n + ${SPAWN_OFFSET}. Its 16
+-- parking routes are replaced by 31 that end on spots of the plan.
 -- A spawn spot is the first point of its route; the jet points toward the second; the rest is the taxi
 -- route AI aircraft follow to the catapult named by RunwayIdx. Ship coordinates: x forward, y up, z to
 -- starboard, metres. Plain Lua 5.1 (DCS); also run under fengari by the tests.
-GT.TaxiForTORoutes =
+local catccSpots =
 {
 ${body.join('\n')}
 }
+local function catccCopy(t)
+  local c = {}
+  for k, v in pairs(t) do c[k] = type(v) == 'table' and catccCopy(v) or v end
+  return c
+end
+GT.TaxiForTORoutes = {}
+for _, n in ipairs({ ${start.join(', ')} }) do GT.TaxiForTORoutes[#GT.TaxiForTORoutes + 1] = catccCopy(catccSpots[n]) end
+for _, r in ipairs(catccSpots) do GT.TaxiForTORoutes[#GT.TaxiForTORoutes + 1] = r end
 GT.TaxiForTORoutes.RoutesForTONumber = #GT.TaxiForTORoutes
 
 -- Where AI aircraft park after landing: from where the roll-out ends to a spot of the plan (spots.gen.ts

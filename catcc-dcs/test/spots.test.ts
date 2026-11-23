@@ -12,7 +12,8 @@ import { describe, expect, it } from 'vitest';
 import { lauxlib, lua, lualib, to_luastring } from 'fengari';
 import { NIMITZ, inPoly } from '../../src/components/catcc/prifly/deck.ts';
 import { DECK_SPOTS } from '../../src/components/catcc/prifly/deckSpots.gen.ts';
-import { AREA_CAT, PARK_ORDER, SPOTS_LUA, buildParkRoutes, buildSpawnRoutes, buildSpotsLua } from '../deck-test/spots.gen.ts';
+import { PARK_ORDER, SPAWN_OFFSET, SPOTS_LUA, START_SPOTS, buildParkRoutes, buildSpawnRoutes, buildSpotsLua, spotCat } from '../deck-test/spots.gen.ts';
+import { SPOTS_DCS_CSV, dcsSpots } from '../../scripts/catcc/deck-spots.gen.ts';
 
 const here = (p: string) => path.resolve(__dirname, p);
 const DCS = 'C:/Program Files/Eagle Dynamics/DCS World/CoreMods/tech/USS_Nimitz/scripts';
@@ -26,7 +27,12 @@ const csv = fs
   .split(/\r?\n/)
   .slice(1)
   .map((l) => l.split(','))
-  .map((c) => ({ n: Number(c[0]), name: c[1], x: Number(c[2]), z: Number(c[4]), hdg: Number(c[5]) }));
+  .map((c) => ({ n: Number(c[0]), name: c[1], x: Number(c[2]), z: Number(c[4]), hdg: Number(c[5]) }))
+  // the plan's spots are the drawing's, each replaced by the one the user set in DCS (deck-spots-dcs.csv) where there is one
+  .map((s) => {
+    const o = (fs.existsSync(SPOTS_DCS_CSV) ? dcsSpots(fs.readFileSync(SPOTS_DCS_CSV, 'utf8')) : new Map()).get(s.n);
+    return o ? { n: s.n, name: o.name, x: Math.round(o.x * 100) / 100, z: Math.round(o.z * 100) / 100, hdg: o.hdg } : s;
+  });
 
 function run(code: string): string {
   const L = lauxlib.luaL_newstate();
@@ -56,10 +62,23 @@ describe("the spotting plan's deck spots as DCS's spawn table", () => {
   });
 
   it('gives DCS 40 routes: each starts on its spot, points the jet as the plan parks it, and runs on the deck to its catapult', () => {
-    const { count, routes } = routesOf(`GT = { TaxiForTORoutes = { 'stock' } }\ndo\n${blockSrc}\nend`);
-    expect(count).toBe(40);
+    const t = routesOf(`GT = {}\ndo\n${blockSrc}\nend`);
+    expect(t.count).toBe(44);
+    // (the plan's 40, after the four given only at mission start)
+    const routes = t.routes.slice(4);
     expect(routes.length).toBe(40);
     expect(csv.length).toBe(40);
+    // THE FOUR ROUTES DCS GIVES ONLY AT MISSION START ARE COPIES OF SIX-PACK SPOTS' (the user, 2026-11-23: "spawns 1-4
+    // are moved so they align with our own six-pack locations. So they are essentially duplicates"): whatever the file
+    // had, the table holds those four, then the plan's 40: deck spot n is DCS's spawn route n + 4
+    const stockRoutes = [1, 2, 3, 4, 5, 6].map((k) => `{ RunwayIdx = ${((k - 1) % 4) + 1}, Points = { { { ${k}00, 0, 0 }, 1.0 } } }`).join(', ');
+    const all = routesOf(`GT = { TaxiForTORoutes = { ${stockRoutes} } }\ndo\n${blockSrc}\nend`);
+    expect(SPAWN_OFFSET).toBe(4);
+    expect(all.count).toBe(44);
+    expect(START_SPOTS).toEqual(['SP1', 'SP2', 'SP3', 'SP4']);
+    const at = START_SPOTS.map((id) => csv.findIndex((s) => s.n === DECK_SPOTS.find((d) => d.id === id)?.n));
+    expect(all.routes.slice(0, 4)).toEqual(at.map((i) => routes[i]));
+    expect(all.routes.slice(4)).toEqual(routes);
     const shuttle: Record<number, number[]> = { 1: NIMITZ.cats['1'][0], 2: NIMITZ.cats['2'][0], 3: NIMITZ.cats['3'][0], 4: NIMITZ.cats['4'][0] };
     routes.forEach((r, i) => {
       const s = csv[i];
@@ -75,8 +94,8 @@ describe("the spotting plan's deck spots as DCS's spawn table", () => {
       const hdg = ((Math.atan2(p1[2] - p0[2], p1[0] - p0[0]) * 180) / Math.PI + 360) % 360;
       expect(Math.abs(((hdg - s.hdg + 540) % 360) - 180), name).toBeLessThan(0.2);
       expect(Math.hypot(p1[0] - p0[0], p1[2] - p0[2]), name).toBeGreaterThan(2);
-      // its catapult: the deck area's, and the route ends 5 m short of that shuttle
-      expect(r.cat, name).toBe(AREA_CAT[DECK_SPOTS[i].area]);
+      // its catapult: the deck area's (the fantail's: each spot's own), and the route ends 5 m short of that shuttle
+      expect(r.cat, name).toBe(spotCat(DECK_SPOTS[i]));
       const end = r.pts[r.pts.length - 1];
       expect(Math.hypot(end[0] - shuttle[r.cat][0], end[2] + shuttle[r.cat][1]), name).toBeCloseTo(5, 1);
       // every corner on the deck (PriFly's outline: y to port) and clear of the island; speeds 1 or 2 m/s
@@ -88,8 +107,25 @@ describe("the spotting plan's deck spots as DCS's spawn table", () => {
     });
     // AI aircraft are spread over all four catapults
     const per = [1, 2, 3, 4].map((k) => routes.filter((r) => r.cat === k).length);
-    expect(per).toEqual([15, 12, 6, 7]);
+    // (the deck as respotted in DCS: six on the starboard bow, three on the patio)
+    expect(per).toEqual([16, 10, 7, 7]);
     expect(buildSpawnRoutes().map((r) => r.n)).toEqual(csv.map((s) => s.n));
+  });
+
+  it("numbers the spots of each area by nearness to their catapult (the user, 2026-11-23): 1 has the shortest route to it; the short ids follow the names", () => {
+    const routes = buildSpawnRoutes();
+    const areas = [...new Set(DECK_SPOTS.map((s) => s.area))];
+    expect(areas).toEqual(['Stbd bow', 'Patio', 'Port bow', 'Crotch', 'Point', 'El 1', 'Sixpack', 'Corral', 'El 2', 'El 3', 'Fantail', 'Port quarter', 'El 4']);
+    for (const area of areas) {
+      const list = DECK_SPOTS.filter((s) => s.area === area).map((s) => ({ k: Number(s.label.split(' ').pop()), len: routes.find((r) => r.n === s.n)!.len }));
+      const byNumber = [...list].sort((p, q) => p.k - q.k);
+      expect(byNumber.map((q) => q.k), area).toEqual(list.map((_, i) => i + 1));
+      for (let i = 1; i < byNumber.length; i++) expect(byNumber[i].len, `${area} ${byNumber[i].k}`).toBeGreaterThan(byNumber[i - 1].len);
+    }
+    const prefix: Record<string, string> = { 'Stbd bow': 'SB', 'Port bow': 'PB', Crotch: 'CR', Point: 'PT', Sixpack: 'SP', Corral: 'CO', Patio: 'PA', 'Port quarter': 'PQ', Fantail: 'FT' };
+    for (const s of DECK_SPOTS) expect(s.id, s.label).toBe(s.area.startsWith('El ') ? `E${s.area.slice(3)}${s.label.split(' ').pop()}` : `${prefix[s.area]}${s.label.split(' ').pop()}`);
+    // the fantail: its port pair to catapult 4, its starboard pair to catapult 3, as before it was an area
+    expect(['FT1', 'FT2', 'FT3', 'FT4'].map((id) => spotCat(DECK_SPOTS.find((s) => s.id === id)!))).toEqual([4, 4, 3, 3]);
   });
 
   it('gives DCS 31 parking routes: each from where the roll-out ends to a spot of the plan, in DCS\'s own order of places', () => {
@@ -111,7 +147,7 @@ OUT = tostring(GT.TaxiRoutes.RoutesNumber) .. '|' .. table.concat(GT.BlockerTerm
     // none on the port side or the stern: those spots are in or beside the landing area
     expect(PARK_ORDER.some((id) => /^(PO|E4|ST)/.test(id))).toBe(false);
     // DCS's own order, place for place: patio, EL 3, the blockers abeam the island, EL 2, corral, point, EL 1
-    expect(PARK_ORDER.slice(0, 16)).toEqual(['PA2', 'PA1', 'CO2', 'E32', 'E31', 'SP6', 'SP5', 'SP4', 'SP3', 'E22', 'E21', 'CO1', 'PT2', 'PT3', 'E12', 'E11']);
+    expect(PARK_ORDER.slice(0, 16)).toEqual(['PA3', 'PA2', 'CO2', 'E32', 'E31', 'SP6', 'SP5', 'SP4', 'SP3', 'E22', 'E21', 'CO1', 'PT3', 'PT2', 'E12', 'E11']);
     routes.forEach((pts, i) => {
       const id = PARK_ORDER[i];
       const s = csv[DECK_SPOTS.find((q) => q.id === id)!.n - 1];
@@ -141,7 +177,7 @@ OUT = tostring(GT.TaxiRoutes.RoutesNumber) .. '|' .. table.concat(GT.BlockerTerm
   });
 
   it('the hand-off lists: one for each of the 40 routes, the new ones taken from the stock 16 in rotation', () => {
-    expect(padSrc).toContain(`local SPOTS = ${DECK_SPOTS.length}\n`.replace('\n', ''));
+    expect(padSrc).toContain(`local SPOTS = ${DECK_SPOTS.length + SPAWN_OFFSET}\n`.replace('\n', ''));
     const out = run(`takeoff_crew = { takeoff_tasks = {} }
 for i = 1, 16 do takeoff_crew.takeoff_tasks[i] = { brown_id = i } end
 do
@@ -149,7 +185,7 @@ ${padSrc}
 end
 local t = takeoff_crew.takeoff_tasks
 OUT = #t .. ' ' .. t[17].brown_id .. ' ' .. t[32].brown_id .. ' ' .. t[33].brown_id .. ' ' .. t[40].brown_id .. ' ' .. tostring(t[16].brown_id)`);
-    expect(out).toBe('40 1 16 1 8 16');
+    expect(out).toBe('44 1 16 1 8 16');
     // no take-off crew table, or an empty one: nothing happens
     expect(run(`takeoff_crew = nil\ndo\n${padSrc}\nend\nOUT = 'ok'`)).toBe('ok');
     expect(run(`takeoff_crew = { takeoff_tasks = {} }\ndo\n${padSrc}\nend\nOUT = tostring(#takeoff_crew.takeoff_tasks)`)).toBe('0');
@@ -173,8 +209,11 @@ OUT = #t .. ' ' .. t[17].brown_id .. ' ' .. t[32].brown_id .. ' ' .. t[33].brown
       // DCS's own file with the block at its end: 40 routes, the first on the plan's first spot
       const patched = fs.readFileSync(path.join(dir, 'USS_Nimitz_RunwaysAndRoutes.lua'), 'latin1');
       const { count, routes } = routesOf(`GT = {}\n${patched}`);
-      expect(count).toBe(40);
-      expect(routes[0].pts[0].slice(0, 3)).toEqual([csv[0].x, 20.1494, csv[0].z]);
+      expect(count).toBe(44);
+      // (the first route a copy of the first six-pack spot's; the plan's first spot is the fifth)
+      const sp1 = csv.find((s) => s.n === DECK_SPOTS.find((d) => d.id === START_SPOTS[0])?.n);
+      expect(routes[0].pts[0].slice(0, 3)).toEqual([sp1?.x, 20.1494, sp1?.z]);
+      expect(routes[4].pts[0].slice(0, 3)).toEqual([csv[0].x, 20.1494, csv[0].z]);
       expect(routesOf(`GT = {}\n${stock['USS_Nimitz_RunwaysAndRoutes.lua'].toString('latin1')}`).count).toBe(16);
       const crew = fs.readFileSync(path.join(dir, 'GroundCrew.lua'), 'latin1');
       expect(crew).toContain('for n = stock + 1, SPOTS do tt[n] = tt[((n - 1) % stock) + 1] end');

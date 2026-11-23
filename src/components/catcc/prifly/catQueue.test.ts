@@ -15,7 +15,7 @@ describe('destination names in the deck card text', () => {
   it("puts a spot's number after a hyphen only where its area's name ends in a number", () => {
     expect(destName('E22')).toBe('El 2 - 2');
     expect(destName('E22').toUpperCase()).toBe('EL 2 - 2');
-    expect(destName('BS1')).toBe('Bow stbd 1');
+    expect(destName('SB6')).toBe('Stbd bow 6');
     expect(destName('PA1')).toBe('Patio 1');
   });
   it('leaves catapults as they are, and names every destination', () => {
@@ -30,7 +30,7 @@ describe('destination names in the deck card text', () => {
 });
 
 describe('catapult queues', () => {
-  const jets = [at('a', 'PA1'), at('b', 'E31'), at('c', 'SP1'), at('d', 'CO1'), at('e', 'BS3')];
+  const jets = [at('a', 'PA1'), at('b', 'E31'), at('c', 'SP1'), at('d', 'CO1'), at('e', 'SB4')];
 
   it('queues the aircraft sent to a catapult in the order their instructions were given', () => {
     const plans = planTaxi(jets, { c: { to: 'C2', at: 30 }, a: { to: 'C2', at: 10 }, b: { to: 'C2', at: 20 }, d: { to: 'C1', at: 5 }, e: { to: 'E22', at: 1 } });
@@ -102,7 +102,7 @@ const angDiff = (a: number, b: number) => Math.abs(((((a - b) % 360) + 540) % 36
 
 describe('queue ghost positions', () => {
   /** aircraft parked aft, every one sent to catapult k in turn */
-  const aft = ['E31', 'E32', 'PA1', 'PA2', 'ST1', 'PO2', 'SP5', 'SP6'];
+  const aft = ['E31', 'E32', 'PA1', 'PA2', 'FT4', 'PQ2', 'SP5', 'SP6'];
   const sendAll = (k: string, occupied: boolean, spots = aft) => {
     const deck = [...spots.map((s, i) => at(`j${i}`, s)), ...(occupied ? [onShuttle('on', k)] : [])];
     const plans = planTaxi(deck, Object.fromEntries(spots.map((_, i) => [`j${i}`, { to: `C${k}`, at: i + 1 }])));

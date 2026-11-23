@@ -175,11 +175,13 @@ def main():
         assert abs(scale - 1) < 0.01, (jid, scale)
         area = next((nm for nm, poly in areas if inside(o, poly)), '')
         if not area:
-            area = ('Bow stbd' if z > 0 else 'Bow port') if x > 85 else ('Stbd' if z > 0 else 'Port')
+            # (the area names of 2026-11-23: deck-spots-dcs.csv, which names every spot, numbers each area by nearness
+            # to its catapult; this script numbers the drawing's from the bow aft)
+            area = ('Stbd bow' if z > 0 else 'Port bow') if x > 85 else 'Fantail' if x < -145 else 'Port quarter'
         r = math.radians(hdg)
         rows.append(dict(id=jid, area=area, x=x, z=z, hdg=hdg, ax=x + 10 * math.cos(r), az=z + 10 * math.sin(r), svg=o))
-    order = ['Bow stbd', 'Bow port', 'Crotch', 'Point', 'El 1', 'Box', 'Sixpack', 'Street', 'Corral', 'El 2',
-             'Junk Yard', 'El 3', 'Patio', 'Stbd', 'Port', 'El 4', 'Finger']
+    order = ['Stbd bow', 'Port bow', 'Crotch', 'Point', 'El 1', 'Box', 'Sixpack', 'Street', 'Corral', 'El 2',
+             'Junk Yard', 'El 3', 'Patio', 'Fantail', 'Port quarter', 'El 4', 'Finger']
     rows.sort(key=lambda r: (order.index(r['area']) if r['area'] in order else 99, -r['x']))
     count = {}
     for r in rows:
