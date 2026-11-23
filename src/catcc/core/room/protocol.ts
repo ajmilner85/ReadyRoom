@@ -203,6 +203,8 @@ export type ClientMsg =
   | { t: 'handoff'; src: string; key: string; from: SeatKey; to: SeatKey | null }
   /** accept a handoff pending to a seat the user may act for */
   | { t: 'accept'; src: string; key: string }
+  /** take a flight for a seat the user may act for, without a handoff, from `from` (its owner as the sender sees it) */
+  | { t: 'assume'; src: string; key: string; from: SeatKey; to: SeatKey }
   /** patch a carrier's shared ops state (deck, aids, lights, launch, formation) */
   | { t: 'ops'; src: string; carrier: string; patch: Partial<Record<keyof OpsState, unknown>> }
   /** the carrier's clearing seat (Shooter, else Air Boss) clears an aircraft on deck to launch, or takes it back */

@@ -829,3 +829,39 @@ Asked for by the user: click an aircraft, hover a catapult or parking spot to se
 - Zooming while following keeps following (the user): the toolbar zoom buttons and the mouse wheel (a trackpad pinch arrives as the wheel) zoom about the followed contact, not the cursor, and are not a pan (`zoomCentre`). The scope has no keyboard zoom.
 - The range rings, compass rose, sweep and off-scope pointers stay on the carrier (the radar's position), as they already did for a panned view: while following, the user sees the rings and sweep origin off centre, or off the scope, with the followed contact in the middle. Data tags, the BRA ruler and the off-scope pointers already work from the view centre, so nothing else changes.
 - Double-click follows / centres under every tool, not only Select (the user: it did nothing with the marshal tool selected). Its two clicks still do what the tool does with a click (marshal, vector and intercept clicks on a contact hook it, as Select does; BRA / CPA / waypoint clicks set points). Not while a radial or coordinate is being placed.
+
+## Header order; Case and approach type move to the right sidebar (2026-11-22)
+
+- The header reads Ship, then Location, then Seat (only when the location has several seats), then the seat pill / VIEW ONLY on the left. The CATCC view switch (Radar / Approach / Final) is centred in the header, between two equal-width clusters; the source select, feed, clocks and Reference / Displays / Options are on the right (the user).
+- The Case and approach-type badge (`CASE III · CV-1`, `CaseBadge.tsx`, same styling as before) is no longer in the header. It is the first item of the right sidebar of the CATCC radar seats and the Approach / Final view (above the two columns), the Bridge (OOD) radar, PriFly (Boss, Mini Boss, Shooter: above PLAT) and LSO (above the pass grading panel, which is the LSO view's right-hand column). Not on the CDC seats (Strike, AW, SUW, Mission Commander) (the user).
+- The approach type is still the constant `CV-1` (`APPROACH_TYPE`); the case is the recovery case from the room's environment.
+- Header order reverted (the user): logo, Location / Seat nav, source select, Ship, CATCC view switch, seat pill, then feed, clocks and buttons on the right, as before. The Case badge stays in the right sidebar.
+
+## Handoff: one button, a popover grouped by carrier (2026-11-22)
+
+- The owner's "Handoff <NEXT>" text button and the ▾ seat select (radar strips, the Approach / Final sequence) are replaced by one 22×22 square button with a hand icon, tooltip "Hand off" (the user). Its icon is not in the mockup set: `IcHand` in icons.tsx, drawn in that set's style (an open hand). The button keeps the old button's tokens (#374250 border, transparent) and turns amber (#E7B04F, rgba(231,176,79,.12)) while a handoff is due; #3D2521 while its popover is open, as the floating tool buttons.
+- The button opens a popover (the Layers popover's shell: rgba(21,26,33,.97), #374250 border, 8 px radius, 10 px padding) listing the seats to hand to, one group per carrier in the picture, headed with its hull and nickname, own carrier first (the user: with several carriers a flight can go to another carrier's seats). Each group has the control seats of the current layout (no PriFly, bridge or mission commander seats, as the old select); the own carrier's group leaves out the owner's own seat and puts the due / next seat at its top, highlighted (amber when due, else #222C37). `handoffGroups` in ownership.ts.
+- The popover is fixed to the viewport beside the button (rendered into .cc-root through a portal), below it, or above when it won't fit, so the scrolling sidebars don't clip it. It closes on a pick, a click outside, Escape, a scroll outside it or a window resize. Clicks in it don't reach the strip or the scope.
+- Accept and Recall are unchanged.
+- A seat on another carrier is labelled with its hull ("CVN-72 APP") on the owner chip, the pending lines and the handoff notification (`seatLabel`).
+- Strips and handoff notifications follow the room's owner over geography (`onCarrier`): a flight offered to another carrier shows on both carriers' lists until accepted, then only on the receiving carrier's; a flight with no room owner stays with the nearest carrier, as before. The room already accepted a handoff to any carrier's seat; room.test.ts now covers one.
+
+## Display size measured before the first paint
+
+- Switching views or seats flashed the radar's labels oversized for one frame in Firefox (the user). The scope sizes its SVG text from its own width (`z` from `box.w`), and that width started as a guessed 900 × 675 until the ResizeObserver's first report, which Firefox can deliver after the first paint. The scope, the Approach / Final displays (their tags and the AZ/EL's size) and the slot timeline now read their size in a layout effect before the paint (`useBoxSize`), then follow it with the ResizeObserver as before. A hidden (zero-size) display keeps its last size.
+
+## Taxi preview: off-network aircraft join the nearest road (2026-11-22)
+
+- An aircraft on no spot or junction joins a road no more than 6 m further off than the nearest one (`NEAR_SLACK`), instead of any road within 60 m: the old rule let a loose jet beside EL 2 run one straight leg across the landing area onto the cat 4 track (the user). Farther roads are tried only when the near ones lead nowhere. Same rule in the hook's port (`crewtest_hook.lua` Tow.Net.seeds), not for tractor tows.
+- A route that ends on a catapult shows the parked outline on the shuttle lined up with the track, not along the last leg.
+
+## PriFly in the handoff chain (2026-11-22)
+
+- The user: departures go PriFly (Air Boss) → Departure (CATCC when condensed) → Strike, and arrivals end LSO → PriFly. Both PriFly steps are automatic: a flight on deck is the Boss's (`autoRole` deck), whoever had it airborne, and the room drops a handed-off owner once every aircraft of the flight is on deck. Airborne again, it is Departure's by the chain (opening inside 50 NM) with no handoff. Read "off the deck" for arrivals as touchdown.
+- On-deck strips show the owner chip (BOSS). Boss and Mini Boss sit at the head of the chain, so a flight never shows as due back to them.
+
+## Assume control (2026-11-23)
+
+- The user: the hand-off popover offers "Assume Control" at the top, for a seat to take a flight without a handoff. The hand button now shows on every strip whose flight this seat could take (any seat the user may act for, not only the owner's), not amber; for a flight the seat does not own the popover holds Assume Control alone (only the owner hands a flight on). It cancels any pending handoff.
+- The room records the seat it was taken from (`Ownership.took`) until the next handoff. That seat's holder gets a CONTROL notification on the radar with Reclaim (assume it back) and Ack, and, because Approach / Final has no notifications, the strip says TAKEN with Reclaim for two minutes.
+- The owner chip of a flight this seat owns has white text (#E6EDF3) and a light grey outline (#93A1B0, the secondary text grey; others #374250), not orange: orange / red stay for warnings and amber for cautions (the user).

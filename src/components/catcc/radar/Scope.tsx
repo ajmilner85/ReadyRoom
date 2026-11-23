@@ -5,7 +5,7 @@
  * stacks, rulers) → HTML flags/edge markers → traffic svg (trails, vectors, ships, hits, tags,
  * hooked tools) → HTML helper tags → floating controls.
  */
-import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { BLIND_ALTS } from '../../../catcc/core/sensors/radar.ts';
 import type { Station } from '../../../catcc/core/room/ops.ts';
 import { sectorWidth, stationCentre } from '../../../catcc/core/geometry/formation.ts';
@@ -30,6 +30,7 @@ import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment, CarrierPlan, StackDef } from '../../../catcc/core/room/protocol.ts';
 import { coordGeom, type CoordGeom } from '../../../catcc/core/geometry/coordination.ts';
 import { SCAN_S, sweepAngle } from './sweep.ts';
+import { contentBox, useBoxSize } from '../useBoxSize.ts';
 import { arcPath, clipArc, unionArcs, unionLoopsPath } from './circleUnion.ts';
 import { shipClassName } from '../../../catcc/core/dcs/shipNames.ts';
 import { buildPaths, terrTopsFor, useMarine, type MarineGeom, type MarinePaths } from './marine.ts';
@@ -609,7 +610,8 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const marine = useMarine(inBox ? props.theatre : fTrack ? theatreAt(fTrack.lat, fTrack.lon) : undefined, fTrack?.lat, fTrack?.lon, !!(ov.coast || ov.bathy || ov.places || ov.airports || ov.terr));
   const boxRef = useRef<HTMLDivElement>(null);
   const svgRef = useRef<SVGSVGElement>(null);
-  const [box, setBox] = useState({ w: 900, h: 675 });
+  // measured before the first paint: the text scale z comes from box.w, so a guessed size draws every label at the wrong size
+  const box = useBoxSize(boxRef, { w: 900, h: 675 }, contentBox);
   const [view, setView] = useState({ zx: -2, zy: 4, zw: 97 });
   // Scope coordinates are carrier-centred, so a plain view follows the carrier ("locked"). Panning or
   // wheel-zooming unlocks it: the view centre is then pinned to a geographic point until the
@@ -650,16 +652,6 @@ export const Scope: React.FC<ScopeProps> = (props) => {
   const dragged = useRef(false);
   const prevPlaces = useRef<Map<string, TagPlace>>(new Map());
 
-  useLayoutEffect(() => {
-    const el = boxRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([e]) => {
-      const r = e.contentRect;
-      if (r.width > 0 && r.height > 0) setBox({ w: r.width, h: r.height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
   useEffect(() => {
     setVspd(null);
     setAsg(null);

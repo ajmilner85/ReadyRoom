@@ -316,8 +316,18 @@ interface State {
   pts: V[];
 }
 
-/** start states for an aircraft at `from`: its spot or junction when it is on one, else the entry points on the roads near it */
-function seeds(g: TaxiGraph, from: V, hdg?: number): State[] {
+/**
+ * Off the network an aircraft joins the nearest road: entries on roads up to this much further off than
+ * the nearest are candidates (a road 40 m away is no way to start, however short the rest of the route
+ * from there: a straight 40 m leg crosses whatever is in between, the landing area included).
+ */
+const NEAR_SLACK = 6;
+
+/**
+ * start states for an aircraft at `from`: its spot or junction when it is on one, else the entry points on
+ * the roads near it. `wide`: any road within SNAP_MAX (then anywhere), for when the nearest roads lead nowhere.
+ */
+function seeds(g: TaxiGraph, from: V, hdg?: number, wide = false): State[] {
   let near = -1;
   for (let i = 0; i < g.nodes.length; i++) if (dist(g.nodes[i], from) < AT_NODE && (near < 0 || dist(g.nodes[i], from) < dist(g.nodes[near], from))) near = i;
   if (near >= 0) return [{ node: near, prev: -1, dir: null, cost: 0, parent: null, pts: [from] }];
@@ -352,6 +362,18 @@ function seeds(g: TaxiGraph, from: V, hdg?: number): State[] {
     }
     return out;
   };
+  if (!wide) {
+    let nearest = Infinity;
+    for (let u = 0; u < g.nodes.length; u++)
+      for (const v of g.adj[u]) {
+        if (v < u) continue;
+        const [a, b] = [g.nodes[u], g.nodes[v]];
+        const d = sub(b, a);
+        const t = Math.max(0, Math.min(1, dot(sub(from, a), d) / dot(d, d)));
+        nearest = Math.min(nearest, dist(from, add(a, d, t)));
+      }
+    return nearest <= SNAP_MAX ? make(nearest + NEAR_SLACK, true) : [];
+  }
   let s = make(SNAP_MAX, true);
   if (!s.length) s = make(Infinity, false);
   return s;
@@ -359,13 +381,15 @@ function seeds(g: TaxiGraph, from: V, hdg?: number): State[] {
 
 /** the waypoints (corners, not yet filleted) from an aircraft at `from` to a destination; null if it can't be reached */
 export function taxiWaypoints(from: V, to: string, hdg?: number, g: TaxiGraph = TAXI_GRAPH): V[] | null {
-  return solve(from, to, hdg, g, true) ?? solve(from, to, hdg, g, false);
+  const near = seeds(g, from, hdg);
+  const wide = () => seeds(g, from, hdg, true);
+  return solve(from, to, near, g, true) ?? solve(from, to, near, g, false) ?? solve(from, to, wide(), g, true) ?? solve(from, to, wide(), g, false);
 }
 
-function solve(from: V, to: string, hdg: number | undefined, g: TaxiGraph, pullOut: boolean): V[] | null {
+function solve(from: V, to: string, start: State[], g: TaxiGraph, pullOut: boolean): V[] | null {
   const goal = NODE_OF.get(to);
-  if (goal === undefined || goal < 0) return null;
-  const open = seeds(g, from, hdg);
+  if (goal === undefined || goal < 0 || !start.length) return null;
+  const open = start.slice();
   const lineUp = destCat(to) ? g.nodes[goal] : null;
   const done = new Set<string>();
   while (open.length) {
@@ -575,8 +599,14 @@ export function planTaxi(jets: DeckPose[], orders: Record<string, TaxiOrder>): M
     const blocked = b ? pts.slice(b.i) : [];
     const clearLen = routeLength(clear);
     let stop: DeckPose;
-    if (!b) stop = poseAt(id, pts, pts.length - 1, j.a);
-    else {
+    if (!b) {
+      stop = poseAt(id, pts, pts.length - 1, j.a);
+      // on a catapult it stands on the shuttle lined up with the track, whatever the last metre of route did
+      if (k) {
+        const [s0, s1] = CATS[k];
+        stop = { id, x: s0[0], y: s0[1], a: Math.atan2(s1[1] - s0[1], s1[0] - s0[0]) / D };
+      }
+    } else {
       // back off along the clear part
       let i = b.i;
       for (let back = 0; i > 0 && back < HOLD_BACK; i--) back += dist(pts[i], pts[i - 1]);

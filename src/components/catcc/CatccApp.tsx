@@ -46,7 +46,7 @@ const CatccApp: React.FC = () => {
   const seatDef = resolveSeat(layout, seatWant);
   const mod = seatDef.view;
   const [optsOpen, setOptsOpen] = useState(false);
-  const { state, history, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, setOps, clearLaunch } = useCatccRoom(params.get('src') ?? undefined);
+  const { state, history, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, assume, setOps, clearLaunch } = useCatccRoom(params.get('src') ?? undefined);
   const [focusHull, setFocusHull] = useState<string | undefined>(params.get('cv') ?? undefined);
   const [uiOpen, setUiOpen] = useState(false);
   const [refOpen, setRefOpen] = useState(false);
@@ -168,7 +168,7 @@ const CatccApp: React.FC = () => {
   const launchAuth = hull ? launchAuthority(state.seats, hull) : null;
   const launch = hull ? state.launch[hull] : undefined;
   const mayClear = !!launchAuth && launchAuth.userId === user?.userId;
-  const handoffCtx: HandoffCtx = { layout, me: { carrier: hull ?? '', role: seatDef.id }, seats: state.seats, userId: user?.userId, onHandoff: handoff, onAccept: accept };
+  const handoffCtx: HandoffCtx = { layout, me: { carrier: hull ?? '', role: seatDef.id }, carriers: pic.carriers.flatMap((c) => c.track.hull ?? []), seats: state.seats, userId: user?.userId, onHandoff: handoff, onAccept: accept, onAssume: (key, from) => hull && assume(key, from, { carrier: hull, role: seatDef.id }) };
 
   const seatPill = (key: SeatKey, label: string) => {
     const h = state.seats.find((s) => s.carrier === key.carrier && s.role === key.role);
@@ -270,9 +270,6 @@ const CatccApp: React.FC = () => {
     ) : null;
   const headerStyle: React.CSSProperties = { display: 'flex', flexWrap: 'nowrap', alignItems: 'center', gap: 12, padding: '8px 16px', borderBottom: '1px solid #262F3A', background: '#151A21', flex: 'none', overflowX: 'auto', whiteSpace: 'nowrap' };
   const hdrBtn = (on: boolean): React.CSSProperties => ({ height: 36, display: 'flex', alignItems: 'center', gap: 6, padding: '0 10px', background: on ? 'rgba(241,88,34,.18)' : '#0E1116', border: '1px solid #374250', borderRadius: 5, color: '#E6EDF3', fontFamily: "'Saira', sans-serif", fontSize: 12.5, cursor: 'pointer' });
-  const caseBadge = (text: string) => (
-    <div style={{ padding: '4px 10px', borderRadius: 4, background: 'rgba(241,88,34,.15)', border: '1px solid #F15822', color: '#FFB08F', fontFamily: "'IBM Plex Mono', monospace", fontSize: 12, fontWeight: 600, letterSpacing: '.1em' }}>{text}</div>
-  );
 
   // the room refused this user (not a member of the wing): nothing of the interface
   if (state.conn === 'forbidden')
@@ -309,7 +306,6 @@ const CatccApp: React.FC = () => {
             ))}
           </div>
         )}
-        {caseBadge(`CASE ${env?.case ?? 'III'} · CV-1`)}
         <div style={{ display: 'flex', gap: 6, alignItems: 'center', flexWrap: 'wrap' }} aria-label="Seat">
           {seat(seatDef.id, seatDef.short)}
           {!mine.length && <span className="mono" style={{ fontSize: 11, padding: '4px 8px', borderRadius: 4, border: '1px solid #374250', color: '#93A1B0' }}>VIEW ONLY</span>}
@@ -396,10 +392,11 @@ const CatccApp: React.FC = () => {
           setUiOpen={setUiOpen}
           conflict={conflict}
           setConflict={setConflict}
+          recoveryCase={env?.case}
         />
       )}
-      {mod === 'lso' && <LsoView pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
-      {mod === 'boss' && <BossView key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} launch={launch} mayClear={mayClear} onClear={(id, c) => hull && clearLaunch(hull, id, c)} />}
+      {mod === 'lso' && <LsoView recoveryCase={env?.case} pic={pic} mt={state.mt} assignments={assignments} offH={offH} />}
+      {mod === 'boss' && <BossView recoveryCase={env?.case} key={seatDef.id} pic={pic} mode={bossMode} log={log} landedAt={landedAt} ops={ops} setOps={setHullOps} deck={dc} readOnly={!mayEditOps} env={state.env} utc={utc} offH={offH} mt={state.mt} assignments={assignments} defaultTab={seatDef.id === 'miniboss' ? 'plan' : 'launch'} launch={launch} mayClear={mayClear} onClear={(id, c) => hull && clearLaunch(hull, id, c)} />}
       {optsOpen && <OptionsDialog layout={layout} onLayout={setLayout} onClose={() => setOptsOpen(false)} />}
       {refOpen && <Reference onClose={() => setRefOpen(false)} current={{ hull: hull ?? '', ceiling: env?.ceiling ?? null, vis: env?.visNm ?? null }} />}
     </div>

@@ -213,6 +213,22 @@ describe('room service with fake DCS hook', () => {
     // ownership of a flight that isn't in the picture is dropped on the next frame
     b.send({ t: 'handoff', src: 'fox3', key: 'Ghost 9', from: marshal, to: strike });
     await a.waitFor('owners', (m) => !!m.owners['Volt 3'] && !m.owners['Ghost 9']);
+    // a flight can go to another carrier's seat (an open one: anyone may accept for it)
+    const otherApp = { carrier: 'CVN-71', role: 'approach' };
+    b.send({ t: 'handoff', src: 'fox3', key: 'Volt 3', from: marshal, to: otherApp });
+    await a.waitFor('owners', (m) => m.owners['Volt 3']?.pending?.to.carrier === 'CVN-71' && m.owners['Volt 3'].pending.to.role === 'approach');
+    a.send({ t: 'accept', src: 'fox3', key: 'Volt 3' });
+    await b.waitFor('owners', (m) => m.owners['Volt 3']?.owner.carrier === 'CVN-71' && m.owners['Volt 3'].owner.role === 'approach' && !m.owners['Volt 3'].pending);
+    // assume control: only for a seat the user may act for; the owner it was taken from is recorded
+    b.send({ t: 'assume', src: 'fox3', key: 'Volt 3', from: otherApp, to: strike });
+    expect((await b.waitFor('error', (e) => /assume control/.test(e.error))).error).toMatch(/claim/);
+    a.send({ t: 'assume', src: 'fox3', key: 'Volt 3', from: otherApp, to: strike });
+    await b.waitFor('owners', (m) => m.owners['Volt 3']?.owner.role === 'strike' && m.owners['Volt 3'].took?.from.carrier === 'CVN-71' && m.owners['Volt 3'].took.from.role === 'approach');
+    // a later handoff clears it
+    a.send({ t: 'handoff', src: 'fox3', key: 'Volt 3', from: strike, to: marshal });
+    await b.waitFor('owners', (m) => m.owners['Volt 3']?.pending?.to.role === 'marshal' && !m.owners['Volt 3'].took);
+    b.send({ t: 'accept', src: 'fox3', key: 'Volt 3' });
+    await a.waitFor('owners', (m) => m.owners['Volt 3']?.owner.role === 'marshal' && !m.owners['Volt 3'].pending);
 
     // ops: PriFly's deck call and the launch queue round-trip; malformed patches are refused
     a.send({ t: 'ops', src: 'fox3', carrier: 'CVN-72', patch: { deck: { foul: true, reason: '216 clearing', at: 1 }, launch: { '1': { status: 'ready', queue: ['Volt 3'] } } } });

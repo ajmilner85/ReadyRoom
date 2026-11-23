@@ -334,6 +334,8 @@ export interface Note {
   fit?: [number, number][];
   /** replaces Ack (e.g. Accept for a handoff); the note goes away when its condition does */
   action?: { label: string; run: () => void };
+  /** keeps Ack beside the action (the note can be dismissed without acting) */
+  ack?: boolean;
 }
 const KINDS = {
   conflict: { fg: '#FF8A85', bc: '#E0524E', bg: 'rgba(224,82,78,.10)' },
@@ -367,6 +369,11 @@ export const Notifications: React.FC<{ notes: Note[]; onAck: (id: string) => voi
           <button onClick={() => (n.action ? n.action.run() : onAck(n.id))} style={{ height: 30, padding: '0 10px', background: n.action ? 'rgba(231,176,79,.12)' : 'transparent', color: n.action ? '#E7B04F' : '#E6EDF3', border: `1px solid ${n.action ? '#E7B04F' : '#374250'}`, borderRadius: 4, fontFamily: "'Saira', sans-serif", fontSize: 12, cursor: 'pointer' }}>
             {n.action?.label ?? 'Ack'}
           </button>
+          {n.action && n.ack && (
+            <button onClick={() => onAck(n.id)} style={{ height: 30, padding: '0 10px', background: 'transparent', color: '#E6EDF3', border: '1px solid #374250', borderRadius: 4, fontFamily: "'Saira', sans-serif", fontSize: 12, cursor: 'pointer' }}>
+              Ack
+            </button>
+          )}
         </article>
       );
     })}

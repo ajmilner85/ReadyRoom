@@ -82,18 +82,20 @@ const header: KitSection = {
       render: () => (
         <div style={{ width: 1440 }}>
           <K.HeaderBar>
-            <K.Logo icon={<Ic.IcCatcc />} text="CATCC" />
-            <K.TabNav label="Location" tabs={['CDC', 'CATCC', 'PriFly', 'Bridge', 'LSO']} value="CATCC" />
-            <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><label className="lbl">Ship</label><K.Select value="CVN-71 · Roosevelt" options={['CVN-71 · Roosevelt']} /></div>
+            <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', gap: 12 }}>
+              <K.Logo icon={<Ic.IcCatcc />} text="CATCC" />
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}><label className="lbl">Ship</label><K.Select value="CVN-71 · Roosevelt" options={['CVN-71 · Roosevelt']} /></div>
+              <K.TabNav label="Location" tabs={['CDC', 'CATCC', 'PriFly', 'Bridge', 'LSO']} value="CATCC" />
+              <K.SeatPill state="mine" label="MARSHAL" who="201 · You" init="201" />
+            </div>
             <K.Segmented options={['Radar', 'Approach / Final']} value="Radar" />
-            <K.CaseBadge>CASE III · CV-1</K.CaseBadge>
-            <K.SeatPill state="mine" label="MARSHAL" who="201 · You" init="201" />
-            <K.Spacer />
-            <K.FeedStatus state="live">CVN-71 feed · live</K.FeedStatus>
-            <K.Clocks local="19:22:07" zulu="15:22:07Z" offset="UTC+4" />
-            <K.HeaderButton icon={<Ic.IcBook />}>Reference</K.HeaderButton>
-            <K.HeaderButton icon={<Ic.IcDisplays />}>Displays</K.HeaderButton>
-            <K.HeaderButton>Options</K.HeaderButton>
+            <div style={{ flex: '1 1 0', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 12 }}>
+              <K.FeedStatus state="live">CVN-71 feed · live</K.FeedStatus>
+              <K.Clocks local="19:22:07" zulu="15:22:07Z" offset="UTC+4" />
+              <K.HeaderButton icon={<Ic.IcBook />}>Reference</K.HeaderButton>
+              <K.HeaderButton icon={<Ic.IcDisplays />}>Displays</K.HeaderButton>
+              <K.HeaderButton>Options</K.HeaderButton>
+            </div>
           </K.HeaderBar>
         </div>
       ),

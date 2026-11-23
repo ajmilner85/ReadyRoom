@@ -164,6 +164,39 @@ describe('taxi network', () => {
     expect(ai[0]).toEqual([-101.62, -29.84]);
     expect(Math.abs(ai[5][0] + 103.3)).toBeLessThan(1);
   });
+
+  it('joins the nearest road from off the network, never a far one in a straight line (no cutting across the deck to a catapult)', () => {
+    const segDist = (p: V) => {
+      let m = Infinity;
+      TAXI_GRAPH.adj.forEach((ns, u) =>
+        ns.forEach((v) => {
+          const [a, b] = [TAXI_GRAPH.nodes[u], TAXI_GRAPH.nodes[v]];
+          const d = [b[0] - a[0], b[1] - a[1]];
+          const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * d[0] + (p[1] - a[1]) * d[1]) / (d[0] ** 2 + d[1] ** 2)));
+          m = Math.min(m, Math.hypot(p[0] - a[0] - d[0] * t, p[1] - a[1] - d[1] * t));
+        }),
+      );
+      return m;
+    };
+    let checked = 0;
+    for (const s of DECK_SPOTS)
+      for (const o of [[8, 0], [-8, 0], [0, 8], [0, -8]] as V[]) {
+        const p: V = [s.p[0] + o[0], s.p[1] + o[1]];
+        if (!inPoly(p[0], p[1], NIMITZ.outline) || inPoly(p[0], p[1], NIMITZ.struct['Island'])) continue;
+        if (TAXI_GRAPH.nodes.some((n) => Math.hypot(n[0] - p[0], n[1] - p[1]) < 5)) continue;
+        for (const k of ['1', '2', '3', '4']) {
+          const wp = taxiWaypoints(p, `C${k}`, s.hdg)!;
+          expect(wp, `${s.id}+${o} -> C${k}`).not.toBeNull();
+          // the leg onto the network: to a road within 6 m of the nearest, joined at most 14 m ahead (or, from
+          // beside a road, straight along it)
+          const leg = Math.hypot(wp[1][0] - p[0], wp[1][1] - p[1]);
+          const alongRoad = [0.25, 0.5, 0.75, 1].every((f) => segDist([p[0] + (wp[1][0] - p[0]) * f, p[1] + (wp[1][1] - p[1]) * f]) < 1);
+          if (!alongRoad) expect(leg, `${s.id}+${o} -> C${k}`).toBeLessThan(segDist(p) + 6 + 14 + 0.5);
+          checked++;
+        }
+      }
+    expect(checked).toBeGreaterThan(100);
+  });
 });
 
 describe('taxi conflicts', () => {

@@ -11,6 +11,8 @@ import { SEAT_ROLES, type SeatKey, type SeatRole } from './protocol.ts';
 export interface Ownership {
   owner: SeatKey;
   pending?: { to: SeatKey; at: number };
+  /** the owner assumed control (took it without a handoff) from this seat: its holder is told, and can take it back */
+  took?: { from: SeatKey; at: number };
 }
 
 const okSeat = (s: unknown): s is SeatKey => {

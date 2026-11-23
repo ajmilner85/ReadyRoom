@@ -4,6 +4,7 @@ import { dir, type Pt } from '../../../catcc/core/geometry/vec.ts';
 import { norm360 } from '../../../catcc/core/geo.ts';
 import type { Assignment } from '../../../catcc/core/room/protocol.ts';
 import { fuelK, type Picture, type ScopeTrack } from '../scopeModel.ts';
+import { CaseBadge } from '../CaseBadge.tsx';
 import { hornetIcon } from './deck.ts';
 
 const HORNET = hornetIcon(30);
@@ -56,7 +57,7 @@ function screenHeading(s: number, hdg: number, fb: number): number {
   return (Math.atan2(dx, -dy) * 180) / Math.PI;
 }
 
-export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<string, Assignment>; offH?: number }> = ({ pic, mt, assignments, offH }) => {
+export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<string, Assignment>; offH?: number; recoveryCase?: string | number | null }> = ({ pic, mt, assignments, offH, recoveryCase }) => {
   const [ac, setAc] = useState(true);
   const [grade, setGrade] = useState('OK2');
   const [wire, setWire] = useState('—');
@@ -196,6 +197,7 @@ export const LsoView: React.FC<{ pic: Picture; mt: number; assignments: Map<stri
       </section>
 
       <section aria-label="Pass grading" style={{ flex: '1 1 420px', maxWidth: 460, display: 'flex', flexDirection: 'column', gap: 12 }}>
+        <CaseBadge kase={recoveryCase} />
         <div style={{ border: '1px solid #262F3A', borderRadius: 8, background: '#151A21', padding: 14 }}>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <span className="lbl">Current pass</span>

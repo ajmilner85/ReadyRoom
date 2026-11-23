@@ -27,6 +27,7 @@ import { TaxiDests, TaxiRoute } from './TaxiOverlay.tsx';
 import { PRIFLY_LIGHTS } from './lights.ts';
 import { InfoPanels } from '../radar/InfoPanels.tsx';
 import { WindIndicator, type WindMode } from '../bridge/Nav.tsx';
+import { CaseBadge } from '../CaseBadge.tsx';
 import { flightOf } from '../strips.ts';
 import { finalPicture } from '../final/finalModel.ts';
 
@@ -119,13 +120,14 @@ export const BossView: React.FC<{
   mayClear?: boolean;
   onClear?: (trackId: string, clear: boolean) => void;
   env?: HookEnv;
+  recoveryCase?: string | number | null;
   utc?: Date;
   offH?: number;
   mt: number;
   assignments: Map<string, Assignment>;
   /** Mini Boss opens on the air plan, the Air Boss on launch */
   defaultTab?: 'launch' | 'lights' | 'plan';
-}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, env, utc, offH, mt, assignments, defaultTab, launch, mayClear, onClear }) => {
+}> = ({ pic, mode, log, landedAt, ops, setOps, deck, readOnly, env, recoveryCase, utc, offH, mt, assignments, defaultTab, launch, mayClear, onClear }) => {
   const [tab, setTab] = useState<'launch' | 'lights' | 'plan'>(defaultTab ?? 'launch');
   const st = deckStatus(pic);
   const plan = useAirPlan();
@@ -516,6 +518,7 @@ export const BossView: React.FC<{
 
       {/* ---------------- right sidebar */}
       <aside aria-label="PLAT, launch, lights and plan" style={{ flex: '0 0 400px', width: 400, borderLeft: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto', boxSizing: 'border-box' }}>
+        <CaseBadge kase={recoveryCase} />
         <section className="pnl" style={{ padding: 8 }} aria-label="PLAT">
           <div style={{ position: 'relative', aspectRatio: '16 / 9', background: '#07090C', borderRadius: 4, overflow: 'hidden' }}>
             <span style={{ position: 'absolute', left: '50%', top: 0, bottom: 0, width: 1, background: 'rgba(230,237,243,.25)' }} />

@@ -252,7 +252,7 @@ export const TabNav: React.FC<{ tabs: string[]; value: string; onChange?: (v: st
   </nav>
 );
 
-/** Recovery case badge (CatccApp `caseBadge`). */
+/** Recovery case badge (CaseBadge.tsx): top of the right sidebar of the CATCC, PriFly, Bridge and LSO views. */
 export const CaseBadge: React.FC<{ children: React.ReactNode }> = ({ children }) => (
   <div style={{ padding: '4px 10px', borderRadius: 4, background: 'rgba(241,88,34,.15)', border: '1px solid #F15822', color: '#FFB08F', fontFamily: MONO, fontSize: 12, fontWeight: 600, letterSpacing: '.1em' }}>{children}</div>
 );

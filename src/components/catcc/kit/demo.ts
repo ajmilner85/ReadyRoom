@@ -78,6 +78,6 @@ export const demoHandoff = (): { v: OwnerView; ctx: HandoffCtx } => {
   const me = { carrier: 'CVN-71', role: 'marshal' as const };
   return {
     v: { key: 'Hawk 2', owner: me, explicit: true },
-    ctx: { layout: 'expanded', me, seats: [{ ...me, userId: 'kit', name: 'Kit', since: 0 }], userId: 'kit', onHandoff: () => undefined, onAccept: () => undefined },
+    ctx: { layout: 'expanded', me, seats: [{ ...me, userId: 'kit', name: 'Kit', since: 0 }], userId: 'kit', onHandoff: () => undefined, onAccept: () => undefined, onAssume: () => undefined },
   };
 };

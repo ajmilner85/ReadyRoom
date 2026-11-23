@@ -13,10 +13,12 @@ import { HandoffRow } from '../Handoff.tsx';
 import { IcLayers } from '../icons.tsx';
 import { flightKey, ownerOf, type HandoffCtx } from '../ownership.ts';
 import { useVecSeconds } from '../vecLength.ts';
+import { useBoxSize } from '../useBoxSize.ts';
 import { shortType, fuelK, tagRows, type Picture, type ScopeTrack } from '../scopeModel.ts';
 import type { DeckCall } from '../deck.ts';
 import { AzElScope } from './AzElScope.tsx';
 import { SPN46_ACQ_DEG, SPN46_ACQ_NM, SPN46_CHANNELS, SPN46_RANGE_NM } from '../radar/spn46.ts';
+import { CaseBadge } from '../CaseBadge.tsx';
 import { LABEL_FONT_PX, LABEL_ROW_PX, TICK_PX, TIMELINE_H, TIMELINE_LINE_Y, labelTop, placeTimelineLabels } from './timelineLabels.ts';
 import { bolterSlot, clipVector, flyingBall, type PlotBox, upwindSlot, dmeAt, finalPicture, finalProjection, sepStd, sepViolated, GP_FT_PER_NM, GS_DEG, landingWeightLb, PROFILE, profileAlt, type FinalAc } from './finalModel.ts';
 
@@ -167,15 +169,7 @@ interface SlotMark {
  */
 const SlotTimeline: React.FC<{ span: number; arrivals: SlotMark[]; options: SlotMark[]; ballS?: [number, number] | null }> = ({ span, arrivals, options, ballS }) => {
   const ref = useRef<HTMLDivElement>(null);
-  const [w, setW] = useState(0);
-  useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
-    setW(el.clientWidth);
-    const ro = new ResizeObserver(() => setW(el.clientWidth));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  const { w } = useBoxSize(ref, { w: 0, h: 0 });
   const mx = (t: number) => Math.max(0, Math.min(100, (t / span) * 100));
   const px = (t: number) => (mx(t) / 100) * w;
   const side = (marks: SlotMark[], where: 'above' | 'below', c0: string) => {
@@ -261,14 +255,8 @@ export const FinalView: React.FC<{
   const finalCf = pic.finalConflicts ?? [];
   // the displays' size in px, for tag placement (both displays are the same size)
   const dispRef = useRef<HTMLElement>(null);
-  const [sz, setSz] = useState({ w: 0, h: 0 });
-  useEffect(() => {
-    const el = dispRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(() => setSz({ w: el.clientWidth, h: el.clientHeight }));
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
+  // measured before the first paint, so the tags and the AZ/EL's size are right on the first frame
+  const sz = useBoxSize(dispRef, { w: 0, h: 0 });
   const prevPlaces = useRef<Record<string, Map<string, TagPlace>>>({});
   const hull = pic.focus?.track.hull ?? '';
 
@@ -942,7 +930,8 @@ export const FinalView: React.FC<{
 
       {/* right: the panels in two columns beside the Elevation display, the square AZ/EL display beside the Azimuth display */}
       <div style={{ flex: `0 0 ${sideW}px`, width: sideW, display: 'flex', flexDirection: 'column', minHeight: 0 }}>
-        <aside aria-label="Deck, landing aids and sequence" style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gap: 10, borderLeft: '1px solid #262F3A', borderBottom: '1px solid #262F3A', borderBottomLeftRadius: 8, background: '#151A21', padding: 12, boxSizing: 'border-box' }}>
+        <aside aria-label="Deck, landing aids and sequence" style={{ flex: 1, minHeight: 0, display: 'grid', gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)', gridTemplateRows: 'auto minmax(0, 1fr)', gap: 10, borderLeft: '1px solid #262F3A', borderBottom: '1px solid #262F3A', borderBottomLeftRadius: 8, background: '#151A21', padding: 12, boxSizing: 'border-box' }}>
+          <CaseBadge kase={recoveryCase} style={{ gridColumn: '1 / -1' }} />
           <div style={COL}>
             {deck && (
               <section className="pnl" aria-label="Deck status" style={{ borderColor: foul ? '#E0524E' : '#2E5E3A', background: foul ? 'rgba(224,82,78,.08)' : 'rgba(64,168,91,.06)' }}>

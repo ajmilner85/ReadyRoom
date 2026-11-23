@@ -17,7 +17,7 @@ import { STACK_IDS, defaultStack, fuelK, groupFormations, leadOf, phaseOf, proxi
 import type { ScopeTrack } from '../scopeModel.ts';
 import { InfoPanels } from './InfoPanels.tsx';
 import { HandoffRow } from '../Handoff.tsx';
-import { flightKey, handoffState, OWNER_LABEL, ownerOf, type HandoffCtx } from '../ownership.ts';
+import { flightKey, handoffState, onCarrier, ownerOf, seatLabel, type HandoffCtx } from '../ownership.ts';
 import { finalPicture, patternIds } from '../final/finalModel.ts';
 import { DeckPanel, DonorsPanel, InterceptPanel } from './SidePanels.tsx';
 import { phaseOf as radarPhase, scanPeriodS } from './sweep.ts';
@@ -34,6 +34,7 @@ import type { OpsState } from '../../../catcc/core/room/ops.ts';
 import type { SeatDef } from '../seats.ts';
 import { CommsScripts, DisplaySettings, FreqPanel, LayersPanel, Notifications, RadialsPanel, useCommsPlan, type Note } from './Panels.tsx';
 import Scope from './Scope.tsx';
+import { CaseBadge } from '../CaseBadge.tsx';
 import { OV2_DEFAULT, OV_DEFAULT, UI_DEF, type PimShip, type RadarDonor, type Editing, type Fit, type Highlight, type Placement, type Tool, type UiScale, type ConflictCfg } from './types.ts';
 
 const r3 = (n: number) => String(Math.round(norm360(n)) % 360).padStart(3, '0');
@@ -89,9 +90,11 @@ export interface RadarViewProps {
   conflict: ConflictCfg;
   setConflict: (c: ConflictCfg) => void;
   setUiOpen: (b: boolean) => void;
+  /** recovery case for the badge at the top of the right sidebar (not on the CDC seats) */
+  recoveryCase?: string | number | null;
 }
 
-export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic: picIn, offH, mayEdit, sendPlan, assign, setIntercept, uiOpen, setUiOpen, conflict, setConflict }) => {
+export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, handoffCtx, seat, state, pic: picIn, offH, mayEdit, sendPlan, assign, setIntercept, uiOpen, setUiOpen, conflict, setConflict, recoveryCase }) => {
   const pre = seat.radar ?? { ov: OV_DEFAULT, ov2: OV2_DEFAULT, fit: 'r50' as Fit, tool: 'marshal' as Tool };
   const [tool, setTool] = useState<Tool>(pre.tool);
   // intercept tool: committed assignments come from the room (state.intercepts); `locks` are the
@@ -408,7 +411,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   const strips = useMemo(() => {
     const by = new Map<Phase, { f: Formation; flight: Flight }[]>();
     for (const f of pic.formations) {
-      if (f.lead.owner && f.lead.owner !== hull) continue; // the other carrier's traffic
+      if (!onCarrier(flightKey(f), f.lead.owner, hull, state.owners)) continue; // the other carrier's traffic
       const ph = phaseOf(f, marshalled);
       if (ph === 'other') continue;
       const arr = by.get(ph) ?? [];
@@ -421,7 +424,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
     if (aboard.length) by.set('deck', groupFormations(aboard).map((f) => ({ f, flight: flightOf(f) })));
     for (const arr of by.values()) arr.sort((a, b) => a.f.lead.rng - b.f.lead.rng);
     return by;
-  }, [pic.formations, pic.ground, pic.focus, marshalled, hull]);
+  }, [pic.formations, pic.ground, pic.focus, marshalled, hull, state.owners]);
   // aircraft in the pattern belong to Approach / Final (the same rule as the Approach / Final screen)
   const inPattern = useMemo(() => patternIds(finalPicture(pic)), [pic]);
   const ownPhase = (f: Formation, p: Phase): Phase => (inPattern.has(f.lead.id) ? 'approach' : p);
@@ -437,15 +440,28 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
   if (refusal) notes.push({ id: refusal.id, k: 'warn', kind: 'STACK', t: tLocal, title: refusal.text });
   // handoffs offered to this seat
   for (const f of pic.formations) {
-    if (f.lead.owner && f.lead.owner !== hull) continue;
+    if (!onCarrier(flightKey(f), f.lead.owner, hull, state.owners)) continue;
     const v = ownerOf(flightKey(f), hull, ownPhase(f, phaseOf(f, marshalled)), f.lead.rng, handoffCtx.layout, state.owners);
-    if (!v.pending || !handoffState(v, handoffCtx).incoming) continue;
+    const hs = handoffState(v, handoffCtx);
+    // another seat assumed control of this seat's flight: say so, with the way to take it back
+    if (hs.lost && v.took)
+      notes.push({
+        id: `t:${v.key}:${v.took.at}`,
+        k: 'handoff',
+        kind: 'CONTROL',
+        t: tLocal,
+        title: `${label(f.lead)} → ${seatLabel(v.owner, handoffCtx.me)}`,
+        goTo: f.lead.p as [number, number],
+        action: { label: 'Reclaim', run: () => handoffCtx.onAssume(v.key, v.owner) },
+        ack: true,
+      });
+    if (!v.pending || !hs.incoming) continue;
     notes.push({
       id: `h:${v.key}:${v.pending.at}`,
       k: 'handoff',
       kind: 'HANDOFF',
       t: tLocal,
-      title: `${label(f.lead)} ← ${OWNER_LABEL[v.owner.role]}`,
+      title: `${label(f.lead)} ← ${seatLabel(v.owner, handoffCtx.me)}`,
       goTo: f.lead.p as [number, number],
       action: { label: 'Accept', run: () => handoffCtx.onAccept(v.key) },
     });
@@ -573,7 +589,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
                       aria-label={`${flight.callsign} ${flight.flightNumber} strip`}
                       style={{ borderRadius: 6, cursor: 'pointer', outline: sel ? '1.5px solid #E45BEA' : hot ? '1.5px solid #E0524E' : 'none', outlineOffset: -1 }} // drawn over the card's own 1 px border, so no dark sliver beside the squadron bar
                     >
-                      <FlightCard {...flight} corner={p === 'deck' ? undefined : <HandoffRow compact v={ownerOf(flightKey(f), hull, ownPhase(f, p), f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />} />
+                      <FlightCard {...flight} corner={<HandoffRow compact v={ownerOf(flightKey(f), hull, p === 'deck' ? 'deck' : ownPhase(f, p),f.lead.rng, handoffCtx.layout, state.owners)} ctx={handoffCtx} />} />
                     </div>
                   );
                 })}
@@ -700,6 +716,7 @@ export const RadarView: React.FC<RadarViewProps> = ({ ops, setOps, mayEditOps, h
 
       {/* ---------------- right sidebar */}
       <aside aria-label="Right sidebar" style={{ flex: '0 0 344px', width: 344, borderLeft: '1px solid #262F3A', background: '#151A21', display: 'flex', flexDirection: 'column', gap: 10, padding: 12, overflowY: 'auto' }}>
+        {seat.loc !== 'cdc' && <CaseBadge kase={recoveryCase} />}
         {rights.includes('helm') && (
           <HelmPanel carrier={focus} ordered={plan.helm} onOrder={giveHelm} readOnly={!mayEdit} dcsOrder={state.orders[hull]} onRoute={!!plan.route?.active} seaRoom={seaRoom} />
         )}

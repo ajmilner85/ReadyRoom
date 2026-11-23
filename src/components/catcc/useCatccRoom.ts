@@ -215,9 +215,10 @@ export function useCatccRoom(preferredSrc?: string) {
   );
   const handoff = useCallback((key: string, from: SeatKey, to: SeatKey | null) => send({ t: 'handoff', src: srcRef.current, key, from, to }), [send]);
   const accept = useCallback((key: string) => send({ t: 'accept', src: srcRef.current, key }), [send]);
+  const assume = useCallback((key: string, from: SeatKey, to: SeatKey) => send({ t: 'assume', src: srcRef.current, key, from, to }), [send]);
   const setOps = useCallback((carrier: string, patch: Partial<OpsState> | Record<string, unknown>) => send({ t: 'ops', src: srcRef.current, carrier, patch }), [send]);
   const clearLaunch = useCallback((carrier: string, trackId: string, clear: boolean) => send({ t: 'launch', src: srcRef.current, carrier, trackId, clear }), [send]);
   const clearError = useCallback(() => setState((s) => ({ ...s, error: undefined })), []);
 
-  return { state, history: history.current, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, setOps, clearLaunch, clearError };
+  return { state, history: history.current, selectSource, claim, release, setPlan, assign, setIntercept, handoff, accept, assume, setOps, clearLaunch, clearError };
 }

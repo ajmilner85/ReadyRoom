@@ -295,9 +295,11 @@ class Source {
     this.updateLaunch();
     // ownership of flights no longer in the picture is dropped
     const flights = new Set(msg.tracks.flatMap((t) => [t.id, ...(t.g ? [t.g] : [])]));
+    // and of flights that are all on deck: PriFly has them from touchdown, and Departure (or the chain) from launch
+    const airborne = new Set(msg.tracks.filter((t) => t.air !== false).flatMap((t) => [t.id, ...(t.g ? [t.g] : [])]));
     let gone = false;
     for (const k of Object.keys(this.owners)) {
-      if (!flights.has(k)) {
+      if (!flights.has(k) || !airborne.has(k)) {
         delete this.owners[k];
         gone = true;
       }
@@ -800,6 +802,20 @@ export class RoomService {
         if (!cur?.pending) return send(c, { t: 'error', error: 'no handoff pending' });
         if (!src.mayActFor(c.user.userId, cur.pending.to)) return send(c, { t: 'error', error: 'that handoff is for another seat' });
         src.owners[msg.key] = { owner: cur.pending.to };
+        src.broadcastOwners();
+        return;
+      }
+      case 'assume': {
+        const src = this.sources.get(msg.src);
+        if (!src) return send(c, { t: 'error', error: `unknown source ${msg.src}` });
+        const from = cleanSeat(msg.from);
+        const to = cleanSeat(msg.to);
+        if (!okFlightKey(msg.key) || !from || !to) return send(c, { t: 'error', error: 'invalid assume' });
+        if (!src.mayActFor(c.user.userId, to)) return send(c, { t: 'error', error: 'claim that seat to assume control' });
+        const owner = src.owners[msg.key]?.owner ?? from;
+        if (sameSeat(owner, to)) return send(c, { t: 'error', error: 'already owned by that seat' });
+        // any pending handoff is cancelled; the seat it was taken from is told (took)
+        src.owners[msg.key] = { owner: to, took: { from: owner, at: Date.now() } };
         src.broadcastOwners();
         return;
       }
