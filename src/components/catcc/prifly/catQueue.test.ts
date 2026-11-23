@@ -12,14 +12,15 @@ const catDeg = (k: string) => (Math.atan2(CATS[k][1][1] - CATS[k][0][1], CATS[k]
 const onShuttle = (id: string, k: string): DeckPose => ({ id, x: CATS[k][0][0], y: CATS[k][0][1], a: catDeg(k) });
 
 describe('destination names in the deck card text', () => {
-  it("puts a spot's number after a hyphen", () => {
+  it("puts a spot's number after a hyphen only where its area's name ends in a number", () => {
     expect(destName('E22')).toBe('El 2 - 2');
-    expect(destName('BS1')).toBe('Bow stbd - 1');
     expect(destName('E22').toUpperCase()).toBe('EL 2 - 2');
+    expect(destName('BS1')).toBe('Bow stbd 1');
+    expect(destName('PA1')).toBe('Patio 1');
   });
   it('leaves catapults as they are, and names every destination', () => {
     expect(destName('C2')).toBe('CAT 2');
-    for (const d of TAXI_DESTS) expect(destName(d.id)).toBe(d.kind === 'cat' ? d.label : d.label.replace(/ (\S+)$/, ' - $1'));
+    for (const d of TAXI_DESTS) expect(destName(d.id)).toBe(d.kind === 'cat' || !/^El \d /.test(d.label) ? d.label : d.label.replace(/ (\S+)$/, ' - $1'));
     expect(destName(null)).toBe('');
     expect(destName('nowhere')).toBe('');
   });

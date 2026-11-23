@@ -20,13 +20,15 @@ const D = Math.PI / 180;
 const dist = (a: V, b: V) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 
 /**
- * A destination's name for the deck card's text: a spot's number after a hyphen ("El 2 - 2",
- * "Bow stbd - 1"); a catapult's as it is ("CAT 2").
+ * A destination's name for the deck card's text: the spot's number after a hyphen where its area's
+ * name has a number of its own ("El 2 - 2"), else as it is ("Patio 1", "Bow stbd 1"); a catapult's as
+ * it is ("CAT 2").
  */
 export function destName(id: string | null | undefined): string {
   const s = DECK_SPOTS.find((q) => q.id === id);
   if (!s) return taxiDest(id)?.label ?? '';
-  return s.label.startsWith(`${s.area} `) ? `${s.area} - ${s.label.slice(s.area.length + 1)}` : s.label;
+  // (the hyphen only where the area's name ends in a number of its own: "El 2 - 2", but "Patio 1")
+  return /\d$/.test(s.area) && s.label.startsWith(`${s.area} `) ? `${s.area} - ${s.label.slice(s.area.length + 1)}` : s.label;
 }
 
 export interface CatQueue {
