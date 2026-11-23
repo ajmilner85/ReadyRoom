@@ -81,7 +81,8 @@ def _material(r):
     m = []
     for _ in range(r.u32()):
         k = r.s()
-        if k in ('BLENDING', 'CULLING', 'SHADOWS'): v = r.u8()
+        # (DECAL: one byte, seen 1 and 2: the Supercarrier's Nimitz_Hangar.EDM, read whole with it so, 2026-11-17)
+        if k in ('BLENDING', 'CULLING', 'SHADOWS', 'DECAL'): v = r.u8()
         elif k == 'DEPTH_BIAS': v = r.u32()
         elif k in ('MATERIAL_NAME', 'NAME'): v = r.s()
         elif k == 'VERTEX_FORMAT': v = list(r.take(r.u32()))
@@ -166,6 +167,11 @@ def _node(r, t):
         n['parent'] = r.u32()
         n['format'] = list(r.take(r.u32()))
         n['vtx'], n['idx'] = _vtx(r), _idx(r)
+    elif t == 'model::LightNode':
+        # (the node it hangs on, a byte, the light's own properties, a byte: Nimitz_Hangar.EDM's 102 lights read so)
+        n['parent'], n['unk'] = r.u32(), r.u8()
+        n['light'] = _props(r)
+        n['unk2'] = r.u8()
     else:
         raise ValueError('unknown node type %s at %d' % (t, r.o))
     return n
@@ -259,7 +265,7 @@ def _wmaterial(w, m):
     w.u32(len(m))
     for k, v in m:
         w.s(k)
-        if k in ('BLENDING', 'CULLING', 'SHADOWS'): w.u8(v)
+        if k in ('BLENDING', 'CULLING', 'SHADOWS', 'DECAL'): w.u8(v)
         elif k == 'DEPTH_BIAS': w.u32(v)
         elif k in ('MATERIAL_NAME', 'NAME'): w.s(v)
         elif k == 'VERTEX_FORMAT':
@@ -351,6 +357,10 @@ def _wnode(w, n):
     elif t == 'model::ShellNode':
         w.u32(n['parent']); w.u32(len(n['format'])); w.b += bytes(n['format'])
         _wvtx(w, n['vtx']); _widx(w, n['idx'])
+    elif t == 'model::LightNode':
+        w.u32(n['parent']); w.u8(n['unk'])
+        _wprops(w, n['light'])
+        w.u8(n['unk2'])
     else: raise ValueError(t)
 
 

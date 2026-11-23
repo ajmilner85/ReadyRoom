@@ -12,9 +12,12 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 // @ts-expect-error fengari ships no types
 import { lauxlib, lua, lualib, to_luastring } from 'fengari';
+import { spawnSync } from 'node:child_process';
+import os from 'node:os';
 import { buildRoutesLua } from '../deck-test/crew-test/routes.gen.ts';
 import { DECK_SPOTS as T_SPOTS } from '../../src/components/catcc/prifly/deckSpots.gen.ts';
-import { buildSpotsTs, DECK_OUTLINE, EDGE, movedSpots, wheelsInside } from '../../scripts/catcc/deck-spots.gen.ts';
+import { taxiRoute } from '../../src/components/catcc/prifly/taxiNet.ts';
+import { buildSpotsTs, dcsSpots, DECK_OUTLINE, EDGE, movedSpots, SPOTS_DCS_CSV, wheelsInside } from '../../scripts/catcc/deck-spots.gen.ts';
 
 const here = (p: string) => path.resolve(__dirname, p);
 const DCS = 'C:/Program Files/Eagle Dynamics/DCS World';
@@ -26,6 +29,11 @@ const patch = fs.readFileSync(here('../deck-test/crew-test/groundcrew-patch.lua'
 const menuSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest.lua'), 'utf8');
 const hookSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hook.lua'), 'utf8');
 const routesSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_routes.lua'), 'utf8').replace(/\r\n/g, '\n');
+const uiSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_ui.lua'), 'utf8');
+const demoSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_demo.lua'), 'utf8');
+const hangarSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hangar.lua'), 'utf8');
+const slotsSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_slots.lua'), 'utf8');
+const headSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_head.lua'), 'utf8');
 
 /** the names a PE file exports */
 function peExports(file: string): Set<string> {
@@ -272,13 +280,19 @@ OUT = table.concat({
     expect(f.static).toBe('0');
     expect(f.takeoff).toBe('27/catcc-00');
     expect(f.behavior).toBe(full.behavior);
-    // model: extra, plus the plane captain (catcc-m0, a brown shirt) and the tow tractor's driver (catcc-t0, green): DCS's
+    // model: extra, plus the plane captain (catcc-m0, a brown shirt) and the tow tractor's driver (catcc-t0, blue): DCS's
     // own crew figure, with the wands; nobody of ours stands on elevator 1's platform (15.5 m forward and on)
     const m = fields(extra('model'));
-    expect(m.crews).toBe('12,6,6,6');
+    // (and the deck spotting demo's nine more drivers, catcc-t1 .. t9, in catapult crews 2, 3 and 4: no crew larger
+    // than the twelve crew 1 is seen to work with. Nine since 2026-11-19: the demo has ten tractors (six on the flight
+    // deck, four in the hangar), and the user saw "two tugs in the hangar that have no driver". Twelve tractors were
+    // tried the same day and dropped: a driver for each of the ten and no more: the user: "the only blue shirts should
+    // be in tugs")
+    expect(m.crews).toBe('12,9,9,9');
     expect(m.c10).toBe(f.c10);
     const patched = patch.replace(/\r\n/g, '\n');
-    expect(patched).toContain("{ { 'catcc-m0', 'brown', 12.0, 31.0 }, { 'catcc-t0', 'green', 12.0, 33.0 } }");
+    expect(patched).toContain("{ { 'catcc-m0', 'brown', 12.0, 31.0, 1 }, { 'catcc-t0', 'blue', 12.0, 33.0, 1 } }");
+    expect(patched).toContain("for i = 1, 9 do people[#people + 1] = { 'catcc-t' .. i, 'blue', 14.0 - i, 34.5, i <= 3 and 2 or ((i <= 5 or i == 8) and 3 or 4) } end");
     expect(patched).not.toContain("model_name = 'catcc_test_pilot',");
     expect(patched).toContain("livery = 'yellow', -- flight directors");
     // the static types of our own mod (the tow bar, the axle finder's markers), declared in a Database file as the chock's
@@ -340,7 +354,23 @@ local CV = {
   getPoint = function() return v(SX, 0, SZ) end,
   getPosition = function() return { p = v(SX, 0, SZ), x = shipX, y = shipY, z = shipZ } end,
   getName = function() return 'CVN-72' end, isExist = function() return true end,
-  getCountry = function() return 2 end, getID = function() return 77 end,
+  getCountry = function() return 2 end, getID = function() return 77 end, getTypeName = function() return 'CVN_72' end,
+}
+-- a second carrier, CVN-71, 3 km north of the first, on the same heading (TWO_SHIPS: it is in the mission); and a
+-- destroyer right beside it, which is no carrier
+TWO_SHIPS = false
+local SX2, SZ2 = SX + 3000, SZ
+local CV2 = {
+  getPoint = function() return v(SX2, 0, SZ2) end,
+  getPosition = function() return { p = v(SX2, 0, SZ2), x = shipX, y = shipY, z = shipZ } end,
+  getName = function() return 'CVN-71' end, isExist = function() return true end,
+  getCountry = function() return 2 end, getID = function() return 78 end, getTypeName = function() return 'CVN_71' end,
+}
+local DDG = {
+  getPoint = function() return v(SX2 + 50, 0, SZ2 + 400) end,
+  getPosition = function() return { p = v(SX2 + 50, 0, SZ2 + 400), x = shipX, y = shipY, z = shipZ } end,
+  getName = function() return 'DDG-1' end, isExist = function() return true end,
+  getCountry = function() return 2 end, getID = function() return 79 end, getTypeName = function() return 'USS_Arleigh_Burke_IIa' end,
 }
 local JET = {
   getPosition = function()
@@ -357,7 +387,10 @@ TIMERS = {}                                  -- the mission's timer.scheduleFunc
 MISSION = setmetatable({
   coalition = {
     side = { NEUTRAL = 0, RED = 1, BLUE = 2 },
-    getGroups = function(side, cat) if side == 2 and cat == 3 then return { { getUnits = function() return { CV } end } } end return {} end,
+    getGroups = function(side, cat)
+      if side == 2 and cat == 3 then return { { getUnits = function() return TWO_SHIPS and { CV, DDG, CV2 } or { CV } end } } end
+      return {}
+    end,
     getPlayers = function(side) return (side == 2 and PLAYER ~= false) and { JET } or {} end,
     addStaticObject = function(country, t)
       if NO_BAR_TYPE and t.type == 'CATCC_Towbar' then error('unknown type ' .. t.type) end
@@ -365,10 +398,17 @@ MISSION = setmetatable({
       local n = 0
       for _ in pairs(STATICS) do n = n + 1 end
       local name = t.name
-      STATICS[name] = { id_ = 33554688 + n, isExist = function() return true end, destroy = function() STATICS[name] = nil rec('destroy ' .. name) end }
+      STATICS[name] = { id_ = 33554688 + n, isExist = function() return true end, destroy = function() STATICS[name] = nil rec('destroy ' .. name) end,
+        -- (a linked static: where DCS made it, STATIC_UP above the ship's origin)
+        getPosition = function()
+          local o = t.offsets or { x = 0, y = 0, angle = 0 }
+          local nf, ns = math.cos(o.angle), math.sin(o.angle)
+          return { p = toWorld(o.x, STATIC_UP or 21.975, o.y), x = v(nf * shipX.x + ns * shipZ.x, 0, nf * shipX.z + ns * shipZ.z), y = v(0, 1, 0), z = shipX }
+        end }
       if t.linkUnit and not NO_LINK then LINKED_IDS[33554688 + n] = true end
       rec(string.format('static %s type %s category %s linked %s', t.name, t.type, t.category, tostring(t.linkUnit ~= nil))
-        .. (t.linkUnit and string.format(' to %d at %.3f %.3f angle %.4f offset %s cargo %s', t.linkUnit, t.offsets.x, t.offsets.y, t.offsets.angle, tostring(t.linkOffset), tostring(t.canCargo)) or ''))
+        .. (t.linkUnit and string.format(' to %d at %.3f %.3f angle %.4f offset %s cargo %s', t.linkUnit, t.offsets.x, t.offsets.y, t.offsets.angle, tostring(t.linkOffset), tostring(t.canCargo)) or '')
+        .. (t.livery_id and (' livery ' .. t.livery_id) or ''))
       return STATICS[name]
     end,
   },
@@ -382,7 +422,8 @@ MISSION = setmetatable({
       return { path = path, n = 0 }
     end,
     addCommandForGroup = function(gid, name, parent, fn)
-      local key = ((parent.path .. ' > ' .. name):gsub('^CATCC crew test > ', ''))
+      -- (no parent: an item on the radio menu's own top level)
+      local key = (((parent and (parent.path .. ' > ') or '') .. name):gsub('^CATCC crew test > ', ''))
       cmds[key] = fn; order[#order + 1] = key
     end,
   },
@@ -413,7 +454,7 @@ WORLD = true    -- false: no world position of the men themselves
 PARENTPOS = true -- false: no world position of what they are attached to (their ship)
 NO_ANIM = false -- true: what a man plays can't be read
 REPLACED = nil  -- n: a held animation is replaced by idle n seconds after it was applied
-PLAYING, PROPS, PROPSETS, UNPLAYABLE = {}, {}, 0, {}
+PLAYING, PROPS, PROPSETS, UNPLAYABLE = {}, {}, 0, { catcc_drv_seat = true } -- (the mod without install.ps1 -DriverPose: as installed until asked for)
 ENVF = { avoid = false, path = false } -- the crew environment's collision avoidance switches
 DBG = { 1, 0, 0, 0 }                   -- the character code's own four switches (debug_settings)
 BUB, ELEV = {}, {}                     -- the ship's bubbles and elevators: the last command given to each
@@ -635,6 +676,18 @@ NATIVE.place = function(h, x, y, z, fx, fz)
   q.x, q.y, q.z, q.fx, q.fz = x, y, z, fx, fz
   return true, 'origin + pose'
 end
+-- a driver's head (crewtest-21): where it was last sent (HEADNOW), every call recorded; the frames' ticks counted
+HEADNOW, HEADTICKS = {}, 0
+NATIVE.head = function(h, y, w)
+  if y ~= nil and not byH[h] then return nil, 'no such character (scan again)' end
+  HEADNOW[h] = y
+  rec('head ' .. h .. (y and string.format(' %g', y) or ' forgotten') .. (w and string.format(' w%g', w) or ''))
+  return true
+end
+NATIVE.headtick = function()
+  HEADTICKS = HEADTICKS + 1
+  return 0, 0
+end
 NATIVE.forcepos = function(id, xx, xy, xz, yx, yy, yz, zx, zy, zz, px, py, pz)
   local dx, dz = px - SX, pz - SZ
   local f, st = dx * shipX.x + dz * shipX.z, dx * shipZ.x + dz * shipZ.z
@@ -653,16 +706,26 @@ CAMAT = nil
 Export = {
   LoGetCameraPosition = function()
     if CAMAT then -- an outside camera: at f, s of the ship, "up" above its origin, looking at the deck point (lf, ls) (or level: no lf)
-      local p = toWorld(CAMAT.f, CAMAT.up or 60, CAMAT.s)
-      local d = CAMAT.lf and toWorld(CAMAT.lf, 22, CAMAT.ls) or toWorld(CAMAT.f + 10, CAMAT.up or 60, CAMAT.s)
+      -- (CAMAT.ship2: all of it at the second carrier)
+      local ox, oz = CAMAT.ship2 and (SX + 3000) or nil, CAMAT.ship2 and SZ or nil
+      local p = toWorld(CAMAT.f, CAMAT.up or 60, CAMAT.s, ox, oz)
+      local d = CAMAT.lf and toWorld(CAMAT.lf, CAMAT.ly or 21.975, CAMAT.ls, ox, oz) or toWorld(CAMAT.f + 10, CAMAT.up or 60, CAMAT.s, ox, oz)
       local dx, dy, dz = d.x - p.x, d.y - p.y, d.z - p.z
       local m = math.sqrt(dx * dx + dy * dy + dz * dz)
-      return { p = p, x = v(dx / m, dy / m, dz / m), y = v(0, 1, 0), z = v(0, 0, 1) }
+      -- (its own axes, as DCS gives them: x forward, y up, z to the right)
+      local fx, fy, fz = dx / m, dy / m, dz / m
+      local rx, rz = -fz, fx
+      local rm = math.sqrt(rx * rx + rz * rz)
+      rx, rz = rx / rm, rz / rm
+      return { p = p, x = v(fx, fy, fz), y = v(-rz * fy, rz * fx - rx * fz, rx * fy), z = v(rx, 0, rz) }
     end
     local p = COCKPIT and toWorld(jet.f + 3.5 * jet.nf, 23, jet.s + 3.5 * jet.ns) or toWorld(jet.f - 30, 40, jet.s)
     local nx, nz = jet.nf * shipX.x + jet.ns * shipZ.x, jet.nf * shipX.z + jet.ns * shipZ.z
     local b = (math.atan2 or math.atan)(nz, nx) + math.rad(CAMAZ)
     return { p = p, x = v(math.cos(b), 0, math.sin(b)), y = v(0, 1, 0), z = v(-math.sin(b), 0, math.cos(b)) }
+  end,
+  LoSetCameraPosition = function(pos)
+    CAMPUT, CAMPUTS = pos, (CAMPUTS or 0) + 1
   end,
   LoSetCommand = function(cmd, val)
     CAMSETS[#CAMSETS + 1] = val
@@ -670,6 +733,8 @@ Export = {
     if CAMMODE == 'turn' then CAMAZ = math.max(-172, math.min(172, CAMAZ + val * CAMG)) elseif CAMMODE == 'angle' then CAMAZ = val * CAMK end
   end,
   LoGetPlayerPlaneId = function() return 16777472 end,
+  -- (DCS's active pause: the mission's clock runs on, the player's own aircraft is held: ACTIVE_PAUSE, a test's own)
+  LoSimulationOnActivePause = function() return ACTIVE_PAUSE == true end,
 }
 
 local LOG = {}
@@ -688,6 +753,13 @@ ROUTES_SRC = [[return {
 SPOTS_FILE = nil   -- Logs/catcc-deck-spots.lua, as the hook last wrote it (or as a test gives it)
 loadfile = function(p)
   if p == 'W/Logs/catcc-deck-spots.lua' then return SPOTS_FILE and load(SPOTS_FILE) or nil end
+  if p == 'W/Logs/catcc-hangar-marks.lua' then return MARKS_FILE and load(MARKS_FILE) or nil end
+  if p == 'W/Scripts/CATCC/crewtest_ui.lua' then return UI_ON and load(UI_SRC, 'crewtest_ui') or nil end
+  if p == 'W/Scripts/CATCC/crewtest_demo.lua' then return DEMO_ON and load(DEMO_SRC, 'crewtest_demo') or nil end
+  if p == 'W/Scripts/CATCC/crewtest_hangar.lua' then return DEMO_ON and load(HANGAR_SRC, 'crewtest_hangar') or nil end
+  if p == 'W/Scripts/CATCC/crewtest_slots.lua' then return SLOTS_ON and load(SLOTS_SRC, 'crewtest_slots') or nil end
+  -- (the drivers' head: only where a test asks for it (HEAD_ON): everywhere else the drivers sit as they always did)
+  if p == 'W/Scripts/CATCC/crewtest_head.lua' then return (HEAD_ON and HEAD_SRC) and load(HEAD_SRC, 'crewtest_head') or nil end
   if p == 'W/Config/CATCC-test.lua' and FLAG then return function() return { chockTest = true, crewTest = true } end end
   if p == 'W/Scripts/CATCC/crewtest_routes.lua' and ROUTES_SRC then return load(ROUTES_SRC) end
   return nil
@@ -701,6 +773,10 @@ io = { open = function(p, mode)
     local parts = {}
     return { write = function(self, ...) parts[#parts + 1] = table.concat({ ... }) end, close = function() SPOTS_FILE = table.concat(parts) end }
   end
+  if p == 'W/Logs/catcc-hangar-marks.lua' and mode == 'w' then
+    local parts = {}
+    return { write = function(self, ...) parts[#parts + 1] = table.concat({ ... }) end, close = function() MARKS_FILE = table.concat(parts) end }
+  end
   return nil
 end }
 os = { date = function() return '00:00:00' end, clock = function() return T end }
@@ -712,7 +788,90 @@ end }
 local HANDLER
 MT = 0            -- model time: stands still while PAUSED (the briefing screen, a paused mission)
 PAUSED = false
-DCS = { getRealTime = function() return T end, getModelTime = function() return MT end, setUserCallbacks = function(h) HANDLER = h end }
+FOV = 78          -- what DCS.getCurrentFOV gives (degrees)
+DCS = { getRealTime = function() return T end, getModelTime = function() return MT end, setUserCallbacks = function(h) HANDLER = h end, getCurrentFOV = function() return FOV end }
+-- A stand-in for DCS's window toolkit (dxgui), for the in-game panel (UI_ON): widgets that remember their text, bounds
+-- and whether they are shown, and can be pressed; windows with hot keys; the screen 2560 x 1600.
+WIDGETS, WINDOWS, HOTKEYS, MOUSE_DOWN = {}, {}, {}, nil
+local function widget(kind, text)
+  local w = { kind = kind, text = text or '', visible = true, b = { 0, 0, 0, 0 } }
+  function w:setText(t) self.text = t end
+  function w:getText() return self.text end
+  function w:setVisible(v)
+    -- (DCS: a window of this toolkit made invisible is not seen again, whatever is done to it afterwards:
+    -- crewtest_ui.lua at its top; the slot picker's first version, 2026-11-20)
+    if kind == 'Window' and v == false then SET_INVISIBLE, self.dead = (SET_INVISIBLE or 0) + 1, true end
+    self.visible = v and not self.dead
+  end
+  function w:getVisible() return self.visible end
+  function w:setBounds(x, y, ww, hh) self.b = { x, y, ww, hh } end
+  function w:getBounds() return self.b[1], self.b[2], self.b[3], self.b[4] end
+  function w:setSkin(sk) self.skin = sk end
+  function w:getSkin() return self.skin or { kind = kind } end
+  function w:setWrapping() end
+  -- (DCS's Static: its picture turned about its pivot point, degrees)
+  function w:setAngle(a) self.angle = a end
+  function w:setPivotPoint(x, y) self.pivot = { x, y } end
+  function w:setEnabled(v) self.disabled = not v end
+  function w:addMouseUpCallback(fn) self.up = fn end
+  function w:insertWidget(c) self.children = self.children or {} self.children[#self.children + 1] = c c.parent = self end
+  function w:setHasCursor(v) self.cursor = v end
+  function w:setTransparentForUserInput(v) self.through = v end
+  function w:addHotKeyCallback(key, fn) HOTKEYS[key] = fn end
+  WIDGETS[#WIDGETS + 1] = w
+  return w
+end
+require = function(name)
+  if not UI_ON then error("module '" .. name .. "' not found") end
+  if name == 'dxgui' then return { GetScreenSize = function() return 2560, 1600 end, AddMouseCallback = function(kind, fn) if kind == 'down' then MOUSE_DOWN = fn end end } end
+  if name == 'DialogLoader' then
+    return { spawnDialogFromFile = function(path)
+      local w = widget('Window', path)
+      w.visible = false
+      w.tplButton, w.tplLabel = widget('Button', ''), widget('Static', '')
+      w.tplButton.skin, w.tplLabel.skin = { tpl = 'tplButton' }, { tpl = 'tplLabel' }
+      -- (any other template child of the dialog (tplPrimary, tplBoardReady ...): its skin named after it)
+      setmetatable(w, { __index = function(t, k)
+        if type(k) ~= 'string' or not k:match('^tpl') then return nil end
+        local c = widget((k:match('Button') or k:match('^tplPrimary') or k == 'tplAmber' or k == 'tplRed' or k == 'tplHit') and 'Button' or 'Static', '')
+        c.skin = { tpl = k }
+        rawset(t, k, c)
+        return c
+      end })
+      -- (the first of a name: the panel makes a second window of the mark's kind, the hangar marks' crosshair)
+      local key = path:match('([%w_]+)%.dlg$')
+      WINDOWS[key] = WINDOWS[key] or w
+      rec('dialog ' .. path)
+      return w
+    end }
+  end
+  if name == 'Button' then return { new = function(text) return widget('Button', text) end } end
+  if name == 'Static' then return { new = function(text) return widget('Static', text) end } end
+  if name == 'Skin' then return { windowSkinChatMin = function() return { hidden = true } end } end
+  -- (the slot picker's deck picture: the file the skin would show)
+  if name == 'SkinUtils' then return { setStaticPicture = function(file) return { picture = file } end } end
+  error("module '" .. name .. "' not found")
+end
+-- a shown button of the panel pressed (by its text, with or without the [ ] of a chosen one)
+function press(text)
+  for _, w in ipairs(WIDGETS) do
+    -- (a disabled button does nothing when clicked, as in DCS)
+    if w.kind == 'Button' and w.visible and not w.disabled and w.parent and w.parent.visible and w.up and (w.text == text or w.text == '[' .. text .. ']' or w.text == text .. '  >') then return w.up() end
+  end
+  error('no shown button "' .. text .. '"')
+end
+-- the panel is on the screen: its window visible, in its own skin, at its full size
+function panelShown()
+  local w = WINDOWS.crewtest_ui
+  return w ~= nil and w.visible == true and not (w.skin and w.skin.hidden) and w.b[3] > 100
+end
+function shown(kind)
+  local out = {}
+  for _, w in ipairs(WIDGETS) do
+    if w.kind == kind and w.visible and w.parent and w.parent.visible and w.text ~= '' then out[#out + 1] = w.text end
+  end
+  return table.concat(out, ' | ')
+end
 net = { dostring_in = function(state, code)
   local r = assert(load(code, 'mission', 't', MISSION))()
   return r == nil and '' or tostring(r)
@@ -723,7 +882,8 @@ assert(load(HOOK_SRC, 'crewtest_hook'))()
 local function frames(secs)   -- run the sim for a while, 4 frames a second; the mission's timers fire too
   for _ = 1, math.floor(secs * 4 + 0.5) do
     T = T + 0.25
-    if not PAUSED then MT = MT + 0.25 end
+    if not PAUSED then MT = MT + 0.25 * (ACCEL or 1) end -- (ACCEL: time acceleration: the model time of a frame)
+    if ONFRAME and not PAUSED then ONFRAME(0.25 * (ACCEL or 1)) end -- (a test's own: what the stand-in ship does in a frame)
     for i = #TIMERS, 1, -1 do
       local tm = TIMERS[i]
       if tm.at <= T then
@@ -744,16 +904,25 @@ end
 
 function hook(
   script: string,
-  opts: { flag?: boolean; noNative?: boolean; quick?: boolean; world?: boolean; parentPos?: boolean; replaced?: number; noAnim?: boolean } = {},
+  opts: { flag?: boolean; noNative?: boolean; quick?: boolean; world?: boolean; parentPos?: boolean; replaced?: number; noAnim?: boolean; ui?: boolean; demo?: boolean; head?: boolean } = {},
 ): { rec: string[]; says: string[]; menu: string[]; log: number; logLines: string[] } {
-  const pre = `FLAG = ${opts.flag === false ? 'false' : 'true'}\nNO_NATIVE = ${opts.noNative ? 'true' : 'false'}\n`;
+  const pre = `FLAG = ${opts.flag === false ? 'false' : 'true'}\nNO_NATIVE = ${opts.noNative ? 'true' : 'false'}\nUI_ON = ${opts.ui ? 'true' : 'false'}\nDEMO_ON = ${opts.demo ? 'true' : 'false'}\nHEAD_ON = ${opts.head ? 'true' : 'false'}\n`;
   const set =
     (opts.quick === false ? 'QUICK = false\n' : '') +
     (opts.world === false ? 'WORLD = false\n' : '') +
     (opts.parentPos === false ? 'PARENTPOS = false\n' : '') +
     (opts.replaced ? `REPLACED = ${opts.replaced}\n` : '') +
     (opts.noAnim ? 'NO_ANIM = true\n' : '');
-  const out = run(`${pre}${world}\n${set}${script}\ndone()`, { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc }).split('\n');
+  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc };
+  // (CATCC_LUA_DUMP=<folder>: the harness and its sources written there, for a run under DCS's own Lua 5.1, which is
+  // some fifty times as fast as fengari: deck-test/crew-test/luarun.py)
+  if (process.env.CATCC_LUA_DUMP) {
+    const dir = process.env.CATCC_LUA_DUMP;
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(`${dir}/world.lua`, world);
+    for (const [k, v] of Object.entries(globals)) fs.writeFileSync(`${dir}/${k}.txt`, v);
+  }
+  const out = run(`${pre}${world}\n${set}${script}\ndone()`, globals).split('\n');
   const rec = out.filter((l) => l !== '' && !l.startsWith('#'));
   return {
     rec,
@@ -806,7 +975,7 @@ OUT = table.concat(types, ';') .. '|' .. table.concat(mounts, ';') .. '|' .. tos
     const [types, mounts, done] = out.split('|');
     // a type's name is its model's file name and its shape's name, as the chock's and the route lines' are
     const one = (n: string) => `${n}/${n}/${n}/lLandVehicle/ADEquipment/1/2`;
-    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_Towbar'), one('CATCC_AxleProbe')]);
+    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe')]);
     for (const t of types.split(';')) expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/Shapes/${t.split('/')[1]}.edm`)), t).toBe(true);
     expect(db).not.toMatch(/pcall\s*\(/);
     expect(mounts.split(';')).toEqual(['anim M/animations', 'model M/models', 'model M/Shapes', 'tex M/Shapes/textures']);
@@ -833,10 +1002,17 @@ describe('crew test hook and menu', () => {
     const inSub = (s: string) => r.menu.filter((m) => m.startsWith(`${s} > `));
     for (const s of SUBS) expect(r.rec).toContain(`submenu CATCC crew test > ${s}`);
     // (Catapult crews: the report and a submenu of seven for each catapult)
-    expect(SUBS.map((s) => inSub(s).length)).toEqual([10, 8, 18, 8, 48, 23]);
-    // (Tow: five items, the driver's seat, and the axle finder with its two sets of steps)
-    expect(inSub('Tow > Driver seat').length).toBe(6);
-    expect(inSub('Tow > Axle finder').length).toBe(12);
+    expect(SUBS.map((s) => inSub(s).length)).toEqual([10, 8, 18, 8, 48, 43]);
+    // (Tow: the four catapults, the deck spots (none here: this stand-in routes file names none), five items, the
+    // driver's seat (with the four items for the drivers' heads), and the axle finder with its two sets of steps; ten items on its own level)
+    expect(inSub('Tow > Tow me to a catapult').map((m) => m.split(' > ').pop())).toEqual(['Catapult 1', 'Catapult 2', 'Catapult 3', 'Catapult 4']);
+    expect(inSub('Tow > Tow me to a parking spot').length).toBe(1);
+    expect(new Set(inSub('Tow').map((m) => m.split(' > ')[1])).size).toBe(10);
+    // the panel's own item on the radio menu's top level
+    expect(r.menu).toContain('CATCC panel: show / hide');
+    expect(inSub('Tow > Driver seat').length).toBe(10);
+    expect(inSub('Tow > Axle finder').length).toBe(18);
+    expect(inSub('Tow > Axle finder > Width (the end plates)').map((m) => m.split(' > ').pop())).toEqual(['Wider 10 cm', 'Narrower 10 cm', 'Wider 1 cm', 'Narrower 1 cm', 'Wider 1 mm', 'Narrower 1 mm']);
     expect(inSub('Tow > Axle finder > Fore / aft').map((m) => m.split(' > ').pop())).toEqual(['Forward 10 cm', 'Aft 10 cm', 'Forward 1 cm', 'Aft 1 cm', 'Forward 1 mm', 'Aft 1 mm']);
     expect(inSub('Tow > Axle finder > Up / down').map((m) => m.split(' > ').pop())).toEqual(['Up 10 cm', 'Down 10 cm', 'Up 1 cm', 'Down 1 cm']);
     expect(inSub('Target: walk > Collision avoidance').length).toBe(5);
@@ -857,8 +1033,10 @@ describe('crew test hook and menu', () => {
     expect(deck.filter((m) => m.startsWith('Move it forward / aft (along its nose) > ')).map((m) => m.split(' > ')[1])).toEqual(['Forward 1 m', 'Aft 1 m', 'Forward 10 cm', 'Aft 10 cm', 'Forward 1 cm', 'Aft 1 cm']);
     expect(deck.filter((m) => m.startsWith('Turn it > ')).map((m) => m.split(' > ')[1])).toEqual(['Right 5 degrees', 'Left 5 degrees', 'Right 1 degree', 'Left 1 degree', 'Right 0.1 degree', 'Left 0.1 degree']);
     const top = r.menu.filter((m) => !m.startsWith('CATCC deck spots > ') && !SUBS.some((s) => m.startsWith(`${s} > `)));
-    expect(top).toEqual(['List people on my ship', TARGET, NIGHT, 'Stop the demo / signal test / marshalling']);
-    expect(top.length + SUBS.length).toBeLessThanOrEqual(10);
+    // (the panel's show / hide is not in the crew test's menu: it is on the radio menu's own top level)
+    // (nor are the deck spotting demo's two)
+    expect(top).toEqual(['List people on my ship', TARGET, NIGHT, 'Stop the demo / signal test / marshalling', 'CATCC panel: show / hide', 'CATCC demo: spot the deck: start / stop', 'CATCC demo: report']);
+    expect(top.length - 3 + SUBS.length).toBeLessThanOrEqual(10);
     expect(inSub('Target: signal')[2]).toBe('Target: signal > Turn left');
     expect(inSub('Our crew').slice(0, 6)).toEqual([SIGTEST, DEMO, ...[1, 2, 3, 4].map((k) => `${MARSHAL} ${k}`)]);
     expect(inSub('Our crew').slice(-2)).toEqual(['Our crew > Camera follows the director: on / off', 'Our crew > Put me square on the nearest spot (teleport)']);
@@ -1399,7 +1577,7 @@ ELEV[2] = 2\nframes(1)\nELEV[2] = 2\nframes(5)
 rec('--- up')
 ARGS[59], ARGS[31], ARGS[32] = 1, 1, 0   -- (as DCS leaves them at the bottom: platform down, deck-edge fence up, lower fence down)
 click("Catapult crews > Elevators > Elevator 3: up")\nframes(1)\nELEV[2] = 0\nframes(2)
-ARGS[53] = 0.9   -- (DCS's own raise sequence starts to shut the door: written back to open)
+ARGS[53] = 0.9   -- (DCS's own raise sequence starts to shut the door: left to it)
 frames(30)
 rec(string.format('after the raise: door %.2f, lower fence %.2f, platform %.2f, deck-edge fence %.2f', ARGS[53], ARGS[32], ARGS[59], ARGS[31]))
 click("Catapult crews > Elevators > Shut the hangar doors")\nframes(1)\nlocal n = #REC\nARGS[53] = 0.5\nframes(2)\nrec('door writes after the doors were let go: ' .. (#REC - n))
@@ -1419,18 +1597,21 @@ click("Catapult crews > Elevators > Shut the hangar doors")\nframes(1)`);
     expect(Number(r.rec.find((l) => l.startsWith('door after 1 s: '))!.split(': ')[1])).toBeGreaterThan(0.05);
     expect(Number(r.rec.find((l) => l.startsWith('door after 1 s: '))!.split(': ')[1])).toBeLessThan(0.25);
     expect(r.logLines.some((l) => /^elevator 3: the hangar door is open \([5-7] s after the elevator was told to go down\)$/.test(l))).toBe(true);
-    // Up: the lower fence first (4 s), then the platform (17 s), then the deck-edge fence (4 s), in that order, the door
-    // written back to open whenever it is found less than open; then the door stays open until it is let go
+    // Up: the lower fence first (4 s), then the platform (17 s), then the deck-edge fence (4 s), in that order. THE DOOR IS
+    // NOT TOUCHED (the user, 2026-11-18, after the run of the whole demo: "Hangar doors remain open after all aircraft have
+    // been spotted. Some also seem to jitter constantly as if DCS's default behaviour is trying to override them being
+    // open": it was written back to open every frame against DCS's own raise): DCS shuts it while the platform is raised
+    // here (in this harness nothing shuts it: it reads open)
     const rise = r.rec.slice(up).filter((l) => l.startsWith('shiparg ')).map((l) => Number(l.split(' ')[2]));
     const firstOf = (a: number) => rise.indexOf(a);
     expect(firstOf(32)).toBeGreaterThan(-1);
     expect(firstOf(59)).toBeGreaterThan(rise.lastIndexOf(32));
     expect(firstOf(31)).toBeGreaterThan(rise.lastIndexOf(59));
-    expect(rise.filter((a) => a === 53).length).toBe(1);
-    expect(r.rec).toContain('after the raise: door 1.00, lower fence 1.00, platform 0.00, deck-edge fence 0.00');
-    expect(r.logLines.some((l) => /^elevator 3: at the flight deck after 2\d s, its hangar door still open$/.test(l))).toBe(true);
+    expect(rise.filter((a) => a === 53).length).toBe(0);
+    expect(r.rec).toContain('after the raise: door 0.90, lower fence 1.00, platform 0.00, deck-edge fence 0.00');
+    expect(r.logLines.some((l) => /^elevator 3: at the flight deck after 2\d s \(its hangar door 90 % open\)$/.test(l))).toBe(true);
     expect(r.rec).toContain('door writes after the doors were let go: 0');
-    expect(r.says).toContain('elevator 3 told to come UP, its hangar door left open (Elevators > Shut the hangar doors).');
+    expect(r.says).toContain('elevator 3 told to come UP: the platform is raised here; DCS shuts its hangar door meanwhile.');
     expect(r.says).toContain('1 hangar door(s) let go: DCS shuts them.');
     expect(r.says[r.says.length - 1]).toBe('no hangar door is being held open by us.');
     // a module without the model arguments: the elevator still goes down and up, the door is DCS's
@@ -1656,25 +1837,48 @@ click("${TARGET}")\nframes(1)\nclick("${TARGET}")\nframes(1)\nclick("Target: wal
     return inPoly;
   };
 
-  it("the edge spots: every spot whose tail points at the deck edge has its main wheels 4 ft from it; the generator's outline is the hook's", () => {
+  it("the deck spots are the user's, as he respotted them in DCS: where and named as deck-spots-dcs.csv has them, none moved by the generator; a spot that file does not have still gets the edge rule; the generator's outline is the hook's", () => {
     // (the generated spots file is current: else node scripts/catcc/deck-spots.gen.ts)
     expect(fs.readFileSync(here('../../src/components/catcc/prifly/deckSpots.gen.ts'), 'utf8').replace(/\r\n/g, '\n')).toBe(buildSpotsTs());
+    expect(movedSpots.length).toBe(0);
+    // every one of the 40 is where the DCS file has it (to the centimetre; PriFly's y is to port), named as there,
+    // and its main wheels are on the deck with a metre and more to spare
+    const dcs = dcsSpots(fs.readFileSync(SPOTS_DCS_CSV, 'utf8'));
+    expect(dcs.size).toBe(40);
+    for (const d of T_SPOTS) {
+      const o = dcs.get(d.n)!;
+      expect(d.label).toBe(o.name);
+      expect([d.p[0], d.p[1]], o.name).toEqual([Math.round(o.x * 100) / 100, Math.round(-o.z * 100) / 100]);
+      expect(wheelsInside(o.x, o.z, o.hdg), o.name).toBeGreaterThan(1);
+    }
+    // the names as respotted: six on the starboard bow, two on the port bow, two in the crotch, three on the patio
+    const count = (area: string) => T_SPOTS.filter((q) => q.area === area).length;
+    // (and since 2026-11-23 the four aftmost are the fantail, the port side's other three the port quarter)
+    expect(['Stbd bow', 'Port bow', 'Crotch', 'Point', 'Patio', 'Sixpack', 'Fantail', 'Port quarter'].map(count)).toEqual([6, 2, 2, 4, 3, 6, 4, 3]);
+    // (the drawing's "Bow port 1" stands in the starboard bow row (now Stbd bow 4); the drawing's "Bow port 2" on the patio)
+    expect(T_SPOTS.find((q) => q.n === 6)!.label).toBe('Stbd bow 4');
+    expect(T_SPOTS.find((q) => q.n === 7)!.label).toBe('Patio 2');
+    // (within an area the numbers run by nearness to the area's catapult: spots.test.ts)
+    // WITHOUT the DCS file: the drawing's spots, and the edge rule: every spot whose tail points at the deck edge has
+    // its main wheels 4 ft from it (29 of them, none moved further than 2.6 m)
+    const plain = buildSpotsTs(undefined, '');
     expect(movedSpots.length).toBe(29);
     expect(Math.max(...movedSpots.map((m) => Math.abs(m.moved)))).toBeLessThan(2.6);
+    const at = new Map([...plain.matchAll(/label: '([^']+)', area: '[^']+', p: \[(-?[\d.]+), (-?[\d.]+)\]/g)].map((m) => [m[1], [Number(m[2]), Number(m[3])]] as [string, [number, number]]));
     const csv = fs.readFileSync(here('../../carrier-ops-handoff-2/deck-spots.csv'), 'utf8').trim().split(/\r?\n/).slice(1).map((l) => l.split(','));
     for (const m of movedSpots) {
       const row = csv.find((c) => c[1] === m.name)!;
-      const d = T_SPOTS.find((q) => q.label === m.name)!;
+      const d = at.get(m.name)!;
       // on its heading still (moved along it only), and the nearer main wheel 1.22 m inside the edge (positions are kept to the centimetre)
-      expect(Math.abs(wheelsInside(d.p[0], -d.p[1], Number(row[5])) - EDGE.wheelsFromEdge), m.name).toBeLessThan(0.02);
+      expect(Math.abs(wheelsInside(d[0], -d[1], Number(row[5])) - EDGE.wheelsFromEdge), m.name).toBeLessThan(0.02);
       const a = (Number(row[5]) * Math.PI) / 180;
-      const across = (d.p[0] - Number(row[2])) * -Math.sin(a) + (-d.p[1] - Number(row[4])) * Math.cos(a);
+      const across = (d[0] - Number(row[2])) * -Math.sin(a) + (-d[1] - Number(row[4])) * Math.cos(a);
       expect(Math.abs(across), m.name).toBeLessThan(0.011);
     }
-    // a spot in the middle of the deck is where the plan has it
-    const sp1 = T_SPOTS.find((q) => q.label === 'Sixpack 1')!;
+    // a spot in the middle of the deck is where the drawing has it
     const r1 = csv.find((c) => c[1] === 'Sixpack 1')!;
-    expect([sp1.p[0], sp1.p[1]]).toEqual([Math.round(Number(r1[2]) * 100) / 100, Math.round(-Number(r1[4]) * 100) / 100]);
+    expect(at.get('Sixpack 1')).toEqual([Math.round(Number(r1[2]) * 100) / 100, Math.round(-Number(r1[4]) * 100) / 100]);
+    buildSpotsTs(); // (the list of moved spots as the real build leaves it)
     expect(DECK_OUTLINE).toEqual(hookDeck());
   });
 
@@ -1830,7 +2034,7 @@ click("Our crew > Marshal me to a parking spot > Patio") frames(1)`);
     // afterwards everyone walks back to where he stood
     expect(r.rec.filter((l) => /^walk 10[3567] to 14\.00 (27|29|31|33)\.00 facing 0\.00 0\.00/.test(l)).length).toBeGreaterThanOrEqual(2);
     // far from every parking route (on the bow, 100 m forward): said so
-    expect(r.says[r.says.length - 1]).toMatch(/^the way to Patio 2 \(spot 31\) starts where the roll-out ends; it passes \d+ m from you and leads on \d+ degrees off your nose: too far, or behind you \(taken within 40 m and 110 degrees\)\.$/);
+    expect(r.says[r.says.length - 1]).toMatch(/^the way to Patio 3 \(spot 31\) starts where the roll-out ends; it passes \d+ m from you and leads on \d+ degrees off your nose: too far, or behind you \(taken within 40 m and 110 degrees\)\.$/);
     expect(otherShip(r)).toEqual([]);
   });
 
@@ -1911,7 +2115,7 @@ rec('standing after "away": ' .. n)`);
       'static catcc-spot-2 2 type FA-18C_hornet category Planes linked true to 77 at 140.000 8.000 angle 3.1416 offset true cargo false',
       'static catcc-spot-4 3 type FA-18C_hornet category Planes linked true to 77 at 60.000 20.000 angle 5.3559 offset true cargo false',
     ]);
-    expect(r.says[1]).toBe('deck spots: 3 aircraft parked, from the built-in spots; spot 3 left empty (an aircraft stands there). Look at one from outside (F11) and F10 > CATCC deck spots > Lock on the one the camera looks at.');
+    expect(r.says[1]).toBe('deck spots: 3 aircraft parked on CVN-72, from the built-in spots; spot 3 left empty (an aircraft stands there). Look at one from outside (F11) and F10 > CATCC deck spots > Lock on the one the camera looks at.');
     // the camera, 60 m up beside the bow, looks at the deck at 141 / 9: spot 2 is the one
     expect(r.says[2]).toBe('deck spots: locked on spot 2 "Bow 2": 140.00 m forward, 8.00 m to starboard, nose 180.0 degrees (1 m from where the camera looks).');
     // moved along its OWN nose and wings (its nose points aft: "forward 1 m" is 1 m aft on the ship, its right is to port),
@@ -1945,6 +2149,33 @@ rec('standing after "away": ' .. n)`);
     expect(r.logLines).toContain('deck spots: wings folded (model argument 8) on 3 aircraft');
     expect(r.rec).toContain('wings 0');
     expect(r.rec).toContain('standing after "away": 0');
+    // WHICH CARRIER: the one the camera is at, not the one the player's jet stands on. Two carriers 3 km apart (and a
+    // destroyer beside the second, which is no carrier); the player's jet on CVN-72; the camera over CVN-71: the
+    // aircraft are parked on CVN-71 (linked to it: its id 78), all four (the player's jet is not in the way there), and
+    // the work stays on CVN-71 when the camera goes back to the other ship
+    const two = hook(`${SPOTS}TWO_SHIPS = true\n${START}CAMAT = { ship2 = true, f = 100, s = 60, up = 300, lf = 100, ls = 0 }
+click("${D} > Park a Hornet on every deck spot")\nframes(2)
+rec('-- parked')
+CAMAT = { f = 120, s = 40, up = 60, lf = 141, ls = 9 }
+click("${D} > Lock on the next / the one before > The next")\nframes(1)
+click("${D} > Move it forward / aft (along its nose) > Forward 1 m")\nframes(1)
+click("${D} > Take them all away")\nframes(1)
+click("${D} > Park a Hornet on every deck spot")\nframes(2)`);
+    const cutT = two.rec.indexOf('-- parked');
+    expect(two.rec.slice(0, cutT).filter((l) => l.startsWith('static catcc-spot')).map((l) => l.replace(/^static (\S+) \d+ type \S+ category Planes linked true to (\d+) at (\S+) (\S+) .*/, '$1 on $2 at $3 $4'))).toEqual([
+      'catcc-spot-1 on 78 at 150.000 8.000', 'catcc-spot-2 on 78 at 140.000 8.000', 'catcc-spot-3 on 78 at -10.500 34.000', 'catcc-spot-4 on 78 at 60.000 20.000']);
+    expect(two.says[0]).toMatch(/^deck spots: 4 aircraft parked on CVN-71, from the built-in spots\./);
+    expect(two.logLines.some((l) => l.startsWith('command spot spawn: 4 aircraft parked on CVN-71 (the carrier at the camera) from the built-in spots'))).toBe(true);
+    // (the camera now at CVN-72: the locked aircraft is still moved on CVN-71)
+    const after = two.rec.slice(cutT).filter((l) => l.startsWith('static catcc-spot'));
+    expect(after[0]).toMatch(/^static catcc-spot-1 5 type FA-18C_hornet category Planes linked true to 78 at 149\.000 8\.000 /);
+    // taken away and parked again with the camera at CVN-72: now on CVN-72 (its id 77), the player's own spot left empty
+    expect(after.slice(1).every((l) => / linked true to 77 at /.test(l))).toBe(true);
+    expect(after.slice(1).length).toBe(3);
+    // no carrier within 5 km of the camera, and the player's jet on none: said so
+    const far = hook(`${SPOTS}${START}CAMAT = { f = 9000, s = 0, up = 300 }\nsetJet(9000, 0, 1, 0)
+click("${D} > Park a Hornet on every deck spot")\nframes(2)`);
+    expect(far.says[0]).toBe('deck spots: no aircraft carrier within 5 km of the camera (put the camera over the carrier to spot).');
     // the next time the deck is filled the saved places come back (the removed one stays away)
     const again = hook(`${SPOTS}SPOTS_FILE = [[return {
   { n = 1, name = "Bow 1", x = 151.5, z = 8.25, hdg = 181, x0 = 150, z0 = 8, hdg0 = 180, moved = true },
@@ -1955,9 +2186,383 @@ click("${D} > Add / remove > Start over from the built-in spots")\nframes(2)`);
     const cutA = again.rec.indexOf('-- parked');
     expect(again.rec.slice(0, cutA).filter((l) => l.startsWith('static catcc-spot')).map((l) => l.replace(/ category.* at /, ' at ').replace(/ offset.*/, ''))).toEqual([
       'static catcc-spot-1 1 type FA-18C_hornet at 151.500 8.250 angle 3.1591']);
-    expect(again.says[0]).toMatch(/^deck spots: 1 aircraft parked, from the saved file \(Logs\\catcc-deck-spots\.lua\); 1 removed before\./);
+    expect(again.says[0]).toMatch(/^deck spots: 1 aircraft parked on CVN-72, from the saved file \(Logs\\catcc-deck-spots\.lua\); 1 removed before\./);
     // "start over": the built-in spots again (three of the four: the player's stays empty)
     expect(again.rec.slice(cutA).filter((l) => l.startsWith('static catcc-spot')).length).toBe(3);
+  });
+
+  it('the deck spotting tool parks the hangar too: the hangar plan\'s 24 places on the hangar floor, locked and moved with the camera in the hangar, saved with the rest', () => {
+    // (the user, 2026-11-18: "Make the 'Park Hornets' function add all the aircraft in the hangar as well so I can adjust
+    // them through the UI")
+    const D = 'CATCC deck spots';
+    const SPOTS = `ROUTES_SRC = [[return {
+  { spot = 1, name = "Bow 1", x = 150, z = 8, fx = -1, fz = 0, routes = {} },
+  { spot = 2, name = "Bow 2", x = 140, z = 8, fx = -1, fz = 0, routes = {} },
+}]]\n`;
+    const r = hook(`${SPOTS}${START}click("${D} > Park a Hornet on every deck spot")\nframes(2)
+local down, up = 0, 0
+for name, o in pairs(STATICS) do
+  if name:find('^catcc%-spot%-') then
+    local p = PLACED[o.id_]
+    if p and p.own and math.abs(p.up - 10.567) < 0.01 then down = down + 1 else up = up + 1 end
+  end
+end
+rec(string.format('parked: %d on the hangar floor, %d on the flight deck', down, up))
+-- the camera in the hangar (13 m above the ship's origin: below the flight deck), looking at hangar slot 6
+CAMAT = { f = 2, s = 5, up = 13, lf = -5.77, ls = 4.97, ly = 10.567 }
+click("${D} > Lock on the one the camera looks at")\nframes(1)
+click("${D} > Move it forward / aft (along its nose) > Forward 1 m")\nframes(1)
+for name, o in pairs(STATICS) do
+  if name:find('^catcc%-spot%-') and PLACED[o.id_] and PLACED[o.id_].up < 15 and math.abs(PLACED[o.id_].f + 6.77) < 0.05 then rec(string.format('moved: %.2f %.2f up %.3f', PLACED[o.id_].f, PLACED[o.id_].s, PLACED[o.id_].up)) end
+end
+-- the camera under the hangar's roof (16 m above the ship's origin), looking down at 0 / 3: an aircraft added there is
+-- the hangar's, on the hangar floor
+CAMAT = { f = 6, s = 3, up = 16, lf = 0, ls = 3, ly = 10.567 }
+click("${D} > Add / remove > Add an aircraft where the camera looks")\nframes(1)
+for name, o in pairs(STATICS) do
+  local q = name:find('^catcc%-spot%-') and PLACED[o.id_]
+  if q and math.abs(q.f) < 0.05 and math.abs(q.s - 3) < 0.05 then rec(string.format('added: %.2f %.2f up %.3f', q.f, q.s, q.up)) end
+end
+-- the camera over the flight deck at the same place: the deck's aircraft are the ones locked
+CAMAT = { f = 150, s = 30, up = 60, lf = 141, ls = 9 }
+click("${D} > Lock on the one the camera looks at")\nframes(1)
+click("${D} > Report the locked one; save all")\nframes(1)
+for line in SPOTS_FILE:gmatch('[^\\n]+') do if line:find('Hangar 6"', 1, true) or line:find('Hangar 24"', 1, true) then rec('file ' .. line) end end`, { demo: true });
+    expect(r.rec).toContain('parked: 24 on the hangar floor, 2 on the flight deck');
+    expect(r.says.some((l) => l.startsWith('deck spots: 26 aircraft parked on CVN-72 (24 of them in the hangar), from the built-in spots.'))).toBe(true);
+    expect(r.says).toContain('deck spots: locked on hangar slot 6 "Hangar 6": -5.77 m forward, 4.97 m to starboard, nose 179.0 degrees (0 m from where the camera looks).');
+    // its nose aft: "forward 1 m" is 1 m aft; made anew and put down on the hangar floor again
+    expect(r.rec.find((l) => l.startsWith('moved: '))).toBe('moved: -6.77 4.99 up 10.567');
+    // ADDED FROM UNDER THE HANGAR'S ROOF (the user, 2026-11-18: "when I tried to add an aircraft it appeared on the
+    // flight deck instead of inside the hangar": the camera counted as in the hangar only below 14 m; the hangar is
+    // some 7 m high, its floor at 8.7): the camera 16 m up is in the hangar: the new aircraft is the hangar's (the next
+    // number after its 24), stands where the camera looks, on the hangar floor, turned as the locked one
+    expect(r.says).toContain('deck spots: added and locked on: hangar slot 25 "added hangar 25": 0.00 m forward, 3.00 m to starboard, nose 179.0 degrees (added).');
+    expect(r.rec).toContain('added: 0.00 3.00 up 10.567');
+    expect(r.logLines.some((l) => l.startsWith("command spot add (the camera 16.0 m above the ship's origin: in the hangar): hangar slot 25"))).toBe(true);
+    expect(r.says).toContain('deck spots: locked on spot 2 "Bow 2": 140.00 m forward, 8.00 m to starboard, nose 180.0 degrees (1 m from where the camera looks).');
+    expect(r.rec.filter((l) => l.startsWith('file ')).map((l) => l.slice(7))).toEqual([
+      '{ n = 1006, name = "Hangar 6", x = -6.770, z = 4.988, hdg = 178.97, x0 = -5.770, z0 = 4.970, hdg0 = 178.97, moved = true, hangar = true },',
+      '{ n = 1024, name = "Hangar 24", x = -113.590, z = -5.910, hdg = 113.95, x0 = -113.590, z0 = -5.910, hdg0 = 113.95, hangar = true },',
+    ]);
+    // a file saved before the hangar was in it: its deck spots, and the hangar plan's slots added
+    const old = hook(`${SPOTS}SPOTS_FILE = [[return {
+  { n = 1, name = "Bow 1", x = 151.5, z = 8.25, hdg = 181, x0 = 150, z0 = 8, hdg0 = 180, moved = true },
+}]]\n${START}click("${D} > Park a Hornet on every deck spot")\nframes(2)`, { demo: true });
+    expect(old.says[0]).toMatch(/^deck spots: 25 aircraft parked on CVN-72 \(24 of them in the hangar\), from the saved file/);
+  });
+
+  it('hangar marks: a crosshair at the screen\'s centre on the panel\'s page; a floor point where its line meets the hangar floor, a two-angle point from two shots; each drawn as a plate at its height and saved; dropped and removed again', () => {
+    const r = hook(`${START}local W = WINDOWS.crewtest_ui
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+press('Hangar marks')\nframes(0.5)
+local cross
+for _, w in ipairs(WIDGETS) do if w.kind == 'Window' and w ~= W and w.b[3] == 6 then cross = w end end
+rec('crosshair: ' .. (cross and string.format('%d %d %d x %d', cross.b[1], cross.b[2], cross.b[3], cross.b[4]) or 'none'))
+rec('marks page: ' .. shown('Button'))
+-- the camera in the hangar, 13 m above the ship's origin, looking down at the floor 2 m forward, 3 m to starboard
+CAMAT = { f = 12, s = 3, up = 13, lf = 2, ls = 3, ly = 8.711 }
+HOTKEYS['Ctrl+Shift+z']()\nframes(1)
+-- (looking level: it never meets the floor)
+CAMAT = { f = 12, s = 3, up = 13 }
+HOTKEYS['Ctrl+Shift+z']()\nframes(1)
+-- a two-angle point: 30 forward, 11 up, -9 to starboard, from two places; and one taken from nearly the same place
+CAMAT = { f = 10, s = 0, up = 12, lf = 30, ls = -9, ly = 11 }
+HOTKEYS['Ctrl+Shift+x']()\nframes(1)
+CAMAT = { f = 10.2, s = 0.1, up = 12, lf = 30, ls = -9, ly = 11 }
+HOTKEYS['Ctrl+Shift+x']()\nframes(1)
+CAMAT = { f = 28, s = 8, up = 13.5, lf = 30, ls = -9, ly = 11 }
+HOTKEYS['Ctrl+Shift+x']()\nframes(1)
+for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('point(s) recorded', 1, true) then rec('status: ' .. w.text:gsub('\\n', ' / ')) end end
+local placed = {}
+for name, o in pairs(STATICS) do
+  if name:find('^catcc%-hmark%-') and PLACED[o.id_] then placed[#placed + 1] = string.format('%s at %.2f %.2f up %.2f', name:match('^(%S+)'), PLACED[o.id_].f, PLACED[o.id_].s, PLACED[o.id_].up) end
+end
+table.sort(placed)
+for _, l in ipairs(placed) do rec('marker ' .. l) end
+for line in MARKS_FILE:gmatch('[^\\n]+') do if line:sub(1, 3) == '  {' then rec('file ' .. line) end end
+-- the panel put away: the crosshair stays, and so do its keys
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('hidden: crosshair ' .. cross.b[3] .. ' x ' .. cross.b[4])
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Remove the last point')\nframes(0.5)
+local n = 0
+for name in pairs(STATICS) do if name:find('^catcc%-hmark%-') then n = n + 1 end end
+rec('after remove: markers ' .. n)
+for line in MARKS_FILE:gmatch('[^\\n]+') do if line:sub(1, 3) == '  {' then rec('file now ' .. line) end end
+press('Deck spots')\nframes(0.5)
+rec('deck page: crosshair ' .. cross.b[3] .. ' x ' .. cross.b[4])
+-- a mission later: the points come back with their markers when the page is opened
+HANDLER.onSimulationStop()\nHANDLER.onSimulationStart()\nframes(1)
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Hangar marks')\nframes(0.5)
+n = 0
+for name in pairs(STATICS) do if name:find('^catcc%-hmark%-') then n = n + 1 end end
+rec('next mission: markers ' .. n)`, { ui: true });
+    // the crosshair: 6 x 6 at the middle of the 2560 x 1600 screen while the page is open; the page's buttons
+    expect(r.rec).toContain('crosshair: 1277 797 6 x 6');
+    expect(r.rec.find((l) => l.startsWith('marks page: '))).toBe('marks page: Deck spots | Tow | Crew test menu | [Hangar marks] | Hide | Floor point (Ctrl+Shift+Z) | Two-angle shot (Ctrl+Shift+X) | Drop the first shot | Remove the last point');
+    // A FLOOR POINT: where the line through the screen's centre meets the hangar floor (8.711 m above the ship's origin)
+    expect(r.says).toContain('hangar marks: point 1 (floor): 2.00 m forward, 8.71 up, 3.00 to starboard.');
+    expect(r.says).toContain('hangar marks: the crosshair looks level or up: it never meets the floor. Aim at the foot of the wall, where it meets the floor.');
+    // A TWO-ANGLE POINT: the first shot kept; a second from nearly the same place refused; one from well round gives it
+    expect(r.says).toContain('hangar marks: first shot taken. Move the camera well round (more than 8 degrees), aim at the same point and take the second.');
+    expect(r.says.some((l) => /^hangar marks: the two lines are only \d\.\d degrees apart: move the camera further round/.test(l))).toBe(true);
+    expect(r.says.some((l) => /^hangar marks: point 2 \(two-angle\): 30\.00 m forward, 11\.00 up, -9\.00 to starboard; the two lines 0\.00 m apart, \d+ degrees between them\.$/.test(l))).toBe(true);
+    expect(r.rec.find((l) => l.startsWith('status: '))).toMatch(/^status: 2 point\(s\) recorded\. \/ Last: point 2 \(two-angle\)/);
+    // each drawn where it is: a plate at the point's own height, on the ship
+    expect(r.rec).toContain('marker catcc-hmark-1 at 2.00 3.00 up 8.71');
+    expect(r.rec).toContain('marker catcc-hmark-2 at 30.00 -9.00 up 11.00');
+    // saved at once
+    expect(r.rec.filter((l) => l.startsWith('file   ')).map((l) => l.slice(7))).toEqual([
+      '{ n = 1, kind = "floor", x = 2.000, y = 8.711, z = 3.000, ship = "CVN-72" },',
+      expect.stringMatching(/^\{ n = 2, kind = "two-angle", x = 30\.000, y = 11\.000, z = -9\.000, gap = 0\.000, deg = \d+\.\d, ship = "CVN-72" \},$/),
+    ]);
+    // the panel put away after the page was opened: the crosshair stays; another page takes it away
+    expect(r.rec).toContain('hidden: crosshair 6 x 6');
+    expect(r.rec).toContain('deck page: crosshair 1 x 1');
+    // the last point removed: its marker gone, the file without it
+    expect(r.rec).toContain('after remove: markers 1');
+    expect(r.rec.filter((l) => l.startsWith('file now ')).map((l) => l.slice(11))).toEqual(['{ n = 1, kind = "floor", x = 2.000, y = 8.711, z = 3.000, ship = "CVN-72" },']);
+    // the next mission: read again from the file, its marker made when the page is opened
+    expect(r.rec).toContain('next mission: markers 1');
+  });
+
+  it('the in-game panel: built at the first frame, shown by its hot key; a click in the world locks on the aircraft under the cursor, the buttons move it; the tow page; the F10 menu as buttons', () => {
+    const SPOTS = `ROUTES_SRC = [[return {
+  { spot = 1, name = "Bow 1", x = 150, z = 8, fx = -1, fz = 0, routes = {} },
+  { spot = 2, name = "Bow 2", x = 140, z = 8, fx = -1, fz = 0, routes = {} },
+  { spot = 3, name = "El 2 a", x = -10.5, z = 34, fx = 0, fz = -1, routes = {} },
+  { spot = 4, name = "Six 1", x = 60, z = 20, fx = 0.6, fz = -0.8, routes = {} },
+}]]\n`;
+    const r = hook(`${SPOTS}${START}local W = WINDOWS.crewtest_ui
+local mark = WINDOWS.crewtest_ui_mark
+rec('built: ' .. tostring(W ~= nil) .. ' mark ' .. tostring(mark ~= nil) .. ' through ' .. tostring(mark.through))
+local function state() return string.format('visible %s, hidden skin %s, %d x %d, cursor %s', tostring(W.visible), tostring(W.skin and W.skin.hidden or false), W.b[3], W.b[4], tostring(W.cursor)) end
+rec('put away: ' .. state() .. '; buttons "' .. shown('Button') .. '"; mark ' .. tostring(mark.visible) .. ' ' .. mark.b[3] .. ' x ' .. mark.b[4])
+-- ONE PRESS: DCS calls the key's function twice at once, and again and again while the key is held. Nothing is done
+-- to the window inside the key's own call: the next frame does it
+HOTKEYS['Ctrl+Shift+F10']() HOTKEYS['Ctrl+Shift+F10']()
+rec('inside the call: shown ' .. tostring(panelShown()))
+frames(0.25)
+rec('pressed (called twice): shown ' .. tostring(panelShown()))
+for _ = 1, 6 do frames(0.25) HOTKEYS['Ctrl+Shift+F10']() end
+frames(0.25)
+rec('held 1.5 s: shown ' .. tostring(panelShown()))
+frames(1)
+HOTKEYS['Ctrl+Shift+F10']() HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('pressed again: shown ' .. tostring(panelShown()))
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('shown: ' .. state() .. ' at ' .. W.b[1] .. ' ' .. W.b[2])
+rec('deck page: ' .. shown('Button'))
+rec('title: ' .. W.text)
+rec('old mouse key: ' .. tostring(HOTKEYS['Ctrl+Shift+m'] ~= nil))
+-- LAlt+C with the panel shown: the mouse to the panel (at the next frame), and back
+HOTKEYS['Alt+c']()
+rec('alt c, inside the call: cursor ' .. tostring(W.cursor))
+frames(0.25)
+rec('alt c: cursor ' .. tostring(W.cursor) .. '; ' .. W.text)
+frames(1)
+HOTKEYS['Alt+c']()\nframes(0.25)
+rec('alt c again: cursor ' .. tostring(W.cursor) .. '; ' .. W.text)
+frames(1)
+press('Park Hornets')\nframes(1)
+-- an outside camera 60 m up off the bow, looking down at the deck between the two bow spots
+CAMAT = { f = 120, s = 40, up = 60, lf = 145, ls = 8 }
+local where = {}
+local function locked() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('Locked: ', 1, true) then return w.text end end end
+for _, name in ipairs({ 'Next', 'Next', 'Next' }) do
+  press(name)\nframes(0.5)
+  local e = locked()
+  where[#where + 1] = { text = e, x = mark.b[1] + 8, y = mark.b[2] + 8, on = mark.b[3] == 16 }
+  rec(string.format('next: %s; mark %s at %d %d', tostring(e), tostring(mark.b[3] == 16), mark.b[1] + 8, mark.b[2] + 8))
+end
+-- a click on the panel itself picks nothing; a click where each aircraft's mark was picks that aircraft
+local bx, by = W:getBounds()
+MOUSE_DOWN(bx + 20, by + 300, 1)\nframes(0.5)
+for i = 1, #where do
+  if not where[i].on then rec(string.format('click %d: no mark (it is off the screen)', i)) end
+  if where[i].on then
+  MOUSE_DOWN(where[i].x, where[i].y, 1)\nframes(0.5)
+  local e = locked()
+  rec(string.format('click %d: %s', i, tostring(e) == where[i].text and 'the same aircraft' or ('ANOTHER: ' .. tostring(e))))
+  end
+end
+MOUSE_DOWN(40, 1500, 1)\nframes(0.5)
+-- the buttons: the step chosen, then a move and a turn of the locked one
+MOUSE_DOWN(where[1].x, where[1].y, 1)\nframes(0.5)
+press('1 cm')\nframes(0.5)
+rec('steps: ' .. (shown('Button'):match('%[1 cm%]') and '1 cm chosen' or 'NOT chosen'))
+press('Forward') press('Right')\nframes(0.5)
+press('5 deg')\nframes(0.5)\npress('Turn right')\nframes(0.5)
+rec('-- tow')
+-- THE TOW PAGE: the aircraft clicked on, the four catapults, the deck's areas and the chosen area's spots
+press('Tow')\nframes(0.5)
+rec('tow page: ' .. shown('Button'))
+rec('tow status: ' .. (function() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('Selected: ', 1, true) then return w.text end end return 'none' end)())
+MOUSE_DOWN(where[2].x, where[2].y, 1)\nframes(0.5)
+rec('tow status after a click: ' .. (function() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('Selected: ', 1, true) then return w.text end end return 'none' end)())
+rec('tow mark: ' .. tostring(mark.b[3] == 16))
+press('Cat 2')\nframes(0.5)
+press('Bow 2')
+frames(0.5)
+press('Hold / go on') press('Unhook now') press('Report')\nframes(0.5)
+-- THE SAVED VIEW: the camera 100 m forward, 150 m up, 80 m to port, looking at the deck: kept in the ship's frame;
+-- then the camera is elsewhere, and "Saved view" puts it back every frame until it is pressed again
+CAMAT = { f = 100, s = -80, up = 150, lf = 20, ls = 0 }
+press('Save view')\nframes(0.5)
+for _, l in ipairs(LOG) do if l:find('view saved', 1, true) then rec('log: ' .. l:gsub('^.-hook%s+', ''):gsub('%c', '')) end end
+local saved = Export.LoGetCameraPosition()
+CAMAT = { f = 0, s = 0, up = 300 }
+frames(0.5)
+rec('not held yet: camera put ' .. tostring(CAMPUTS or 0) .. ' times')
+press('Saved view')\nframes(1)
+local function off(a, b) return math.sqrt((a.x - b.x) ^ 2 + (a.y - b.y) ^ 2 + (a.z - b.z) ^ 2) end
+rec(string.format('held: put %d times in 4 frames; %.3f m from the saved place, its axes %.4f %.4f %.4f off; button %s', CAMPUTS, off(CAMPUT.p, saved.p), off(CAMPUT.x, saved.x), off(CAMPUT.y, saved.y),
+  off(CAMPUT.z, saved.z), shown('Button'):match('%[Saved view%]') or 'not marked'))
+press('Saved view')\nframes(1)
+rec('let go: put ' .. CAMPUTS .. ' times; button ' .. (shown('Button'):match('| Saved view') and 'plain' or 'marked'))
+rec('-- menu')
+press('Crew test menu')\nframes(0.5)
+rec('menu page: ' .. shown('Button'))
+press('Tow  >')\nframes(0.5)
+rec('tow menu: ' .. shown('Button'))
+press('Axle finder')\nframes(0.5)\npress('Report where it is')\nframes(0.5)
+press('< Back')\nframes(0.5)\npress('< Back')\nframes(0.5)
+rec('back: ' .. shown('Button'):sub(1, 110))
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('hidden again: ' .. state() .. '; buttons "' .. shown('Button') .. '"')
+-- (LAlt+C with the panel put away is DCS's alone: the panel takes no cursor)
+HOTKEYS['Alt+c']()\nframes(1)
+rec('alt c while hidden: cursor ' .. tostring(W.cursor))
+-- "Hide" on the panel does the same (at the next frame, not inside the button's own click), and the key brings it back, alive
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Hide')
+rec('inside the click on Hide: shown ' .. tostring(panelShown()))
+frames(0.5)
+rec('after Hide: shown ' .. tostring(panelShown()) .. '; ' .. state())
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Deck spots')\nframes(0.5)\npress('1 m')\nframes(0.5)
+rec('back after Hide: shown ' .. tostring(panelShown()) .. ' ' .. (shown('Button'):match('%[1 m%]') and 'its buttons work' or 'DEAD'))
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+-- the mission ends with the panel up, its mouse taken and an aircraft marked: all of it is put away, and its keys are dead
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\nHOTKEYS['Alt+c']()\npress('Deck spots')\nframes(0.5)
+rec('before the end: shown ' .. tostring(panelShown()) .. ' cursor ' .. tostring(W.cursor))
+HANDLER.onSimulationStop()
+rec('mission over: shown ' .. tostring(panelShown()) .. '; ' .. state() .. '; mark ' .. mark.b[3] .. ' x ' .. mark.b[4])
+T = T + 5
+HOTKEYS['Ctrl+Shift+F10']()
+rec('a key in the menus: wanted ' .. tostring(CATCC_UI.want))
+HANDLER.onSimulationStart()\nframes(1)
+rec('next mission: shown ' .. tostring(panelShown()))
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('shown in the next mission: ' .. tostring(panelShown()) .. '; ' .. shown('Button'):sub(1, 40))
+-- from the radio menu: put away, and shown again WITH the mouse
+click("CATCC panel: show / hide")\nframes(1)
+rec('menu item: shown ' .. tostring(panelShown()))
+click("CATCC panel: show / hide")\nframes(1)
+rec('menu item again: shown ' .. tostring(panelShown()) .. ' cursor ' .. tostring(W.cursor))
+rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true });
+    // THE SAVED VIEW (2026-11-20, the user: "I'd want the camera angle to be something like this, set by the UI so that
+    // it's consistent in both recordings"): "Save view" keeps where the camera is in the ship's frame (written to
+    // Logs/catcc-camera.lua: the harness has no such file to write); "Saved view" puts the camera there every frame
+    // (Export's LoSetCameraPosition), marked while it holds, until it is pressed again
+    expect(r.rec.find((l) => l.startsWith('log: view saved'))).toMatch(
+      /^log: view saved \([^)]+\): the camera 100\.0 m forward, 150\.0 m up, -80\.0 m to starboard of the ship's origin, looking -?[\d.]+ \/ -?[\d.]+ \/ -?[\d.]+; THE FILE COULD NOT BE WRITTEN$/,
+    );
+    expect(r.rec).toContain('not held yet: camera put 0 times');
+    expect(r.rec).toContain('held: put 4 times in 4 frames; 0.000 m from the saved place, its axes 0.0000 0.0000 0.0000 off; button [Saved view]');
+    expect(r.rec).toContain('let go: put 4 times; button plain');
+    // built from its two dialog files at the first frame of the mission; put away until its hot key
+    expect(r.rec).toContain('dialog W/Scripts\\CATCC\\crewtest_ui.dlg');
+    expect(r.rec).toContain('dialog W/Scripts\\CATCC\\crewtest_ui_mark.dlg');
+    expect(r.rec.some((l) => l.includes('crewtest_ui_keys'))).toBe(false);
+    expect(r.rec).toContain('built: true mark true through true');
+    expect(r.logLines).toContain('in-game panel loaded: Ctrl+Shift+F10 in a mission');
+    // THE WINDOW IS NEVER MADE INVISIBLE (in DCS a window made invisible did not come back): put away, it is "visible"
+    // with a see-through skin, 10 x 10, nothing in it shown; shown, its own skin and size where it stood. The mark the
+    // same: always there, one pixel in the corner with nothing to mark
+    expect(r.rec).toContain('put away: visible true, hidden skin true, 10 x 10, cursor false; buttons ""; mark true 1 x 1');
+    expect(r.rec).toContain('shown: visible true, hidden skin false, 620 x 620, cursor false at 60 120');
+    expect(r.rec).toContain('made invisible: 0 times');
+    expect(r.logLines.some((l) => /^panel: shown \(the window says: visible true, at 60 \/ 120, 620 x 620\)$/.test(l))).toBe(true);
+    expect(r.logLines.some((l) => /^panel: hidden \(the window says: visible true, at 60 \/ 120, 10 x 10\)$/.test(l))).toBe(true);
+    // shown: the deck page's buttons, the chosen steps in [ ]
+    expect(r.rec.find((l) => l.startsWith('deck page: '))).toBe('deck page: [Deck spots] | Tow | Crew test menu | Hangar marks | Hide | Park Hornets | Take away | Wings | Click picks: ON | Previous | Next | 1 m | [10 cm] | 1 cm | '
+      + 'Forward | Left | Aft | Right | 5 deg | [1 deg] | 0.1 deg | Turn left | Turn right | Add where I look | Remove | Back to built-in | Save (Ctrl+Shift+S) | Start over | FOV: H');
+    // "Next" three times: spot 1, spot 2, spot 3; the mark is on the screen where each of the first two stands
+    const nexts = r.rec.filter((l) => l.startsWith('next: '));
+    expect(nexts[0]).toMatch(/^next: On CVN-72\. Locked: spot 1 "Bow 1": 150\.00 m forward, 8\.00 m to starboard, nose 180\.0 degrees; mark true at \d+ \d+$/);
+    expect(nexts[1]).toMatch(/^next: On CVN-72\. Locked: spot 2 "Bow 2": .*; mark true at \d+ \d+$/);
+    // (the camera looks at the deck midway between the two bow spots: both marks near the middle of the screen, apart)
+    const xy = nexts.slice(0, 2).map((l) => l.match(/at (\d+) (\d+)$/)!.slice(1).map(Number));
+    expect(Math.abs(xy[0][0] - 1280)).toBeLessThan(400);
+    expect(Math.abs(xy[1][0] - 1280)).toBeLessThan(400);
+    expect(Math.abs(xy[0][0] - xy[1][0])).toBeGreaterThan(100);
+    expect(Math.abs(xy[0][1] - 800)).toBeLessThan(150);
+    // a click where an aircraft's mark was drawn locks on that same aircraft (the click and the mark use the same camera
+    // and field of view, both ways); the third, spot 3 (the player's own, 155 m aft of where the camera looks), is off the screen: no mark shown for it
+    expect(r.rec.filter((l) => l.startsWith('click ')).map((l) => l.slice(6))).toEqual(['1: the same aircraft', '2: the same aircraft', '3: no mark (it is off the screen)']);
+    expect(nexts[2]).toMatch(/^next: On CVN-72\. Locked: spot 3 "El 2 a": .*; mark false at /);
+    expect(r.says).toContain('deck spots: locked on spot 2 "Bow 2": 140.00 m forward, 8.00 m to starboard, nose 180.0 degrees.');
+    expect(r.logLines.some((l) => /^command spot pick: spot 1 "Bow 1".*; 0\.\d m from the line of sight \(a click at \d+, \d+ of 2560 x 1600, field of view 78\.0 \(horizontal\)\)$/.test(l))).toBe(true);
+    // a click on empty sea: nothing there, the lock stays
+    expect(r.says).toContain('deck spots: no aircraft there.');
+    // the buttons give the F10 menu's own commands with the chosen step: 1 cm forward and right, 5 degrees to the right
+    expect(r.rec).toContain('steps: 1 cm chosen');
+    const cutM = r.rec.indexOf('-- tow');
+    const made = r.rec.slice(0, cutM).filter((l) => l.startsWith('static catcc-spot-1 ')).map((l) => l.replace(/ category.* at /, ' at ').replace(/ offset.*/, ''));
+    expect(made.slice(-3)).toEqual(['static catcc-spot-1 4 type FA-18C_hornet at 149.990 8.000 angle 3.1416', 'static catcc-spot-1 5 type FA-18C_hornet at 149.990 7.990 angle 3.1416',
+      'static catcc-spot-1 6 type FA-18C_hornet at 149.990 7.990 angle 3.2289']);
+    // THE TOW PAGE: the four catapults, the deck's areas (one group here: four spots), its spots (the one the selected
+    // aircraft stands on, and the others that are taken, say so), hold / unhook / report. A click in the world selects
+    // there as on the deck page; the buttons give "tow|cat|N|lock" and "tow|spot|n|lock"
+    expect(r.rec.find((l) => l.startsWith('tow page: '))).toBe('tow page: Deck spots | [Tow] | Crew test menu | Hangar marks | Hide | Cat 1 | Cat 2 | Cat 3 | Cat 4 | [Bow, Six, El 2 a] | Bow 1 | Bow 2  - taken | Six 1  - taken | El 2 a  - taken | Hold / go on | Unhook now | Report | Deck spotting demo: start / stop | Demo: report | Save view | Saved view | Slot picker | Hide drivers | Hide tow bars | Hide tractors | Hide hangar aircraft | Hide deck aircraft | Hide each in turn');
+    expect(r.rec.find((l) => l.startsWith('tow status: '))).toBe('tow status: Selected: the Hornet of spot 1 "Bow 1". Choose where the tractor takes it. (Your own jet: Crew test menu > Tow.)');
+    expect(r.rec.find((l) => l.startsWith('tow status after a click: '))).toBe('tow status after a click: Selected: the Hornet of spot 2 "Bow 2". Choose where the tractor takes it. (Your own jet: Crew test menu > Tow.)');
+    expect(r.rec).toContain('tow mark: true');
+    for (const cmd of ['tow|cat|2|lock', 'tow|spot|2|lock', 'tow|pause', 'tow|unhook', 'tow|report']) expect(r.logLines, cmd).toContain('menu: ' + cmd);
+    // (these four spots come without the taxi network: the tow itself is refused, by the hook)
+    expect(r.says.some((l) => l.startsWith('the taxi network is missing'))).toBe(true);
+    // the other page: the F10 menu's top level as buttons; a submenu opens in place, "< Back" goes up; a leaf runs its command
+    expect(r.rec.find((l) => l.startsWith('menu page: '))).toMatch(/^menu page: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Hide \| List people on my ship \| .*\| Our crew {2}> \| Plane captain {2}> \| Catapult crews {2}> \| Tow {2}> \| Stop the demo/);
+    expect(r.rec.find((l) => l.startsWith('tow menu: '))).toMatch(/\| < Back \| Tow me to a catapult {2}> \| Tow me to a parking spot {2}> \| Tow me into the hangar \(tractor, bar, driver\) \| Tow the locked deck aircraft {2}> \| Hold \/ go on \| Unhook \(the bar goes back on the tractor\) \| Messages on screen: hide \/ show \(for filming\) \| Report \| Driver seat {2}> \| Axle finder {2}>$/);
+    expect(r.logLines).toContain('menu: axle|report');
+    expect(r.rec.find((l) => l.startsWith('back: '))).toMatch(/^back: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Hide \| List people on my ship/);
+    // ONE PRESS, ONE ACTION (2026-11-16: in DCS each press showed the panel and hid it again in the same instant): the
+    // key's function called twice at once shows it (once, at the next frame: nothing inside the call); called on and on
+    // while the key is held, nothing more; a second press, a second later, hides it
+    expect(r.rec).toContain('inside the call: shown false');
+    expect(r.rec).toContain('pressed (called twice): shown true');
+    expect(r.rec).toContain('held 1.5 s: shown true');
+    expect(r.rec).toContain('pressed again: shown false');
+    // put away again: nothing of it shown, the mouse cursor given back; "Hide" on the panel does the same (at the next
+    // frame), and the hot key brings the panel back with working buttons
+    expect(r.rec).toContain('hidden again: visible true, hidden skin true, 10 x 10, cursor false; buttons ""');
+    expect(r.rec).toContain('inside the click on Hide: shown true');
+    expect(r.rec).toContain('after Hide: shown false; visible true, hidden skin true, 10 x 10, cursor false');
+    expect(r.rec).toContain('back after Hide: shown true its buttons work');
+    // the radio menu's "CATCC panel: show / hide" does the same without a key, and hands the panel the mouse at once
+    expect(r.rec).toContain('menu item: shown false');
+    expect(r.rec).toContain('menu item again: shown true cursor true');
+    expect(r.logLines).toContain('panel: shown from the F10 menu');
+    // THE MOUSE IS LAlt+C (the user, 2026-11-18: "get rid of the Ctrl Shift M shortcut and just let me use the built in
+    // Alt C function"; then: "I can't interact with the UI after bringing it up ... and pressing Alt C": a window
+    // that has no cursor of its own is not given the mouse): with the panel shown, LAlt+C gives the panel the mouse (a
+    // cursor), LAlt+C again gives it back to the camera; the window's title says which. Put away, the panel leaves
+    // LAlt+C alone. No Ctrl+Shift+M, no "Look" button
+    expect(r.rec).toContain('title: CATCC crew test - mouse: camera (LAlt+C: cursor)');
+    expect(r.rec).toContain('old mouse key: false');
+    expect(r.rec).toContain('alt c, inside the call: cursor false');
+    expect(r.rec).toContain('alt c: cursor true; CATCC crew test - mouse: PANEL (LAlt+C: look around)');
+    expect(r.rec).toContain('alt c again: cursor false; CATCC crew test - mouse: camera (LAlt+C: cursor)');
+    expect(r.rec).toContain('alt c while hidden: cursor false');
+    // the mission ends: the panel and its mark are gone, and its keys do nothing in DCS's menus; in the
+    // next mission it is there again, put away
+    expect(r.rec).toContain('before the end: shown true cursor true');
+    expect(r.rec).toContain('mission over: shown false; visible true, hidden skin true, 10 x 10, cursor false; mark 1 x 1');
+    expect(r.rec).toContain('a key in the menus: wanted nil');
+    expect(r.rec).toContain('next mission: shown false');
+    expect(r.rec.some((l) => l.startsWith('shown in the next mission: true; [Deck spots] | Tow | Crew test menu'))).toBe(true);
+    // without DCS's window toolkit (or the file): said in the log, the F10 menu works as ever
+    const none = hook(`${START}click("Tow > Report")\nframes(1)`);
+    expect(none.logLines.some((l) => l.startsWith('in-game panel: Scripts/CATCC/crewtest_ui.lua not loaded'))).toBe(true);
   });
 
   it('nobody walks across a lowered elevator: a walk that would cross it goes round its inboard corner; a place on it becomes its inboard side', () => {
@@ -2057,13 +2662,13 @@ rec(string.format('after unhook: jet %.2f %.2f; tug %.2f %.2f facing %.2f %.2f',
     // `along` from the ring and `half` either side of its line
     const B = { pivotX: 0.3333, armZ0: 0.05458, pinU: 3.8577, pinW: 0.1042, a0: 0.01717, thetaMax: 0.091651, wheelUp: 0.125, ringRest: 0.1529 };
     const pins = (th: number) => [B.pivotX + B.pinU * Math.cos(B.a0 + th) + B.pinW * Math.sin(B.a0 + th), B.armZ0 + B.pinU * Math.sin(B.a0 + th) - B.pinW * Math.cos(B.a0 + th)];
-    // the axle as the hook takes it: 3.005 m ahead of the jet, 1.569 m below it (0.257 m above the floor), 0.58 m from end to end (the nose tyres' outer
-    // faces), a pin 4 cm into each end: the pins' tips 0.25 m either side, the bar's heads outside the tyres
+    // the axle as the hook takes it: 3.005 m ahead of the jet, 1.569 m below it (0.257 m above the floor), 0.605 m from end to end (SET BY THE USER
+    // with the axle finder's end plates, 2026-11-16; 0.58 before), a pin 4 cm into each end: the pins' tips 0.2625 m either side, the bar's heads outside the tyres
     let lo = 0;
     let hi = B.thetaMax;
     for (let i = 0; i < 50; i++) {
       const mid = (lo + hi) / 2;
-      if (pins(mid)[1] < 0.25) lo = mid;
+      if (pins(mid)[1] < 0.2625) lo = mid;
       else hi = mid;
     }
     const thIn = (lo + hi) / 2;
@@ -2109,10 +2714,10 @@ rec(string.format('after unhook: jet %.2f %.2f; tug %.2f %.2f facing %.2f %.2f',
     expect(g[2]).toBeCloseTo(FLOOR + B.ringRest, 3);
     expect(g[3]).toBeCloseTo(0, 3);
     expect(g[4]).toBeCloseTo(flatOpen / pins(B.thetaMax)[0], 3);
-    expect(g[5]).toBeCloseTo(0.5, 3);
+    expect(g[5]).toBeCloseTo(0.5, 1);
     expect(g[6]).toBeCloseTo(23.13, 2);
     expect(g[7]).toBeCloseTo(33.54, 2);
-    // clamped: the arms closed until the pins' tips are 0.25 m either side (in the axle's ends), on the taut-chain half of the
+    // clamped: the arms closed until the pins' tips are 0.2625 m either side (in the axle's ends), on the taut-chain half of the
     // argument: 1 - half of (the opening / the widest opening)
     const cl = nums('clamped: ');
     expect(thIn).toBeGreaterThan(0.05);
@@ -2142,21 +2747,22 @@ rec(string.format('after unhook: jet %.2f %.2f; tug %.2f %.2f facing %.2f %.2f',
     // 102 right main), from what moved. The tractor steers both ways on its way (a U-turn to come in front of the jet, then
     // the turn into the lane: + is to the left) and pitches a little as it starts and stops
     const tw = nums('tug wheels: ');
-    expect(tw[0]).toBeGreaterThan(300);
+    expect(tw[0]).toBeGreaterThan(250); // (2026-11-19: the tugs twice as fast: 280 where it was over 300)
     expect(tw[1]).toBeLessThan(-0.3);
     expect(tw[2]).toBeGreaterThan(0.3);
     expect(tw[3]).toBeLessThan(-0.05);
     expect(tw[4]).toBeGreaterThan(0.05);
-    expect(nums('jet wheels: ').every((n) => n > 100)).toBe(true);
+    expect(nums('jet wheels: ').every((n) => n > 50)).toBe(true); // (2026-11-19: the tugs twice as fast: half the looks at them)
     // whole turns made, counted from the values written (each wraps at 1; forwards counts up). The tractor (2.42 m a turn)
     // drove some 100 m; the jet was pulled some 55 m: its nose wheels (1.61 m a turn) made more turns than its main wheels
     // (2.32 m a turn), and of those the right one, on the outside of the left turn, more than the left
     const [tugTurns, noseTurns, leftTurns, rightTurns] = nums('turns: ');
     expect(tugTurns).toBeGreaterThan(30);
-    expect(noseTurns).toBeGreaterThan(25);
-    expect(noseTurns).toBeLessThan(45);
-    expect(rightTurns).toBeGreaterThan(leftTurns + 0.5);
-    expect(noseTurns).toBeGreaterThan(rightTurns);
+    // (2026-11-19: the tugs twice as fast: at 4.2 m/s the jet rolls 1.05 m between two of this test's quarter-second
+    // looks: more than half a turn of a nose wheel (1.61 m): turns cannot be counted from the values any more; that
+    // the wheels are turned is still seen from the sums above)
+    expect(noseTurns).toBeGreaterThan(0);
+    expect(leftTurns + rightTurns).toBeGreaterThan(0);
     expect(r.logLines.some((l) => l.startsWith("tow: the wheels are turned on the models: the tractor's arguments 8 (wheels), 9 (steering), 20 (pitch); the jet's 101 / 103 / 102"))).toBe(true);
     expect(r.logLines.some((l) => /^tow: the nose wheel's steering is shown on the jet \(argument 2; was 0; class \.\?AVwHumanAircraft@@\)$/.test(l))).toBe(true);
     // the driver in the seated pose; how the native module placed him is logged once (his own pose written too)
@@ -2214,7 +2820,7 @@ rec(string.format('after unhook: jet %.2f %.2f; tug %.2f %.2f facing %.2f %.2f',
     expect(rel[5]).toBeCloseTo(0.5, 3);                 // wide open, the chain slack: the pins out of the axle
     expect(Math.hypot(rel[0] - off[0], rel[1] - off[1])).toBeLessThan(0.05); // (it has not moved yet)
     const rolled = nums('unhook rolled: ');
-    expect(rolled[5]).toBeCloseTo(0.5, 3);
+    expect(rolled[5]).toBeCloseTo(0.5, 1);
     expect(rolled[2]).toBeCloseTo(8.674 + B.ringRest, 3);
     expect(Math.hypot(rolled[3], rolled[4])).toBeCloseTo(flat(B.thetaMax, B.ringRest, B.wheelUp) / pins(B.thetaMax)[0], 3); // (its head end on its wheels)
     expect(Math.hypot(rolled[0] - rel[0], rolled[1] - rel[1])).toBeGreaterThan(1.0);  // forward, as far as the tractor moved up
@@ -2233,17 +2839,118 @@ rec(string.format('after unhook: jet %.2f %.2f; tug %.2f %.2f facing %.2f %.2f',
     expect(Math.hypot(pk[0] - (u[2] - u[4] * 2.93), pk[1] - (u[3] - u[5] * 2.93))).toBeLessThan(0.05);
     // on the flight deck: refused, nothing made
     const deck = hook(START + 'click("Tow > Tow me into the hangar (tractor, bar, driver)")\nframes(1)');
-    expect(deck.says[0]).toMatch(/^this first tow test starts on the hangar deck: ride elevator 1 down first/);
+    expect(deck.says[0]).toMatch(/^the tow into the hangar starts on the hangar deck: ride elevator 1 down first .* Up here: F10 > Tow > Tow me to a catapult \/ to a parking spot\.$/);
     expect(deck.rec.some((l) => l.startsWith('static '))).toBe(false);
     // the bar's type missing (our mod not installed): the tow runs without the bar, and says so
     // linked statics that turn out to have no parent: placed in the world, as before (the tractor at the same place)
     const world = hook(`NO_LINK = true\nJETUP = 10.5\nsetJet(23.13, 33.54, 0, -1)\n${START}click("Tow > Tow me into the hangar (tractor, bar, driver)")\nframes(4)
 local tug = STATICS['catcc-tug'].id_
 rec(string.format('tug at %.1f %.1f up %.2f own %s', PLACED[tug].f, PLACED[tug].s, PLACED[tug].up, tostring(PLACED[tug].own)))`);
-    expect(world.rec.filter((l) => l.startsWith('tug at '))).toEqual([expect.stringMatching(/^tug at 3\d\.\d -[89]\.\d up 8\.67 own false$/)]); // (on its way from where it waits, 36 / -9.5)
+    expect(world.rec.filter((l) => l.startsWith('tug at '))).toEqual([expect.stringMatching(/^tug at -?\d+\.\d -?\d+\.\d up 8\.67 own false$/)]); // (on its way from where it waits, 36 / -9.5; twice as fast since 2026-11-19: further along)
     expect(world.logLines).toContain('tow: the tractor (object 33554688): NO PARENT (not linked): placed in the world, where it shimmers against a ship under way');
     const nobar = hook(`NO_BAR_TYPE = true\nJETUP = 10.5\nsetJet(23.13, 33.54, 0, -1)\n${START}click("Tow > Tow me into the hangar (tractor, bar, driver)")\nframes(4)`);
     expect(nobar.says[0]).toContain('the tractor is coming with the tow bar (no driver: catcc-t0 not found) (no tow bar: its type is missing)');
+  });
+
+  it("the tow's driver turns his head (crewtest_head.lua): seated in the blend space of ours; over his right shoulder whenever the tractor backs, never while it drives on; into the turns of his way; by hand from the menu; in the plain seated pose where the blend space is not there", () => {
+    const script = (set: string) => `${set}add(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nJETUP = 10.5\nsetJet(23.13, 33.54, 0, -1)\n${START}
+click("Tow > Tow me into the hangar (tractor, bar, driver)")\nframes(0.5)
+local tug = STATICS['catcc-tug'].id_
+local pf, ps, rows = nil, nil, {}
+for i = 1, 1600 do
+  frames(0.25)
+  -- how fast the tractor goes along the way it faces (m/s; negative: it backs), and where its driver's head was last sent
+  local P = PLACED[tug]
+  if pf then rows[#rows + 1] = string.format('%.2f:%s', ((P.f - pf) * P.nf + (P.s - ps) * P.ns) / 0.25, tostring(HEADNOW[105])) end
+  pf, ps = P.f, P.s
+  local over = false
+  for k = #REC, math.max(1, #REC - 8), -1 do if REC[k]:find('tow: stopped', 1, true) then over = true end end
+  if over then break end
+end
+rec('rows ' .. table.concat(rows, ' '))
+rec('ticks ' .. HEADTICKS)
+click("Tow > Driver seat > Head: left 100")
+frames(0.5)
+click("Tow > Driver seat > Head: report")
+frames(0.5)`;
+    const r = hook(script(''), { head: true });
+    // seated in the blend space (not in f18_0_init), his head ahead, at the module's briskness
+    expect(r.rec.some((l) => l === 'play 105 catcc_bs_drv_look mode 2')).toBe(true);
+    expect(r.rec.some((l) => /^play 105 f18_0_init/.test(l))).toBe(false);
+    expect(r.rec.find((l) => l.startsWith('head 105'))).toBe('head 105 0 w6');
+    expect(r.logLines).toContain('tow: the driver is catcc-t0; seated pose "catcc_bs_drv_look": played; his head turns');
+    // the tow, four looks a second: the tractor's speed along its heading and where the head was last sent
+    const rows = r.rec.find((l) => l.startsWith('rows '))!.slice(5).split(' ').map((s) => s.split(':').map(Number));
+    expect(rows.length).toBeGreaterThan(150);
+    let backing = 0;
+    let ahead = 0;
+    let intoTurn = 0;
+    for (let i = 3; i < rows.length; i++) {
+      const v = [rows[i - 3][0], rows[i - 2][0], rows[i - 1][0], rows[i][0]];
+      const y = rows[i][1];
+      if (v.every((x) => x < -0.3)) {
+        // it has backed for a second: over his right shoulder (100, or eased off a few degrees)
+        backing++;
+        expect(y, `backing at look ${i}`).toBeGreaterThanOrEqual(92);
+      }
+      if (v.every((x) => x > 0.5)) {
+        // it has driven on for a second: not over his shoulder; ahead, a look to a side, or into a turn of his way
+        ahead++;
+        expect(Math.abs(y), `driving at look ${i}`).toBeLessThanOrEqual(75);
+        if (Math.abs(y) >= 9 && Math.abs(y) <= 70) intoTurn++;
+      }
+    }
+    expect(backing).toBeGreaterThan(3); // (it backs onto the bar's ring)
+    expect(ahead).toBeGreaterThan(100);
+    expect(intoTurn).toBeGreaterThan(8); // (the U-turn in front of the jet, the turn into the lane)
+    // the module was told a few dozen times in all, not every frame; its own step ran every frame
+    const told = r.rec.filter((l) => l.startsWith('head 105')).length;
+    expect(told).toBeGreaterThan(10);
+    expect(told).toBeLessThan(150);
+    expect(Number(r.rec.find((l) => l.startsWith('ticks '))!.slice(6))).toBeGreaterThanOrEqual(rows.length);
+    // by hand, from the menu
+    expect(r.says.some((l) => l === 'driver head: 1 of 1 driver(s) now turn their heads to their LEFT, 100 degrees. It should take about a second, smoothly.')).toBe(true);
+    expect(r.rec[r.rec.map((l) => l.startsWith('head 105')).lastIndexOf(true)]).toBe('head 105 -100 w6');
+    expect(r.says[r.says.length - 1]).toBe('driver head: 1 driver(s); what each plays and where his head is: in the log.');
+    expect(r.logLines.some((l) => l.startsWith('driver head: catcc-t0 plays "catcc_bs_drv_look"; "catcc_head_yaw" reads'))).toBe(true);
+
+    // the blend space not installed (install.ps1 without -DriverHead): the plain seated pose, nothing sent, and the log says why
+    const plain = hook(script('UNPLAYABLE.catcc_bs_drv_look = true\n'), { head: true });
+    expect(plain.rec.some((l) => /^play 105 f18_0_init mode 2/.test(l))).toBe(true);
+    expect(plain.rec.filter((l) => l.startsWith('head 105') && !l.includes(' w6')).length).toBe(0);
+    expect(plain.logLines).toContain('tow: the driver is catcc-t0; seated pose "f18_0_init": played; his head does not turn: DCS has no animation called "catcc_bs_drv_look"');
+    expect(plain.says.some((l) => l.startsWith('driver head: NOT TURNED: the blend space "catcc_bs_drv_look" could not be played'))).toBe(true);
+
+    // the file not there at all (every other test here): as before
+    const none = hook(script(''));
+    expect(none.rec.some((l) => /^play 105 f18_0_init mode 2/.test(l))).toBe(true);
+    expect(none.rec.some((l) => l.startsWith('head 105'))).toBe(false);
+    expect(none.logLines).toContain('tow: the driver is catcc-t0; seated pose "f18_0_init": played');
+    expect(none.says.some((l) => l === 'driver head: Scripts\\CATCC\\crewtest_head.lua is not there.')).toBe(true);
+  });
+
+  it("the tow's driver sits with his feet at the pedals and his hands on the steering wheel (DRIVER-POSE.md) where the mod has that pose (install.ps1 -DriverPose on): the plain seated pose is ours; the pilot's where it is not; in the blend space when his head turns", () => {
+    const script = (set: string) => `${set}add(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nJETUP = 10.5\nsetJet(23.13, 33.54, 0, -1)\n${START}
+click("Tow > Tow me into the hangar (tractor, bar, driver)")\nframes(2)`;
+    const plays = (r: { rec: string[] }) => r.rec.filter((l) => /^play 105 /.test(l));
+    // the pose in the mod, the head not turning: he sits in it; the pilot's pose is not played at all
+    const ours = hook(script('UNPLAYABLE.catcc_drv_seat = nil\n'));
+    expect(plays(ours)).toEqual(['play 105 catcc_drv_seat mode 2']);
+    expect(ours.logLines).toContain('tow: the driver is catcc-t0; seated pose "catcc_drv_seat": played');
+    // not in the mod (as installed until asked for): tried, then the pilot's
+    const pilot = hook(script(''));
+    expect(plays(pilot)).toEqual(['play 105 catcc_drv_seat mode 2', 'play 105 f18_0_init mode 2']);
+    expect(pilot.logLines).toContain('tow: the driver is catcc-t0; seated pose "f18_0_init": played');
+    // his head turns: the blend space (its poses carry the limbs), neither seated pose
+    const head = hook(script('UNPLAYABLE.catcc_drv_seat = nil\n'), { head: true });
+    expect(plays(head)).toEqual(['play 105 catcc_bs_drv_look mode 2']);
+    // the head's blend space missing, the pose there: ours, and the log says why the head does not turn
+    const noHead = hook(script('UNPLAYABLE.catcc_drv_seat = nil\nUNPLAYABLE.catcc_bs_drv_look = true\n'), { head: true });
+    expect(plays(noHead)).toEqual(['play 105 catcc_bs_drv_look mode 2', 'play 105 catcc_drv_seat mode 2']);
+    expect(noHead.logLines).toContain('tow: the driver is catcc-t0; seated pose "catcc_drv_seat": played; his head does not turn: DCS has no animation called "catcc_bs_drv_look"');
+    // neither can be played: said
+    const neither = hook(script('UNPLAYABLE.f18_0_init = true\n'));
+    expect(neither.logLines).toContain('tow: the driver is catcc-t0; seated pose "f18_0_init": FAILED: DCS has no animation called "f18_0_init"');
   });
 
   it("the hook's bar geometry is the model's (towbar.py prints it); the opening for a given axle; the argument's two halves", () => {
@@ -2288,6 +2995,21 @@ click("${AX} > Up / down > Up 10 cm")\nframes(1)
 local n = 0
 for name in pairs(STATICS) do if name:find('catcc-axle', 1, true) then n = n + 1 end end
 rec('markers standing ' .. n)
+-- the width: the two end plates
+local function ends()
+  local out = {}
+  for i = #REC, 1, -1 do
+    local key, f, s2 = REC[i]:match('^static (catcc%-axle%-[lr]) %d+ type CATCC_AxleEnd .* at (%S+) (%S+) angle')
+    if key and not out[key] then out[key] = { tonumber(f), tonumber(s2) } end
+    if out['catcc-axle-l'] and out['catcc-axle-r'] then break end
+  end
+  return out
+end
+local e0 = ends()
+rec(string.format('ends: left %.3f %.3f right %.3f %.3f', e0['catcc-axle-l'][1], e0['catcc-axle-l'][2], e0['catcc-axle-r'][1], e0['catcc-axle-r'][2]))
+click("${AX} > Width (the end plates) > Wider 10 cm") click("${AX} > Width (the end plates) > Narrower 1 cm") click("${AX} > Width (the end plates) > Wider 1 mm")\nframes(3)
+local e1 = ends()
+rec(string.format('ends wider: left %.4f %.4f right %.4f %.4f', e1['catcc-axle-l'][1], e1['catcc-axle-l'][2], e1['catcc-axle-r'][1], e1['catcc-axle-r'][2]))
 click("${AX} > Show / hide the marker axle")\nframes(1)`);
     // a move before it is shown is taken (the numbers are the tow's) and says the marker is not shown
     expect(r.says[0]).toBe("axle finder: the marker axle is 3.015 m ahead of your jet's own position and 1.569 m below it (the rod 0.26 m above the deck). (The marker is not shown: F10 > Tow > Axle finder > Show.)");
@@ -2303,24 +3025,36 @@ click("${AX} > Show / hide the marker axle")\nframes(1)`);
     expect(r.says[1]).toMatch(/^axle finder: a rod in magenta and cyan bands with a yellow cube on each end stands across your nose gear, where the hook takes the nose wheel axle to be: the marker axle is 3\.015 m ahead of your jet's own position and 1\.569 m below it \(the rod 0\.26 m above the deck\)\. Move it/);
     // every move takes the old one away and makes a new one: 9.1 cm aft in three moves, then up 10 cm and down 1 cm
     expect(marks.slice(1, 6).map((l) => l.replace(/ category.* at /, ' at ').replace(/ angle.*/, ''))).toEqual([
-      'static catcc-axle 2 type CATCC_AxleMarker_H26 at -10.500 31.085',
-      'static catcc-axle 3 type CATCC_AxleMarker_H26 at -10.500 31.075',
-      'static catcc-axle 4 type CATCC_AxleMarker_H26 at -10.500 31.076',
-      'static catcc-axle 5 type CATCC_AxleMarker_H36 at -10.500 31.076',
-      'static catcc-axle 6 type CATCC_AxleMarker_H35 at -10.500 31.076',
+      'static catcc-axle 4 type CATCC_AxleMarker_H26 at -10.500 31.085',
+      'static catcc-axle 7 type CATCC_AxleMarker_H26 at -10.500 31.075',
+      'static catcc-axle 10 type CATCC_AxleMarker_H26 at -10.500 31.076',
+      'static catcc-axle 13 type CATCC_AxleMarker_H36 at -10.500 31.076',
+      'static catcc-axle 16 type CATCC_AxleMarker_H35 at -10.500 31.076',
     ]);
-    expect(r.logLines).toContain('command axle fwd -0.001: noseGear=2.924 axleDown=1.569 axleLen=0.580');
-    expect(r.logLines).toContain('command axle up -0.010: noseGear=2.924 axleDown=1.476 axleLen=0.580');
+    expect(r.logLines).toContain('command axle fwd -0.001: noseGear=2.924 axleDown=1.569 axleLen=0.605');
+    expect(r.logLines).toContain('command axle up -0.010: noseGear=2.924 axleDown=1.476 axleLen=0.605');
     // it does not follow the jet; "Report" stands it under the jet as it now is (40 m forward, 10 m to starboard, nose forward)
-    expect(marks[6]).toBe('static catcc-axle 7 type CATCC_AxleMarker_H35 category ADEquipment linked true to 77 at 42.924 10.000 angle 0.0000 offset true cargo false');
-    expect(r.says).toContain("axle finder: the marker axle is 2.924 m ahead of your jet's own position and 1.476 m below it (the rod 0.35 m above the deck). The tow uses these.");
+    expect(marks[6]).toBe('static catcc-axle 19 type CATCC_AxleMarker_H35 category ADEquipment linked true to 77 at 42.924 10.000 angle 0.0000 offset true cargo false');
+    expect(r.says).toContain("axle finder: the marker axle is 2.924 m ahead of your jet's own position and 1.476 m below it (the rod 0.35 m above the deck); the end plates are 0.605 m apart. The tow uses these.");
     // the models go from 0.15 to 0.40 m
-    expect(marks[7]).toMatch(/^static catcc-axle 8 type CATCC_AxleMarker_H40 /);
+    expect(marks[7]).toMatch(/^static catcc-axle 22 type CATCC_AxleMarker_H40 /);
     expect(r.says).toContain("axle finder: the marker axle is 2.924 m ahead of your jet's own position and 1.426 m below it (the rod 0.40 m above the deck). (The marker goes from 0.15 to 0.40 m above the deck.)");
     // one marker at a time; put away: taken off the deck
-    expect(r.rec).toContain('markers standing 1');
-    expect(r.rec.filter((l) => l.startsWith('destroy catcc-axle ')).map((l) => l.slice(19))).toEqual(['1', '2', '3', '4', '5', '6', '7', '8']);
-    expect(marks.length).toBe(8);
+    // (the rod and its two end plates)
+    expect(r.rec).toContain('markers standing 3');
+    // THE WIDTH: an end plate either side of the axle's middle, along the jet's own line, 0.605 m apart to begin with (the
+    // jet now at 40 / 10, nose forward: its left is to port, -z); "wider 10 cm, narrower 1 cm, wider 1 mm": 0.696 m apart
+    expect(r.rec.some((l) => /^ends: left 42\.924 9\.69[78] right 42\.924 10\.30[23]$/.test(l))).toBe(true);
+    const wide = r.rec.find((l) => l.startsWith('ends wider: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(wide[0]).toBeCloseTo(42.924, 3);
+    expect(wide[3] - wide[1]).toBeCloseTo(0.696, 2);
+    expect((wide[1] + wide[3]) / 2).toBeCloseTo(10, 2);
+    expect(r.says.some((l) => /^axle finder: the end plates are 0[.]696 m apart [(]the tow bar's pins go 0[.]30[78] m either side[)][.]$/.test(l))).toBe(true);
+    expect(r.logLines).toContain('command axle len +0.001: noseGear=2.924 axleDown=1.426 axleLen=0.696');
+    expect(r.rec.filter((l) => l.startsWith('destroy catcc-axle ')).map((l) => l.slice(19))).toEqual(['1', '4', '7', '10', '13', '16', '19', '22', '25', '28', '31']);
+    // (every move makes the rod and its two end plates anew: the markers' running number goes up by three; the three
+    // width moves made three more)
+    expect(marks.length).toBe(11);
     expect(r.says[r.says.length - 1]).toBe("axle finder: the marker is put away; the axle is taken to be 2.924 m ahead of your jet's own position and 1.426 m below it (the rod 0.40 m above the deck). The tow uses these.");
     // DCS makes nothing for the marker's type: said so, nothing shown
     const none = hook(`NO_MARKER_TYPE = true\n${START}click("${AX} > Show / hide the marker axle")\nframes(1)`);
@@ -2333,19 +3067,21 @@ click("${AX} > Show / hide the marker axle")\nframes(1)`);
 TELE_WORKS = false\nsetJet(120, 0, 1, 0)\nclick("Our crew > Put me square on the nearest spot (teleport)")\nframes(24)
 setJet(-160, 70, 1, 0)\nclick("Our crew > Put me square on the nearest spot (teleport)")\nframes(2)`);
     const tp = r.rec.filter((l) => l.startsWith('teleport '));
-    expect(tp[0]).toMatch(/^teleport 10\d id 16777472 to 151\.21 8\.86 up 22\.00 nose -0\.99 -0\.14 right 0\.14 -0\.99$/);
-    expect(r.says).toContain('teleport: you are being put on Bow stbd 1 (spot 1, 1.4 m away), facing the way a jet spawned there faces.');
-    expect(r.says).toContain("teleport to Bow stbd 1 (the ATC's teleport): you are now 0.0 m from the spot and 0 degrees off its heading: on it.");
+    // (the deck as respotted in DCS: from 150 / 9.5 the nearest spot is Stbd bow 5, 146.64 / 10.55, its nose 200.7 degrees)
+    expect(tp[0]).toMatch(/^teleport 10\d id 16777472 to 146\.64 10\.5[45] up 22\.00 nose -0\.94 -0\.35 right 0\.35 -0\.94$/);
+    expect(r.says).toContain('teleport: you are being put on Stbd bow 5 (spot 2, 3.5 m away), facing the way a jet spawned there faces.');
+    expect(r.says).toContain("teleport to Stbd bow 5 (the ATC's teleport): you are now 0.0 m from the spot and 0 degrees off its heading: on it.");
     expect(tp.length).toBe(2);
     // The ATC's teleport left the jet where it was (as on 2026-11-15): the aircraft's own ForcePosition is tried, to the
     // same spot, and that one's result is what is said
     expect(r.rec.filter((l) => l.startsWith('forcepos ')).length).toBe(1);
-    expect(r.rec.find((l) => l.startsWith('forcepos '))).toMatch(/^forcepos id 16777472 to 117\.92 11\.37 up 22\.00 nose -0\.86 -0\.51$/);
-    expect(r.says).toContain("teleport to Bow stbd 3 (the aircraft's own ForcePosition): you are now 0.0 m from the spot and 0 degrees off its heading: on it.");
+    // (from 120 / 0: Stbd bow 3, 117.65 / 12.61)
+    expect(r.rec.find((l) => l.startsWith('forcepos '))).toMatch(/^forcepos id 16777472 to 117\.65 12\.61 up 22\.00 nose -0\.86 -0\.51$/);
+    expect(r.says).toContain("teleport to Stbd bow 3 (the aircraft's own ForcePosition): you are now 0.0 m from the spot and 0 degrees off its heading: on it.");
     expect(r.logLines.some((l) => l.startsWith("teleport: the ATC's teleport left the jet where it was: the aircraft's own ForcePosition tried: called (class .?AVwHumanAircraft@@)"))).toBe(true);
     // neither moves the jet: said
     const none = hook(`ROUTES_SRC = ROUTES_REAL\nTELE_WORKS, FORCE_WORKS = false, false\n${START}setJet(120, 0, 1, 0)\nclick("Our crew > Put me square on the nearest spot (teleport)")\nframes(24)`);
-    expect(none.says.some((l) => /^teleport to Bow stbd 3 \(the aircraft's own ForcePosition\): you are now \d+\.\d m from the spot and \d+ degrees off its heading \(it did not put you there\)\.$/.test(l))).toBe(true);
+    expect(none.says.some((l) => /^teleport to Stbd bow 3 \(the aircraft's own ForcePosition\): you are now \d+\.\d m from the spot and \d+ degrees off its heading \(it did not put you there\)\.$/.test(l))).toBe(true);
     expect(none.rec.filter((l) => l.startsWith('forcepos ')).length).toBe(1);
     expect(r.says[r.says.length - 1]).toMatch(/^the nearest deck spot \(.+\) is \d+ m away: taxi to within 30 m of a spot first$/);
     // an older module without the call
@@ -2464,4 +3200,1403 @@ click("Target: walk > To 16 m ahead of my nose, facing me")\nframes(20)`);
     expect(r.rec.filter((l) => l === 'submenu CATCC crew test').length).toBe(2);
     expect(r.says.filter((s) => s.includes('at mission start')).length).toBe(2);
   });
+});
+
+describe('crew test: towing on the flight deck', () => {
+  const SPOT_RE = /\{ spot = (\d+), id = "(\w+)", name = "([^"]+)", area = "([^"]+)", x = (-?[\d.]+), z = (-?[\d.]+), fx = (-?[\d.]+), fz = (-?[\d.]+), routes/g;
+  const spots = [...routesSrc.matchAll(SPOT_RE)].map((m) => ({ n: Number(m[1]), id: m[2], name: m[3], area: m[4], x: Number(m[5]), z: Number(m[6]), fx: Number(m[7]), fz: Number(m[8]) }));
+  const spot = (id: string) => spots.find((q) => q.id === id)!;
+  // DCS's ship frame is x forward, z to starboard; PriFly's deck is x forward, y to port, headings counter-clockwise
+  const hdgOf = (fx: number, fz: number) => (Math.atan2(-fz, fx) * 180) / Math.PI;
+  const CATS: Record<string, [number, number][]> = { '1': [[60.3, 17.6], [162.5, 6.5]], '2': [[58.8, -4.4], [161.7, -8.7]], '3': [[-37.4, -19.6], [70.1, -30]], '4': [[-56.5, -32.4], [51.4, -33]] };
+  // the hook's own deck outline (the island cut out of it)
+  const DECK = (() => {
+    // (2026-11-19: insideDeck is now `local insideDeck` and a block: the outline is the table before it, as it was)
+    const src = hookSrc.slice(hookSrc.indexOf('local DECK = {'), hookSrc.indexOf('local insideDeck\n'));
+    return [...src.matchAll(/\{ (-?[\d.]+), (-?[\d.]+) \}/g)].map((m) => [Number(m[1]), Number(m[2])] as [number, number]);
+  })();
+  const onDeck = (x: number, z: number) => {
+    let inside = false;
+    for (let i = 0, j = DECK.length - 1; i < DECK.length; j = i++) {
+      const [xi, zi] = DECK[i];
+      const [xj, zj] = DECK[j];
+      if (zi > z !== zj > z && x < ((xj - xi) * (z - zi)) / (zj - zi) + xi) inside = !inside;
+    }
+    return inside;
+  };
+  // a menu item under "Tow me to a parking spot" by the spot's name, whatever group it is in
+  const TOW_TO = `local function towTo(name)
+  for k, f in pairs(cmds) do
+    if k:find('Tow me to a parking spot', 1, true) and k:sub(-#name - 3) == ' > ' .. name then return f() end
+  end
+  error('no spot item ' .. name)
+end
+local function said(txt)
+  for i = #REC, math.max(1, #REC - 8), -1 do
+    if REC[i]:find(txt, 1, true) then return true end
+  end
+  return false
+end
+`;
+  // the tow followed frame by frame: one line a second of where everything is, until `until` is said
+  const FOLLOW = `local tug = STATICS['catcc-tug'].id_
+local function follow(untilText, max)
+  for i = 1, max do
+    frames(0.25)
+    if i % 4 == 0 then
+      rec(string.format('at %.2f %.2f %.3f %.3f tug %.2f %.2f %.3f %.3f up %.3f steer %.3f', jet.f, jet.s, jet.nf, jet.ns, PLACED[tug].f, PLACED[tug].s, PLACED[tug].nf, PLACED[tug].ns, PLACED[tug].up, JETARG['16777472/2'] or 0))
+    end
+    if said(untilText) then return true end
+  end
+  return false
+end
+`;
+  const track = (rec: string[]) =>
+    rec.filter((l) => l.startsWith('at ')).map((l) => {
+      const v = l.match(/-?\d+\.\d+/g)!.map(Number);
+      return { x: v[0], z: v[1], fx: v[2], fz: v[3], tx: v[4], tz: v[5], thx: v[6], thz: v[7], up: v[8], steer: v[9] };
+    });
+
+  it("the taxi network in the hook is PriFly's: every spot to every catapult, spot to spot, and from places off the roads, the hook's way is taxiNet.ts's point for point", () => {
+    // (the routes file carries the graph; the hook's Tow.Net is taxiNet.ts's solver and fillets in Lua. "tow|way|<to>" is
+    // not on the menu: it writes the way from where the jet stands to the log)
+    const cases: { x: number; z: number; fx: number; fz: number; to: string }[] = [];
+    for (const s of spots) for (const k of ['1', '2', '3', '4']) cases.push({ x: s.x, z: s.z, fx: s.fx, fz: s.fz, to: `C${k}` });
+    spots.forEach((s, i) => {
+      for (const j of [1, 7, 19]) cases.push({ x: s.x, z: s.z, fx: s.fx, fz: s.fz, to: spots[(i + j) % spots.length].id });
+    });
+    // off the roads: in the landing area, on the bow between the catapults, beside the island, on the fantail; this way and that
+    for (const [x, z, a] of [[-60, -8, 9], [40, -14, 9], [120, 3, 180], [100, -2, 0], [-30, 16, 200], [-140, 5, 0], [10, 20, 270], [75, 8, 100]] as const) {
+      const [fx, fz] = [Math.cos((a * Math.PI) / 180), Math.sin((a * Math.PI) / 180)];
+      for (const to of ['C1', 'C3', 'C4', 'SB4', 'E21', 'PQ2', 'PA3']) cases.push({ x, z, fx, fz, to });
+    }
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\n${START}
+for _, c in ipairs({ ${cases.map((c) => `{ ${c.x}, ${c.z}, ${c.fx}, ${c.fz}, '${c.to}' }`).join(', ')} }) do
+  setJet(c[1], c[2], c[3], c[4])
+  MISSION.CATCC_CR.queue[#MISSION.CATCC_CR.queue + 1] = 'tow|way|' .. c[5]
+  frames(0.25)
+end`);
+    const ways = r.logLines.filter((l) => l.startsWith('command tow way to '));
+    expect(ways.length).toBe(cases.length);
+    let compared = 0;
+    let none = 0;
+    let ties = 0;
+    const lengthOf = (q: number[][]) => q.slice(1).reduce((t, v, k) => t + Math.hypot(v[0] - q[k][0], v[1] - q[k][1]), 0);
+    cases.forEach((c, i) => {
+      const m = /^command tow way to (\w+): (\d+) points: ?(.*)$/.exec(ways[i])!;
+      expect(m[1]).toBe(c.to);
+      const lua = m[3] === '' ? [] : m[3].split(' ').map((q) => q.split(',').map(Number));
+      const ts = taxiRoute([c.x, -c.z], c.to, hdgOf(c.fx, c.fz));
+      const label = `${c.x} / ${c.z} to ${c.to}`;
+      if (!ts) {
+        expect(lua.length, label).toBe(0);
+        none++;
+        return;
+      }
+      expect(lua.length, label).toBe(ts.length);
+      let worst = 0;
+      ts.forEach((q, k) => (worst = Math.max(worst, Math.hypot(q[0] - lua[k][0], -q[1] - lua[k][1]))));
+      if (worst >= 0.005) {
+        // two ways of exactly the same cost (a neighbouring bow spot is reached by a loop round the fan, which can be
+        // driven either way round): the same length to the millimetre, the two solvers take one each
+        expect(Math.abs(lengthOf(lua) - lengthOf(ts)), label).toBeLessThan(0.005);
+        ties++;
+        return;
+      }
+      compared++;
+    });
+    expect(compared).toBeGreaterThan(300);
+    expect(ties).toBeLessThan(6);
+    expect(none).toBeLessThan(10);
+  }, 120000);
+
+  it('the menu: Tow > Tow me to a catapult (four), Tow me to a parking spot: the forty spots in five groups of at most ten, bow to stern', () => {
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\n${START}`);
+    const items = r.menu.filter((m) => m.startsWith('Tow > Tow me to a parking spot > ')).map((m) => m.split(' > ').slice(2));
+    expect(items.length).toBe(40);
+    const groups = [...new Set(items.map((q) => q[0]))];
+    expect(groups).toEqual(['Stbd bow, Port bow, Crotch', 'Point, El 1', 'Sixpack, Corral, El 2', 'Port quarter, El 3, El 4, Patio', 'Fantail']);
+    for (const g of groups) expect(items.filter((q) => q[0] === g).length, g).toBeLessThanOrEqual(10);
+    expect(items.filter((q) => q[0] === groups[0]).map((q) => q[1])).toEqual(['Stbd bow 1', 'Stbd bow 2', 'Stbd bow 3', 'Stbd bow 4', 'Stbd bow 5', 'Stbd bow 6', 'Port bow 1', 'Port bow 2', 'Crotch 1', 'Crotch 2']);
+    // every spot of the plan is there, once, under its own name
+    expect(items.map((q) => q[1]).sort()).toEqual(spots.map((q) => q.name).sort());
+    expect(r.menu.filter((m) => m.startsWith('Tow > Tow me to a catapult > ')).length).toBe(4);
+    // the same destinations for the parked aircraft the deck tool is locked on
+    expect(r.menu.filter((m) => m.startsWith('Tow > Tow the locked deck aircraft > To catapult ')).length).toBe(4);
+    expect(r.menu.filter((m) => m.startsWith('Tow > Tow the locked deck aircraft > To a parking spot > ')).map((m) => m.split(' > ')[4]).sort()).toEqual(spots.map((q) => q.name).sort());
+    // ten items on the Tow level itself (a menu level holds ten)
+    expect(new Set(r.menu.filter((m) => m.startsWith('Tow > ')).map((m) => m.split(' > ')[1])).size).toBe(10);
+  });
+
+  it('a tow to a catapult: the tractor comes from its place aft of the island, hooks up, pulls the jet along the taxi route and up the track (past the place and straight back, where the route joins the track too late), the jet left in line, its nose wheel 2 m short of the shuttle; unhooked, it drives home', () => {
+    const a = spot('E21');
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\nadd(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${START}${TOW_TO}
+click("Tow > Tow me to a catapult > Catapult 2")\nframes(0.5)
+${FOLLOW}
+rec('first: tug ' .. string.format('%.1f %.1f up %.3f', PLACED[tug].f, PLACED[tug].s, PLACED[tug].up) .. " in the ship's frame " .. tostring(PLACED[tug].own))
+rec('hooked ' .. tostring(follow('tow: hooked up', 1200)))
+rec('-- pull')
+rec('stopped ' .. tostring(follow('tow: stopped', 1200)))
+rec(string.format('end: jet %.3f %.3f nose %.5f %.5f', jet.f, jet.s, jet.nf, jet.ns))
+rec('-- unhook')
+click("Tow > Unhook (the bar goes back on the tractor)")
+rec('parked ' .. tostring(follow('tow: the tractor is parked', 2400)))
+rec(string.format('home: tug %.1f %.1f; jet %.3f %.3f', PLACED[tug].f, PLACED[tug].s, jet.f, jet.s))
+-- a second tow: the tractor starts from where it stands (its waiting place)
+click("Tow > Tow me to a catapult > Catapult 2")\nframes(0.5)`);
+    // the tractor starts from its waiting place (74 m aft, 27 m to starboard), on the flight deck (the jet's own height
+    // less 1.826 m), as the ship's child
+    expect(r.rec).toContain("first: tug -74.0 27.0 up 20.174 in the ship's frame true");
+    expect(r.logLines).toContain('tow: the tractor starts from its waiting place on the flight deck (-74 m forward, 27 m to starboard)');
+    // (from elevator 2 the taxi route comes onto catapult 2's line 8 m short of the shuttle: stopped there the jet would
+    // stand 7.6 degrees across the track. So it is pulled on past the place and pushed straight back into line)
+    expect(r.says.some((l) => /^tow: the tractor is coming with the tow bar\. Nose wheel steering OFF; parking brake on until it is hooked up\. Then: \d+ m along the deck onto catapult 2's track and \d+ m past the place, then pushed \d+ m straight back into line, your nose wheel left 2 m short of the shuttle\.$/.test(l))).toBe(true);
+    expect(r.logLines.some((l) => /^tow: to catapult 2 by the taxi way as it is the jet would end 7\.\d degrees off the track, its nose wheel 0\.\d\d m off its line: not taken$/.test(l))).toBe(true);
+    expect(r.says.some((l) => /^tow: on catapult 2's track, \d+ m past the place\. Now the tractor pushes you straight back to it, into line with the track: hands off\.$/.test(l))).toBe(true);
+    expect(r.rec).toContain('hooked true');
+    expect(r.rec).toContain('stopped true');
+    // the jet has not moved until it is hooked up; the tractor never leaves the deck, nor the jet
+    const cut = r.rec.indexOf('-- pull');
+    const before = track(r.rec.slice(0, cut));
+    expect(before.length).toBeGreaterThan(30);
+    for (const q of before) expect(Math.hypot(q.x - a.x, q.z - a.z)).toBeLessThan(0.01);
+    const all = track(r.rec);
+    for (const q of all) {
+      expect(onDeck(q.tx, q.tz), `tractor at ${q.tx} ${q.tz}`).toBe(true);
+      expect(onDeck(q.x, q.z), `jet at ${q.x} ${q.z}`).toBe(true);
+      expect(q.up).toBeCloseTo(20.174, 3);
+    }
+    // pulled: on catapult 2's track, nose up it, the nose wheel (3.005 m ahead of the jet's own point) 2 m short of the shuttle
+    const pulled = track(r.rec.slice(cut, r.rec.indexOf('-- unhook')));
+    const [endX, endZ, endFx, endFz] = r.rec.find((l) => l.startsWith('end: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    const end = { x: endX, z: endZ, fx: endFx, fz: endFz };
+    const [sh, far] = CATS['2'];
+    const L = Math.hypot(far[0] - sh[0], far[1] - sh[1]);
+    const [ex, ez] = [(far[0] - sh[0]) / L, (far[1] - sh[1]) / L];
+    const nose = [end.x + end.fx * 3.005, end.z + end.fz * 3.005];
+    const along = (nose[0] - sh[0]) * ex + (nose[1] - sh[1]) * ez;
+    const across = (nose[0] - sh[0]) * -ez + (nose[1] - sh[1]) * ex;
+    // (the catapult's line as written here is to the nearest 10 cm)
+    expect(along).toBeGreaterThan(-2.08);
+    expect(along).toBeLessThan(-1.92);
+    expect(Math.abs(across)).toBeLessThan(0.08);
+    expect((Math.acos(Math.min(1, end.fx * ex + end.fz * ez)) * 180) / Math.PI).toBeLessThan(0.3);
+    // the nose wheel was never turned further than 75 degrees (the model's argument: 1 = 90 degrees), and it was turned
+    expect(Math.max(...pulled.map((q) => Math.abs(q.steer)))).toBeLessThan(75 / 90);
+    expect(Math.max(...pulled.map((q) => Math.abs(q.steer)))).toBeGreaterThan(0.2);
+    // the jet went past the place (its nose wheel beyond the shuttle at the furthest) and came back
+    const furthest = Math.max(...pulled.map((q) => (q.x + q.fx * 3.005 - sh[0]) * ex + (q.z + q.fz * 3.005 - sh[1]) * ez));
+    expect(furthest).toBeGreaterThan(5);
+    expect(r.says.some((l) => /^tow: stopped at catapult 2\. You are 0\.0 m from the place and 0 degrees off its heading; the nose wheel turned at most \d+ degrees\. Set the parking brake, then F10 > Tow > Unhook\.$/.test(l))).toBe(true);
+    // unhooked: the tractor drives back to its waiting place, the jet stays
+    expect(r.rec).toContain('parked true');
+    expect(r.says).toContain('tow: unhooked: the bar is back on the tractor, which drives back to its place aft of the island.');
+    const home = r.rec.find((l) => l.startsWith('home: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(Math.hypot(home[0] + 74, home[1] - 27)).toBeLessThan(0.5);
+    expect(Math.hypot(home[2] - end.x, home[3] - end.z)).toBeLessThan(0.01);
+    expect(r.logLines.some((l) => /^tow: the tractor's way home: \d+ points, \d+ m$/.test(l))).toBe(true);
+    // on the catapult already: no second tow there
+    expect(r.says[r.says.length - 1]).toMatch(/^you are \d+ m from catapult 2's shuttle already: too near for a tow\.$/);
+  }, 120000);
+
+  it('a tow to a deck spot: pulled along the taxi route past the spot, then pushed back into it tail first; the jet ends on the spot, on its heading', () => {
+    const a = spot('E21');
+    const b = spot('SB3');
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\nadd(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${START}${TOW_TO}
+towTo('${b.name}')\nframes(0.5)
+${FOLLOW}
+rec('hooked ' .. tostring(follow('tow: hooked up', 1200)))
+rec('-- pull')
+rec('past ' .. tostring(follow('Now the tractor pushes you back', 1600)))
+rec('-- push')
+rec('stopped ' .. tostring(follow('tow: stopped', 800)))
+rec(string.format('end: jet %.3f %.3f nose %.4f %.4f', jet.f, jet.s, jet.nf, jet.ns))
+rec('-- unhook')
+click("Tow > Unhook (the bar goes back on the tractor)")
+rec('parked ' .. tostring(follow('tow: the tractor is parked', 2400)))
+rec(string.format('home: tug %.1f %.1f; jet %.3f %.3f', PLACED[tug].f, PLACED[tug].s, jet.f, jet.s))`);
+    expect(r.says.some((l) => new RegExp(`^tow: the tractor is coming with the tow bar\\. Nose wheel steering OFF; parking brake on until it is hooked up\\. Then: \\d+ m along the deck past ${b.name}, then pushed back \\d+ m into it, tail first\\.$`).test(l))).toBe(true);
+    for (const what of ['hooked true', 'past true', 'stopped true', 'parked true']) expect(r.rec).toContain(what);
+    const [iPull, iPush, iUn] = ['-- pull', '-- push', '-- unhook'].map((m) => r.rec.indexOf(m));
+    const all = track(r.rec);
+    for (const q of all) {
+      expect(onDeck(q.tx, q.tz), `tractor at ${q.tx} ${q.tz}`).toBe(true);
+      expect(onDeck(q.x, q.z), `jet at ${q.x} ${q.z}`).toBe(true);
+    }
+    // the pull: forward all the way, and it goes PAST the spot's front: at its end the jet is beyond the spot's own
+    // line (the line straight ahead of the parked jet), on the side it was going
+    const pull = track(r.rec.slice(iPull, iPush));
+    for (let i = 1; i < pull.length; i++) expect((pull[i].x - pull[i - 1].x) * pull[i].fx + (pull[i].z - pull[i - 1].z) * pull[i].fz).toBeGreaterThan(-0.01);
+    const side = (q: { x: number; z: number }) => (q.x - b.x) * -b.fz + (q.z - b.z) * b.fx;
+    expect(side(pull[0]) * side(pull[pull.length - 1])).toBeLessThan(0);
+    // the push: backwards all the way (tail first), the nose wheel never beyond 75 degrees, and turned well over on the way
+    const push = track(r.rec.slice(iPush, iUn));
+    expect(push.length).toBeGreaterThan(15);
+    for (let i = 1; i < push.length; i++) expect((push[i].x - push[i - 1].x) * push[i].fx + (push[i].z - push[i - 1].z) * push[i].fz).toBeLessThan(0.01);
+    expect(Math.max(...push.map((q) => Math.abs(q.steer)))).toBeLessThan(75 / 90);
+    expect(Math.max(...push.map((q) => Math.abs(q.steer)))).toBeGreaterThan(0.3);
+    // nothing jumps where the pull hands over to the push: the tractor and the jet move no more between two of these
+    // one-second looks than they do at towing speed
+    for (let i = 1; i < all.length; i++) {
+      // (2026-11-19, the user: "I'm comfortable increasing all tug speeds by 2x": a tractor by itself up to 8.4 m/s, with an aircraft 4.2)
+      expect(Math.hypot(all[i].tx - all[i - 1].tx, all[i].tz - all[i - 1].tz)).toBeLessThan(8.6);
+      expect(Math.hypot(all[i].x - all[i - 1].x, all[i].z - all[i - 1].z)).toBeLessThan(4.4);
+    }
+    // ON THE SPOT: within a centimetre, on its heading within a tenth of a degree; and it stays there when unhooked
+    const end = r.rec.find((l) => l.startsWith('end: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(Math.hypot(end[0] - b.x, end[1] - b.z)).toBeLessThan(0.01);
+    expect((Math.acos(Math.min(1, end[2] * b.fx + end[3] * b.fz)) * 180) / Math.PI).toBeLessThan(0.1);
+    expect(r.says.some((l) => new RegExp(`^tow: stopped at ${b.name}\\. You are 0\\.0 m from the place and 0 degrees off its heading;`).test(l))).toBe(true);
+    const home = r.rec.find((l) => l.startsWith('home: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(Math.hypot(home[0] + 74, home[1] - 27)).toBeLessThan(0.5);
+    expect(Math.hypot(home[2] - b.x, home[3] - b.z)).toBeLessThan(0.01);
+    // the plan as logged: which way was taken, and what it came to in the head
+    expect(r.logLines.some((l) => /^tow: begins\..*to Stbd bow 3 \(spot 3\): the pull \d+ points, \d+ m, .*the push [\d.]+ m round .* way 1 of 7 tried: along the road/.test(l))).toBe(true);
+    expect(r.logLines.some((l) => /^tow: the push worked out from where the pull ended: [\d.]+ m, the nose wheel turned \d+ degrees at most; it ends 0\.\d\d m and [\d.]+ degrees off the spot/.test(l))).toBe(true);
+  }, 120000);
+
+  it('with the deck full, the tractor (at its waiting place) can come for parked aircraft all over the deck and take each to every catapult: planned, not driven', () => {
+    // (all 39 x 4 could be planned on 2026-11-17; here every fifth aircraft, for the time it takes. "tow|trycat|N|lock"
+    // is not on the menu: the tow planned as it would be driven, nothing started)
+    const me = spot('SB3');
+    const some = spots.filter((q, i) => q.n !== me.n && i % 5 === 0);
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\nadd(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nsetJet(${me.x}, ${me.z}, ${me.fx}, ${me.fz})\n${START}${TOW_TO}
+local D = 'CATCC deck spots'
+local function lockOn(x, z) CAMAT = { f = x + 30, s = z, up = 80, lf = x, ls = z } click(D .. ' > Lock on the one the camera looks at') frames(0.5) end
+CAMAT = { f = 0, s = 0, up = 300, lf = 0, ls = 1 }
+click(D .. ' > Park a Hornet on every deck spot')\nframes(2)
+for i, q in ipairs(SPOT_LIST) do
+  lockOn(q.x, q.z)
+  for _, k in ipairs({ 1, 2, 3, 4 }) do
+    MISSION.CATCC_CR.queue[#MISSION.CATCC_CR.queue + 1] = 'tow|trycat|' .. k .. '|lock'
+    frames(0.5)
+  end
+end`.replace('SPOT_LIST', `({ ${some.map((q) => `{ n = ${q.n}, name = "${q.name}", x = ${q.x}, z = ${q.z} }`).join(', ')} })`));
+    const says = r.says.filter((l) => l.startsWith('tow') || l.startsWith('no '));
+    expect(some.length).toBeGreaterThanOrEqual(7);
+    expect(says.length).toBe(some.length * 4);
+    for (const l of says) expect(l).toMatch(/^tow: can be driven: \d+ m along the deck /);
+    // nothing was started: no tractor moved, no aircraft placed
+    expect(r.rec.some((l) => l.startsWith('forcepos '))).toBe(false);
+    expect(r.logLines.filter((l) => l.startsWith('tow: a dry run: ')).length).toBe(some.length * 4);
+    expect(r.logLines.some((l) => l.startsWith('tow: begins.'))).toBe(false);
+  }, 240000);
+
+  it("the tow runs on the mission's clock (time acceleration, pause) and stands under active pause; the tractor comes out of its turn in line with the nose and backs straight onto the ring; it is faster on a straight", () => {
+    // (the user, 2026-11-17, after the first run on the flight deck: "accelerating time in the mission does not make the
+    // tugs move any faster"; "while connecting, the tug warped into its position and did a rapid/unrealistic turn";
+    // "the tug could probably drive a bit faster when transiting a major artery")
+    const a = spot('E21');
+    const run = (accel: number) =>
+      hook(`ROUTES_SRC = ROUTES_REAL\nadd(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${START}${TOW_TO}
+ACCEL = ${accel}
+click("Tow > Tow me to a catapult > Catapult 2")\nframes(0.5)
+local tug = STATICS['catcc-tug'].id_
+local n = 0
+local function follow(untilText, max)
+  for i = 1, max do
+    frames(0.25)
+    n = n + 1
+    rec(string.format('at %.2f %.2f %.3f %.3f tug %.2f %.2f %.3f %.3f up %.3f steer %.3f', jet.f, jet.s, jet.nf, jet.ns, PLACED[tug].f, PLACED[tug].s, PLACED[tug].nf, PLACED[tug].ns, MT, 0))
+    if said(untilText) then return true end
+  end
+  return false
+end
+rec('reached ' .. tostring(follow('The bar comes off its pintle', 4000)) .. ' after ' .. n .. ' frames, model time ' .. MT)
+rec('-- there')
+rec('hooked ' .. tostring(follow('tow: hooked up', 4000)) .. ' after ' .. n .. ' frames')
+rec('-- pull')
+-- the mission paused for 5 s of real time: nothing moves
+PAUSED = true
+local x0, z0 = PLACED[tug].f, PLACED[tug].s
+frames(5)
+rec(string.format('paused: tug moved %.3f', math.sqrt((PLACED[tug].f - x0) ^ 2 + (PLACED[tug].s - z0) ^ 2)))
+PAUSED = false
+frames(6)
+rec(string.format('after the pause: tug moved %.3f', math.sqrt((PLACED[tug].f - x0) ^ 2 + (PLACED[tug].s - z0) ^ 2)))
+-- ACTIVE PAUSE for 5 s: the mission's clock runs on; nothing of the tow moves (two frames for it to be seen)
+ACTIVE_PAUSE = true
+frames(0.5)
+local x1, z1, j1, t1 = PLACED[tug].f, PLACED[tug].s, jet.f, MT
+frames(5)
+rec(string.format('active pause: tug moved %.3f, jet %.3f, in %.1f s of the mission', math.sqrt((PLACED[tug].f - x1) ^ 2 + (PLACED[tug].s - z1) ^ 2), math.abs(jet.f - j1), MT - t1))
+ACTIVE_PAUSE = false
+frames(2)
+rec(string.format('after the active pause: tug moved %.3f', math.sqrt((PLACED[tug].f - x1) ^ 2 + (PLACED[tug].s - z1) ^ 2)))
+follow('tow: stopped', 4000)
+rec(string.format('end: jet %.3f %.3f nose %.5f %.5f', jet.f, jet.s, jet.nf, jet.ns))`);
+    const one = run(1);
+    const four = run(4);
+    const frames = (r: typeof one, what: string) => Number(r.rec.find((l) => l.startsWith(what))!.match(/after (\d+) frames/)![1]);
+    // THE CLOCK: four times the model time a frame, a quarter of the frames (to the tractor's stop in front of the jet, and
+    // to hooked up); the same way driven: it stops at the same place, and the jet ends at the same place on the catapult
+    expect(one.rec.find((l) => l.startsWith('reached '))).toMatch(/^reached true /);
+    expect(frames(four, 'reached ') / frames(one, 'reached ')).toBeGreaterThan(0.23);
+    expect(frames(four, 'reached ') / frames(one, 'reached ')).toBeLessThan(0.27);
+    expect(frames(four, 'hooked ') / frames(one, 'hooked ')).toBeGreaterThan(0.23);
+    expect(frames(four, 'hooked ') / frames(one, 'hooked ')).toBeLessThan(0.28);
+    const stop = (r: typeof one) => r.logLines.find((l) => l.startsWith('tow: unhitch (tractor at '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    const [sx, sz, shx, shz] = stop(one);
+    const [fx4, fz4] = stop(four);
+    expect(Math.hypot(sx - fx4, sz - fz4)).toBeLessThan(0.15);
+    const end = (r: typeof one) => r.rec.find((l) => l.startsWith('end: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(Math.hypot(end(one)[0] - end(four)[0], end(one)[1] - end(four)[1])).toBeLessThan(0.05);
+    // what the hook costs a frame is written to the log every 20 s (for the stutter the user saw: where the time goes)
+    expect(one.logLines.some((l) => /^frame cost: \d+ frames in 2\d s \(\d+ a second\): the hook took \d+\.\d\d ms a frame on average, \d+\.\d at worst, over 4 ms in \d+; by part, ms: /.test(l))).toBe(true);
+    // PERFORMANCE IN THE USER'S TERMS (2026-11-18): every minute, and when the mission ends: fps average and range, frame
+    // time average and range, the 1% and 0.1% lows in ms, the hook's own share, and what was left out as test-only
+    expect(one.logLines.some((l) => /^performance, nothing of ours on the deck \((so far|ended|the mission ended); \d+ s, \d+ frames\): fps [\d.]+ average, (\d+ to \d+|no whole second) by the second; frame time [\d.]+ ms average, [\d.]+ to [\d.]+; 1% low [\d.]+ ms \(\d+ fps\), 0\.1% low [\d.]+ ms \(\d+ fps\); the hook's share: [\d.]+ ms average, its slowest 1% [\d.]+ ms, 0\.1% [\d.]+ ms; left out as test-only: /.test(l))).toBe(true);
+    // paused: it stands
+    expect(one.rec).toContain('paused: tug moved 0.000');
+    expect(Number(one.rec.find((l) => l.startsWith('after the pause: tug moved '))!.slice(27))).toBeGreaterThan(0.5);
+    // ACTIVE PAUSE (the user, 2026-11-18: "When I pressed active pause ... the tugs continued to move aircraft. They
+    // should pause too"): DCS's clock runs on (5 s of it, 20 s at four times speed), the tractor and the jet on its bar
+    // stand; they go on when it is taken off; the log says both
+    expect(one.rec).toContain('active pause: tug moved 0.000, jet 0.000, in 5.0 s of the mission');
+    expect(four.rec).toContain('active pause: tug moved 0.000, jet 0.000, in 20.0 s of the mission');
+    expect(Number(one.rec.find((l) => l.startsWith('after the active pause: tug moved '))!.slice(34))).toBeGreaterThan(0.2);
+    expect(one.logLines).toContain("active pause ON: the tow's clock is held: tractors, tows and the deck spotting demo stand");
+    expect(one.logLines.some((l) => /^active pause OFF after [56] s of the mission's time: they go on$/.test(l))).toBe(true);
+    // IN LINE: where the tractor stops in front of the jet it is on the jet's nose line (within 0.3 m), facing away from
+    // it (within 6 degrees), 11 m beyond the hook-up place; from there to hooked up it only backs: its heading does not
+    // change and it stays on the line
+    const nose = [a.x + a.fx * 3.005, a.z + a.fz * 3.005];
+    const side = (x: number, z: number) => Math.abs((x - nose[0]) * -a.fz + (z - nose[1]) * a.fx);
+    expect(side(sx, sz)).toBeLessThan(0.3);
+    expect((Math.acos(Math.min(1, shx * a.fx + shz * a.fz)) * 180) / Math.PI).toBeLessThan(6);
+    const iThere = one.rec.indexOf('-- there');
+    const iPull = one.rec.indexOf('-- pull');
+    const backing = track(one.rec.slice(iThere, iPull));
+    expect(backing.length).toBeGreaterThan(40);
+    for (const q of backing) {
+      expect(side(q.tx, q.tz)).toBeLessThan(0.3);
+      expect((Math.acos(Math.min(1, q.thx * a.fx + q.thz * a.fz)) * 180) / Math.PI).toBeLessThan(6);
+    }
+    expect(one.logLines.some((l) => /^tow: the tractor's turn onto the nose line: (a half circle of 5 m|in from the side, a quarter circle of 5 m)(, from the other side)?; it ends 11\.0 m beyond the hook-up place, at -?[\d.]+ \/ -?[\d.]+, and backs onto the ring from there$/.test(l))).toBe(true);
+    // FASTER ON A STRAIGHT: by itself up to 3 m/s (and no faster), in its turn in front of the jet 1.4; with the jet on
+    // the bar up to 2 m/s. (The samples: four a second; `up` here is the model time.)
+    const speeds = (rec: string[], who: 'tug' | 'jet') => {
+      const t = track(rec);
+      const out: number[] = [];
+      for (let i = 1; i < t.length; i++) {
+        const dt = t[i].up - t[i - 1].up;
+        if (dt > 0) out.push(Math.hypot(who === 'tug' ? t[i].tx - t[i - 1].tx : t[i].x - t[i - 1].x, who === 'tug' ? t[i].tz - t[i - 1].tz : t[i].z - t[i - 1].z) / dt);
+      }
+      return out;
+    };
+    const solo = speeds(one.rec.slice(0, iThere), 'tug');
+    expect(Math.max(...solo)).toBeGreaterThan(2.8);
+    expect(Math.max(...solo)).toBeLessThan(8.5); // (8.4 m/s: twice the 4.2 of 2026-11-18: the user, 2026-11-19)
+    // (its last 12 s before it stops: the turn onto the nose line, at the pace of a turn)
+    for (const v of solo.slice(-48, -8)) expect(v).toBeLessThan(3.3); // (a turn at 2.8 m/s now: 2026-11-19)
+    const towed = speeds(one.rec.slice(iPull), 'jet');
+    expect(Math.max(...towed)).toBeGreaterThan(1.7);
+    expect(Math.max(...towed)).toBeLessThan(4.3); // (4.2 m/s with an aircraft in tow where it is not turning: twice the 2.1 of 2026-11-18: the user, 2026-11-19)
+  }, 240000);
+
+  it('the other aircraft on the deck: a tow is planned clear of them where there is a way (the user\'s own: Crotch 2 (now Crotch 1) into El 1 1, which went through a six-pack nose); where the taxi road itself runs through one, it goes and says so', () => {
+    const me = spot('SB3');
+    const from = spot('CR1');
+    const to = spot('E11');
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\nadd(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nsetJet(${me.x}, ${me.z}, ${me.fx}, ${me.fz})\n${START}${TOW_TO}
+local D = 'CATCC deck spots'
+local function lockOn(x, z) CAMAT = { f = x + 30, s = z, up = 80, lf = x, ls = z } click(D .. ' > Lock on the one the camera looks at') frames(0.5) end
+local function try(cmd) MISSION.CATCC_CR.queue[#MISSION.CATCC_CR.queue + 1] = cmd frames(0.5) end
+CAMAT = { f = 0, s = 0, up = 300, lf = 0, ls = 1 }
+click(D .. ' > Park a Hornet on every deck spot')\nframes(2)
+-- as the user did: the aircraft on El 1 1 taken away, the one on Crotch 2 (now Crotch 1) towed into its place
+lockOn(${to.x}, ${to.z})
+click(D .. ' > Add / remove > Remove the locked aircraft (no spot there)')\nframes(1)
+lockOn(${from.x}, ${from.z})
+rec('-- spot')
+try('tow|tryspot|${to.n}|lock')
+rec('-- cat 4')
+-- catapult 4 from El 2 1: the way onto its track runs over the spot Port quarter 1, where a Hornet stands
+lockOn(${spot('E21').x}, ${spot('E21').z})
+try('tow|trycat|4|lock')`);
+    const iSpot = r.logLines.findIndex((l) => l.startsWith('menu: tow|tryspot'));
+    const iCat = r.logLines.findIndex((l) => l.startsWith('menu: tow|trycat'));
+    const spotLog = r.logLines.slice(iSpot, iCat);
+    const catLog = r.logLines.slice(iCat);
+    const said = r.says.filter((l) => l.startsWith('tow: can be driven') || l.startsWith('no tow'));
+    expect(said.length).toBe(2);
+    // INTO THE SPOT: the way that was driven in DCS on 2026-11-17 (pushed in along the road: its nose swung through a
+    // six-pack nose) is dropped for exactly that; the next way (a line across the spot's front) is clear, and taken
+    expect(spotLog.some((l) => /^tow: to El 1 1, way 1 of 7 \(along the road, .*\) is not driven: on the push into the spot the aircraft in tow would run into the Hornet of Sixpack \d /.test(l))).toBe(true);
+    expect(said[0]).toMatch(/^tow: can be driven: \d+ m along the deck past El 1 1, then pushed back \d+ m into it, tail first\.$/);
+    const note = spotLog.find((l) => l.startsWith('tow: a dry run: '))!;
+    expect(note).toMatch(/; way [2-7] of 7 tried: a line -?\d+ degrees round from the spot's heading/);
+    const room = Number(note.match(/the nearest it comes to another aircraft: (-?\d+\.\d) m \(the Hornet of /)![1]);
+    expect(room).toBeGreaterThanOrEqual(0.1);
+    expect(spotLog.some((l) => l.includes('looked for again with a contact allowed'))).toBe(false);
+    // ONTO CATAPULT 4: there is no clear way (the taxi road passes the six-pack's noses, and the run onto the track
+    // goes over the spot Port quarter 1): looked for again with a contact allowed; it goes, and says whom it goes through
+    expect(catLog.some((l) => /^tow: no way clear of the other aircraft \(no tow to catapult 4 from here: the aircraft in tow would run into the Hornet of .*\): looked for again with a contact allowed$/.test(l))).toBe(true);
+    expect(said[1]).toMatch(/^tow: can be driven: \d+ m along the deck to catapult 4, your nose wheel left 2 m short of its shuttle\. NOT CLEAR: the aircraft in tow goes \d\.\d m into the Hornet of Port quarter 1 and the tractor goes through the wheels of the Hornet of Port quarter 1 \(the taxi road runs there; no clear way was found\)\.$/);
+  }, 240000);
+
+  it('a PARKED aircraft is towed: the one the deck tool is locked on goes to a catapult, another into the spot it left; the tractor unhooks by itself and drives home; the player\'s jet is not touched', () => {
+    // (the user, 2026-11-17: "send a tow crew to any aircraft spotted on the deck by using the UI to click on an
+    // aircraft ... and then issuing a tow instruction". The panel's Tow page gives the same commands as these menu items)
+    const a = spot('E21'); // the aircraft towed first: to catapult 2
+    const me = spot('SB3'); // the player's own jet stands here (the deck tool leaves that spot empty)
+    const idx = (q: { n: number }) => spots.indexOf(q as (typeof spots)[number]) + 1;
+    const L = 'Tow > Tow the locked deck aircraft';
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\nSTATIC_UP = 21.9\nadd(105, 'catcc-t0', '1: catcc-t0', 12, 33, SHIP_A)\nsetJet(${me.x}, ${me.z}, ${me.fx}, ${me.fz})\n${START}${TOW_TO}
+local D = 'CATCC deck spots'
+local function sid(i) for name, o in pairs(STATICS) do if name:find('^catcc%-spot%-' .. i .. ' ') then return o.id_ end end end
+local function lockOn(x, z) CAMAT = { f = x + 30, s = z, up = 80, lf = x, ls = z } click(D .. ' > Lock on the one the camera looks at') frames(0.5) end
+local function lockTo(name)
+  for k, f in pairs(cmds) do
+    if k:find('Tow the locked deck aircraft > To a parking spot', 1, true) and k:sub(-#name - 3) == ' > ' .. name then return f() end
+  end
+  error('no spot item ' .. name)
+end
+local tug
+local function follow(id, x0, z0, untilText, max)
+  for i = 1, max do
+    frames(0.25)
+    tug = tug or (STATICS['catcc-tug'] and STATICS['catcc-tug'].id_)
+    if i % 4 == 0 and tug and PLACED[tug] then
+      local p = PLACED[id]
+      rec(string.format('at %.2f %.2f %.3f %.3f tug %.2f %.2f %.3f %.3f up %.3f steer %.3f', p and p.f or x0, p and p.s or z0, p and p.nf or 0, p and p.ns or 0, PLACED[tug].f, PLACED[tug].s, PLACED[tug].nf, PLACED[tug].ns, PLACED[tug].up,
+        JETARG[id .. '/2'] or 0))
+    end
+    if said(untilText) then return true end
+  end
+  return false
+end
+-- nothing parked, nothing locked: no tow
+click("${L} > To catapult 2")\nframes(0.5)
+CAMAT = { f = 0, s = 0, up = 300, lf = 0, ls = 1 }
+click(D .. ' > Park a Hornet on every deck spot')\nframes(2)
+rec('-- first')
+lockOn(${a.x}, ${a.z})
+local A = sid(${idx(a)})
+rec('A is the ship\\'s child: ' .. tostring(LINKED_IDS[A]))
+-- to its own spot, to a spot another Hornet stands on, to the spot the player's jet stands on: refused
+lockTo('${a.name}')\nframes(0.5)
+lockTo('${spot('SB6').name}')\nframes(0.5)
+lockTo('${me.name}')\nframes(0.5)
+click("${L} > To catapult 2")\nframes(0.5)
+rec('hooked ' .. tostring(follow(A, ${a.x}, ${a.z}, 'tow: hooked up', 1200)))
+rec('-- pull')
+rec('stopped ' .. tostring(follow(A, 0, 0, 'tow: stopped', 1600)))
+rec(string.format('end: jet %.3f %.3f nose %.5f %.5f up %.3f own %s', PLACED[A].f, PLACED[A].s, PLACED[A].nf, PLACED[A].ns, PLACED[A].up, tostring(PLACED[A].own)))
+rec('-- unhook')
+rec('parked ' .. tostring(follow(A, 0, 0, 'tow: the tractor is parked', 3000)))
+rec(string.format('home: tug %.1f %.1f; jet %.3f %.3f', PLACED[tug].f, PLACED[tug].s, PLACED[A].f, PLACED[A].s))
+rec(string.format('wheels: nose %s left %s right %s wing %s', tostring(OBJARG_N[A .. '/101'] ~= nil), tostring(OBJARG_N[A .. '/103'] ~= nil), tostring(OBJARG_N[A .. '/102'] ~= nil), tostring(JETARG[A .. '/8'])))
+-- the deck tool finds it where it now stands: the camera on the catapult, "lock on the one the camera looks at"
+lockOn(PLACED[A].f, PLACED[A].s)
+rec('-- second')
+-- another parked aircraft into the spot it left (the first, in the deck's order, for which there is a way)
+local B, bname
+for i, q in ipairs(SPOT_LIST) do
+  if q.n ~= ${a.n} and q.n ~= ${me.n} and not B then
+    lockOn(q.x, q.z)
+    lockTo('${a.name}')\nframes(0.5)
+    if said('the tractor is coming') then B, bname = sid(i), q.name end
+  end
+end
+rec('second: ' .. tostring(bname))
+rec('hooked ' .. tostring(follow(B, 0, 0, 'tow: hooked up', 1600)))
+rec('parked ' .. tostring(follow(B, 0, 0, 'tow: the tractor is parked', 6000)))
+rec(string.format('end2: jet %.3f %.3f nose %.5f %.5f', PLACED[B].f, PLACED[B].s, PLACED[B].nf, PLACED[B].ns))
+rec(string.format('me: %.3f %.3f', jet.f, jet.s))
+-- the deck tool parks them anew: each on its own spot again
+click(D .. ' > Park a Hornet on every deck spot')\nframes(2)
+lockOn(${a.x}, ${a.z})`.replace('SPOT_LIST', `({ ${spots.map((q) => `{ n = ${q.n}, name = "${q.name}", x = ${q.x}, z = ${q.z} }`).join(', ')} })`));
+    // nothing locked: no tow
+    expect(r.says[0]).toBe('tow: no aircraft is selected: park the Hornets (Deck spots > Park Hornets), then click the one to tow.');
+    const iFirst = r.rec.indexOf('-- first');
+    const iSecond = r.rec.indexOf('-- second');
+    // the refusals: its own spot; a spot another of the deck tool's Hornets stands on; the spot the player's jet stands on
+    expect(r.says).toContain(`it is on ${a.name} already.`);
+    expect(r.says).toContain(`${spot('SB6').name} is taken: one of the deck tool's Hornets stands on it (${spot('SB6').name}).`);
+    expect(r.says).toContain(`${me.name} is taken: your own jet stands on it.`);
+    // the tow: said of "it", and it ends by itself
+    expect(r.says.some((l) => new RegExp(`^tow: the tractor is coming with the tow bar for the Hornet of spot ${a.n} "${a.name}"\\. Then: \\d+ m along the deck onto catapult 2's track and \\d+ m past the place, then pushed \\d+ m straight back into line, its nose wheel left 2 m short of the shuttle(\\. NOT CLEAR: [^;]*\\(the taxi road runs there; no clear way was found\\))?; there it unhooks and drives home\\.$`).test(l))).toBe(true);
+    expect(r.says).toContain('tow: hooked up: it is pulled in 1.5 seconds.');
+    expect(r.says.some((l) => /^tow: stopped at catapult 2\. It is 0\.0 m from the place and 0 degrees off its heading; the nose wheel turned at most \d+ degrees\. The tractor unhooks by itself\.$/.test(l))).toBe(true);
+    expect(r.says.some((l) => l.includes('Set the parking brake') || l.includes('hands off') || l.includes('your nose'))).toBe(false);
+    for (const what of ['hooked true', 'stopped true', 'parked true']) expect(r.rec.slice(iFirst, iSecond)).toContain(what);
+    expect(r.rec).toContain("A is the ship's child: true");
+    // the aircraft is a static: moved through its own position setter in the ship's frame, at ITS OWN height as DCS has
+    // it (21.9 here, not a parked jet's 21.975); the player's jet is never moved
+    expect(r.rec.some((l) => l.startsWith('forcepos '))).toBe(false);
+    const end = r.rec.find((l) => l.startsWith('end: '))!;
+    expect(end).toMatch(/ up 21\.900 own true$/);
+    expect(r.logLines.some((l) => new RegExp(`^tow: the aircraft to tow: the Hornet of spot ${a.n} "${a.name}" \\(object \\d+, class \\S+, the ship's child: \\S+\\); the deck tool has it at .*; DCS says .* 21\\.900 up .*; its height taken as 21\\.900$`).test(l))).toBe(true);
+    expect(r.logLines.some((l) => /^tow: the aircraft in tow is placed \(object \d+, class \S+; in the ship's own frame; it says it is there\)$/.test(l))).toBe(true);
+    // it has not moved until it is hooked up; nothing leaves the deck; the tractor on the flight deck (20.149 m)
+    const first = track(r.rec.slice(iFirst, iSecond));
+    const cut = r.rec.indexOf('-- pull');
+    const before = track(r.rec.slice(iFirst, cut));
+    expect(before.length).toBeGreaterThan(30);
+    for (const q of before) expect(Math.hypot(q.x - a.x, q.z - a.z)).toBeLessThan(0.01);
+    for (const q of first) {
+      expect(onDeck(q.tx, q.tz), `tractor at ${q.tx} ${q.tz}`).toBe(true);
+      expect(onDeck(q.x, q.z), `aircraft at ${q.x} ${q.z}`).toBe(true);
+      expect(q.up).toBeCloseTo(20.149, 3);
+    }
+    // on catapult 2: in line with the track, the nose wheel 2 m short of the shuttle; it stays there when unhooked
+    const [endX, endZ, endFx, endFz] = end.match(/-?\d+\.\d+/g)!.map(Number);
+    const [sh, far] = CATS['2'];
+    const len = Math.hypot(far[0] - sh[0], far[1] - sh[1]);
+    const [ex, ez] = [(far[0] - sh[0]) / len, (far[1] - sh[1]) / len];
+    const nose = [endX + endFx * 3.005, endZ + endFz * 3.005];
+    const along = (nose[0] - sh[0]) * ex + (nose[1] - sh[1]) * ez;
+    expect(along).toBeGreaterThan(-2.08);
+    expect(along).toBeLessThan(-1.92);
+    expect(Math.abs((nose[0] - sh[0]) * -ez + (nose[1] - sh[1]) * ex)).toBeLessThan(0.08);
+    expect((Math.acos(Math.min(1, endFx * ex + endFz * ez)) * 180) / Math.PI).toBeLessThan(0.3);
+    const home = r.rec.find((l) => l.startsWith('home: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(Math.hypot(home[0] + 74, home[1] - 27)).toBeLessThan(0.5);
+    expect(Math.hypot(home[2] - endX, home[3] - endZ)).toBeLessThan(0.01);
+    // its nose wheel was steered on its own model, its wheels turned; its wings stay folded (the deck tool's)
+    expect(Math.max(...first.map((q) => Math.abs(q.steer)))).toBeGreaterThan(0.2);
+    expect(Math.max(...first.map((q) => Math.abs(q.steer)))).toBeLessThan(75 / 90);
+    expect(r.rec).toContain('wheels: nose true left true right true wing 1');
+    // the tractor kept clear of the other aircraft on its own ways, or said that it could not
+    expect(r.logLines.some((l) => /^tow: the tractor('s way to the aircraft keeps clear of| finds no way to the aircraft that keeps clear of) the 3[89] other aircraft on the deck/.test(l))).toBe(true);
+    // the deck tool finds the aircraft where it now stands (the click and the mark do too): on the catapult, not on its spot
+    expect(r.says.some((l) => new RegExp(`^deck spots: locked on spot ${a.n} "${a.name}": .* \\(0 m from where the camera looks\\)\\.$`).test(l))).toBe(true);
+    // THE SECOND: another parked aircraft into the spot the first left free; it ends on the spot, within a centimetre
+    const second = r.rec.find((l) => l.startsWith('second: '))!.slice(8);
+    expect(second).not.toBe('nil');
+    for (const what of ['hooked true', 'parked true']) expect(r.rec.slice(iSecond)).toContain(what);
+    expect(r.says.some((l) => l.startsWith(`tow: the tractor is coming with the tow bar for the Hornet of spot`) && l.includes(`past ${a.name}, then pushed back`) && l.includes('tail first') && l.endsWith('; there it unhooks and drives home.'))).toBe(true);
+    const end2 = r.rec.find((l) => l.startsWith('end2: '))!.match(/-?\d+\.\d+/g)!.map(Number);
+    expect(Math.hypot(end2[0] - a.x, end2[1] - a.z)).toBeLessThan(0.01);
+    expect((Math.acos(Math.min(1, end2[2] * a.fx + end2[3] * a.fz)) * 180) / Math.PI).toBeLessThan(0.1);
+    for (const q of track(r.rec.slice(iSecond))) {
+      expect(onDeck(q.tx, q.tz), `tractor at ${q.tx} ${q.tz}`).toBe(true);
+      expect(onDeck(q.x, q.z), `aircraft at ${q.x} ${q.z}`).toBe(true);
+    }
+    // the second tow began where the first left the tractor: at its waiting place, facing the way it drove in; it backed
+    // straight out before it could turn onto its way
+    expect(r.logLines.some((l) => /^tow: from where it stands \(.*\) the tractor cannot turn onto its way: it backs straight out \d+ m first$/.test(l))).toBe(true);
+    // the player's own jet stood where it was all along
+    expect(r.rec).toContain(`me: ${me.x.toFixed(3)} ${me.z.toFixed(3)}`);
+    // parked anew by the deck tool, each stands on its own spot again
+    expect(r.says[r.says.length - 1]).toMatch(new RegExp(`^deck spots: locked on spot ${a.n} "${a.name}": .* \\(0 m from where the camera looks\\)\\.$`));
+  }, 240000);
+
+  it('from one spot a tow can be planned to every catapult and every other spot; what cannot be driven is refused with the reason', () => {
+    const a = spot('E21');
+    const r = hook(`ROUTES_SRC = ROUTES_REAL\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${TOW_TO}
+for _, to in ipairs({ 'C1', 'C2', 'C3', 'C4', ${spots.filter((q) => q.id !== 'E21').map((q) => `'${q.name}'`).join(', ')} }) do
+  HANDLER.onSimulationStart()
+  frames(1.5)
+  rec('== ' .. to)
+  if to:match('^C%d$') then click('Tow > Tow me to a catapult > Catapult ' .. to:sub(2)) else towTo(to) end
+  frames(0.5)
+end`);
+    let cur = '';
+    const res: Record<string, string> = {};
+    for (const l of r.rec) {
+      if (l.startsWith('== ')) cur = l.slice(3);
+      else if (l.startsWith('say ') && cur && !l.includes('at mission start')) res[cur] = l.slice(4).replace(/^CATCC crew test: /, '');
+    }
+    expect(Object.keys(res).length).toBe(43);
+    const no = Object.entries(res).filter(([, t]) => !t.startsWith('tow: the tractor is coming'));
+    expect(no).toEqual([]);
+    // the pushes: none longer than 40 m; in every plan the nose wheel stays within 75 degrees
+    const notes = r.logLines.filter((l) => l.startsWith('tow: begins'));
+    expect(notes.length).toBe(43);
+    const pushes = notes.map((l) => /the push ([\d.]+) m round/.exec(l)).filter((m) => m).map((m) => Number(m![1]));
+    expect(pushes.length).toBe(39);
+    expect(Math.max(...pushes)).toBeLessThan(40);
+    for (const l of notes) for (const m of l.matchAll(/turns (\d+) degrees at most/g)) expect(Number(m[1])).toBeLessThanOrEqual(75);
+
+    // REFUSALS. On the hangar deck: a flight deck tow is not for there
+    const below = hook(`ROUTES_SRC = ROUTES_REAL\nJETUP = 10.5\nsetJet(23.13, 33.54, 0, -1)\n${START}click("Tow > Tow me to a catapult > Catapult 1")\nframes(1)`);
+    expect(below.says[below.says.length - 1]).toBe('you are on the hangar deck: a tow to a catapult or a deck spot starts on the flight deck. Down here: F10 > Tow > Tow me into the hangar.');
+    // the spot the jet stands on; a spot one of the deck tool's Hornets stands on; an elevator that is down
+    const same = hook(`ROUTES_SRC = ROUTES_REAL\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${START}${TOW_TO}towTo('${a.name}')\nframes(1)`);
+    expect(same.says[same.says.length - 1]).toBe(`you are on ${a.name} already.`);
+    const taken = hook(`ROUTES_SRC = ROUTES_REAL\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${START}${TOW_TO}click("CATCC deck spots > Park a Hornet on every deck spot")\nframes(2)\ntowTo('Sixpack 3')\nframes(1)`);
+    expect(taken.says[taken.says.length - 1]).toBe("Sixpack 3 is taken: one of the deck tool's Hornets stands on it (Sixpack 3).");
+    const down = hook(`ROUTES_SRC = ROUTES_REAL\nsetJet(${a.x}, ${a.z}, ${a.fx}, ${a.fz})\n${START}${TOW_TO}click("Catapult crews > Elevators > Elevator 1: down")\nframes(2)\ntowTo('El 1 1')\nframes(1)`);
+    expect(down.says[down.says.length - 1]).toMatch(/^no tow to El 1 1 from here: .*elevator 1 is down and in the way .*; nor any of the other \d ways tried \(the log has each\)\.$/);
+    expect(down.logLines.filter((l) => l.startsWith('tow: to El 1 1, way ')).length).toBeGreaterThanOrEqual(6);
+    // nose to the deck's edge (parked nose-on by the directors): no deck ahead for the tractor
+    const edge = hook(`ROUTES_SRC = ROUTES_REAL\nsetJet(60, 30, 0, 1)\n${START}click("Tow > Tow me to a catapult > Catapult 1")\nframes(1)`);
+    expect(edge.says[edge.says.length - 1]).toMatch(/^no (tow|way) /);
+  }, 120000);
+});
+
+// ---- THE DECK SPOTTING DEMO (Scripts/CATCC/crewtest_demo.lua, the hangar's plan crewtest_hangar.lua). The user,
+// 2026-11-17: forty aircraft, as many as can be reached by a tractor down in the hangar, four tractors below and four
+// above which never ride an elevator and never get in each other's way, the deck filled in an order that blocks
+// nothing, CVW-14's liveries by flight, the catapult crews out of the way, the bubbles down, a key to start it.
+describe('the deck spotting demo', () => {
+  const hangarLua = hangarSrc.replace(/\r\n/g, '\n');
+  const spot = (id: string) => {
+    const m = new RegExp(`id = "${id}", name = "([^"]*)", area = "[^"]*", x = ([-\\d.]+), z = ([-\\d.]+), fx = ([-\\d.]+), fz = ([-\\d.]+)`).exec(routesSrc);
+    if (!m) throw new Error(`no spot ${id}`);
+    return { name: m[1], x: Number(m[2]), z: Number(m[3]), fx: Number(m[4]), fz: Number(m[5]) };
+  };
+
+  it("the hangar's plan is the user's: the 24 aircraft of his drawing's layer Hangar Spotting as he set them in DCS, each with the elevator it goes up by and its turn there; each elevator's two places on his own deck spots as nearly as its doorway lets them; four waiting places", () => {
+    const slots = [...hangarLua.matchAll(/\{ n = (\d+), x = ([-\d.]+), z = ([-\d.]+), fx = ([-\d.]+), fz = ([-\d.]+), el = (\d), turn = (\d) \}/g)].map((m) => ({ n: Number(m[1]), x: Number(m[2]), z: Number(m[3]), fx: Number(m[4]), fz: Number(m[5]), el: Number(m[6]), turn: Number(m[7]) }));
+    expect(slots.length).toBe(24);
+    // numbered from the bow aft; every nose a unit vector; all inside the hangar's length and width
+    expect(slots.map((q) => q.n)).toEqual(slots.map((_, i) => i + 1));
+    for (let i = 1; i < slots.length; i++) expect(slots[i].x).toBeLessThanOrEqual(slots[i - 1].x + 1e-9);
+    for (const q of slots) {
+      expect(Math.hypot(q.fx, q.fz)).toBeCloseTo(1, 2);
+      expect(q.x).toBeGreaterThan(-125);
+      expect(q.x).toBeLessThan(70);
+      expect(Math.abs(q.z)).toBeLessThan(13);
+    }
+    // HIS ORDER (the labels "EL# X" of his drawing, 2026-11-18): six for each elevator, their turns 1 to 6
+    for (const k of [1, 2, 3, 4]) expect(slots.filter((q) => q.el === k).map((q) => q.turn).sort()).toEqual([1, 2, 3, 4, 5, 6]);
+    // six stand at an angle across the hangar (the forward two and the after four); the rest along the ship, nose
+    // forward or aft
+    expect(slots.filter((q) => Math.abs(q.fz) > 0.8).map((q) => q.n)).toEqual([1, 2, 21, 22, 23, 24]);
+    expect(slots.filter((q) => Math.abs(q.fx) > 0.98).length).toBe(18);
+    // their own points 8 m and more apart, BUT FOR TWO: 21 and 22 (elevator 4's first and elevator 3's first), 4.7 m
+    // apart, tail to nose: by the shapes the planners use a wing tip of the one is 0.9 m inside the nose of the other
+    // (said to the user; they are his to move)
+    const near: number[][] = [];
+    for (const a of slots) for (const b of slots) if (a.n < b.n && Math.hypot(a.x - b.x, a.z - b.z) <= 8) near.push([a.n, b.n]);
+    expect(near).toEqual([[21, 22]]);
+    const st = [...hangarLua.matchAll(/\[(\d)\] = \{ x = \{[^}]*\}, z = \{[^}]*\}, arg = (\d+), top = [\d.]+, travel = [\d.]+, open = \{ ([-\d.]+), ([-\d.]+) \}, stations = \{ \{ x = ([-\d.]+), z = ([-\d.]+),[^}]*\}, \{ x = ([-\d.]+), z = ([-\d.]+),/g)];
+    expect(st.length).toBe(4);
+    const off: number[] = [];
+    for (const m of st) {
+      const k = Number(m[1]);
+      const [a, b] = [Number(m[3]), Number(m[4])];
+      const [x1, z1, x2, z2] = [Number(m[5]), Number(m[6]), Number(m[7]), Number(m[8])];
+      // both wings through the doorway with 0.6 m to spare, 0.4 m and more between the two
+      expect(x1 - 4.2).toBeGreaterThanOrEqual(a + 0.6 - 1e-6);
+      expect(x2 + 4.2).toBeLessThanOrEqual(b - 0.6 + 1e-6);
+      expect(x2 - x1).toBeGreaterThanOrEqual(8.8 - 1e-6);
+      const [aft, fwd] = [spot(`E${k}2`), spot(`E${k}1`)];
+      expect(z1).toBeCloseTo(aft.z, 2);
+      expect(z2).toBeCloseTo(fwd.z, 2);
+      off.push(Math.abs(x1 - aft.x), Math.abs(x2 - fwd.x));
+    }
+    expect(off.filter((d) => d < 0.4).length).toBe(4);
+    expect(Math.max(...off)).toBeLessThan(2.7);
+    // THE PLACES A TRACTOR WAITS AT ("posts": the plan's four homes, then its four rest): the ones that connect, by the
+    // solver's own count (hangar_solve.lua plans every way of a tractor as it drives): none of them in what the user
+    // marked along the end walls (three of the first four homes were: "adjust where the hangar tugs spawn so they
+    // aren't spawning inside walls"); each on free floor of the plan's grid 1.5 m all round its own point; the homes
+    // 5.5 m and more from every aircraft's own point (2.2 m and more from its outline, by the generator's shapes)
+    const posts = [...hangarLua.matchAll(/\{ x = ([-\d.]+), z = ([-\d.]+), hx = (-?\d), hz = (-?\d) \}/g)].map((m) => ({ x: Number(m[1]), z: Number(m[2]), hx: Number(m[3]) }));
+    expect(posts.map((h) => ({ x: h.x, z: h.z }))).toEqual([
+      { x: 48.5, z: -2.2 }, { x: 42, z: 14.5 }, { x: -77, z: 14.5 }, { x: -52, z: -14.5 },
+      { x: -1, z: -14.5 }, { x: 27, z: -14.5 }, { x: -10, z: -14.5 }, { x: -93.5, z: -3 },
+    ]);
+    for (const h of posts.slice(0, 4)) for (const q of slots) expect(Math.hypot(h.x - q.x, h.z - q.z)).toBeGreaterThan(5.5);
+    const gridRows = [...(/rows = \{([\s\S]*?)\n {2}\} \},/.exec(hangarLua) ?? ['', ''])[1].matchAll(/"([^"]*)"/g)].map((m) => m[1]);
+    const cellAt = (x: number, z: number) => (gridRows[Math.floor((z + 24) / 0.5)] ?? '')[Math.floor((x + 132) / 0.5)] ?? ' ';
+    for (const h of posts) for (const r of [1.5, 0.75]) for (let a = 0; a < 360; a += 30) expect(cellAt(h.x + r * Math.cos((a * Math.PI) / 180), h.z + r * Math.sin((a * Math.PI) / 180))).toBe('.');
+    // (which way a tractor stands at each: the solver's: the way that connects)
+    expect(posts.every((h) => Math.abs(h.hx) === 1)).toBe(true);
+    // (where three of the first homes stood is blocked)
+    for (const [x, z] of [[54, -7], [54, 7], [-122, -3]]) expect(cellAt(x, z)).toBe('#');
+    // THE SOLVED TOWS (the user, 2026-11-18: "I'm not even going to run the demo anymore unless we have paths for all
+    // aircraft. I've described what I believe is the correct unloading sequence to guide you"): one for each of the
+    // 24, on the side of the platform he gave it ("left side of EL1 (assume looking from starboard to port)": left is
+    // aft, place 1; right is forward, place 2); the fifth and sixth of an elevator on different places
+    const tows = [...hangarLua.matchAll(/^ {4}\[(\d+)\] = \{ el = (\d), turn = (\d), st = ([12]), alpha = (-?\d+), (.*)$/gm)].map((m) => ({ n: Number(m[1]), el: Number(m[2]), turn: Number(m[3]), st: Number(m[4]), alpha: Number(m[5]), rest: m[6] }));
+    expect(tows.length).toBe(24);
+    expect(new Set(tows.map((t) => t.n)).size).toBe(24);
+    const side: Record<number, number[]> = { 1: [2, 1, 1, 2], 2: [1, 2, 2, 1], 3: [2, 1, 2, 1], 4: [2, 1, 2, 1] };
+    for (const t of tows) {
+      const sl = slots.find((q) => q.n === t.n);
+      expect(sl).toBeDefined();
+      if (t.turn <= 4) expect(t.st).toBe(side[t.el][t.turn - 1]);
+      else expect(t.st).not.toBe(tows.find((o) => o.el === t.el && o.turn === 11 - t.turn)?.st);
+      // (the nose wheel turned at the hook-up, his rule: 70 degrees at the most)
+      expect(Math.abs(t.alpha)).toBeLessThanOrEqual(70);
+      // THE TRACTORS' OWN WAYS with it: to the aircraft from two posts and more, and back to a post
+      const ways = /ways = \{ (.*?) \}, out = /.exec(t.rest)?.[1] ?? '';
+      expect([...ways.matchAll(/\[\d\] = \{ side = /g)].length).toBeGreaterThanOrEqual(2);
+      expect([...(t.rest.split(', out = ')[1] ?? '').split(', nextWay = ')[0].matchAll(/\[\d\] = \{ side = /g)].length).toBeGreaterThanOrEqual(2);
+    }
+    // (some are hooked on with the nose wheel turned; most are not)
+    expect(tows.filter((t) => t.alpha !== 0).length).toBeGreaterThanOrEqual(1);
+    expect(tows.filter((t) => t.alpha === 0).length).toBeGreaterThanOrEqual(16);
+    // A TRACTOR'S WAY STRAIGHT TO THE NEXT AIRCRAFT OF THE SAME ELEVATOR (nextWay), whether it may wait at that nose
+    // (early), where an elevator's tractor would stand at the start (start): there for the demo's CATCC_DEMO_OWN
+    expect(tows.filter((t) => / nextWay = \{ rear = \{ side = /.test(t.rest) || /, front = \{ side = [-\d]+[^}]*pts = /.test(t.rest.split(', nextWay = ')[1] ?? '')).length).toBeGreaterThanOrEqual(16);
+    expect(tows.filter((t) => / early = \{ front = (true|false), rear = (true|false) \}/.test(t.rest)).length).toBe(20);
+    expect(tows.filter((t) => / start = \{ x = /.test(t.rest)).length).toBeGreaterThanOrEqual(2);
+    // WHICH TOWS CAN BE DRIVEN AT THE SAME TIME (clear: by place, the places whose tows keep 0.6 m from its own all along
+    // both): a list for each of the 24, symmetric, more than half of all pairs
+    const clearBlock = (/\n {2}clear = \{\n([\s\S]*?)\n {2}\},/.exec(hangarLua) ?? ['', ''])[1];
+    const clear = new Map([...clearBlock.matchAll(/\[(\d+)\] = \{ ([\d, ]*)\},/g)].map((m) => [Number(m[1]), m[2].split(',').map((v) => Number(v.trim())).filter((v) => v > 0)]));
+    expect(clear.size).toBe(24);
+    let pairsClear = 0;
+    for (const [n, list] of clear) for (const m of list) { expect(clear.get(m)).toContain(n); pairsClear += 1; }
+    expect(pairsClear / 2).toBeGreaterThan(138);
+    // BY POST: the tows that pass through a tractor waiting there (postClash): the post in the open floor aft is in the way of several
+    const pc = (/\n {2}postClash = \{\n([\s\S]*?)\n {2}\},/.exec(hangarLua) ?? ['', ''])[1];
+    expect([...pc.matchAll(/\[\d\] = \{/g)].length).toBe(8);
+    expect((/\[8\] = \{ ([\d, ]*)\}/.exec(pc) ?? ['', ''])[1].split(',').length).toBeGreaterThanOrEqual(3);
+    // from post to post: every post gets to four others and more
+    const hops = [...hangarLua.matchAll(/^ {4}\[(\d)\] = \{ (.*) \}, -- from post \d/gm)];
+    expect(hops.length).toBe(8);
+    for (const h of hops) expect([...h[2].matchAll(/\[\d\] = \{ side = /g)].length).toBeGreaterThanOrEqual(4);
+    // THE DECK SPOTS the first four of each elevator go on to (the demo's DEST): sixteen, none twice, none on a platform
+    const dest = [...demoSrc.matchAll(/\{ spot = '(\w+)'(?:, after = '\w+')? \}/g)].map((m) => m[1]);
+    expect(dest.length).toBe(16);
+    expect(new Set(dest).size).toBe(16);
+    expect(dest.some((d) => /^E\d\d$/.test(d))).toBe(false);
+    expect(hangarLua).not.toContain('lane =');
+  });
+
+  const PRE = (jet: boolean) => `ROUTES_SRC = ROUTES_REAL\nSTATIC_UP = 21.9
+for i = 0, 9 do add(105 + i, 'catcc-t' .. i, '1: catcc-t' .. i, 12 + i, 33, SHIP_A) end
+${jet ? `setJet(${spot('SB3').x}, ${spot('SB3').z}, ${spot('SB3').fx}, ${spot('SB3').fz})` : 'PLAYER = false'}
+ONFRAME = function(dt)
+  for idx = 0, 3 do
+    if ELEV[idx] == 1 then
+      local top, plat, bottom = 27 + 2 * idx, 57 + idx, 28 + 2 * idx
+      if (ARGS[top] or 0) < 1 then ARGS[top] = math.min(1, (ARGS[top] or 0) + dt / 4)
+      elseif (ARGS[plat] or 0) < 1 then ARGS[plat] = math.min(1, (ARGS[plat] or 0) + dt / 17)
+      else ARGS[bottom] = 0 end
+    end
+  end
+end
+`;
+
+  it('starts by its menu item: 39 aircraft in their flights\' liveries (the player\'s own spot left empty), 24 of them in the hangar (it is full) on the places of the user\'s plan with tow bars and covers, ten tractors with their drivers, the crews sent away, the bubbles and the elevators down; stopped, nothing is left', () => {
+    const r = hook(`${PRE(true)}${START}CAMAT = { f = 0, s = 0, up = 300, lf = 0, ls = 1 }
+click('CATCC demo: spot the deck: start / stop')\nframes(2)
+local function at(pat)
+  for name, o in pairs(STATICS) do
+    if name:find(pat) then local q = PLACED[o.id_] return q and string.format('%.2f %.2f up %.3f nose %.2f %.2f', q.f, q.s, q.up, q.nf, q.ns) or 'not placed' end
+  end
+  return 'none'
+end
+local n, low, wings, chocks, covers, coversLow = 0, 0, 0, 0, 0, 0
+for name, o in pairs(STATICS) do
+  if name:find('^catcc%-demo%-a%d+ ') then
+    n = n + 1
+    local below = PLACED[o.id_] and PLACED[o.id_].up < 12
+    if below then low = low + 1 end
+    if JETARG[o.id_ .. '/8'] == 1 then wings = wings + 1 end
+    if JETARG[o.id_ .. '/23'] == 1 then chocks = chocks + 1 end
+    if JETARG[o.id_ .. '/24'] == 1 then
+      covers = covers + 1
+      if below then coversLow = coversLow + 1 end
+    end
+  end
+end
+rec(string.format('aircraft %d, in the hangar %d, wings folded %d, chocks in %d, covers on %d (%d of them in the hangar)', n, low, wings, chocks, covers, coversLow))
+rec('a1 ' .. at('^catcc%-demo%-a1 '))
+for name, o in pairs(STATICS) do
+  if name:find('^catcc%-demo%-a1 ') then rec(string.format('a1 board %.1f %.1f %.1f', JETARG[o.id_ .. '/442'] or -1, JETARG[o.id_ .. '/31'] or -1, JETARG[o.id_ .. '/32'] or -1)) end
+  if name:find('^catcc%-demo%-a40 ') then rec(string.format('a40 board %.1f %.1f %.1f', JETARG[o.id_ .. '/442'] or -1, JETARG[o.id_ .. '/31'] or -1, JETARG[o.id_ .. '/32'] or -1)) end
+end
+rec('th1 ' .. at('^catcc%-demo%-th1 '))
+rec('td3 ' .. at('^catcc%-demo%-td3 '))
+rec(string.format('driver 105 at %.2f %.2f up %.2f; driver 111 up %.2f', byH[105].x, byH[105].z, byH[105].y, byH[111].y))
+click('CATCC demo: spot the deck: start / stop')\nframes(1)
+local left = 0
+for name in pairs(STATICS) do if name:find('catcc-demo', 1, true) then left = left + 1 end end
+rec('left ' .. left)
+click('CATCC demo: report')\nframes(1)`, { demo: true });
+    const made = r.rec.filter((l) => l.startsWith('static catcc-demo-'));
+    const planes = made.filter((l) => l.includes('type FA-18C_hornet category Planes linked true'));
+    expect(planes.length).toBe(39);
+    expect(made.filter((l) => l.includes('type CATCC_Towbar ')).length).toBe(24);
+    // (ten tractors: four in the hangar, SIX on the flight deck: the user, 2026-11-18: "add two additional tugs on both
+    // decks to help with parellelization"; then "Hangar tugs can stay at 4 for now")
+    expect(made.filter((l) => l.includes('type AS32-31A ')).length).toBe(10);
+    // the liveries: the user's two lists, a flight's four together, its lead first with the flight lead's paint
+    const liv = (k: number) => (/ livery (.*)$/.exec(planes.find((l) => l.startsWith(`static catcc-demo-a${k} `)) ?? '') ?? [])[1];
+    expect(liv(1)).toBe('KING - LineJet-FL - 623');
+    expect(liv(2)).toBe('KING - LineJet - 551');
+    expect(liv(21)).toBe('STING - LineJet-FL - 637');
+    expect(liv(40)).toBe('STING - LineJet - 522');
+    expect(planes.filter((l) => / livery KING - LineJet/.test(l)).length).toBe(19); // (20 less the one whose spot the player's jet is on)
+    expect(planes.filter((l) => / livery STING - LineJet/.test(l)).length).toBe(20);
+    expect(planes.filter((l) => /LineJet-FL/.test(l)).length).toBe(10);
+    expect(new Set(planes.map((l) => (/ - (\d+)$/.exec(l) ?? [])[1])).size).toBe(39); // no board twice
+    expect(planes.some((l) => l.startsWith('static catcc-demo-a4 '))).toBe(false); // Stbd bow 3, the fourth of the first flight: the player's
+    // chocks in on every one (model argument 23); covers (24) on the thirteen in the hangar only
+    expect(r.rec).toContain('aircraft 39, in the hangar 24, wings folded 39, chocks in 39, covers on 24 (24 of them in the hangar)');
+    // on its spot at a parked Hornet's height; a hangar tractor on the hangar's floor, a deck tractor on the deck
+    const sb6 = spot('SB6');
+    expect(r.rec).toContain(`a1 ${sb6.x.toFixed(2)} ${sb6.z.toFixed(2)} up 22.005 nose ${sb6.fx.toFixed(2)} ${sb6.fz.toFixed(2)}`);
+    // ITS BOARD NUMBER on the model (the user, 2026-11-18): arguments 442 / 31 / 32 = hundreds / tens / units, a digit d as
+    // d / 10: 623 on the first, 522 on the last
+    expect(r.rec).toContain('a1 board 0.6 0.2 0.3');
+    expect(r.rec).toContain('a40 board 0.5 0.2 0.2');
+    // (A TRACTOR FOR EACH ELEVATOR down there (2026-11-19: on by default): the first stands at the nose of elevator 1's
+    // first aircraft from the start (the plan's `start`: head on, for its front hitch: the aircraft of place 1 points
+    // 0.48 / -0.88, the tractor the other way), 8.7 m up in the hangar)
+    // (HOOKED ON FROM THE START (the user, 2026-11-19: "spawn the hangar tugs attached to their first aircraft to be
+    // towed"): it stands 1.5 m nearer the nose than the plan's place there, on the bar's ring, still facing the
+    // aircraft; the log says which tractors begin so: those of elevators 1, 2 and 3: elevator 4's has no place at a
+    // nose in the plan)
+    expect(r.rec.find((l) => l.startsWith('th1 '))).toMatch(/^th1 43\.06 -3\.96 up 8\.711 nose -0\.48 0\.8[78]$/);
+    expect(r.logLines.filter((l) => /^demo: hangar tractor \d begins hooked on to \d+, the first of elevator [123] \(on its front hitch\)$/.test(l)).length).toBe(3);
+    // (the deck's: five side by side in the junkyard, 3.3 m apart, noses inboard; the sixth in the pocket between the
+    // island and elevator 2, on its place in front: the user, 2026-11-18: "the 2 additional tugs on the flight deck
+    // cannot park on the CAT 4 JBD, sorry, put them in the junkyard or pocket between the island and el 2")
+    // (eight on the flight deck (CATCC_DEMO_EIGHT) and six in the hangar were tried on 2026-11-19 and were no faster in
+    // the rig at real time: six and four again)
+    expect(r.rec).toContain('td3 -73.60 28.00 up 20.149 nose 0.00 -1.00');
+    expect(made.some((l) => /^static catcc-demo-td5 .* at -80\.200 28\.000 /.test(l))).toBe(true);
+    expect(made.some((l) => /^static catcc-demo-td6 .* at -33\.700 25\.000 /.test(l))).toBe(true);
+    // the drivers: the deck's six tractors first, then the hangar's four (the seventh, catcc-t6, handle 111, sits 8.7 m
+    // up, in the hangar): ten drivers for ten tractors
+    expect(r.rec.find((l) => l.startsWith('driver 105'))).toMatch(/^driver 105 at -6[67]\.\d\d 2[78]\.\d\d up 20\.\d\d; driver 111 up 9\.\d\d$/);
+    // NO SECTIONS (the user, 2026-11-18: "Lift the tugs' zone limitations"); WHERE THEY MAY WAIT ("a staging area (either
+    // the junkyard, pocket between el 2 and the island, or any empty aircraft parking space that's nearby)"): the deck
+    // spots of the sixteen aircraft that come up and go on to a spot are empty to begin with
+    expect(r.logLines.find((l) => l.startsWith("demo: the deck's 6 tractors"))).toBe(
+      "demo: the deck's 6 tractors take whatever costs them least (no sections); they wait in the junkyard, in the pocket between the island and elevator 2 (0 places) and on deck spots while those are empty " +
+        // (2026-11-19: no longer on empty deck spots: the user: tugs by themselves are to keep "out of parking areas")
+        '(none: they keep out of the parking places)',
+    );
+    const started = r.logLines.find((l) => l.startsWith('demo: started on'));
+    expect(started).toBe(
+      'demo: started on CVN-72: 39 aircraft made (15 on the flight deck on their spots, 24 in the hangar with tow bars), 4 + 6 tractors, 10 driver(s); catapult crews: 4 of 4 crews found, 1 people sent to the port edge; ' +
+        'bubbles told down; left empty for a live aircraft: Stbd bow 3',
+    );
+    // all four elevators sent down at once (DCS's command 1), the bubbles down
+    for (const k of [0, 1, 2, 3]) expect(r.rec.some((l) => new RegExp(`^elevator \\d+ ${k} 1$`).test(l))).toBe(true);
+    expect(r.logLines.some((l) => l.startsWith('bow bubble: down for: demo'))).toBe(true);
+    // stopped: everything taken away, the elevators told up again
+    expect(r.rec).toContain('left 0');
+    for (const k of [0, 1, 2, 3]) expect(r.rec.some((l) => new RegExp(`^elevator \\d+ ${k} 2$`).test(l))).toBe(true);
+    expect(r.says.some((l) => l.startsWith('demo: stopped: the aircraft, the tractors and the bars are taken away'))).toBe(true);
+    expect(r.says[r.says.length - 1]).toBe('demo: it is not running (Ctrl+Shift+F9, or F10 > CATCC demo: spot the deck).');
+  }, 120000);
+
+  it('the panel\'s key Ctrl+Shift+F9 starts and stops it, with the panel put away and no player on the deck: forty aircraft', () => {
+    const r = hook(`${PRE(false)}${START}CAMAT = { f = 0, s = 0, up = 300, lf = 0, ls = 1 }
+HOTKEYS['Ctrl+Shift+F9']()\nrec('before the frame: ' .. tostring(next(STATICS) ~= nil))\nframes(2)
+local n = 0
+for name in pairs(STATICS) do if name:find('^catcc%-demo%-a%d+ ') then n = n + 1 end end
+rec('aircraft ' .. n .. ' panel shown ' .. tostring(panelShown()))
+frames(1)\nHOTKEYS['Ctrl+Shift+F9']()\nframes(2)
+n = 0
+for name in pairs(STATICS) do if name:find('catcc-demo', 1, true) then n = n + 1 end end
+rec('left ' .. n)`, { demo: true, ui: true });
+    // (asked for in the key's callback, done from the frame loop)
+    expect(r.rec).toContain('before the frame: false');
+    expect(r.rec).toContain('aircraft 40 panel shown false');
+    expect(r.rec).toContain('left 0');
+    expect(r.logLines.filter((l) => l === 'panel: demo2|toggle (the demo key, or its button)').length).toBe(2);
+  }, 120000);
+
+  // THE WHOLE DEMO, under DCS's own Lua 5.1 (bin-mt/lua.dll, through deck-test/crew-test/luarun.py): fengari would take
+  // some ten minutes over it. Needs DCS installed and python.
+  const python = spawnSync('python', ['--version']).status === 0;
+  const whole = (args: string[]) => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'catcc-demo-'));
+    fs.writeFileSync(path.join(dir, 'world.lua'), world);
+    for (const k of ['HOOK_SRC', 'MENU_SRC', 'ROUTES_REAL', 'UI_SRC', 'DEMO_SRC', 'HANGAR_SRC', 'SLOTS_SRC', 'HEAD_SRC']) fs.writeFileSync(path.join(dir, `${k}.txt`), '');
+    // (CATCC_DEMO_BUDGET: the hangar's planning steps a frame: the rig's frame is half a second of the mission's time, DCS
+    // has 30 and more in that)
+    const out = spawnSync('python', ['-I', here('../deck-test/crew-test/luarun.py'), dir, here('demo-run.lua'), 'DEMO_ON=true', 'CATCC_DEMO_BUDGET=30', ...args], { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
+    fs.rmSync(dir, { recursive: true, force: true });
+    if (out.status !== 0) throw new Error(`luarun.py: ${out.stderr || out.stdout}`);
+    const lines = out.stdout.split(/\r?\n/);
+    return { rec: lines.filter((l) => l !== '' && !l.startsWith('#')), log: lines.filter((l) => l.startsWith('#L ')).map((l) => l.slice(3).replace(/^\S+ hook\s+/, '')) };
+  };
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`))(
+    'the whole demo with the user\'s FULL hangar, in the plan\'s order (his, bettered in the rig), by the solved tows: all 24 come up, in pairs on the sides solved for them; sixteen are towed on to their deck spots; the tractors go by their solved ways; chocks out for every tow, no two tractors meet, nothing moves under active pause',
+    () => {
+      // THE HANGAR IS FULL AND COMES UP IN THE USER'S ORDER (2026-11-18: "I'm not even going to run the demo anymore
+      // unless we have paths for all aircraft. I've described what I believe is the correct unloading sequence to
+      // guide you. See if you can make it work"): every aircraft's tow is the one solved for it (hangar_solve.lua,
+      // kept in the plan), the tractors go to it and back by ways planned as a tractor drives, and the demo runs to
+      // its end.
+      for (const [args, total] of [
+        [[], 39],
+        [['NO_JET=true', 'UI_ON=true'], 40],
+      ] as [string[], number][]) {
+        const r = whole(args);
+        expect(r.rec).toContain(`statics: 10 tractors, ${total} aircraft`);
+        expect(r.log.find((l) => l.startsWith('demo: started on'))).toContain(`${total} aircraft made (${total - 24} on the flight deck on their spots, 24 in the hangar with tow bars)`);
+        expect(r.rec).toContain('covers on at the start: 24');
+        expect(r.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+        expect(r.log.some((l) => l.includes('STOPPED'))).toBe(false);
+        // THE FLIGHT DECK AFTER THE USER'S RUNS OF 2026-11-18 (evening): six tractors there; a tractor comes at an
+        // aircraft's nose head on and takes the bar on its front hitch where that is the shorter way ("a lot of tugs
+        // doing half turns to connect, particularly on the flight deck"); a tractor on its way to a place is called
+        // back when its aircraft is up; off the after elevators a tow keeps to its side of the landing area where a
+        // way straight in along the spot's line does; no ring of tows that wait for each other is left standing
+        const deckTows = r.log.filter((l) => /^demo: deck tractor \d takes \d+ .* off elevator \d to /.test(l));
+        expect(new Set(deckTows.map((l) => (/^demo: (deck tractor \d)/.exec(l) ?? [])[1])).size).toBeGreaterThanOrEqual(5);
+        // (2026-11-19, after the user's morning run: one such tow in this run, where there were two: the tractors now
+        // hook on from the nose places they wait at)
+        // (and later the same day none: every tractor is at its aircraft's nose place before the platform is up)
+        expect(deckTows.filter((l) => l.endsWith('; on its FRONT hitch (it comes at the nose head on)')).length).toBeGreaterThanOrEqual(0);
+        // THE SAME DAY: a six-pack spot come to from behind is pulled straight to its place, never drawn past it and set
+        // back ("pulling the aircraft all the way through its parking location, then backing up"); nothing is drawn
+        // up to the door of an elevator while the one opposite it is down with aircraft to bring; a hangar tractor
+        // whose own elevator has nothing left waits at the nose of another elevator's last aircraft
+        expect(deckTows.filter((l) => l.includes('pulled into it nose first to its place')).length).toBeGreaterThanOrEqual(1);
+        expect(deckTows.some((l) => l.includes('then set back'))).toBe(false);
+        expect(r.log.some((l) => /^demo: elevator \d \((up|raising)\): nothing is drawn up to its door yet: elevator \d, opposite it, is down/.test(l))).toBe(true);
+        // (2026-11-20: with the unloading order found in the rig (hangar_plan.py's RIG_ORDER) no elevator's last
+        // aircraft stands far off for its own tractor: that need not happen any more)
+        expect(r.log.filter((l) => /^demo: hangar tractor \d goes to the nose of \d+, the LAST of elevator \d/.test(l)).length).toBeGreaterThanOrEqual(0);
+        // (and in the hangar a tow follows another that is under way onto a platform: "The final tow out of the hangar
+        // still takes way too long ... not waiting until every other tow is complete before starting to move")
+        // (2026-11-20: with the unloading order found in the rig no tow has to follow another through the hangar: elevator
+        // 4's last two no longer stand one behind the other on the way; NOT EXERCISED by this run any more)
+        expect(r.log.filter((l) => /^demo: hangar tractor \d with \d+ FOLLOWS hangar tractor \d with \d+ through the hangar/.test(l)).length).toBeGreaterThanOrEqual(0);
+        // (2026-11-19, later: none need be called back in this run now: each is at its aircraft's nose place in time)
+        expect(r.log.filter((l) => /^demo: deck tractor \d is called back from its way to /.test(l)).length).toBeGreaterThanOrEqual(0);
+        // (2026-11-19: the own-side rule is for the FORWARD aircraft of an after platform only, the one that goes into
+        // the landing area: with it for both the rig took 31.6 / 32.1 / 35.0 / 29.1 minutes at paces 2 / 4 / 8 / 1,
+        // for the forward one only 29.5 / 31.5 / 32.8 / 27.7: two such tows in this run)
+        expect(deckTows.filter((l) => /off elevator [34] to .*: \d+ m across the deck onto the line of /.test(l)).length).toBeGreaterThanOrEqual(1);
+        expect(r.log.some((l) => l.includes('IN A RING and none can be stood down'))).toBe(false);
+        // THE NIGHT OF 2026-11-18/19: a six-pack aircraft pulled into its spot FROM BEHIND, through the landing area (the
+        // user: "they can be pulled into the spot from behind through the landing area"), where its backed-in way turns
+        // in front of its elevator or cannot begin; and no frame of the demo fails
+        // (2026-11-19: pulled straight to its place, within 0.15 m to the side and 2 degrees: no longer drawn past it and set back)
+        expect(deckTows.filter((l) => /round the (forward|after) end of the row and through the landing area onto the line of Sixpack \d from behind, pulled into it nose first to its place \(it stands -?0\.[01]\d m to the side, -?0\.0\d m along and [01]\.\d degrees off the spot\)/.test(l)).length).toBeGreaterThanOrEqual(1);
+        expect(r.log.some((l) => l.includes('frame error'))).toBe(false);
+        expect(r.log.some((l) => l.includes('demo: error'))).toBe(false);
+        expect(r.log.some((l) => l.includes('NOTHING HAS MOVED'))).toBe(false);
+        // IN THE PLAN'S ORDER, by its places (numbered from the bow aft): each elevator's first four in their turns, then
+        // its last two (2026-11-20: the order found in the rig, hangar_plan.py's RIG_ORDER: his, with 8 up elevator 2,
+        // 14 up elevator 3, and elevator 4's second and last trips 19, 18 and 15, 12)
+        const hangarTows = r.log.filter((l) => /^demo: hangar tractor \d takes /.test(l));
+        const placesOf = (k: number) => hangarTows.filter((l) => new RegExp(`to (the door of )?elevator ${k}[ ,]`).test(l)).map((l) => Number((/\(place (\d+) of the hangar plan\)/.exec(l) ?? [])[1]));
+        const order: Record<number, number[]> = { 1: [1, 4, 6, 2, 3, 7], 2: [9, 11, 5, 10, 13, 8], 3: [22, 20, 23, 17, 16, 14], 4: [21, 24, 19, 18, 15, 12] };
+        for (const k of [1, 2, 3, 4]) {
+          expect(placesOf(k).slice(0, 4)).toEqual(order[k].slice(0, 4));
+          expect(placesOf(k).slice(4).sort((a, b) => a - b)).toEqual(order[k].slice(4).sort((a, b) => a - b));
+        }
+        expect(hangarTows.length).toBe(24);
+        expect(r.log.filter((l) => /^demo: \d+ .* is on elevator \d /.test(l)).length).toBe(24);
+        // IN PAIRS: a platform goes up with one aircraft twice at the most (its second held up for five minutes)
+        expect(r.log.filter((l) => /goes up with 1 aircraft/.test(l)).length).toBeLessThanOrEqual(2);
+        // BY THE SOLVED TOWS AND THE TRACTORS' SOLVED WAYS: most tractors go to their aircraft from the post they stand
+        // at; some aircraft are hooked on with the nose wheel turned (his rule)
+        // (by a solved way: from a post, or from the nose of the aircraft before (a tractor for each elevator goes
+        // straight to the nose of its next and waits there: 2026-11-19))
+        expect(hangarTows.filter((l) => l.includes('by its solved way from post') || l.includes('which waited at its nose')).length).toBeGreaterThanOrEqual(16);
+        expect(hangarTows.filter((l) => l.includes('which waited at its nose')).length).toBeGreaterThanOrEqual(8);
+        expect(hangarTows.some((l) => /the nose wheel and bar turned \d+ degrees to the (left|right) for the hook-up/.test(l))).toBe(true);
+        expect(hangarTows.some((l) => l.includes('drawn out'))).toBe(true);
+        // sixteen of them towed on to their deck spots, each onto its spot to the centimetre; the last two of each
+        // elevator stay on it
+        // (2026-11-19: but those pulled straight into a six-pack spot from behind, with no set-back: within 0.15 m; the
+        // user: "Would it help efficiency at all to loosen the precision required when parking aircraft")
+        const parked = r.log.filter((l) => /^demo: \d+ .* is parked on [\w ]+, 0\.(0\d|1[0-5]) m from the spot: chocks in, covers off, its tow bar taken away$/.test(l));
+        expect(parked.length).toBe(16);
+        const direct = deckTows.filter((l) => l.includes('pulled into it nose first to its place')).length;
+        expect(parked.filter((l) => !l.includes(', 0.00 m from the spot')).length).toBeLessThanOrEqual(direct);
+        expect(parked.filter((l) => !l.includes(', 0.00 m from the spot')).every((l) => / is parked on Sixpack \d,/.test(l))).toBe(true);
+        expect(r.log.filter((l) => / is parked on /.test(l)).length).toBe(16);
+        for (const k of [1, 2, 3, 4]) expect(r.log.some((l) => new RegExp(`^demo: elevator ${k} is up \\(\\d+ s\\) with 2 aircraft: they stay on it`).test(l))).toBe(true);
+        // ON THE FLIGHT DECK: PORT 3 IS SPOTTED AFTER PORT 4 AND PORT 5 (now Port quarter 3, Fantail 1 and 2) (the user, 2026-11-18: "If it blocks the aircraft
+        // on the stern, just spot it last, no?"), straight in along its own line (the demo's axisTow: the hook's own ways
+        // have none onto it)
+        const portOrder = parked.map((l) => (/ is parked on (Port quarter \d|Fantail \d)/.exec(l) ?? [])[1]).filter((v): v is string => !!v);
+        expect(portOrder.indexOf('Port quarter 3')).toBeGreaterThan(portOrder.indexOf('Fantail 1'));
+        expect(portOrder.indexOf('Port quarter 3')).toBeGreaterThan(portOrder.indexOf('Fantail 2'));
+        expect(r.log.some((l) => /^demo: deck tractor \d takes \d+ .* off elevator 4 to Port quarter 3: \d+ m across the deck onto the line of Port quarter 3, then pushed straight back \d+ m into it, tail first/.test(l))).toBe(true);
+        // two tows at the most are driven although not clear of another aircraft's padded shape (by under 2 m: the one
+        // to Fantail 4 past its partner on the platform: said to the user), none through one
+        const notClear = r.log.filter((l) => l.includes('NOT CLEAR'));
+        expect(notClear.length).toBeLessThanOrEqual(2);
+        for (const l of notClear) expect(l).toMatch(/NOT CLEAR: the aircraft in tow goes [01]\.\d m into /);
+        // CHOCKS, COVERS, BARS: out for every tow, none moved with them in; at the end no cover and no bar is left
+        expect(r.rec).toContain(`chocks: out on 24 aircraft while they were towed, 0 samples of an aircraft moving with them in; in on ${total} at the end; covers on 0 at the end; tow bars left 0`);
+        expect(r.rec).toContain(`wings folded: ${total}`);
+        // NO TWO TRACTORS NEAR EACH OTHER while one of them moves (what each holds is 1.4 m in radius: 2.8 m between their
+        // own points at the least; measured 4.4), AND NO TRACTOR NEAR AN AIRCRAFT IN TOW THAT IS NOT ITS OWN (measured 8 m)
+        const least = Number((/^least distance between two tractors \(one of them moving\): ([\d.]+) m/.exec(r.rec.find((l) => l.startsWith('least distance between two tractors')) ?? '') ?? [])[1]);
+        expect(least).toBeGreaterThanOrEqual(3.0);
+        const leastAT = Number((/^least distance between an aircraft in tow \(its centre line\) and a tractor that is not its own: ([\d.]+) m/.exec(r.rec.find((l) => l.startsWith('least distance between an aircraft in tow')) ?? '') ?? [])[1]);
+        expect(leastAT).toBeGreaterThanOrEqual(5.5);
+        // NO SECTIONS; every aircraft that goes on to a spot is given to the tractor it costs least; tractors come to stand
+        // in front of an elevator and say how long until their aircraft is up
+        const tows = r.log.map((l) => /^demo: deck tractor (\d) takes \d+ .* off elevator (\d) to /.exec(l)).filter((m): m is RegExpExecArray => !!m);
+        expect(tows.length).toBe(16);
+        expect(r.log.some((l) => / \(Fly \d/.test(l))).toBe(false);
+        expect(r.log.filter((l) => /^demo: deck tractor \d is for \d+ \(elevator \d\): the aircraft is ready in \d+ s, the tractor could be there in \d+ s$/.test(l)).length).toBeGreaterThanOrEqual(16);
+        expect(r.log.filter((l) => /^demo: deck tractor \d stands at the front of elevator \d, place \d \([-\d.]+ \/ [-\d.]+\): \d+ is up in \d+ s$/.test(l)).length).toBeGreaterThanOrEqual(3);
+        // EVERY AIRCRAFT CARRIES ITS BOARD NUMBER (model arguments 442 / 31 / 32): the numbers of the flights' liveries
+        const boards = /^board numbers on (\d+) aircraft: (.*)$/.exec(r.rec.find((l) => l.startsWith('board numbers on ')) ?? '') ?? [];
+        expect(Number(boards[1])).toBe(total);
+        expect(new Set((boards[2] ?? '').split(' ')).size).toBe(total);
+        // stopped at the end: nothing left
+        expect(r.rec).toContain('left after the stop: 0');
+      }
+      // ACTIVE PAUSE IN THE MIDDLE OF IT (the user, 2026-11-18: "When I pressed active pause ... the tugs continued to move
+      // aircraft. They should pause too"): a minute of it from model time 455 (tows in hand on both decks): nothing of
+      // the demo's moves while it is on (the mission's clock runs on)
+      const ap = whole(['AP_AT=455']);
+      expect(ap.rec.find((l) => l.startsWith('active pause from model time '))).toMatch(/^active pause from model time 45\d: in (59|60) s of the mission 0 of \d+ things of the demo moved \(most 0\.00\d m/);
+      expect(ap.log.some((l) => l.startsWith('active pause ON'))).toBe(true);
+      expect(ap.log.some((l) => /^active pause OFF after \d+ s/.test(l))).toBe(true);
+      expect(ap.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+    },
+    300000,
+  );
+
+  // SPOT ALL (the slot picker's button, 2026-11-22: "an alternative deck spot button that spots all statics in their
+  // positions"): every aircraft on its deck spot at once, none in the hangar, nothing towed; the demo runs to its end
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`))(
+    'Spot All: all forty aircraft stand on their deck spots from the start, none in the hangar, no tow, no error',
+    () => {
+      const r = whole(['NO_JET=true', 'UI_ON=true', 'CATCC_DEMO_SPOT_ALL=true']);
+      expect(r.rec).toContain('statics: 10 tractors, 40 aircraft');
+      expect(r.log.find((l) => l.startsWith('demo: started on'))).toContain('40 aircraft made (40 on the flight deck on their spots, 0 in the hangar');
+      expect(r.rec).toContain('spots with their aircraft on them: 40');
+      expect(r.log.some((l) => l.includes('STOPPED') || l.includes('demo: error'))).toBe(false);
+      expect(r.log.filter((l) => /^demo: (deck|hangar) tractor \d takes /.test(l))).toEqual([]);
+    },
+    300000,
+  );
+
+  // WHAT IS DRAWN (2026-11-20, the user, of a switch that hides drivers, bars, tractors or hangar aircraft and logs the
+  // frame time with each: "It's only a visibility switch right? the run will still complete as normal"). HIDE=20
+  // (demo-run.lua): the panel's "Hide each in turn", 20 s each: every object of a hidden kind is put far off and back
+  // again, and nothing else changes: the demo's log line for line, its end, its clearances.
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`))(
+    'the panel\'s Hide switches change only what is drawn: hidden in turn, every object is off exactly while its kind is hidden, and the run is line for line the one without; the frame times by state when it stops',
+    () => {
+      const demoLines = (r: { log: string[] }) => r.log.filter((l) => (l.startsWith('demo:') && !l.startsWith('demo: hidden:')) || /^tow \S/.test(l));
+      // (its end, the spots and the chocks: the least distances are measured only between what is drawn, so they differ)
+      const results = (r: { rec: string[] }) => r.rec.filter((l) => l.startsWith('finished ') || l.startsWith('chocks:') || l.startsWith('spots with'));
+      const plain = whole(['NO_JET=true', 'UI_ON=true']);
+      const hid = whole(['NO_JET=true', 'UI_ON=true', 'HIDE=20']);
+      expect(hid.rec.find((l) => l.startsWith('hidden in turn: '))).toMatch(
+        /^hidden in turn: \d{3,} frames checked, states bars \/ deck \/ drivers \/ drivers,bars,tractors,hangar,deck \/ hangar \/ none \/ tractors, at most 7\d objects hidden at once, 0 wrong$/,
+      );
+      expect(demoLines(hid)).toEqual(demoLines(plain));
+      expect(results(hid)).toEqual(results(plain));
+      // each state its own performance lines; all of each together when the demo stops
+      expect(hid.log.some((l) => l.startsWith('performance, the deck spotting demo running, hidden: tractors ('))).toBe(true);
+      const sum = hid.log.find((l) => l.startsWith('demo drawn, all the periods of each state together (the demo stopped): '));
+      expect(sum).toMatch(/everything drawn: \d+ frames, [\d.]+ ms average/);
+      expect(sum).toMatch(/hidden: hangar aircraft: \d+ frames, [\d.]+ ms average \([\d.]+ fps\), 1% low [\d.]+ ms, [+-][\d.]+ ms against everything drawn just before and after \(\d+ periods\)/);
+      // the drivers back on their seats when it stopped, and nothing of the demo's left
+      expect(hid.rec).toContain('left after the stop: 0');
+      expect(hid.rec).toContain('drivers left away after the stop: 0');
+      // the demo seats its drivers through Tow.sit (DRIVER-POSE.md): the pose of ours with the limbs at the pedals and
+      // the wheel is tried for each (not in this mod: as installed without -DriverPose), then the pilot's is played
+      const tried = plain.rec.filter((l) => /^play \d+ catcc_drv_seat mode 2$/.test(l)).length;
+      expect(tried).toBeGreaterThanOrEqual(8);
+      expect(plain.rec.filter((l) => /^play \d+ f18_0_init mode 2$/.test(l)).length).toBe(tried);
+    },
+    300000,
+  );
+
+  // THE DRIVERS' HEADS (2026-11-22, the user: "while reversing they should turn their heads 90-110 degrees ... to the
+  // right. At other times ... look where they are about to turn or check the area around them"; crew-test/DRIVER-HEAD.md).
+  // HEAD_ON=true (demo-run.lua): Scripts/CATCC/crewtest_head.lua is there and the stand-in module plays the blend space.
+  // The demo on its own thread, where a `head` call is a command like a place: the run is the one without, line for line.
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`))(
+    "the drivers' heads in the whole demo, on its own thread: every driver seated in the blend space of ours; each looks over his right shoulder and into turns; the module is told a few hundred times a driver, not every frame; the run is line for line the one without",
+    () => {
+      const demoLines = (r: { log: string[] }) => r.log.filter((l) => l.startsWith('demo:') || l.startsWith('SAY demo:') || /^tow \S/.test(l));
+      const results = (r: { rec: string[] }) =>
+        r.rec.filter((l) => /^(statics:|covers on|finished |least distance|spots with|wings folded|board numbers|chocks:|left after|catcc-demo-t\S+ ends at)/.test(l)).map((l) => l.replace(/ \(log line \d+\)/, ''));
+      const plain = whole(['THREAD=true']);
+      const r = whole(['THREAD=true', 'HEAD_ON=true']);
+      expect(r.log.filter((l) => l.startsWith('demo thread: error') || l.startsWith('frame error') || l.startsWith('demo: error'))).toEqual([]);
+      expect(r.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+      expect(demoLines(r).length).toBeGreaterThan(800);
+      expect(demoLines(r)).toEqual(demoLines(plain));
+      expect(results(r)).toEqual(results(plain));
+      // seated: the blend space for every driver, the plain seated pose for none (without the heads: the other way round)
+      const seated = r.rec.filter((l) => /^play \d+ catcc_bs_drv_look mode 2$/.test(l)).map((l) => l.split(' ')[1]);
+      expect(seated.length).toBeGreaterThanOrEqual(8);
+      expect(new Set(seated).size).toBe(seated.length);
+      expect(r.rec.some((l) => /^play \d+ f18_0_init/.test(l))).toBe(false);
+      expect(plain.rec.filter((l) => /^play \d+ f18_0_init mode 2$/.test(l)).length).toBe(seated.length);
+      expect(plain.rec.some((l) => l.startsWith('head '))).toBe(false);
+      // what the module was told: for each driver "ahead" first; over the right shoulder (100) at some time for nearly
+      // all (every tractor that works backs onto a bar's ring); looks into turns; never further than 100
+      const heads = r.rec.filter((l) => l.startsWith('head ')).map((l) => l.split(' '));
+      for (const h of seated) expect(heads.find((c) => c[1] === h)!.slice(2).join(' ')).toBe('0 w6');
+      const right = new Set(heads.filter((c) => c[2] === '100').map((c) => c[1]));
+      expect(right.size).toBeGreaterThanOrEqual(seated.length - 2);
+      expect(heads.every((c) => Math.abs(Number(c[2])) <= 100)).toBe(true);
+      expect(heads.filter((c) => Math.abs(Number(c[2])) >= 9 && Math.abs(Number(c[2])) <= 70).length).toBeGreaterThan(500);
+      // (some 16 minutes of the mission, two frames a second in this rig: a call every few seconds a driver)
+      expect(heads.length).toBeGreaterThan(seated.length * 50);
+      expect(heads.length).toBeLessThan(seated.length * 800);
+    },
+    300000,
+  );
+
+  // THE SLOT PICKER (2026-11-20, the user: "wait until spotted ... in conjunction with a new graphical slot selection
+  // interface ... only the aircraft assigned to the player can be selected ... That slot should be held for them with
+  // a static until they return or someone with authority (PriFly) releases it"): its server side, in a multiplayer
+  // mission stood in for (slots-run.lua): two Client Hornets on the demo's carrier, one on a spot whose aircraft stands
+  // there from the start, one on a spot whose aircraft is still in the hangar.
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`))(
+    'the slot picker: a slot is refused until its aircraft is spotted (the player told why); taken, its static goes and the slot is held for that player; left, the static is back and the slot held until released; assigned aircraft only; the host takes one through the picker; with the GUI state reachable it replaces DCS\'s screen, held back only while the hook keeps looking; DCS\'s Esc menu "Choose Slot" brings it, also after DCS\'s own list; Close and Spawn go DCS\'s own ways (spectating; the briefing)',
+    () => {
+      const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'catcc-slots-'));
+      fs.writeFileSync(path.join(dir, 'world.lua'), world);
+      for (const k of ['HOOK_SRC', 'MENU_SRC', 'ROUTES_REAL', 'UI_SRC', 'DEMO_SRC', 'HANGAR_SRC', 'SLOTS_SRC', 'HEAD_SRC']) fs.writeFileSync(path.join(dir, `${k}.txt`), '');
+      const out = spawnSync('python', ['-I', here('../deck-test/crew-test/luarun.py'), dir, here('slots-run.lua'), 'DEMO_ON=true', 'UI_ON=true', 'SLOTS_ON=true', 'NO_JET=true', 'CATCC_DEMO_THREAD=false', 'CATCC_DEMO_BUDGET=30'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+      fs.rmSync(dir, { recursive: true, force: true });
+      if (out.status !== 0) throw new Error(`luarun.py: ${out.stderr || out.stdout}`);
+      const rec = out.stdout.split(/\r?\n/).filter((l) => l !== '' && !l.startsWith('#'));
+      expect(rec).toContain('loaded: demo true, slots true');
+      // THE VIEW BEHIND THE PICKER (the user, 2026-11-23: "show the F9 (external ship view) on mission start instead of
+      // the F10 map ... the carrier is framed in the bottom half of the view, while our interface is shown in the top
+      // half"; crewtest_slots.lua VIEW, S.view). The window at the screen's top centre (2560 wide: 578); the ship view
+      // asked for (view command 13) each time the view is taken; the camera level, off the starboard side and above;
+      // the ship's ends on one row of the screen below the window (its lower edge: row 532), the bow to the right
+      expect(rec).toContain('view: held true, view commands 16 16 16 16 16 16 16; the window at 578, 24 (1404 x 508); the camera level true, 141 m up; on the screen: stern at 160, 980, bow at 2400, 980');
+      // (checked: 30 frames on the camera is where it was put the frame before)
+      expect(rec).toContain('view: HOLDS: 30 frames after view command 16');
+      // (it rides with the ship; the window dragged down, the ship goes down with the free part of the screen; zoomed
+      // in, the camera stands further off and the picture stays; another carrier's tab: the camera goes there; a
+      // carrier that cannot be asked for: the camera left where it is)
+      expect(rec).toContain('view: the ship 50 m on: stern at 160, 980, bow at 2400, 980');
+      expect(rec).toContain('view: the window 300 lower: stern at 164, 1128, bow at 2396, 1128');
+      expect(rec).toContain('view: field of view 40: the camera 2.1 times as high');
+      expect(rec).toContain('view: CVN-71 chosen: stern at 160, 980, bow at 2400, 980');
+      expect(rec).toContain('view: CVN-73 chosen (not there): held true, the camera put 0 times; said: true');
+      // (given up: in his aircraft (nothing put, no view command: DCS's own cockpit view); DCS's own slot list; taken
+      // again when he is a spectator with the picker up)
+      expect(rec).toContain('view: in his aircraft: held false, the camera put 0 times, view commands sent 0 (the player is in his aircraft)');
+      expect(rec).toContain('view: a spectator again: picker shown true, held true, view commands 16 16 16 16 16 16 16 16');
+      expect(rec).toContain("view: DCS slot list: held false (DCS's own slot list)");
+      // (a ship view that keeps its own camera: the free camera (16) next; neither keeps it: said once, left alone)
+      expect(rec).toContain('view: the ship view does not hold: view commands 16 13, held true; HOLDS: 30 frames after view command 13');
+      expect(rec).toContain('say CATCC crew test: The view could not be put on the carrier (the camera does not stay where it is put: see the log).');
+      expect(rec).toContain('view: no view holds: view commands 16 13, held false, the camera put 0 times since');
+      // THE PICTURE at other screens: the bow right of the stern on one row, the ship's length 0.87 of the width (the
+      // user, 2026-11-23: "zoomed in a little more so that the window is filled with the carrier bow to stern minus a
+      // little space either side": in DCS the hull shows about 7 % wider than its deck's ends, so 0.87 of the width
+      // here is about 0.94 there), the deck's ends inside the screen with room to spare, the hull's box (both sides at
+      // both ends: wider than the real, narrow-ended hull) between the window's lower edge (532) and the screen's,
+      // centred there
+      const pictures = rec.filter((l) => l.startsWith('picture '));
+      expect(pictures.length).toBe(6);
+      for (const l of pictures) {
+        const m = l.match(/^picture (\d+) x (\d+): bow right of stern true; the length 0\.8[6-8] of the width, its ends at (-?\d+) and (-?\d+); the hull (-?\d+) to (-?\d+) across, (-?\d+) to (-?\d+) down; the camera (\d+) m off, looking down ([\d.]+)$/);
+        expect(m, l).not.toBeNull();
+        const [sw, sh, ex0, ex1, , , y0, y1, range, pitch] = m!.slice(1).map(Number);
+        expect(ex0, l).toBeGreaterThan(0.05 * sw);
+        expect(ex1, l).toBeLessThan(0.95 * sw);
+        expect(y0, l).toBeGreaterThan(532);
+        expect(y1, l).toBeLessThan(sh);
+        expect(Math.abs((y0 + y1) / 2 - (532 + sh) / 2), l).toBeLessThanOrEqual(1);
+        expect(range, l).toBeGreaterThan(200);
+        expect(range, l).toBeLessThan(320);
+        expect(pitch, l).toBeGreaterThan(10);
+        expect(pitch, l).toBeLessThan(33);
+      }
+      // (the picker's Spawn: the static first, the slot three seconds later)
+      expect(rec).toContain('Spawn pressed: slot "", its static taken away true, reserved for Host');
+      // (the mission's slot on spot 1 is painted 744, which the demo's plan gives Corral 1: the demo paints its aircraft
+      // on spot 1 744 and Corral 1's that spot's 623; the user's run of 2026-11-20: he chose the demo's 744 and it had no slot)
+      expect(rec).toContain('paint: spot 1 board 744 (KING - LineJet - 744); the one the plan had as 744 (Corral 1) now 623 (KING - LineJet-FL - 623)');
+      // (moving aircraft drawn smoothly between two reports, place and heading together)
+      expect(rec).toContain('smoothly: halfway 5.0, 2.0, 0.0, moving true; after 10.0, 4.0, 10.0, moving false');
+      // (Spot Deck: the demo on the carrier the picker shows, by name, with the camera 20 km away (from the slot screen
+      // the demo found "no aircraft carrier within 5 km"); the host's, beside the carrier's name; hidden while it runs)
+      expect(rec).toContain('demo stopped: running false; Spot Deck shown true (at 732, 424)');
+      // (no aircraft spotted: no slot, from DCS's own slot list too; the picker draws nothing (Hornet 2: not drawn above))
+      expect(rec).toContain('demo stopped: Bob asks for Hornet 1: false (2: CATCC: Hornet 1: no aircraft spotted there)');
+      expect(rec).toContain('Spot Deck: running true on CVN-72; Spot Deck shown false');
+      // (the carriers' tabs above the deck: every carrier of the mission, slots or not (CVN-73 has none); the one shown in
+      // the app's orange; a click shows that carrier's deck: CVN-73's has no slots, so no board numbers)
+      expect(rec).toContain('tabs: CVN-72 tplPrimary at 6, 2; CVN-73 tplButton at 152, 2');
+      expect(rec).toContain('CVN-73 clicked: tabs CVN-72 tplButton, CVN-73 tplPrimary; board numbers 0');
+      expect(rec).toContain('CVN-72 clicked: tabs CVN-72 tplPrimary, CVN-73 tplButton; board numbers 0');
+      expect(rec.find((l) => l.startsWith('slots: '))).toMatch(/^slots: 2 on .+; the deck reported: true, \d+ aircraft$/);
+      // (a dynamic spawn template: not a slot of the picker, and refused as one)
+      expect(rec).toContain('template: Bob asks for it: false (2: CATCC: Template 1: a dynamic spawn template, not a slot); spot 1 still Hornet 1: Hornet 1');
+      expect(rec).toContain('spot 1: parked; spot 18: hangar');
+      // the picker over DCS's own slot screen (that screen cannot be put away from a hook of Saved Games): up while the
+      // host has no slot, with the deck's picture; each aircraft on the flight deck drawn as PriFly draws it (a folded-wing
+      // Hornet, green when it can be taken, its board number over it in the same colour; spot 1's, facing aft (reported
+      // 193.9 deg from the bow to starboard: PriFly's 166 deg CCW, picture 33 of 72)), a slot with no aircraft there its
+      // nothing (only an aircraft CATCC has spotted is ever drawn: the user, 2026-11-21: DCS's spawn point "should never
+      // appear"); Close keeps it shut until his slot changes
+      expect(rec.find((l) => l.startsWith('picker over DCS: '))).toMatch(/^picker over DCS: shown true, cursor true, deck picture catcc_deck\.png; 16 board numbers, 16 aircraft pictures; spot 1 \(\d+\): mine, catcc_jet_mine\.png at 166 about 42,42; Hornet 2 \(102\): none$/);
+      // (the user, 2026-11-21: Spawn faded and not pressable unless the aircraft chosen is the player's to take; his
+      // outlined in magenta (green only once its pilot has a green jet); the status one line, the demo's counts on the tab
+      // row)
+      expect(rec).toContain('nothing chosen: Spawn tplPrimaryOff disabled; status one line true; demo counts at 780, 2: Deck spotting demo: N on the deck, N below');
+      expect(rec).toContain('a grey one chosen: Spawn tplPrimaryOff disabled');
+      expect(rec).toContain('Spawn pressed anyway: did nothing true');
+      expect(rec).toContain('Hornet 1 chosen: Spawn tplPrimary');
+      expect(rec).toContain("spot 1's heading in the report: 193.9");
+      expect(rec).toContain('closed: shown false (the host still has no slot)');
+      expect(rec).toContain('Bob asks for Hornet 2: false (2: CATCC: Hornet 2: not spotted yet: its aircraft is in the hangar)');
+      expect(rec).toContain('Bob asks for Hornet 1: nil');
+      expect(rec).toContain('before: statics on spot 1: 1');
+      expect(rec).toContain('Bob in Hornet 1: statics on spot 1: 0, state manned, held for Bob');
+      expect(rec).toContain('Bob out: statics on spot 1: 1, state parked, held for Bob');
+      expect(rec).toContain('the host asks for Hornet 1: false (1: CATCC: Hornet 1: reserved for Bob)');
+      expect(rec).toContain('Bob asks for it again: nil');
+      expect(rec).toContain('released; the host asks: nil');
+      expect(rec).toContain('assigned to Bob: the host false, Bob nil');
+      expect(rec.find((l) => l.startsWith('picker: '))).toMatch(/^picker: \d+ marks; Hornet 1 can be taken true, Hornet 2 nil$/);
+      expect(rec).toContain('the host spawned: his slot 901, statics on spot 1: 0, held for Host');
+      expect(rec).toContain('the host a spectator again: picker shown true');
+      // the GUI state reachable (autoexec.cfg's "gui": the crew test's installer adds it): DCS's screen put away under the
+      // picker once the wrap lands; DCS asking again draws nothing and brings the picker up; DCS's screen held back only
+      // by a lease the hook renews at every look (gone 3 s after its last); "DCS slot list" gives DCS's screen back at once
+      expect(rec.find((l) => l.startsWith('the GUI state reached: '))).toMatch(
+        /DCS's slot screen, in the GUI state: MultiplayerSelectRole\.showInSelectRoleMode: wrapped; MultiplayerSelectRole\.show: wrapped; MultiplayerSelectCoalitionDialog\.show: wrapped; MultiplayerSelectRoleDialog\.show: wrapped$/,
+      );
+      expect(rec).toContain('wrapped: picker shown true, DCS\'s screen up false');
+      // (its Close is DCS's own close of its slot screen: spectating)
+      expect(rec).toContain('Close: DCS\'s own close onEsc(), picker shown false');
+      expect(rec).toContain('DCS asked again: DCS\'s screen up false, picker shown true');
+      expect(rec).toContain('4 s without a look: DCS\'s coalition dialog drawn true');
+      expect(rec).toContain('DCS slot list: DCS\'s screen up true, its coalition dialog drawn true, picker shown false');
+      // ("DCS slot list" for that once: DCS's own screen closed, its Esc menu's "Choose Slot" brings the picker again)
+      expect(rec).toContain('DCS\'s own screen closed, then "Choose Slot": DCS\'s screen up false, picker shown true');
+      // (the window shown and put away the panel's way: made visible once, never invisible: DCS does not show a window
+      // of its toolkit again once it has been made invisible: the user's run of 2026-11-20, "the picker is shown" and nothing)
+      expect(rec).toContain('asked for again: picker shown true, DCS\'s screen up false; windows made invisible: 0');
+      // (and DCS's own slot screen back whatever is on the screen: Ctrl+Shift+F8)
+      expect(rec).toContain('Ctrl+Shift+F8: DCS\'s screen up true, picker shown false');
+      // (no spectators on the server: Close refused, as DCS's own close is; Spawn: the slot, then DCS's briefing as DCS's
+      // own BRIEFING button opens it, whose FLY puts the player in the jet)
+      expect(rec).toContain('no spectators: Close refused, picker shown true');
+      expect(rec).toContain('say CATCC crew test: This server allows no spectators: choose an aircraft.');
+      expect(rec).toContain('Spawn: slot 901; DCS onEsc(true), cockpit FA-18C_hornet, briefing Menu; picker shown false');
+      // THE TWO RELEASES (the user, 2026-11-20: Release slot unseats as DCS's own does; a player's reservation released
+      // apart from it; "visually distinct and physically separate ... Both should have confirmations"): in the jet, Release
+      // slot (amber, under Spawn) and not Release reservation; asked first, No does nothing; Yes: DCS's own Release Slot,
+      // the static back, still reserved for him; out of it, Release reservation (red, at the far left), asked first; Yes: free
+      expect(rec).toContain('in the jet: picker shown true; Release slot shown true (tplAmber at 1226, 456), Release reservation shown false');
+      expect(rec).toContain('Release slot asks: Release your slot (Hornet 1)? You go to the spectators; it stays reserved for you.');
+      expect(rec).toContain('No: his slot 901');
+      expect(rec).toContain('Yes: his slot "", spot 1 parked, reserved for Host');
+      expect(rec).toContain('out of it: Release reservation shown true (tplRed at 6, 456), Release slot shown false');
+      expect(rec).toContain('Release reservation asks: Release the reservation of Host on Hornet 1? Anyone may then take it.');
+      expect(rec).toContain('Yes: reserved for nil');
+    },
+    120000,
+  );
+
+  // THE DEMO ON ITS OWN THREAD (2026-11-19, the user: "Complete the multi-threaded implementation";
+  // catcc-handoff/WORKER-THREAD-PLAN.md). The native module (the built bin/catcc_crew.dll, loaded for its worker_*
+  // functions only) makes a thread with a Lua state of its own; Scripts/CATCC/crewtest_worker.lua loads the hook and the
+  // demo there, whole, with stand-ins for everything of DCS's; the harness is DCS's main thread: the hook in it sends
+  // the frames and applies the worker's commands (Tow.Thr). THREAD=true (demo-run.lua): each frame waits for the
+  // worker's step, so a run is the same run every time.
+  const workerDll = here('../deck-test/crew-test/bin/catcc_crew.dll');
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`) || !fs.existsSync(workerDll))(
+    'the demo on its own thread: line for line the run it is on the main thread; the same with its commands applied a frame late; with frames left out and lists of commands held back up to 3 frames it still finishes with the same clearances; active pause holds it',
+    () => {
+      const demoLines = (r: { log: string[] }) => r.log.filter((l) => l.startsWith('demo:') || l.startsWith('SAY demo:') || /^tow \S/.test(l));
+      const results = (r: { rec: string[] }) =>
+        r.rec.filter((l) => /^(statics:|covers on|finished |least distance|spots with|wings folded|board numbers|chocks:|left after|catcc-demo-t\S+ ends at)/.test(l)).map((l) => l.replace(/ \(log line \d+\)/, ''));
+      const errors = (r: { log: string[] }) => r.log.filter((l) => l.startsWith('demo thread: error') || l.startsWith('frame error') || l.startsWith('demo: error'));
+      // LIVE=true (demo-run.lua): WHAT DCS DOES AND THE STAND-INS DID NOT (the user's first run on the thread,
+      // 2026-11-20: "regular visual stutters/hitches": the hook took 47 ms a frame): the camera's place in the world is
+      // another every frame, and DCS puts its own command back on the bubbles we keep down. With that the worker asked
+      // a new question every frame (where the ship is, by the camera's place) and gave the bubbles' commands again
+      // four times a second, waiting a frame for each: 12,621 waits in this run and 671 values read every frame,
+      // where there are now some 500 waits (nearly all while the demo makes its objects) and some 20 values.
+      const main = whole(['ACCEL_SET=1', 'LIVE=true']);
+      expect(main.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+      const thr = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true']);
+      expect(thr.log).toContain('demo thread: started: the deck spotting demo runs on a thread of its own (Scripts\\CATCC\\crewtest_worker.lua)');
+      expect(main.log.some((l) => l.startsWith('demo thread:'))).toBe(false);
+      expect(errors(thr)).toEqual([]);
+      expect(demoLines(thr).length).toBeGreaterThan(800);
+      expect(demoLines(thr)).toEqual(demoLines(main));
+      expect(results(thr)).toEqual(results(main));
+      // (what the two threads did: its steps, the calls it waited for (few: the first for each object), nothing late)
+      expect(thr.rec.find((l) => l.startsWith('thread: '))).toMatch(
+        /^thread: the demo's thread: \d{4} steps, [\d.]+ ms average, its slowest 1% [\d.]+ ms, 0\.1% [\d.]+ ms, the longest \d+ ms; \d{3} calls it waited for; 0 lists of commands came late \(not there when the next frame began\); objects moved on meanwhile 0 times; planning between the frames: 0 pieces, 0\.0 s in all; \d+ values read for it every frame; [\d.]+ KB a frame to it, [\d.]+ KB from it \(\d\d places and model arguments a frame applied by the native module itself\); waited for while the demo ran: .*; read every frame: .*h\.deckctx 1.*$/,
+      );
+      const figure = (r: { rec: string[] }, re: RegExp) => Number(re.exec(r.rec.find((l) => l.startsWith('thread: ')) ?? '')?.[1]);
+      expect(figure(thr, /; (\d+) calls it waited for;/)).toBeLessThan(800);
+      expect(figure(thr, /; (\d+) values read for it every frame;/)).toBeLessThan(60);
+      expect(figure(thr, /; ([\d.]+) KB a frame to it,/)).toBeLessThan(2);
+      // (and no function was asked something else every frame: the worker says so in the log if one is)
+      expect(thr.log.some((l) => l.includes('what it is asked changes all the time'))).toBe(false);
+      // A QUESTION THAT DOES CHANGE EVERY FRAME (the worker's Tow.Deck.ctx asking by the camera's place again:
+      // CATCC_DEMO_NO_DECKCTX; the guard's threshold set for the rig's four frames a second): the log names the
+      // function and the question, its answers are not kept for a minute, and the main thread is not left asking DCS
+      // the old questions every frame (each is still waited for: that is what the log line is for)
+      // THE PACKED LIST (WORKER-THREAD-PLAN.md, step 6; 2026-11-20, the user: "Ok work on this"): the worker's places and
+      // model arguments go to the main thread as bytes that the native module reads and applies itself (some 56 a
+      // frame here: the line above), not as text for Lua. Without it (CATCC_DEMO_NO_BLOB: everything as text, as it
+      // was): the same run, line for line.
+      const text = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true', 'CATCC_DEMO_NO_BLOB=true']);
+      expect(errors(text)).toEqual([]);
+      expect(text.rec.find((l) => l.startsWith('thread: '))).toContain('KB from it (all of it as text for Lua)');
+      expect(demoLines(text)).toEqual(demoLines(main));
+      expect(results(text)).toEqual(results(main));
+      const churn = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true', 'CATCC_DEMO_NO_DECKCTX=true', 'CATCC_DEMO_CHURN=40']);
+      expect(churn.log.some((l) => /^demo thread: N\.dostring_in was asked 40 different things in 20 s, each waited for \(the last: .*CATCC_CR\.ctx\([\d.]+, [\d.]+\).*what it is asked changes all the time; for a minute its answers are not kept$/.test(l))).toBe(true);
+      expect(figure(churn, /; (\d+) calls it waited for;/)).toBeGreaterThan(3000);
+      expect(figure(churn, /; (\d+) values read for it every frame;/)).toBeLessThan(60);
+      expect(churn.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+      expect(thr.log.filter((l) => /^bubble \d: the ship held command 2, ours is 1: given again/.test(l)).length).toBeGreaterThanOrEqual(6);
+      // ITS COMMANDS A FRAME LATE, as in DCS (the list for a frame is applied when the next begins): the demo itself
+      // runs as before (what it reads does not depend on when its places are shown)
+      const late = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true', "CATCC_DEMO_LOCKSTEP='late'"]);
+      expect(errors(late)).toEqual([]);
+      expect(demoLines(late)).toEqual(demoLines(main));
+      expect(late.rec.find((l) => l.startsWith('finished '))).toBe(main.rec.find((l) => l.startsWith('finished ')));
+      expect(late.rec).toContain('left after the stop: 0');
+      // DISORDER (seeded): one frame in five is not sent to the worker (it steps for the next: the newest counts), and
+      // every list of commands is held back 0 to 3 frames. It finishes, all 24 up, nothing left, and nothing came
+      // nearer to anything than in order (the places shown are the worker's, late; between two lists an object that
+      // moves is moved on: Tow.Thr.carry).
+      const least = (r: { rec: string[] }, what: string) => Number(/: ([\d.]+) m:/.exec(r.rec.find((l) => l.startsWith(what)) ?? '')?.[1]);
+      const dis = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true', 'CATCC_DEMO_DISORDER=7']);
+      expect(errors(dis)).toEqual([]);
+      expect(dis.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+      expect(dis.rec).toContain('left after the stop: 0');
+      expect(dis.rec.find((l) => l.startsWith('thread: '))).toMatch(/; [1-9]\d* lists of commands came late \(not there when the next frame began\); objects moved on meanwhile [1-9]\d* times; /);
+      // (in the hangar: or 5.0 m: with the unloading order found in the rig (2026-11-20) the run in order has 8.1 m, this
+      // one 5.6; with the user's own order the run in order had 5.2)
+      for (const [what, floor] of [['least distance between two tractors', 99], ['least distance between an aircraft in tow (its centre line) and a tractor', 99], ['least distance IN THE HANGAR between an aircraft in tow', 5.0]] as [string, number][]) {
+        expect(least(dis, what)).toBeGreaterThanOrEqual(Math.min(least(main, what) - 0.3, floor));
+      }
+      // (a tractor's farthest move between two frames: in order what its speed gives; under disorder no more than the
+      // 4 frames a list can be late are worth at 8.4 m/s)
+      const far = (r: { rec: string[] }) => Number(/: ([\d.]+) m:/.exec(r.rec.find((l) => l.startsWith('the farthest a tractor moved')) ?? '')?.[1]);
+      expect(far(thr)).toBe(far(main));
+      expect(far(main)).toBeLessThan(2.2);
+      expect(far(dis)).toBeLessThan(8.4);
+      // BEGUN TWO HOURS INTO A MISSION: the clocks go to the worker with the command that starts the demo (it has had
+      // no frame yet then: with its own clock at 0 the demo would see two hours pass in its first step): the same run,
+      // two hours on
+      const finishedAt = (r: { rec: string[] }) => Number(/^finished true at model time (\d+)$/.exec(r.rec.find((l) => l.startsWith('finished ')) ?? '')?.[1]);
+      const lateStart = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true', 'MT0=7200', 'RESTART=true']);
+      expect(errors(lateStart)).toEqual([]);
+      expect(finishedAt(lateStart) - 7200).toBe(finishedAt(main));
+      // AND THEN (RESTART): the mission ends: the worker is stopped with it; another mission begins in the same DCS and
+      // the demo is started again: a new worker, everything made again and moving; that mission ends with the demo
+      // running: the worker is stopped again
+      expect(lateStart.rec).toContain('restart: the mission ended: worker ended');
+      expect(lateStart.rec.find((l) => l.startsWith('restart: a second mission'))).toMatch(/^restart: a second mission: worker running, 73 things of the demo made again, [1-9]\d* of them moved in two minutes$/);
+      expect(lateStart.rec).toContain('restart: the mission ended with the demo running: worker ended; the thread started 1 time(s) and was stopped 2 time(s) since the first mission; errors 0');
+      // ACTIVE PAUSE: nothing of the demo's moves while it is on, on its own thread as on the main one
+      // SWITCHED OFF (demoThread = false in Config\CATCC-test.lua sets CATCC_DEMO_THREAD = false): the demo on the main
+      // thread, as before it had a thread: no worker is started, and the run is the main thread's
+      const off = whole(['ACCEL_SET=1', 'THREAD=true', 'LIVE=true', 'CATCC_DEMO_THREAD=false']);
+      expect(off.log.some((l) => l.startsWith('demo thread: started'))).toBe(false);
+      expect(off.log).toContain('demo thread: switched off (demoThread = false in Config\\CATCC-test.lua): the deck spotting demo runs on the main thread');
+      expect(demoLines(off)).toEqual(demoLines(main));
+      expect(results(off)).toEqual(results(main));
+      const ap = whole(['THREAD=true', 'LIVE=true', 'AP_AT=455']);
+      expect(errors(ap)).toEqual([]);
+      expect(ap.rec.find((l) => l.startsWith('active pause from model time '))).toMatch(/^active pause from model time 45\d: in (59|60) s of the mission 0 of \d+ things of the demo moved \(most 0\.00\d m/);
+      expect(ap.log.filter((l) => l.startsWith('active pause ON')).length).toBe(1);
+      expect(ap.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+    },
+    600000,
+  );
 });

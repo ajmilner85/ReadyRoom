@@ -75,8 +75,11 @@
 #include <cstdint>
 #include <cstdio>
 #include <cstring>
+#include <deque>
+#include <string>
+#include <vector>
 
-static const char VERSION[] = "crewtest-17";
+static const char VERSION[] = "crewtest-21";
 
 // ---------------------------------------------------------------- log file
 static char g_logPath[MAX_PATH];
@@ -139,11 +142,27 @@ static bool inImage(const void *p, bool exec) {
     }
     return false;
   }
+  if (!p) return false;
+  // crewtest-18: WHAT WINDOWS SAID ABOUT A REGION IS KEPT FOR TWO SECONDS. Looking a virtual function up in an
+  // object's tables asks this of every slot it passes (findVirtual), and every model argument written and every
+  // static placed did that again: some 4 ms a call, 100 ms a frame with three tows running (the demo's first run in
+  // DCS, 2026-11-17: 7 frames a second). The regions asked about are the same few (the modules' code and tables).
+  static struct { uintptr_t lo, hi; bool image, exec; ULONGLONG at; } seen[48];
+  static int nextSeen;
+  uintptr_t v = (uintptr_t)p;
+  ULONGLONG now = GetTickCount64();
+  for (int i = 0; i < 48; i++)
+    if (v >= seen[i].lo && v < seen[i].hi && now - seen[i].at < 2000) return exec ? (seen[i].image && seen[i].exec) : seen[i].image;
   MEMORY_BASIC_INFORMATION mbi;
-  if (!p || !VirtualQuery(p, &mbi, sizeof mbi)) return false;
-  if (mbi.State != MEM_COMMIT || mbi.Type != MEM_IMAGE) return false;
-  if (exec) return (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
-  return true;
+  if (!VirtualQuery(p, &mbi, sizeof mbi)) return false;
+  bool image = mbi.State == MEM_COMMIT && mbi.Type == MEM_IMAGE;
+  bool ex = image && (mbi.Protect & (PAGE_EXECUTE | PAGE_EXECUTE_READ | PAGE_EXECUTE_READWRITE | PAGE_EXECUTE_WRITECOPY)) != 0;
+  if (mbi.RegionSize) {
+    int i = nextSeen;
+    nextSeen = (nextSeen + 1) % 48;
+    seen[i].lo = (uintptr_t)mbi.BaseAddress, seen[i].hi = (uintptr_t)mbi.BaseAddress + mbi.RegionSize, seen[i].image = image, seen[i].exec = ex, seen[i].at = now;
+  }
+  return exec ? ex : image;
 }
 
 // ---------------------------------------------------------------- MSVC RTTI (x64)
@@ -204,7 +223,20 @@ static void *baseOf(const Rtti &r, const char *decorated) {
 // virtual tables. Out: the base subobject's offset in the complete object and the slot. A table ends
 // at the first entry that is not code (the next table's RTTI pointer).
 static bool findVirtual(const Rtti &r, const void *fn, int *mdisp, int *slot) {
-  for (int i = 0; i < r.nbases; i++) {
+  // crewtest-18: what was found for a class (told by its first virtual table) and a function is kept: every object
+  // of that class has the same tables
+  static struct { void *vt; const void *fn; int mdisp, slot; bool found; } kept[32];
+  static int nextKept;
+  void *vt0 = nullptr;
+  if (r.complete && rd(r.complete, &vt0, sizeof vt0) && vt0) {
+    for (int i = 0; i < 32; i++)
+      if (kept[i].vt == vt0 && kept[i].fn == fn) {
+        if (kept[i].found) *mdisp = kept[i].mdisp, *slot = kept[i].slot;
+        return kept[i].found;
+      }
+  }
+  bool found = false;
+  for (int i = 0; i < r.nbases && !found; i++) {
     if (r.bases[i].pdisp != -1) continue;
     void *sub = (char *)r.complete + r.bases[i].mdisp;
     void **vptr;
@@ -215,12 +247,19 @@ static bool findVirtual(const Rtti &r, const void *fn, int *mdisp, int *slot) {
       if (e == fn) {
         *mdisp = r.bases[i].mdisp;
         *slot = s;
-        return true;
+        found = true;
+        break;
       }
       if (!inImage(e, true)) break;
     }
   }
-  return false;
+  // (only what was found: a miss may be a table that could not be read just then)
+  if (vt0 && found) {
+    int i = nextKept;
+    nextKept = (nextKept + 1) % 32;
+    kept[i].vt = vt0, kept[i].fn = fn, kept[i].mdisp = *mdisp, kept[i].slot = *slot, kept[i].found = true;
+  }
+  return found;
 }
 
 // the most general base class sitting at an offset (the last one RTTI lists there): every class
@@ -1184,6 +1223,99 @@ static int propRaw(const Person *q, const char *name, bool set, float v, float *
   }
 }
 
+// ---------------------------------------------------------------- crewtest-21: the tractor drivers' head
+// (crew-test/DRIVER-HEAD.md) A driver sits in a blend space of our own (catcc_bs_drv_look) whose one axis is the
+// parameter HEAD_PROP: the degrees his head is turned, + to his right, -100 .. 100. head(h, degrees) says where it
+// is to go; headTickRaw, once a frame, brings every head a step nearer, writes the parameter and has the playing
+// record take it (update_properties, whatever the character's state says: a driver is carried, he does not walk).
+// The turn is a critically damped one: it begins and ends gently, and a new place given in mid-turn bends it
+// without a jerk. A head that has arrived costs a comparison a frame.
+static const char HEAD_PROP[] = "catcc_head_yaw";
+struct Head {
+  double h;                   // the character
+  float x, v, target, w, sent;  // where it is (degrees), how fast it turns, where it is going, how briskly (1/s), what was last written
+  double t;                   // the clock time of the last step (-1: none yet)
+};
+static const int HEAD_MAX = 32;
+static Head g_heads[HEAD_MAX];
+static int g_nheads = 0;
+
+// where it is and how fast it turns after dt seconds on its way to target (the exact solution: any dt)
+static void headEase(float *x, float *v, float target, float w, float dt) {
+  const float d = *x - target, c = *v + w * d, e = expf(-w * dt);
+  *x = target + (d + c * dt) * e;
+  *v = (*v - w * c * dt) * e;
+}
+
+// 0: set; 1: forgotten; -1: no room for another
+static int headSet(double h, bool forget, float target, float w) {
+  int at = -1;
+  for (int i = 0; i < g_nheads; i++)
+    if (g_heads[i].h == h) {
+      at = i;
+      break;
+    }
+  if (forget) {
+    if (at >= 0) g_heads[at] = g_heads[--g_nheads];
+    return 1;
+  }
+  if (at < 0) {
+    if (g_nheads >= HEAD_MAX) return -1;
+    at = g_nheads++;
+    const Head fresh = {h, 0, 0, 0, 6, -1000, -1};
+    g_heads[at] = fresh;
+  }
+  g_heads[at].target = target < -100 ? -100 : (target > 100 ? 100 : target);
+  if (w > 0) g_heads[at].w = w < 1 ? 1 : (w > 20 ? 20 : w);
+  return 0;
+}
+
+// the parameter written and taken by what he plays: 0 ok; -1 no cookie / functions missing; -100 exception
+static int headWrite(const Person *q, float v) {
+  void *ph = nullptr;
+  void *c = cookieOf(q, &ph);
+  if (!c || !ph || !s_propSet) return -1;
+  static char keep[32];
+  strcpy_s(keep, HEAD_PROP);
+  EdStr s;
+  makeStr(&s, keep);
+  __try {
+    ((FnSetStrFloat)s_propSet)(ph, &s, v);
+    if (s_cookieUpdate && s_modelTime && s_cookieStack && ((FnInt)s_cookieStack)(c) > 0) ((FnThisFloat)s_cookieUpdate)(c, (float)((FnTime)s_modelTime)());
+    return 0;
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    return -100;
+  }
+}
+
+// one frame, at the clock time `now`: how many heads were written. A head whose man is gone, or that cannot be
+// written, is forgotten (one line in the log).
+static int headTickRaw(double now) {
+  int wrote = 0;
+  for (int i = 0; i < g_nheads; i++) {
+    Head &hd = g_heads[i];
+    const double dt = hd.t < 0 ? 0 : now - hd.t;
+    hd.t = now;
+    if (dt > 0) {
+      headEase(&hd.x, &hd.v, hd.target, hd.w, (float)(dt > 0.5 ? 0.5 : dt));
+      if (fabsf(hd.x - hd.target) < 0.05f && fabsf(hd.v) < 0.5f) hd.x = hd.target, hd.v = 0;
+    }
+    // (written when it has moved a fifth of a degree, and once more when it has arrived)
+    if (fabsf(hd.x - hd.sent) < 0.2f && !(hd.x == hd.target && hd.sent != hd.x)) continue;
+    const Person *q = findPerson(hd.h);
+    const int e = q ? headWrite(q, hd.x) : -2;
+    if (e != 0) {
+      nlog("head: %s: %s: his head is left alone from here on", q ? q->name : "?", e == -2 ? "no such character any more" : e == -100 ? "EXCEPTION writing the parameter" : "no animation instance / no parameters found");
+      g_heads[i] = g_heads[--g_nheads];
+      i--;
+      continue;
+    }
+    hd.sent = hd.x;
+    wrote++;
+  }
+  return wrote;
+}
+
 struct AnimInfo {
   int idx, id;
   float dur, xb[2], yb[2], def[2];
@@ -1796,8 +1928,12 @@ struct StaticRef {
   void *obj;
   int kind;
 };
-static StaticRef g_statics[8];
+// crewtest-18: 256 kept, not 8 (the deck spotting demo has 61 statics: with 8 kept, every call for the other 53
+// walked the whole register, kind by kind); a new one is looked for first in the kind the last one was found in.
+static const int MAX_STATICS = 256;
+static StaticRef g_statics[MAX_STATICS];
 static int g_nstatics;
+static int g_lastKind = -1;
 static void *registeredById(unsigned int id, int *kind) {
   for (int i = 0; i < g_nstatics; i++)
     if (g_statics[i].id == id) {
@@ -1810,7 +1946,9 @@ static void *registeredById(unsigned int id, int *kind) {
       break;
     }
   void *found = nullptr;
-  for (int k = 0; k < 256 && !found; k++) {
+  for (int kk = -1; kk < 256 && !found; kk++) {
+    int k = kk < 0 ? g_lastKind : kk;
+    if (k < 0 || (kk >= 0 && k == g_lastKind)) continue;
     __try {
       void *reg = *(void **)s_regInstance;
       if (!reg) return nullptr;
@@ -1829,7 +1967,15 @@ static void *registeredById(unsigned int id, int *kind) {
     } __except (EXCEPTION_EXECUTE_HANDLER) {
     }
   }
-  if (found && g_nstatics < 8) g_statics[g_nstatics++] = {id, found, *kind};
+  if (found) {
+    g_lastKind = *kind;
+    // (full: the oldest goes)
+    if (g_nstatics >= MAX_STATICS) {
+      memmove(g_statics, g_statics + 1, sizeof(StaticRef) * (MAX_STATICS - 1));
+      g_nstatics = MAX_STATICS - 1;
+    }
+    g_statics[g_nstatics++] = {id, found, *kind};
+  }
   return found;
 }
 // What the last staticPosRaw found: the object's flag word (DCS's lLandObject::SetPos does nothing at all when any of
@@ -1966,6 +2112,146 @@ static int objArgRaw(void *ship, unsigned int id, int idx, const float *set, flo
   return 0;
 }
 
+
+// ---------------------------------------------------------------- the worker thread (catcc-handoff/WORKER-THREAD-PLAN.md)
+// One thread with a Lua state of its own, and two queues of strings between it and DCS's main thread. The deck spotting
+// demo and the tow library run in that state (Scripts/CATCC/crewtest_worker.lua); the main thread sends it a snapshot
+// of what it reads from DCS every frame and applies the DCS calls it asks for. NOTHING OF DCS'S IS EVER CALLED OR READ
+// ON THE WORKER THREAD: its state has no native module, only recv / send / clock (below).
+// A queue: a deque under a critical section, with a condition variable for the one that waits.
+struct WQueue {
+  CRITICAL_SECTION cs;
+  CONDITION_VARIABLE cv;
+  std::deque<std::string> q;
+  WQueue() {
+    InitializeCriticalSection(&cs);
+    InitializeConditionVariable(&cv);
+  }
+  void push(const char *s, size_t n) {
+    EnterCriticalSection(&cs);
+    q.emplace_back(s, n);
+    LeaveCriticalSection(&cs);
+    WakeAllConditionVariable(&cv);
+  }
+  // waits up to `ms` for something to be there (0: not at all); true: there is
+  bool wait(DWORD ms) {
+    EnterCriticalSection(&cs);
+    if (q.empty() && ms) {
+      const ULONGLONG end = GetTickCount64() + ms;
+      while (q.empty()) {
+        const ULONGLONG now = GetTickCount64();
+        if (now >= end) break;
+        SleepConditionVariableCS(&cv, &cs, (DWORD)(end - now));
+      }
+    }
+    const bool any = !q.empty();
+    LeaveCriticalSection(&cs);
+    return any;
+  }
+  bool pop(std::string &out, DWORD ms) {
+    EnterCriticalSection(&cs);
+    if (q.empty() && ms) {
+      const ULONGLONG end = GetTickCount64() + ms;
+      while (q.empty()) {
+        const ULONGLONG now = GetTickCount64();
+        if (now >= end) break;
+        SleepConditionVariableCS(&cv, &cs, (DWORD)(end - now));
+      }
+    }
+    const bool any = !q.empty();
+    if (any) {
+      out.swap(q.front());
+      q.pop_front();
+    }
+    LeaveCriticalSection(&cs);
+    return any;
+  }
+  size_t size() {
+    EnterCriticalSection(&cs);
+    const size_t n = q.size();
+    LeaveCriticalSection(&cs);
+    return n;
+  }
+  void clear() {
+    EnterCriticalSection(&cs);
+    q.clear();
+    LeaveCriticalSection(&cs);
+  }
+  void wake() { WakeAllConditionVariable(&cv); }
+};
+struct Worker;
+typedef void (*WorkerBody)(Worker *);
+struct Worker {
+  HANDLE thread = nullptr;
+  volatile LONG state = 0;  // 0 none, 1 running, 2 ended (its body returned), 3 failed (its body crashed)
+  volatile LONG quit = 0;   // told to stop: recv says so, and the body returns
+  WQueue toWorker, toMain;
+  std::string script, arg;
+  WorkerBody body = nullptr;
+};
+static Worker *g_worker;
+static void workerRun(Worker *w) {
+  __try {
+    w->body(w);
+    InterlockedExchange(&w->state, 2);
+  } __except (EXCEPTION_EXECUTE_HANDLER) {
+    InterlockedExchange(&w->state, 3);
+  }
+}
+static DWORD WINAPI workerThread(LPVOID p) {
+  workerRun((Worker *)p);
+  return 0;
+}
+// the thread of a worker that has ended is let go; true: no thread is left
+static bool workerReap(DWORD ms) {
+  Worker *w = g_worker;
+  if (!w || !w->thread) return true;
+  if (WaitForSingleObject(w->thread, ms) != WAIT_OBJECT_0) return false;
+  CloseHandle(w->thread);
+  w->thread = nullptr;
+  return true;
+}
+// 0: started; 1: one is still running; 2: no thread could be made
+static int workerStart(WorkerBody body, const char *script, const char *arg) {
+  if (!g_worker) {
+    g_worker = new Worker();
+    // (THIS MODULE STAYS LOADED FROM NOW ON: Lua's package.loadlib frees a library when its state is closed, and a
+    // thread of ours may still be parked in this code then)
+    HMODULE self = nullptr;
+    GetModuleHandleExA(GET_MODULE_HANDLE_EX_FLAG_PIN | GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS, (LPCSTR)&workerThread, &self);
+  }
+  Worker *w = g_worker;
+  if (!workerReap(0)) return 1;
+  w->toWorker.clear();
+  w->toMain.clear();
+  w->script = script ? script : "";
+  w->arg = arg ? arg : "";
+  w->body = body;
+  InterlockedExchange(&w->quit, 0);
+  InterlockedExchange(&w->state, 1);
+  w->thread = CreateThread(nullptr, 16 * 1024 * 1024, workerThread, w, STACK_SIZE_PARAM_IS_A_RESERVATION, nullptr);
+  if (!w->thread) {
+    InterlockedExchange(&w->state, 0);
+    return 2;
+  }
+  return 0;
+}
+// told to stop, and waited for up to `ms` (never for ever: a worker deep in a long step ends when it next asks for a
+// message); true: its thread has ended
+static bool workerStop(DWORD ms) {
+  Worker *w = g_worker;
+  if (!w || !w->thread) return true;
+  InterlockedExchange(&w->quit, 1);
+  w->toWorker.wake();
+  return workerReap(ms);
+}
+static double workerClock() {
+  static LARGE_INTEGER freq;
+  if (!freq.QuadPart) QueryPerformanceFrequency(&freq);
+  LARGE_INTEGER c;
+  QueryPerformanceCounter(&c);
+  return (double)c.QuadPart / (double)freq.QuadPart;
+}
 
 #ifndef CATCC_SELFTEST
 // ---------------------------------------------------------------- Lua 5.1, resolved from DCS's lua.dll
@@ -2494,6 +2780,45 @@ static int l_prop(lua_State *L) {
   return 1;
 }
 
+// crewtest-21: a tractor driver's head (see headTickRaw)
+//   head(h, degrees [, briskness]) -> true | nil, error    where his head is to go (+ to his right, -100 .. 100)
+//   head(h)                        -> true                 his head is forgotten (left as it is)
+//   headtick()                     -> written, kept        once a frame, on DCS's thread: every head a step nearer
+static int l_head(lua_State *L) {
+  const double h = p_lua_tonumber(L, 1);
+  if (p_lua_gettop(L) < 2) {
+    headSet(h, true, 0, 0);
+    p_lua_pushboolean(L, 1);
+    return 1;
+  }
+  loadDcs();
+  if (!findPerson(h)) return fail(L, "no such character (scan again)");
+  if (g_strOk < 3 || g_strBad > 0) return fail(L, "string layout not confirmed (names unreadable): not passing a string to DCS");
+  const double v = p_lua_tonumber(L, 2), w = p_lua_gettop(L) >= 3 ? p_lua_tonumber(L, 3) : 0;
+  if (!(v == v) || fabs(v) > 1000 || !(w == w)) return fail(L, "a number is not usable");
+  if (headSet(h, false, (float)v, (float)w) != 0) return fail(L, "too many heads");
+  p_lua_pushboolean(L, 1);
+  return 1;
+}
+static int l_headtick(lua_State *L) {
+  int wrote = 0;
+  if (g_nheads > 0) {
+    loadDcs();
+    double t = -1;
+    if (s_modelTime) {
+      __try {
+        t = ((FnTime)s_modelTime)();
+      } __except (EXCEPTION_EXECUTE_HANDLER) {
+        t = -1;
+      }
+    }
+    if (t >= 0) wrote = headTickRaw(t);
+  }
+  p_lua_pushnumber(L, wrote);
+  p_lua_pushnumber(L, g_nheads);
+  return 2;
+}
+
 // the catapult crews of the ship this character is on, and the ship's crew environment switches:
 // { count, crews = { {i, ok, x1, y1, z1, x2, y2, z2}, ... }, avoid, pathAvoid, pathFinder } | nil, error
 static int l_catcrews(lua_State *L) {
@@ -2732,6 +3057,21 @@ static int l_shiparg(lua_State *L) {
 }
 
 // objarg(h, objectId, n[, value -1..1]) -> value, class | nil, error   (h: anyone on the ship: the ship gives the slot)
+// the call and its line in the log (when the outcome changes): for objarg, and for the worker's packed list
+static int objArgDo(void *ship, double id, int idx, const float *set, float *outOut, const char **clsOut) {
+  float out = 0;
+  const char *cls = "";
+  int e = objArgRaw(ship, (unsigned int)id, idx, set, &out, &cls);
+  static int lastE = 12345;
+  if (e != lastE) {
+    nlog("objarg: object %.0f argument %d: %s (class %s)", id, idx, e == 0 ? "reached" : e == -100 ? "EXCEPTION" : e == -2 ? "no object with that id" : e == -3 ? "no such base or slot in the object" : e == -4 ? "no such argument" : "the ship's slot not found", cls);
+    lastE = e;
+  }
+  *outOut = out;
+  *clsOut = cls;
+  return e;
+}
+
 static int l_objarg(lua_State *L) {
   loadDcs();
   Person *q = findPerson(p_lua_tonumber(L, 1));
@@ -2744,12 +3084,7 @@ static int l_objarg(lua_State *L) {
   if (has && !(v >= -1.0f && v <= 1.0f)) return fail(L, "a model argument is -1..1");
   float out = 0;
   const char *cls = "";
-  int e = objArgRaw(q->parent, (unsigned int)id, idx, has ? &v : nullptr, &out, &cls);
-  static int lastE = 12345;
-  if (e != lastE) {
-    nlog("objarg: object %.0f argument %d: %s (class %s)", id, idx, e == 0 ? "reached" : e == -100 ? "EXCEPTION" : e == -2 ? "no object with that id" : e == -3 ? "no such base or slot in the object" : e == -4 ? "no such argument" : "the ship's slot not found", cls);
-    lastE = e;
-  }
+  int e = objArgDo(q->parent, id, idx, has ? &v : nullptr, &out, &cls);
   if (e != 0)
     return fail(L, e == -100 ? "writing the argument raised an exception" : e == -2 ? "no object with that id in the world's register" : e == -3 ? "the object has no model argument list where the ship has its" : e == -4 ? "the object has no such model argument" : "woShip::GetDrawArguments is not in the virtual tables of the ship");
   p_lua_pushnumber(L, out);
@@ -2804,6 +3139,34 @@ static int l_place(lua_State *L) {
 }
 
 // staticpos(objectId, 12 world numbers[, sx, sy, sz]) -> true, class, register kind, took (true / false / nil: not known), flag word | nil, error
+// the call and its line in the log (when an object's outcome changes): for staticpos, and for the worker's packed list
+static int staticPosDo(double id, const double *v, const double *sc, const char **clsOut, int *kindOut) {
+  const char *cls = "";
+  int kind = -1;
+  int e = staticPosRaw((unsigned int)id, v, sc, &cls, &kind);
+  // every frame, for several objects: the log gets a line only when an object's outcome changes
+  // (crewtest-18: 256 objects remembered, not 8: with the demo's 61 the log got 80 lines a second)
+  static struct { double id; int e, took; unsigned int flags; bool child; } seen[256];
+  static int seenNext;
+  int si = 0;
+  while (si < 256 && seen[si].id != id && seen[si].id != 0) si++;
+  if (si == 256) {
+    si = seenNext;
+    seenNext = (seenNext + 1) % 256;
+  }
+  if (seen[si].id != id || seen[si].e != e || seen[si].took != g_spTook || seen[si].flags != g_spFlags || seen[si].child != (g_spParent[0] != 0)) {
+    nlog("staticpos: object %.0f: %s (class %s, register kind %d; %s%s); its flag word 0x%08X%s; afterwards it %s", id,
+         e == 0 ? "put through its own SetPos" : e == -100 ? "EXCEPTION" : e == -2 ? "no object with that id in the register" : e == -3 ? "not an lLandObject, or its SetPos slot was not found" : "functions not found",
+         cls, kind, g_spParent[0] ? "a child of " : "no parent: placed in the world", g_spParent, g_spFlags,
+         (g_spFlags & 0x1D000009u) ? " (DCS's SetPos leaves an object with these bits where it is)" : "",
+         g_spTook == 1 ? "says it is there" : g_spTook == 0 ? "is NOT where it was put" : "could not be asked where it is");
+    seen[si].id = id, seen[si].e = e, seen[si].took = g_spTook, seen[si].flags = g_spFlags, seen[si].child = g_spParent[0] != 0;
+  }
+  *clsOut = cls;
+  *kindOut = kind;
+  return e;
+}
+
 static int l_staticpos(lua_State *L) {
   loadDcs();
   if (p_lua_gettop(L) < 13) return fail(L, "staticpos needs an object id and 12 numbers");
@@ -2822,19 +3185,7 @@ static int l_staticpos(lua_State *L) {
   }
   const char *cls = "";
   int kind = -1;
-  int e = staticPosRaw((unsigned int)id, v, sc, &cls, &kind);
-  // every frame, for several objects: the log gets a line only when an object's outcome changes
-  static struct { double id; int e, took; unsigned int flags; bool child; } seen[8];
-  int si = 0;
-  while (si < 7 && seen[si].id != id && seen[si].id != 0) si++;
-  if (seen[si].id != id || seen[si].e != e || seen[si].took != g_spTook || seen[si].flags != g_spFlags || seen[si].child != (g_spParent[0] != 0)) {
-    nlog("staticpos: object %.0f: %s (class %s, register kind %d; %s%s); its flag word 0x%08X%s; afterwards it %s", id,
-         e == 0 ? "put through its own SetPos" : e == -100 ? "EXCEPTION" : e == -2 ? "no object with that id in the register" : e == -3 ? "not an lLandObject, or its SetPos slot was not found" : "functions not found",
-         cls, kind, g_spParent[0] ? "a child of " : "no parent: placed in the world", g_spParent, g_spFlags,
-         (g_spFlags & 0x1D000009u) ? " (DCS's SetPos leaves an object with these bits where it is)" : "",
-         g_spTook == 1 ? "says it is there" : g_spTook == 0 ? "is NOT where it was put" : "could not be asked where it is");
-    seen[si].id = id, seen[si].e = e, seen[si].took = g_spTook, seen[si].flags = g_spFlags, seen[si].child = g_spParent[0] != 0;
-  }
+  int e = staticPosDo(id, v, sc, &cls, &kind);
   if (e != 0)
     return fail(L, e == -100 ? "SetPos raised an exception" : e == -2 ? "no object with that id in the world's register" : e == -3 ? "the object is not an lLandObject, or its SetPos was not found" : "lLandObject::SetPos was not found in edObjects.dll");
   p_lua_pushboolean(L, 1);
@@ -2917,7 +3268,476 @@ static int l_time(lua_State *L) {
   return 1;
 }
 
+// ---------------------------------------------------------------- the worker thread's Lua state, and the main thread's side of it
+// What a second state needs of lua.dll (asked for apart: a lua.dll without one of these still gives the module).
+static lua_State *(*p_luaL_newstate)();
+static void (*p_luaL_openlibs)(lua_State *);
+static int (*p_luaL_loadfile)(lua_State *, const char *);
+static int (*p_lua_pcall)(lua_State *, int, int, int);
+static void (*p_lua_close)(lua_State *);
+static void (*p_lua_pushcclosure)(lua_State *, lua_CFunction, int);
+static void (*p_lua_pushlstring)(lua_State *, const char *, size_t);
+static void (*p_lua_getfield)(lua_State *, int, const char *);
+static void (*p_lua_settop)(lua_State *, int);
+static bool loadLuaWorker() {
+  static int done;  // 0 not asked, 1 there, 2 not there
+  if (!done) {
+    HMODULE m = GetModuleHandleA("lua.dll");
+    done = (resolve(m, "luaL_newstate", p_luaL_newstate) && resolve(m, "luaL_openlibs", p_luaL_openlibs) && resolve(m, "luaL_loadfile", p_luaL_loadfile) &&
+            resolve(m, "lua_pcall", p_lua_pcall) && resolve(m, "lua_close", p_lua_close) && resolve(m, "lua_pushcclosure", p_lua_pushcclosure) &&
+            resolve(m, "lua_pushlstring", p_lua_pushlstring) && resolve(m, "lua_getfield", p_lua_getfield) && resolve(m, "lua_settop", p_lua_settop))
+               ? 1
+               : 2;
+  }
+  return done == 1;
+}
+static const int W_GLOBALS = -10002;  // LUA_GLOBALSINDEX
+
+// IN THE WORKER'S STATE (the table CATCC_W):
+//   recv(ms)  -> the next message from the main thread, waited for up to ms milliseconds | nil | nil, 'quit' (told to stop)
+//   send(s)      a message to the main thread
+//   clock()   -> seconds, from the performance counter
+//   pending() -> how many messages wait
+//   arg          the string worker_start was given
+static int w_recv(lua_State *L) {
+  Worker *w = g_worker;
+  const double ms = p_lua_gettop(L) >= 1 ? p_lua_tonumber(L, 1) : 0;
+  const ULONGLONG end = GetTickCount64() + (ULONGLONG)(ms > 0 ? ms : 0);
+  std::string s;
+  for (;;) {
+    if (w->quit) {
+      p_lua_pushnil(L);
+      p_lua_pushstring(L, "quit");
+      return 2;
+    }
+    const ULONGLONG now = GetTickCount64();
+    const DWORD left = now >= end ? 0 : (DWORD)(end - now);
+    if (w->toWorker.pop(s, left > 50 ? 50 : left)) {
+      p_lua_pushlstring(L, s.data(), s.size());
+      return 1;
+    }
+    if (left == 0) {
+      p_lua_pushnil(L);
+      return 1;
+    }
+  }
+}
+static int w_send(lua_State *L) {
+  size_t n = 0;
+  const char *s = p_lua_tolstring(L, 1, &n);
+  if (s) g_worker->toMain.push(s, n);
+  return 0;
+}
+static int w_clock(lua_State *L) {
+  p_lua_pushnumber(L, workerClock());
+  return 1;
+}
+// THE PACKED LIST (WORKER-THREAD-PLAN.md, step 6): the worker's positions and model arguments, which are most of what it
+// sends, as numbers in a block of bytes instead of text for Lua to read: the main thread hands the block back to this
+// module (worker_blob), which makes the calls itself. One block is one message, in its place among the others:
+//   'B', nine numbers (seq, step, the mission's time it is for, the frame it answers or -1, the demo runs 1 / 0,
+//   the step's ms, the calls it waited for, pieces of planning between the frames, their ms), then for each command
+//   a byte for what it is (1 staticpos, 2 place, 3 objarg, 4 shiparg), a byte for how many numbers, the numbers.
+// IN THE WORKER'S STATE:
+//   CATCC_W.bcmd(op, number, ...)    a command for the block (the arguments the native function of that name takes)
+//   CATCC_W.bflush(nine numbers)     the block sent, with those nine in front
+static std::string g_wblob;  // (the worker thread's own)
+static int w_bcmd(lua_State *L) {
+  const int n = p_lua_gettop(L);
+  if (n < 2 || n > 17) return 0;
+  g_wblob.push_back((char)(unsigned char)p_lua_tonumber(L, 1));
+  g_wblob.push_back((char)(n - 1));
+  for (int i = 2; i <= n; i++) {
+    const double v = p_lua_tonumber(L, i);
+    g_wblob.append((const char *)&v, sizeof v);
+  }
+  return 0;
+}
+static int w_bflush(lua_State *L) {
+  std::string m;
+  m.reserve(1 + 9 * sizeof(double) + g_wblob.size());
+  m.push_back('B');
+  for (int i = 1; i <= 9; i++) {
+    const double v = p_lua_tonumber(L, i);
+    m.append((const char *)&v, sizeof v);
+  }
+  m += g_wblob;
+  g_wblob.clear();
+  g_worker->toMain.push(m.data(), m.size());
+  return 0;
+}
+static int w_pending(lua_State *L) {
+  p_lua_pushnumber(L, (double)g_worker->toWorker.size());
+  return 1;
+}
+// the worker's body: a state, CATCC_W, the script. What the script does not catch itself comes to the main thread as
+// "E" and the error's text; "X" when the body is over.
+static void workerLuaBody(Worker *w) {
+  lua_State *L = p_luaL_newstate();
+  if (!L) {
+    w->toMain.push("Eno Lua state could be made", 27);
+    w->toMain.push("X", 1);
+    return;
+  }
+  p_luaL_openlibs(L);
+  p_lua_createtable(L, 0, 6);
+  p_lua_pushcclosure(L, w_recv, 0);
+  p_lua_setfield(L, -2, "recv");
+  p_lua_pushcclosure(L, w_send, 0);
+  p_lua_setfield(L, -2, "send");
+  p_lua_pushcclosure(L, w_clock, 0);
+  p_lua_setfield(L, -2, "clock");
+  p_lua_pushcclosure(L, w_pending, 0);
+  p_lua_setfield(L, -2, "pending");
+  p_lua_pushcclosure(L, w_bcmd, 0);
+  p_lua_setfield(L, -2, "bcmd");
+  p_lua_pushcclosure(L, w_bflush, 0);
+  p_lua_setfield(L, -2, "bflush");
+  g_wblob.clear();
+  p_lua_pushlstring(L, w->arg.data(), w->arg.size());
+  p_lua_setfield(L, -2, "arg");
+  p_lua_setfield(L, W_GLOBALS, "CATCC_W");
+  if (p_luaL_loadfile(L, w->script.c_str()) != 0 || p_lua_pcall(L, 0, 0, 0) != 0) {
+    size_t n = 0;
+    const char *e = p_lua_tolstring(L, -1, &n);
+    std::string m = "E";
+    if (e) m.append(e, n);
+    else m.append("an error that is not a string");
+    w->toMain.push(m.data(), m.size());
+  }
+  p_lua_close(L);
+  w->toMain.push("X", 1);
+}
+
+// ON THE MAIN THREAD:
+//   m.worker_start(script, arg) -> true | nil, why    a thread, a Lua state, the script run in it (arg: CATCC_W.arg)
+//   m.worker_post(s)            -> true | false       a message to it (false: there is no worker)
+//   m.worker_poll()             -> { s, ... } | nil   every message from it that waits (256 at the most)
+//   m.worker_wait(ms)           -> true | false       waits up to ms for a message from it to be there
+//   m.worker_stop(ms)           -> true | false       told to stop, waited for up to ms; true: its thread has ended
+//   m.worker_state()            -> 'none' | 'running' | 'ended' | 'failed', messages waiting for it, messages from it
+static int l_worker_start(lua_State *L) {
+  if (!loadLuaWorker()) return fail(L, "lua.dll lacks what a second Lua state needs");
+  const char *script = p_lua_tolstring(L, 1, nullptr);
+  const char *arg = p_lua_tolstring(L, 2, nullptr);
+  if (!script) return fail(L, "no script");
+  const int r = workerStart(workerLuaBody, script, arg);
+  if (r == 1) return fail(L, "a worker is still running");
+  if (r != 0) return fail(L, "no thread could be made");
+  p_lua_pushboolean(L, 1);
+  return 1;
+}
+static int l_worker_post(lua_State *L) {
+  size_t n = 0;
+  const char *s = p_lua_tolstring(L, 1, &n);
+  Worker *w = g_worker;
+  const bool ok = w && w->thread && w->state == 1 && s;
+  if (ok) w->toWorker.push(s, n);
+  p_lua_pushboolean(L, ok ? 1 : 0);
+  return 1;
+}
+static int l_worker_poll(lua_State *L) {
+  Worker *w = g_worker;
+  if (!w || !loadLuaWorker() || !w->toMain.size()) {
+    p_lua_pushnil(L);
+    return 1;
+  }
+  p_lua_createtable(L, 8, 0);
+  std::string s;
+  int n = 0;
+  while (n < 256 && w->toMain.pop(s, 0)) {
+    p_lua_pushlstring(L, s.data(), s.size());
+    p_lua_rawseti(L, -2, ++n);
+  }
+  return 1;
+}
+static int l_worker_wait(lua_State *L) {
+  Worker *w = g_worker;
+  const double ms = p_lua_tonumber(L, 1);
+  p_lua_pushboolean(L, (w && w->toMain.wait((DWORD)(ms > 0 ? (ms > 10000 ? 10000 : ms) : 0))) ? 1 : 0);
+  return 1;
+}
+static int l_worker_stop(lua_State *L) {
+  const double ms = p_lua_tonumber(L, 1);
+  p_lua_pushboolean(L, workerStop((DWORD)(ms > 0 ? (ms > 5000 ? 5000 : ms) : 0)) ? 1 : 0);
+  return 1;
+}
+static int l_worker_state(lua_State *L) {
+  Worker *w = g_worker;
+  static const char *const NAMES[] = {"none", "running", "ended", "failed"};
+  const LONG st = w ? w->state : 0;
+  p_lua_pushstring(L, NAMES[st >= 0 && st <= 3 ? st : 0]);
+  p_lua_pushnumber(L, w ? (double)w->toWorker.size() : 0);
+  p_lua_pushnumber(L, w ? (double)w->toMain.size() : 0);
+  return 3;
+}
+
+// ON THE MAIN THREAD, the packed list:
+//   m.worker_blob(s [, sink])        -> seq, step, time, frame or -1, on, ms, calls, pieces, their ms, how many commands,
+//                                       failures { { op, a, b, c, why }, ... } or nil
+//       every command of the block made, in its order. sink: a table of Lua functions staticpos / place / objarg /
+//       shiparg to call instead of this module's own (the test rig's stand-ins: outside DCS this module reaches nothing)
+//   m.worker_blobinfo(s)             -> the nine numbers, nothing done
+//   m.worker_carry(tPrev, t [, sink]) -> how many objects were moved on (see g_movers)
+//   m.worker_moves()                 -> how many objects are followed; they are forgotten
+// AN OBJECT THAT MOVES IS FOLLOWED HERE (as the hook's Tow.Thr.carry did in Lua for the text lists): where the worker's
+// last two steps put it and for what moments of the mission. When a list is late, worker_carry moves it on from the
+// last place to where it would be at tPrev (the frame before this one), by what it moved between those two steps: its
+// place only; not one that jumped (over 12 m/s); 3 frames at the most. What a step no longer places is put back where
+// the worker last had it and forgotten.
+struct Mover {
+  int op;        // 1 staticpos (a[0] the object, a[10..12] its place), 2 place (a[0] the man, a[1..3] his place)
+  double a[16];
+  int n;
+  double p[3], t, pt, st, ext;
+  bool hasP;
+};
+static std::vector<Mover> g_movers;
+static const char *const BLOB_FN[] = {"", "staticpos", "place", "objarg", "shiparg"};
+
+// one command: 0 if it was made and worked; else why not (*why)
+static int blobOne(lua_State *L, int sink, int op, const double *a, int n, const char **why) {
+  *why = "";
+  if (op < 1 || op > 4) {
+    *why = "not a command of the packed list";
+    return -1;
+  }
+  if (sink) {
+    const int top = p_lua_gettop(L);
+    p_lua_getfield(L, sink, BLOB_FN[op]);
+    for (int i = 0; i < n; i++) p_lua_pushnumber(L, a[i]);
+    int e = 0;
+    if (p_lua_pcall(L, n, 1, 0) != 0) {
+      *why = "the stand-in raised an error";
+      e = -1;
+    } else if (!p_lua_toboolean(L, -1)) {
+      *why = "the stand-in gave nothing";
+      e = -1;
+    }
+    p_lua_settop(L, top);
+    return e;
+  }
+  if (op == 1) {
+    if (n != 13 && n != 16) {
+      *why = "staticpos needs an object id and 12 numbers";
+      return -1;
+    }
+    if (!(a[0] >= 1 && a[0] <= 4294967295.0)) {
+      *why = "not an object id";
+      return -1;
+    }
+    double sc[3] = {1, 1, 1};
+    for (int i = 1; i <= 12; i++)
+      if (!(a[i] == a[i]) || fabs(a[i]) > 1e8) {
+        *why = "a position number is not usable";
+        return -1;
+      }
+    for (int k = 0; k < 3; k++) {
+      const double *x = a + 1 + k * 3;
+      if (fabs(sqrt(x[0] * x[0] + x[1] * x[1] + x[2] * x[2]) - 1) > 0.01) {
+        *why = "the axes are not unit vectors";
+        return -1;
+      }
+      if (n == 16) sc[k] = a[13 + k];
+      if (!(sc[k] >= 0.01 && sc[k] <= 100)) {
+        *why = "a scale is not usable";
+        return -1;
+      }
+    }
+    const char *cls = "";
+    int kind = -1;
+    const int e = staticPosDo(a[0], a + 1, sc, &cls, &kind);
+    if (e != 0) *why = e == -100 ? "SetPos raised an exception" : e == -2 ? "no object with that id in the world's register" : "the object could not be placed";
+    return e;
+  }
+  Person *q = findPerson(a[0]);
+  if (!q) {
+    *why = "no such character (scan again)";
+    return -1;
+  }
+  if (op == 2) {
+    if (n != 6) {
+      *why = "place(h, x, y, z, fx, fz)";
+      return -1;
+    }
+    for (int i = 1; i <= 5; i++)
+      if (!(a[i] == a[i]) || fabs(a[i]) > 1000) {
+        *why = "a number is not usable";
+        return -1;
+      }
+    const int e = placeRaw(q, a[1], a[2], a[3], a[4], a[5]);
+    if (e != 0) {
+      nlog("place: %s -> %d", q->name, e);
+      *why = e == -100 ? "set_origin raised an exception" : e == -2 ? "can't read the character's pose" : e == -4 ? "no facing given" : "set_origin not found";
+    }
+    return e;
+  }
+  if (op == 3) {
+    if (n != 4 || !(a[1] >= 1 && a[1] <= 4294967295.0) || !(a[3] >= -1.0 && a[3] <= 1.0)) {
+      *why = "objarg(h, object id, n, value -1..1)";
+      return -1;
+    }
+    const float v = (float)a[3];
+    float out = 0;
+    const char *cls = "";
+    const int e = objArgDo(q->parent, a[1], (int)a[2], &v, &out, &cls);
+    if (e != 0) *why = e == -100 ? "writing the argument raised an exception" : e == -2 ? "no object with that id in the world's register" : "the object's model argument could not be written";
+    return e;
+  }
+  if (n != 3 || !(a[2] >= -1.0 && a[2] <= 1.0)) {
+    *why = "shiparg(h, n, value -1..1)";
+    return -1;
+  }
+  const float v = (float)a[2];
+  float out = 0;
+  const int e = shipArgRaw(q->parent, (int)a[1], &v, &out);
+  if (e != 0) *why = e == -100 ? "writing the argument raised an exception" : e == -2 ? "the ship has no such model argument" : "the ship's model argument could not be written";
+  return e;
+}
+
+static const size_t BLOB_HEAD = 1 + 9 * sizeof(double);
+static bool blobHead(const char *s, size_t len, double *h) {
+  if (!s || len < BLOB_HEAD || s[0] != 'B') return false;
+  memcpy(h, s + 1, 9 * sizeof(double));
+  return true;
+}
+static void moverPut(Mover &m, lua_State *L, int sink, bool back) {
+  // (back: where the worker last had it; else moved on by m.ext seconds of what it moved between its last two steps)
+  double a[16];
+  memcpy(a, m.a, sizeof a);
+  const int at = m.op == 2 ? 1 : 10;
+  if (!back) {
+    const double k = m.ext / (m.t - m.pt);
+    for (int i = 0; i < 3; i++) a[at + i] += (m.a[at + i] - m.p[i]) * k;
+  }
+  const char *why;
+  blobOne(L, sink, m.op, a, m.n, &why);
+}
+static int l_worker_blob(lua_State *L) {
+  size_t len = 0;
+  const char *s = p_lua_tolstring(L, 1, &len);
+  const int sink = (p_lua_gettop(L) >= 2 && p_lua_toboolean(L, 2)) ? 2 : 0;
+  double h[9];
+  if (!loadLuaWorker() || !blobHead(s, len, h)) return fail(L, "not a packed list");
+  if (!sink) loadDcs();
+  int count = 0, nfail = 0;
+  p_lua_createtable(L, 0, 0);  // the failures (left out below if there are none)
+  const int failAt = p_lua_gettop(L);
+  size_t at = BLOB_HEAD;
+  while (at + 2 <= len) {
+    const int op = (unsigned char)s[at], n = (unsigned char)s[at + 1];
+    at += 2;
+    if (n > 16 || at + n * sizeof(double) > len) break;
+    double a[16] = {0};
+    memcpy(a, s + at, n * sizeof(double));
+    at += n * sizeof(double);
+    count++;
+    const char *why;
+    if (blobOne(L, sink, op, a, n, &why) != 0) {
+      p_lua_createtable(L, 5, 0);
+      p_lua_pushnumber(L, op);
+      p_lua_rawseti(L, -2, 1);
+      for (int i = 0; i < 3; i++) {
+        p_lua_pushnumber(L, a[i]);
+        p_lua_rawseti(L, -2, 2 + i);
+      }
+      p_lua_pushstring(L, why);
+      p_lua_rawseti(L, -2, 5);
+      p_lua_rawseti(L, failAt, ++nfail);
+      continue;
+    }
+    if (op == 1 || op == 2) {
+      // (followed: see g_movers)
+      Mover *m = nullptr;
+      for (size_t i = 0; i < g_movers.size(); i++)
+        if (g_movers[i].op == op && g_movers[i].a[0] == a[0]) {
+          m = &g_movers[i];
+          break;
+        }
+      const int pa = op == 2 ? 1 : 10;
+      if (!m) {
+        Mover fresh = {};
+        fresh.op = op;
+        fresh.st = -1;
+        g_movers.push_back(fresh);
+        m = &g_movers.back();
+      } else if (m->st != h[1]) {
+        m->p[0] = m->a[pa], m->p[1] = m->a[pa + 1], m->p[2] = m->a[pa + 2];
+        m->pt = m->t;
+        m->hasP = true;
+      }
+      memcpy(m->a, a, sizeof a);
+      m->n = n;
+      m->t = h[2];
+      m->st = h[1];
+      m->ext = 0;
+    }
+  }
+  if (h[3] >= 0) {
+    // (the step is over: what it did not place again stands)
+    for (size_t i = 0; i < g_movers.size();) {
+      if (g_movers[i].st != h[1]) {
+        if (g_movers[i].ext != 0) moverPut(g_movers[i], L, sink, true);
+        g_movers[i] = g_movers.back();
+        g_movers.pop_back();
+      } else {
+        i++;
+      }
+    }
+  }
+  // (the failures' table, empty if there were none, then the nine numbers and the count)
+  p_lua_settop(L, failAt);
+  for (int i = 0; i < 9; i++) p_lua_pushnumber(L, h[i]);
+  p_lua_pushnumber(L, count);
+  return 11;
+}
+static int l_worker_blobinfo(lua_State *L) {
+  size_t len = 0;
+  const char *s = p_lua_tolstring(L, 1, &len);
+  double h[9];
+  if (!blobHead(s, len, h)) return fail(L, "not a packed list");
+  for (int i = 0; i < 9; i++) p_lua_pushnumber(L, h[i]);
+  return 9;
+}
+static int l_worker_carry(lua_State *L) {
+  const double tPrev = p_lua_tonumber(L, 1), t = p_lua_tonumber(L, 2);
+  const int sink = (p_lua_gettop(L) >= 3 && p_lua_toboolean(L, 3)) ? 3 : 0;
+  int moved = 0;
+  const double dtF = t - tPrev;
+  if (dtF > 0 && loadLuaWorker()) {
+    if (!sink) loadDcs();
+    for (size_t i = 0; i < g_movers.size(); i++) {
+      Mover &m = g_movers[i];
+      double ext = tPrev - m.t;
+      if (!(ext > 1e-9) || !m.hasP || !(m.t > m.pt)) continue;
+      if (ext > 3 * dtF) ext = 3 * dtF;
+      if (ext == m.ext) continue;
+      const int at = m.op == 2 ? 1 : 10;
+      const double k = ext / (m.t - m.pt);
+      double d2 = 0;
+      for (int j = 0; j < 3; j++) {
+        const double d = (m.a[at + j] - m.p[j]) * k;
+        d2 += d * d;
+      }
+      if (!(d2 > 0) || !(d2 < (12 * ext) * (12 * ext))) continue;
+      m.ext = ext;
+      moverPut(m, L, sink, false);
+      moved++;
+    }
+  }
+  p_lua_pushnumber(L, moved);
+  return 1;
+}
+static int l_worker_moves(lua_State *L) {
+  p_lua_pushnumber(L, (double)g_movers.size());
+  g_movers.clear();
+  return 1;
+}
+
 static const luaL_Reg funcs[] = {{"info", l_info},         {"setlog", l_setlog}, {"scan", l_scan},         {"registry", l_registry},
+                                 {"worker_start", l_worker_start}, {"worker_post", l_worker_post}, {"worker_poll", l_worker_poll},
+                                 {"worker_wait", l_worker_wait}, {"worker_blob", l_worker_blob}, {"worker_blobinfo", l_worker_blobinfo},
+                                 {"worker_carry", l_worker_carry}, {"worker_moves", l_worker_moves}, {"worker_stop", l_worker_stop}, {"worker_state", l_worker_state},
                                  {"heapscan", l_heapscan}, {"anims", l_anims},   {"play", l_play},         {"override", l_override},
                                  {"walk", l_walk},         {"stop", l_stop},     {"state", l_state},       {"dump", l_dump},
                                  {"attach", l_attach},     {"anim", l_anim},     {"animinfo", l_animinfo}, {"prop", l_prop},
@@ -2925,6 +3745,7 @@ static const luaL_Reg funcs[] = {{"info", l_info},         {"setlog", l_setlog},
                                  {"orderpeek", l_orderpeek}, {"debugset", l_debugset}, {"bubble", l_bubble},
                                  {"elevator", l_elevator}, {"deck", l_deck}, {"teleport", l_teleport}, {"shipcmds", l_shipcmds}, {"shiparg", l_shiparg}, {"forcepos", l_forcepos},
                                  {"place", l_place}, {"staticpos", l_staticpos}, {"objarg", l_objarg}, {"staticinfo", l_staticinfo},
+                                 {"head", l_head}, {"headtick", l_headtick},
                                  {nullptr, nullptr}};
 
 extern "C" __declspec(dllexport) int luaopen_catcc_crew(lua_State *L) {

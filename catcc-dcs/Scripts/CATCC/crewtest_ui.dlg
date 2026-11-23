@@ -1,0 +1,127 @@
+-- The crew test panel's window (crewtest_ui.lua builds everything in it; the two children here only lend their
+-- skins to the buttons and labels made there). DCS dialog format, as the mission editor's own .dlg files.
+dialog = {
+    ["type"] = "Window",
+    ["params"] = {
+        ["bounds"] = {
+            [1] = {
+                ["h"] = 620,
+                ["w"] = 620,
+                ["x"] = 60,
+                ["y"] = 120
+            }
+        },
+        ["draggable"] = true,
+        ["enabled"] = true,
+        ["hasCursor"] = false,
+        ["lockFlow"] = false,
+        ["modal"] = false,
+        ["offscreen"] = false,
+        ["resizable"] = false,
+        ["zOrder"] = 113,
+        ["text"] = "CATCC crew test"
+    },
+    ["skin"] = {
+        ["params"] = {
+            ["name"] = "windowSkin"
+        },
+        ["skins"] = {
+            ["header"] = {
+                ["skinData"] = {
+                    ["params"] = {
+                        ["hasCloseButton"] = false,
+                        ["insets"] = {
+                            ["bottom"] = 2,
+                            ["left"] = 2,
+                            ["right"] = 2,
+                            ["top"] = 2
+                        }
+                    },
+                    ["states"] = {
+                        ["released"] = {
+                            [1] = {
+                                ["bkg"] = {
+                                    ["center_center"] = "0x000000dd"
+                                },
+                                ["text"] = {
+                                    ["color"] = "0xffffffff"
+                                }
+                            },
+                            [2] = {
+                                ["bkg"] = {
+                                    ["center_center"] = "0x000000dd"
+                                },
+                                ["text"] = {
+                                    ["color"] = "0xffffffff"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        ["states"] = {
+            ["released"] = {
+                [1] = {
+                    ["bkg"] = {
+                        ["center_center"] = "0x101418d8"
+                    }
+                }
+            }
+        }
+    },
+    ["children"] = {
+        ["tplButton"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplLabel"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 26,
+                    ["w"] = 100,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["text"] = {
+                                ["color"] = "0xffffffff"
+                            }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Static"
+        }
+    }
+}

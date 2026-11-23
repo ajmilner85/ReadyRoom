@@ -667,6 +667,43 @@ int main() {
   check(q && propRaw(q, "angle", false, 0, &pv) == 0 && pv == 30.0f && propRaw(q, "something_else", false, 0, &pv) == 0 && pv == 0.0f, "blend parameter read; an unknown one reads 0");
   check(q && propRaw(q, "a_parameter_with_a_long_name", true, -7.5f, &pv) == 0 && pv == -7.5f && cookie.last == "a_parameter_with_a_long_name", "blend parameter with a long name");
 
+  // 7d2. the tractor drivers' head (crewtest-21): where it is to go is kept, and a frame at a time it is brought there
+  {
+    const double hh = (double)(uintptr_t)m;
+    const int u0 = cookie.updates;
+    check(headSet(hh, false, 100.0f, 6.0f) == 0 && g_nheads == 1 && headSet(hh, false, 250.0f, 0) == 0 && g_heads[0].target == 100.0f && g_heads[0].w == 6.0f, "head: kept once for a man, no further than 100 degrees");
+    Animator::g_clock = 200.0;
+    check(headTickRaw(200.0) == 1 && cookie.last == "catcc_head_yaw" && cookie.value == 0.0f && cookie.updates == u0 + 1, "head: the first frame writes where it is (ahead) and has the record take it");
+    m->st = AnimatorLogic::CharacterState(1);
+    float most = 0, prev = 0, speed = 0;
+    int writes = 0, frames = 0;
+    bool forward = true;
+    for (double t = 200.0 + 1.0 / 60; t < 203.0; t += 1.0 / 60, frames++) {
+      Animator::g_clock = t;
+      writes += headTickRaw(t);
+      forward = forward && g_heads[0].x >= prev - 1e-4f;
+      if ((g_heads[0].x - prev) * 60 > speed) speed = (g_heads[0].x - prev) * 60;
+      prev = g_heads[0].x;
+      if (cookie.value > most) most = cookie.value;
+    }
+    check(forward && most == 100.0f && cookie.value == 100.0f && g_heads[0].x == 100.0f && g_heads[0].v == 0.0f, "head: it goes there without turning back or going past, and ends exactly there");
+    check(speed > 150 && speed < 260, "head: at its quickest some 220 degrees a second (100 degrees at briskness 6)");
+    check(writes > 40 && writes < 100 && cookie.updates == u0 + 1 + writes, "head: written while it turns (a walking state does not stop the record taking it), not once it has arrived");
+    float x1 = 0, v1 = 0;
+    for (int i = 0; i < 54; i++) headEase(&x1, &v1, 100.0f, 6.0f, 1.0f / 60);
+    check(x1 > 95.0f && x1 < 100.0f, "head: 100 degrees in about 0.9 s");
+    float xa = 0, va = 0, xb = 0, vb = 0;
+    headEase(&xa, &va, 100.0f, 6.0f, 0.5f);
+    for (int i = 0; i < 50; i++) headEase(&xb, &vb, 100.0f, 6.0f, 0.01f);
+    check(fabsf(xa - xb) < 0.01f && fabsf(va - vb) < 0.05f, "head: the same turn whatever the frame rate");
+    Animator::g_clock = 150.0;
+    check(headTickRaw(150.0) == 0 && g_heads[0].x == 100.0f, "head: a clock that went back (a new mission) moves nothing");
+    check(headSet(12345.0, false, 30.0f, 0) == 0 && g_nheads == 2 && headTickRaw(151.0) == 0 && g_nheads == 1, "head: a man who is not there any more is forgotten");
+    check(headSet(hh, true, 0, 0) == 1 && g_nheads == 0 && headTickRaw(152.0) == 0, "head: forgotten on request");
+    m->st = AnimatorLogic::CharacterState::Idle;
+    Animator::g_clock = 104.25;
+  }
+
   // 7e. the animations' own data
   check(readAnimsRaw(&mgr) == 0 && g_nanim == 4, "animation list with the blend space");
   AnimInfo ai;
@@ -930,6 +967,51 @@ int main() {
   delete m3;  // a destroyed character must not be commanded: refresh drops it or keeps it, but never crashes
   refreshPeople();
   check(g_npeople >= 2 && g_npeople <= 3 && findPerson((double)(uintptr_t)m) != nullptr, "refresh after one was destroyed");
+
+  // 9. the worker thread and its two queues (the thread's Lua side is tried by smoke.py, with DCS's lua.dll)
+  {
+    struct Body {
+      static void echo(Worker *w) {
+        std::string s;
+        for (;;) {
+          if (w->quit) return;
+          if (!w->toWorker.pop(s, 20)) continue;
+          if (s == "crash") {
+            volatile int *p = nullptr;
+            *p = 1;
+          }
+          if (s == "busy") Sleep(300);
+          const std::string r = "re:" + s;
+          w->toMain.push(r.data(), r.size());
+        }
+      }
+    };
+    std::string got;
+    bool ok = true;
+    for (int i = 0; i < 100 && ok; i++) {
+      ok = workerStart(Body::echo, "", "") == 0;
+      if (ok) g_worker->toWorker.push("a", 1);
+      ok = ok && g_worker->toMain.pop(got, 2000) && got == "re:a" && workerStop(2000) && g_worker->state == 2;
+    }
+    check(ok, "worker: started, answered and stopped 100 times");
+    ok = workerStart(Body::echo, "", "") == 0;
+    for (int i = 0; i < 10000; i++) {
+      const std::string m = std::to_string(i);
+      g_worker->toWorker.push(m.data(), m.size());
+    }
+    for (int i = 0; i < 10000 && ok; i++) ok = g_worker->toMain.pop(got, 2000) && got == "re:" + std::to_string(i);
+    check(ok, "worker: 10,000 messages each way, in their order");
+    check(workerStart(Body::echo, "", "") == 1, "worker: a second one is refused while the first runs");
+    check(!g_worker->toMain.wait(30) && !g_worker->toMain.pop(got, 0), "worker: nothing waits when nothing was sent");
+    g_worker->toWorker.push("busy", 4);
+    Sleep(30);
+    check(!workerStop(40), "worker: told to stop while it is busy: not waited for for ever");
+    check(workerStop(3000) && g_worker->state == 2, "worker: and it ends when its step is over");
+    ok = workerStart(Body::echo, "", "") == 0;
+    g_worker->toWorker.push("crash", 5);
+    check(ok && workerReap(3000) && g_worker->state == 3, "worker: a crash in its body ends the thread, not the process");
+    check(workerStart(Body::echo, "", "") == 0 && workerStop(2000), "worker: and another starts after it");
+  }
 
   printf(g_fail ? "\n%d FAILED\n" : "\nall passed\n", g_fail);
   return g_fail ? 1 : 0;

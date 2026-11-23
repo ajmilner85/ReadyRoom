@@ -42,6 +42,9 @@ do
   if f then
     local ok, t = pcall(f)
     on = ok and type(t) == 'table' and t.crewTest == true
+    -- (demoThread = false in Config/CATCC-test.lua: the deck spotting demo on DCS's main thread, as before it had a
+    -- thread of its own: Tow.Thr, below)
+    if on and t.demoThread == false then CATCC_DEMO_THREAD = false end
   end
   if not on then return end
 end
@@ -49,7 +52,10 @@ end
 local LOG = writedir .. 'Logs/catcc-crewtest.log'
 local STATE = 'server' -- net.dostring_in state that reaches the mission scripting environment
 
+-- (CATCC_WORKER: this file is running a second time, on the deck spotting demo's own thread (crewtest_worker.lua): its
+-- log lines and messages go to the main thread, which writes and shows them)
 local function logLine(s)
+  if CATCC_WORKER then return CATCC_WORKER.log(s) end
   local f = io.open(LOG, 'a')
   if f then
     f:write(os.date('%H:%M:%S'), ' hook    ', s, '\n')
@@ -57,6 +63,7 @@ local function logLine(s)
   end
 end
 local function info(s)
+  if CATCC_WORKER then return CATCC_WORKER.info(s) end
   logLine(s)
   if log and log.write then log.write('CATCC-CREW', log.INFO, s) end
 end
@@ -66,11 +73,16 @@ local function dostring(code) return net.dostring_in(STATE, code) end
 -- on screen (20 s) and in the log
 -- On-screen messages can be switched off (F10 > Tow > Messages on screen: hide / show): for filming. Hidden, every
 -- message still goes to the log ("SAY (not shown) ..."). Back on with every new mission.
+-- The in-game panel (Scripts/CATCC/crewtest_ui.lua, the global CATCC_UI once it is loaded) shows every message as its
+-- last line, hidden or not.
 local quiet = false
-local function say(text, secs)
+-- clear: the message takes the place of what is on the screen (outText's third argument) instead of stacking under it.
+local function say(text, secs, clear)
+  if CATCC_WORKER then return CATCC_WORKER.say(text, secs, clear) end
+  if CATCC_UI and CATCC_UI.said then pcall(CATCC_UI.said, text) end
   if quiet then return info('SAY (not shown) ' .. text) end
   info('SAY ' .. text)
-  pcall(dostring, string.format('trigger.action.outText(%q, %d)', 'CATCC crew test: ' .. text, secs or 20))
+  pcall(dostring, string.format('trigger.action.outText(%q, %d%s)', 'CATCC crew test: ' .. text, secs or 20, clear and ', true' or ''))
 end
 
 -- ---------------------------------------------------------------- the native module
@@ -128,8 +140,11 @@ local function split(s)
 end
 
 -- where the player's jet and the carrier are this instant (Scripts/CATCC/crewtest.lua, CATCC_CR.ctx)
-local function getCtx()
-  local ok, s = pcall(dostring, 'return (CATCC_CR and CATCC_CR.ctx) and CATCC_CR.ctx() or "ERR|menu script not installed"')
+-- (px, pz: a point of the world, or name: a ship's unit name: the carrier chosen by that, not by where the jet stands:
+-- the deck spotting tool's)
+local function getCtx(px, pz, name)
+  local args = name and string.format('nil, nil, %q', name) or ((px and pz) and string.format('%.3f, %.3f', px, pz) or '')
+  local ok, s = pcall(dostring, 'return (CATCC_CR and CATCC_CR.ctx) and CATCC_CR.ctx(' .. args .. ') or "ERR|menu script not installed"')
   if not ok or type(s) ~= 'string' then return nil, tostring(s) end
   local p = split(s)
   if p[1] ~= 'OK' then return nil, p[2] or s end
@@ -157,7 +172,8 @@ end
 local function role(p)
   local n = tostring(p.name or '')
   if n == 'catcc-m0' then return 'captain' end
-  if n == 'catcc-t0' then return 'driver' end
+  -- (catcc-t1 .. t7: the deck spotting demo's seven more drivers)
+  if n:find('^catcc%-t%d') then return 'driver' end
   return 'director'
 end
 
@@ -254,20 +270,30 @@ local function recorderSet(r)
 end
 
 local function tickRecorder(t)
-  if not native or t < recNextT then return end
-  recNextT = t + 1
+  if not native then return end
+  -- (each man asked once a second, FOUR MEN A FRAME AT MOST: all thirty in one frame, every second, was a hitch every
+  -- second; 2026-11-17, the user: "a persistent stutter throughout the run")
+  local asked = 0
   for h, q in pairs(recPeople) do
+    if asked >= 4 then break end
+    if (q.recAt or 0) <= t then
+    q.recAt = t + 1
+    asked = asked + 1
     local ok, st, x, _, z = pcall(native.state, h, false)
     if not ok or st == nil then
       recPeople[h] = nil
       logLine(string.format('  rec %-15s gone', q.name))
     else
       local moved = (x and q.x) and math.sqrt((x - q.x) ^ 2 + (z - q.z) ^ 2) or 0
+      -- (a tractor's driver, catcc-t0 .. t7, is carried on his seat: where the tractor goes is in the tow's own lines;
+      -- eight of them moving wrote eight lines a second for half an hour in the deck spotting demo)
+      if tostring(q.name):find('^catcc%-t%d') then moved = 0 end
       if st ~= q.st or moved >= 0.5 then
         logLine(string.format('  rec %-15s state %s at %s', q.name, tostring(st), x and string.format('%.2f fwd %.2f stbd', x, z) or '?'))
         q.st = st
         if x then q.x, q.z = x, z end
       end
+    end
     end
   end
   if t >= recJetT then
@@ -329,10 +355,14 @@ local function animText(a)
 end
 
 local function tickAnimRec(t)
-  if not (native and native.anim) or t < recAnimT then return end
-  recAnimT = t + 0.5
+  if not (native and native.anim) then return end
+  -- (each man twice a second, four men a frame at most: see tickRecorder)
+  local asked = 0
   for h, q in pairs(recPeople) do
-    if not q.animOff or t >= q.animOff then
+    if asked >= 4 then break end
+    if (q.anAt or 0) <= t and (not q.animOff or t >= q.animOff) then
+      q.anAt = t + 0.5
+      asked = asked + 1
       local ok, a = pcall(native.anim, h)
       if not ok or type(a) ~= 'table' then
         q.animOff = t + 10 -- not readable just now: asked again in 10 s
@@ -387,6 +417,16 @@ local function loadAnimInfo(p)
   -- clip in the folder of the deck crew's skeleton): is it among the animations these people can play?
   logLine(customClip and string.format('our mod\'s animation clip "%s": IN the list (index %d, length %.2f s)', CUSTOM_CLIP, customClip.idx or -1, customClip.dur or 0)
     or string.format('our mod\'s animation clip "%s": NOT in the list of %d', CUSTOM_CLIP, #list))
+  -- The liveries DCS has for the deck crew's figure (2026-11-17: the tow driver wears "blue"), as the mission
+  -- editor asks for a type's liveries (loadLiveries.lua): by the crew members' unit_type, and by their model's name.
+  for _, entry in ipairs({ 'us carrier shooter', 'carrier_shooter' }) do
+    local okl, names = pcall(function()
+      local out = {}
+      for _, v in ipairs(DCS.getObjectLiveriesNames(entry, nil, 'en') or {}) do out[#out + 1] = tostring(v[1]) end
+      return out
+    end)
+    logLine(string.format('liveries of "%s": %s', entry, okl and (#names > 0 and table.concat(names, ', ') or 'none listed') or ('not readable: ' .. tostring(names))))
+  end
 end
 
 local function logSymbols()
@@ -395,7 +435,7 @@ local function logSymbols()
   local ok, inf = pcall(native.info)
   if not (ok and type(inf) == 'table') then return end
   if #inf.missing == 0 then
-    logLine('DCS functions: all found')
+    if not CATCC_WORKER then logLine('DCS functions: all found') end
   else
     info('DCS functions NOT found (' .. #inf.missing .. '): ' .. table.concat(inf.missing, '; '))
   end
@@ -1339,14 +1379,63 @@ local DECK = {
   { -64.23, 24.69 }, { -36.86, 22.38 }, { -36.86, 37.21 }, { 41.41, 37.21 }, { 69.15, 37.21 }, { 93.06, 19.18 }, { 167.53, 12.21 }, { 167.53, -12.21 },
   { 92.02, -19.2 }, { 63.1, -40.59 }, { 35.69, -40.59 }, { 15.11, -36.51 }, { -55.75, -36.5 }, { -55.75, -39.25 }, { -59.1, -39.25 },
 }
-local function insideDeck(x, z)
-  local inside, j = false, #DECK
-  for i = 1, #DECK do
-    local a, b = DECK[i], DECK[j]
-    if ((a[2] > z) ~= (b[2] > z)) and (x < (b[1] - a[1]) * (z - a[2]) / (b[2] - a[2]) + a[1]) then inside = not inside end
-    j = i
+-- (2026-11-19: a tow driven in the head asks this eight times every tenth of a second of its way: a fifth of all the
+-- time the deck spotting demo took. The answer is the same as before: `exact` is the test as it was; a grid of 2 m
+-- cells over the outline is filled in as it is asked (1: no edge of the outline runs through the cell and its
+-- middle is inside; 0: none and outside; 2: one does: then the test itself); off the grid is off the deck.)
+local insideDeck
+do
+  local G = { c = 2, x0 = -166, z0 = -42, nx = 168, nz = 41, v = {} }
+  local floor = math.floor
+  local function exact(x, z)
+    local inside, j = false, #DECK
+    for i = 1, #DECK do
+      local a, b = DECK[i], DECK[j]
+      if ((a[2] > z) ~= (b[2] > z)) and (x < (b[1] - a[1]) * (z - a[2]) / (b[2] - a[2]) + a[1]) then inside = not inside end
+      j = i
+    end
+    return inside
   end
-  return inside
+  -- does the segment from x1, z1 to x2, z2 touch the box xa..xb, za..zb
+  local function segBox(x1, z1, x2, z2, xa, za, xb, zb)
+    local t0, t1 = 0, 1
+    local function clip(pp, q)
+      if pp == 0 then return q >= 0 end
+      local r = q / pp
+      if pp < 0 then
+        if r > t1 then return false end
+        if r > t0 then t0 = r end
+      else
+        if r < t0 then return false end
+        if r < t1 then t1 = r end
+      end
+      return true
+    end
+    local dx, dz = x2 - x1, z2 - z1
+    return clip(-dx, x1 - xa) and clip(dx, xb - x1) and clip(-dz, z1 - za) and clip(dz, zb - z1)
+  end
+  insideDeck = function(x, z)
+    local i, j = floor((x - G.x0) / G.c), floor((z - G.z0) / G.c)
+    if i < 0 or j < 0 or i >= G.nx or j >= G.nz then return false end
+    local k = j * G.nx + i
+    local v = G.v[k]
+    if v == nil then
+      local xa, za = G.x0 + i * G.c, G.z0 + j * G.c
+      local xb, zb = xa + G.c, za + G.c
+      v = exact((xa + xb) / 2, (za + zb) / 2) and 1 or 0
+      local n = #DECK
+      for e = 1, n do
+        local a, b = DECK[e], DECK[e % n + 1]
+        if segBox(a[1], a[2], b[1], b[2], xa - 0.001, za - 0.001, xb + 0.001, zb + 0.001) then
+          v = 2
+          break
+        end
+      end
+      G.v[k] = v
+    end
+    if v == 2 then return exact(x, z) end
+    return v == 1
+  end
 end
 local function standable(x, z) return insideDeck(x, z) and insideDeck(x + 2, z) and insideDeck(x - 2, z) and insideDeck(x, z + 2) and insideDeck(x, z - 2) end
 -- Parking nose-on to the deck edge: the jet is stopped with its nose wheel 6 ft from the edge (asked for
@@ -1417,7 +1506,12 @@ local function routeAt(r, s, d)
     i, d = n - 1, s[n]
   else
     d = math.max(0, d)
-    while i < n - 1 and s[i + 1] < d do i = i + 1 end
+    -- (the first leg whose end is not short of d, by halving: it was looked for from the route's beginning every time)
+    local i1 = n - 1
+    while i < i1 do
+      local m = math.floor((i + i1) / 2)
+      if s[m + 1] < d then i = m + 1 else i1 = m end
+    end
   end
   local dx, dz = r[i + 1][1] - r[i][1], r[i + 1][2] - r[i][2]
   local m = math.sqrt(dx * dx + dz * dz)
@@ -1426,23 +1520,44 @@ local function routeAt(r, s, d)
 end
 
 -- the length along the route of its point nearest to x, z, looked for between lengths lo and hi; and how far off that is
+-- (2026-11-19: only the legs between lo and hi are looked at, the first of them found by halving (s rises along the
+-- route): it looked at every leg of the route at every step of every way driven, in the head and on the deck: a
+-- fifth of all the time the deck spotting demo took. The answer is the same.)
 local function routeNearest(r, s, x, z, lo, hi)
   local best, bd = lo, 1e9
-  for i = 1, #r - 1 do
-    if s[i + 1] >= lo and s[i] <= hi then
-      local dx, dz = r[i + 1][1] - r[i][1], r[i + 1][2] - r[i][2]
+  local n = #r
+  local i0, i1 = 1, n - 1
+  while i0 < i1 do
+    local m = math.floor((i0 + i1) / 2)
+    if s[m + 1] >= lo then i1 = m else i0 = m + 1 end
+  end
+  local sqrt = math.sqrt
+  local bd2 = 1e18
+  for i = i0, n - 1 do
+    local si = s[i]
+    if si > hi then break end
+    if s[i + 1] >= lo then
+      local a, b = r[i], r[i + 1]
+      local ax, az = a[1], a[2]
+      local dx, dz = b[1] - ax, b[2] - az
       local l2 = dx * dx + dz * dz
-      local l = math.sqrt(l2)
-      local k = 0
-      if l > 0 then
+      local l, k = 0, 0
+      if l2 > 0 then
         -- the nearest point of this leg, kept to the part of it between lo and hi
-        k = ((x - r[i][1]) * dx + (z - r[i][2]) * dz) / l2
-        k = math.max(math.max(0, (lo - s[i]) / l), math.min(math.min(1, (hi - s[i]) / l), k))
+        l = sqrt(l2)
+        k = ((x - ax) * dx + (z - az) * dz) / l2
+        local k1, k0 = (hi - si) / l, (lo - si) / l
+        if k1 > 1 then k1 = 1 end
+        if k0 < 0 then k0 = 0 end
+        if k > k1 then k = k1 end
+        if k < k0 then k = k0 end
       end
-      local d = math.sqrt((x - r[i][1] - dx * k) ^ 2 + (z - r[i][2] - dz * k) ^ 2)
-      if d < bd then best, bd = s[i] + l * k, d end
+      local ex, ez = x - ax - dx * k, z - az - dz * k
+      local d2 = ex * ex + ez * ez
+      if d2 < bd2 then best, bd2 = si + l * k, d2 end
     end
   end
+  if bd2 < 1e18 then bd = sqrt(bd2) end
   return best, bd
 end
 
@@ -1454,7 +1569,7 @@ local function offNose(ctx, x, z)
   return math.deg(atan2(ctx.fx * dz - ctx.fz * dx, ctx.fx * dx + ctx.fz * dz))
 end
 
--- arg: the catapult (1..4), or with parkArea the deck area to be parked in ("El 2", "Bow stbd", ...): the
+-- arg: the catapult (1..4), or with parkArea the deck area to be parked in ("El 2", "Stbd bow", ...): the
 -- way there is the parking route of that area's first spot (crewtest_routes.lua, parking), which starts
 -- where the roll-out ends; it is joined where it passes nearest, and the last director stops the jet on the spot.
 -- hold: the directors walk to their stations and wait there; nobody takes the jet until the hold is
@@ -2019,7 +2134,8 @@ local function tickShipCmds(t)
   for i = 1, 4 do et[i] = elevKeep[i - 1] and (elevKeep[i - 1].cmd .. '*') or tostring(c.elevator and c.elevator[i] or '?') end
   local txt = string.format('bubbles %s; elevators %s', table.concat(bt, ' '), table.concat(et, ' '))
   if txt ~= cmdSeen then
-    logLine(string.format('  ship commands: %s%s', txt, cmdSeen and ('   was: ' .. cmdSeen) or ' (first reading; a bubble: 2 up, 0 or 1 down; an elevator: 1 down, 2 up, 0 none; a star: kept by us)'))
+    -- (while the demo runs on its own thread, that thread's copy of this says it: it knows which are kept)
+    if not (CATCC_THR and CATCC_THR.live) then logLine(string.format('  ship commands: %s%s', txt, cmdSeen and ('   was: ' .. cmdSeen) or ' (first reading; a bubble: 2 up, 0 or 1 down; an elevator: 1 down, 2 up, 0 none; a star: kept by us)')) end
     cmdSeen = txt
   end
   for idx, k in pairs(bubbleKeep) do
@@ -2316,6 +2432,16 @@ local ELEV_DOOR = { args = { 47, 48, 53, 54 }, secs = 6, plat = { 57, 58, 59, 60
 local doorOpen = {} -- [elevator index from 0] = { arg, t = when it was last moved }: a door being opened
 local elevRise = {} -- [elevator index from 0] = { t, t0, phase }: an elevator we are raising, and whose door we hold open
 
+-- a door of ours is let go (its elevator is told to come up): what DCS did to it meanwhile, for the log
+function ELEV_DOOR.letGo(idx)
+  local d = doorOpen[idx]
+  doorOpen[idx] = nil
+  if d and d.frames then
+    logLine(string.format('  elevator %d: its hangar door was ours for %d frames; DCS moved it back in %d of them%s', idx + 1, d.frames, d.back or 0,
+      (d.back or 0) > 0 and string.format(', by %.3f a frame on average', d.by / d.back) or ''))
+  end
+end
+
 local function tickDoors(t)
   if not (next(doorOpen) or next(elevRise)) or not native or not native.shiparg then return end
   local h = shipHandle()
@@ -2324,20 +2450,49 @@ local function tickDoors(t)
     local ok, r = pcall(native.shiparg, h, n, v)
     return (ok and type(r) == 'number') and r or nil
   end
+  -- THE DOOR OF AN ELEVATOR THAT IS KEPT DOWN: opened on the hook's own count (d.pos: 0 shut .. 1 open, 6 s for the
+  -- whole of it, on the clock the elevator was sent down on) and written every frame in which the model has it
+  -- anywhere else, for as long as the elevator is kept down. (The user's run of 2026-11-18, 22:23: "They mostly stay
+  -- closed the entire time, only jittering open slightly over and over, but never fully opening": the log has the door
+  -- open 6 s after the FIRST lowering of each elevator and never again: until then each frame added its share to
+  -- what the model had, and from the second lowering on DCS put the door back every frame, so it never got anywhere.
+  -- What DCS does to it is counted and said when the door is let go: d.back frames, d.by in all.)
   for idx, d in pairs(doorOpen) do
     local v = arg(d.arg)
+    local tt = t
+    if d.clock then
+      local okm, c = pcall(d.clock)
+      tt = (okm and tonumber(c)) or d.t
+    end
     if not v then
       doorOpen[idx] = nil
       logLine(string.format('  elevator %d: the hangar door (model argument %d) cannot be read: left to DCS', idx + 1, d.arg))
-    elseif v >= 0.999 then
-      doorOpen[idx] = nil
-      logLine(string.format('  elevator %d: the hangar door is open (%.0f s after the elevator was told to go down)', idx + 1, t - d.t0))
-    elseif t > d.t then
-      arg(d.arg, math.min(1, v + (t - d.t) / ELEV_DOOR.secs))
-      d.t = t
+    else
+      d.pos = d.pos or v
+      d.frames = (d.frames or 0) + 1
+      if d.wrote and v < d.wrote - 0.0005 then d.back, d.by = (d.back or 0) + 1, (d.by or 0) + (d.wrote - v) end
+      if d.pos < 1 then d.pos = math.min(1, math.max(d.pos, v) + math.max(0, tt - d.t) / ELEV_DOOR.secs) end
+      d.t = tt
+      if v < d.pos - 0.0005 then
+        arg(d.arg, d.pos)
+        d.wrote = d.pos
+      else
+        d.wrote = nil
+      end
+      if d.pos >= 1 and not d.said then
+        d.said = true
+        logLine(string.format('  elevator %d: the hangar door is open (%.0f s after the elevator was told to go down)%s', idx + 1, tt - d.t0,
+          (d.back or 0) > 0 and string.format('; DCS moved it back in %d of %d frames meanwhile, by %.3f a frame on average', d.back, d.frames, d.by / d.back) or ''))
+      end
     end
   end
   for idx, r in pairs(elevRise) do
+    local t = t
+    if r.model then
+      -- (the mission's clock; r.clock: the tow's (Tow.now, which stands under active pause too: the demo's elevators))
+      local okm, v = pcall(function() return r.clock and r.clock() or DCS.getModelTime() end)
+      t = (okm and tonumber(v)) or r.t
+    end
     local dt = math.max(0, t - r.t)
     r.t = t
     local i = idx + 1
@@ -2346,17 +2501,29 @@ local function tickDoors(t)
       elevRise[idx] = nil
       logLine(string.format('  elevator %d: its model arguments cannot be read: the raising is left to DCS', i))
     else
-      if door < 0.999 then arg(ELEV_DOOR.args[i], 1) end -- held open
+      -- (THE DOOR IS NO LONGER HELD OPEN (the user, 2026-11-18, after the run: "Hangar doors remain open after all aircraft
+      -- have been spotted. Some also seem to jitter constantly as if DCS's default behaviour is trying to override them
+      -- being open": it was: DCS's own raise shuts the door a little every frame, and this wrote it open again every
+      -- frame, for as long as the platform stayed up). DCS shuts it (6 s) WHILE the platform is raised here: the rise
+      -- does not wait for it, which is what was asked for on 2026-11-15, and nothing fights over the door.)
+      -- (EACH PART ON THE HOOK'S OWN COUNT (r.at: where the hook has it), and written only where the model is behind that:
+      -- now that DCS's own raise is no longer stopped at its door, it raises the platform too, and each frame's share
+      -- was added to what DCS had already done: the user's run of 2026-11-18, 22:23: "at the flight deck after 10 s"
+      -- where the platform alone takes 17)
       if r.phase ~= 'up' and dt > 0 then
+        r.at = r.at or {}
         if bottom < 0.999 then
-          arg(ELEV_DOOR.bottom[i], math.min(1, bottom + dt / ELEV_DOOR.fenceSecs))
+          r.at.b = math.min(1, math.max(r.at.b or bottom, bottom) + dt / ELEV_DOOR.fenceSecs)
+          if bottom < r.at.b then arg(ELEV_DOOR.bottom[i], r.at.b) end
         elseif plat > 0.001 then
-          arg(ELEV_DOOR.plat[i], math.max(0, plat - dt / ELEV_DOOR.platSecs))
+          r.at.p = math.max(0, (r.at.p or plat) - dt / ELEV_DOOR.platSecs)
+          if plat > r.at.p then arg(ELEV_DOOR.plat[i], r.at.p) end
         elseif top > 0.001 then
-          arg(ELEV_DOOR.top[i], math.max(0, top - dt / ELEV_DOOR.fenceSecs))
+          r.at.t = math.max(0, (r.at.t or top) - dt / ELEV_DOOR.fenceSecs)
+          if top > r.at.t then arg(ELEV_DOOR.top[i], r.at.t) end
         else
           r.phase = 'up'
-          logLine(string.format('  elevator %d: at the flight deck after %.0f s, its hangar door still open', i, t - r.t0))
+          logLine(string.format('  elevator %d: at the flight deck after %.0f s (its hangar door %s)', i, t - r.t0, door < 0.01 and 'shut' or string.format('%.0f %% open', door * 100)))
         end
       end
     end
@@ -2420,12 +2587,13 @@ function commands.elevator(which, cmd, cleared)
     local ok, st, e = pcall(native.elevator, t.h, idx - 1, c)
     if not ok or st == nil then return say(string.format('elevator %d: the command failed: %s', idx, tostring(ok and e or st))) end
     elevKeep[idx - 1] = cmd == 'down' and { cmd = c, n = 0 } or nil
+    ELEV_DOOR.letGo(idx - 1)
     doorOpen[idx - 1] = (cmd == 'down' and native.shiparg) and { arg = ELEV_DOOR.args[idx], t = now(), t0 = now() } or nil
     elevRise[idx - 1] = (cmd == 'up' and native.shiparg) and { t = now(), t0 = now() } or nil
     logLine(string.format('command elevator: elevator %d <- command %d (%s); state now: %s%s', idx, c, cmd, ELEV_STATE[st] or tostring(st),
       doorOpen[idx - 1] and string.format('; its hangar door (model argument %d) opens from now', ELEV_DOOR.args[idx]) or ''))
     say(cmd == 'down' and string.format('elevator %d told to go DOWN, and kept down; the hangar door behind it starts to open now. Does it stay down?', idx)
-      or string.format('elevator %d told to come UP%s.', idx, elevRise[idx - 1] and ', its hangar door left open (Elevators > Shut the hangar doors)' or ''))
+      or string.format('elevator %d told to come UP%s.', idx, elevRise[idx - 1] and ': the platform is raised here; DCS shuts its hangar door meanwhile' or ''))
   end)
 end
 
@@ -2980,11 +3148,20 @@ end
 -- 2026-11-15, spawn spot at 151 m forward on the flight deck): the axle's middle is 3.005 m ahead and 0.257 m
 -- above the deck (the marker at 0.26 m, "down about 3 mm"); the jet's position stood 21.975 m above the ship's
 -- origin there, the flight deck being 20.149 m: 1.826 m. (Before: 2.985 m from FA-18C_hornet.lua's nose gear
--- position, and 0.265 m.) `axleLen` from end to end is still a guess (two 6.6 in tyres and the strut between);
--- a pin goes `pinIn` into each end. THE AXLE FINDER (F10 > Tow > Axle finder) stands a marker at these numbers
+-- position, and 0.265 m.) `axleLen` from end to end: 0.605 m, SET BY THE USER WITH THE FINDER'S END PLATES
+-- (2026-11-16: "I've updated the width. It was already pretty close"; 0.58 before, from the collision model's
+-- tyres); a pin goes `pinIn` into each end. THE AXLE FINDER (F10 > Tow > Axle finder) stands a marker at these numbers
 -- under the player's jet and moves it; the numbers it ends with are logged, and the tow uses them as they stand.
 local TOW = {
-  speed = 1.4, backSpeed = 0.7, accel = 0.5, turnR = 4.0, look = 3.0,
+  -- (THE USER, 2026-11-19, after the day's runs: "I'm comfortable increasing all tug speeds by 2x (including during
+  -- forward turns) and 1.5x while pushing an aircraft backward and turning ... the ramp up and down to and from those
+  -- top speeds (which should be gradual)": speed 1.4 -> 2.8, backSpeed 0.7 -> 1.05, fastTow 2.1 -> 4.2, fastSolo 4.2 ->
+  -- 8.4, a straight push 1.05 -> 2.1 (`straight` 1.5 -> 2.0); accel 0.5 -> 0.7, brake 0.8 -> 1.1 (my numbers: with the
+  -- old ones the top speeds were hardly reached). simSpeed: the pace of what is driven IN THE HEAD, as it was: its
+  -- steps of a tenth of a second are then the same 14 cm, and it answers as before.)
+  -- (simAccel, simBrake: with them: a plan that was only just possible (a push whose bar comes within a degree of
+  -- folding) is then the plan it was: the rig: with 0.7 / 1.1 in the head the one clear way to Stbd 1 (now Fantail 4) was refused)
+  speed = 2.8, simSpeed = 1.4, simAccel = 0.5, simBrake = 0.8, backSpeed = 1.05, accel = 0.7, turnR = 4.0, look = 3.0,
   -- (the pintle hook as the tractor's model has it, as32-31a.edm read 2026-11-15: 2.85 to 3.00 m behind the tractor's
   -- position, 0.22 to 0.39 m above the floor, on the centre line. Before: 3.05 / 0.45, guessed, and in DCS the ring
   -- hung above and short of the hook)
@@ -2998,7 +3175,7 @@ local TOW = {
   -- 0.289 m either side of the centre line. The bar's heads go OUTSIDE the tyres, their pins inwards into the axle's
   -- ends: the pins' tips 0.25 m either side, the heads' inboard faces 0.30 m. Before: 0.46, guessed, and in DCS the
   -- heads sat inside the wheels)
-  noseGear = 3.005, axleDown = 1.569, axleLen = 0.58, pinIn = 0.04,
+  noseGear = 3.005, axleDown = 1.569, axleLen = 0.605, pinIn = 0.04,
   mainGear = 2.438, gearUp = 1.826, hangarBelow = 14,
   -- the bar: what crew-test/model/towbar.py prints for the hook (a test keeps these the same as the model)
   bar = { pivotX = 0.3333, armZ0 = 0.05458, pinU = 3.8577, pinW = 0.1042, a0 = 0.017170, thetaMax = 0.091651, wheelUp = 0.1250, ringRest = 0.1529, arg = 10 },
@@ -3024,15 +3201,94 @@ local TOW = {
   home = { x = 36, z = -9.5, hx = -1, hz = 0 }, -- where the tractor waits: a hangar parking place (the forward one)
   spot = { x = 8.25, z = -8, fx = -1, fz = 0, name = 'the hangar, port lane (8 m forward, 8 m to port), nose aft' },
   seatAnim = 'f18_0_init',
+  -- the same pose, its legs and arms keyed to this tractor's pedals and steering wheel (crew-test/DRIVER-POSE.md): in
+  -- the mod only after install.ps1 -DriverPose on (Tow.sit); what it is solved for is `seat` above: change one,
+  -- change POSE['seat'] in crew-test/model/driver_pose.py too (a test holds them together) and install again
+  seatPose = 'catcc_drv_seat',
+  -- ON THE FLIGHT DECK (Tow.Fd). towR: the tightest the tractor turns with a jet on the bar (its own is turnR): the
+  -- nose wheel then stays within about 57 degrees of straight (bar 4.4 m behind a hitch 2.93 m behind the tractor's
+  -- own point, the jet's wheelbase 5.44 m); steerMax / kinkMax: a tow whose plan turns the nose wheel, or folds the
+  -- bar against the tractor, further than this is not driven. catShort: the nose wheel is left this far short of the
+  -- catapult's shuttle.
+  -- deckHome: where the tractor waits on the flight deck: the pocket between the island's aft end and elevator 3
+  -- (74 m aft, 27 m to starboard: clear of the artery, the island, the radar mast and every spot; what DCS itself
+  -- stands there has not been looked at).
+  towR = 7.5, steerMax = 75, kinkMax = 85, catShort = 2.0,
+  -- on a catapult the jet is left within catTurn degrees of the track and its nose wheel within catOff metres of its
+  -- line; catLineUp: the taxi way first asked for makes no sharp turn this near the shuttle (Tow.Fd.planCat)
+  catTurn = 1.0, catOff = 0.10, catLineUp = 30,
+  -- the push into a spot (Tow.Fd.back): the nose wheel is steered no further than backSteer and its turn changes no
+  -- faster than backRate (curvature a metre); the main wheels' way is aimed backLook ahead; its bend into the spot is
+  -- on backR at most and backRmin at least; passClear: a line across a spot's front is this far ahead of where the
+  -- main wheels will stand (the noses of the jets either side reach 11 m ahead of theirs, and the jet in tow is
+  -- 5.7 m to its wing tip). pivotOk: a push in which the tractor itself turns more than this (degrees a metre of
+  -- its own travel; its tightest real turn, 2.8 m, is 21) is driven only if no other way is gentler. roadFar: with
+  -- the spot's corner on the taxi road further than this ahead of it, the lines across its front are tried first
+  -- (a push all the way from the road is a long one).
+  -- (backRate: 0.35 threw the tractor's tail about; at 0.06 the bend no longer fits the tighter spots. 2026-11-16)
+  backSteer = 62, backRate = 0.12, backLook = 2.0, backR = 6, backRmin = 3.0, passClear = 18, pivotOk = 30, roadFar = 30,
+  -- backOut: before its way to an aircraft the tractor backs straight out this far, the first that lets it turn onto
+  -- its way (Tow.Fd.arrival)
+  backOut = { 0, 4, 8, 12 },
+  -- the tow's clock (tickTow): a frame's model time is driven in steps of stepT at most, and counts maxFrame at most
+  stepT = 0.1, maxFrame = 6,
+  -- ON A STRAIGHT (Tow.speeds; `speed`, 1.4 m/s, stays the pace of a turn and of everything in the hangar): the
+  -- tractor by itself up to fastSolo, with an aircraft on the bar up to fastTow; brake: how hard it slows for a bend.
+  -- (3 m/s is 6 knots, 2 m/s 4 knots: my numbers; the user asked only for "a bit faster" on a major artery.)
+  -- (THE USER, 2026-11-18, after the run of the whole demo: "Tugs should be able to drive 1.5x faster with aircraft in tow
+  -- whenever they are not turning. Tugs should be able to drive up to 3.0x faster with no aircraft in tow if not in a
+  -- congested area (i.e. driving under an aircraft wing)": fastTow 2.1 (it was 2.0, and on the flight deck only: now in
+  -- the hangar too); `straight`: the push's pace, as a multiple of backSpeed, where neither the aircraft nor the
+  -- tractor turns over the next 4 m; fastSolo 4.2 (it was 3.0), kept down to `speed` where the tractor's own cap says
+  -- so (d.cap: the demo's: within 2.5 m of an aircraft's outline))
+  fastSolo = 8.4, fastTow = 4.2, straight = 2.0, brake = 1.1,
+  -- THE TRACTOR'S TURN IN FRONT OF THE AIRCRAFT (Tow.Fd.arrival), measured from the hook-up place along the nose line:
+  -- its turn comes no nearer than `near`; the turn is on radius R (its tightest is turnR, 4); after it, `run` straight
+  -- ahead on the nose line, where it stops and the bar is taken off; lead: the straight before the turn.
+  arr = { near = 3, R = 5, run = 3, lead = 8 },
+  -- TWO AIRCRAFT TOUCH (Tow.Fd.shape, Tow.Fd.check): an F/A-18C taken as four rounded bars: its nose, its body, its
+  -- wing (folded or spread) and its tailplane; `touch`: the room kept between two aircraft; tugTouch: between the
+  -- tractor and the wheels of an aircraft it is not hooked to (it goes under a nose or a wing). (0.5 and 0.3 at
+  -- first: on the full deck nearly every tow was then "not clear": the taxi roads pass the parked noses that close.)
+  touch = 0.1, tugTouch = 0.1,
+  deckHome = { x = -74, z = 27, hx = 0, hz = -1 },
 }
 local tow -- the tow in hand: see Tow.begin
 local towIds, towRetry, towFail = nil, 0, nil -- the two statics' object ids; when to ask again; what last went wrong
-local Tow = {} -- (Tow.ax: the axle finder, once its marker has been shown: { on })
+local Tow = { Prof = {} } -- (Tow.ax: the axle finder, once its marker has been shown: { on }; Tow.Prof: what the hook costs a frame, see frame())
 
--- where the jet and the ship are, asked once a frame however many things want it
-function Tow.ctx(t)
+-- where the jet and the ship are, asked once a frame however many things want it. ship: that carrier, by name (a
+-- tow of a parked aircraft is on the deck tool's carrier, which need not be the one the player's jet stands on)
+function Tow.ctx(t, ship)
+  if ship then
+    if Tow.sctxT ~= t or Tow.sctxS ~= ship then Tow.sctxT, Tow.sctxS, Tow.sctxV = t, ship, getCtx(nil, nil, ship) end
+    return Tow.sctxV
+  end
   if Tow.ctxT ~= t then Tow.ctxT, Tow.ctxV = t, getCtx() end
   return Tow.ctxV
+end
+
+-- A TOW OF A PARKED AIRCRAFT (w.subj) has no pilot to talk to: what the tow says to "you" is said of "it"
+function Tow.words(w, text)
+  if not (w and w.subj) then return text end
+  for _, r in ipairs({
+    { ' Nose wheel steering OFF; parking brake on until it is hooked up.', '' },
+    { 'hooked up. Brakes OFF and hands off: you are pulled in', 'hooked up: it is pulled in' },
+    { ' Set the parking brake, then F10 > Tow > Unhook.', ' The tractor unhooks by itself.' },
+    { ': hands off.', '.' },
+    { 'in front of you', 'in front of the aircraft' },
+    { 'pushes you back', 'pushes it back' },
+    { 'You are ', 'It is ' }, { 'you are ', 'it is ' }, { 'your nose', 'its nose' },
+  }) do
+    local from = 1
+    while true do
+      local i, j = text:find(r[1], from, true)
+      if not i then break end
+      text = text:sub(1, i - 1) .. r[2] .. text:sub(j + 1)
+      from = i + #r[2]
+    end
+  end
+  return text
 end
 
 -- 12 world numbers for something at x, y, z of the ship, facing fx, fz (its axes: forward, up, right)
@@ -3060,6 +3316,57 @@ function Tow.unit(x, z)
   return x / m, z / m, m
 end
 
+-- HOW FAST THE WAY ALLOWS (2026-11-17, the user: "the tug could probably drive a bit faster when transiting a major
+-- artery"). d.speed is the pace of a turn (the tightest the tractor makes: d.turnR or TOW.turnR); d.fast, if set, the
+-- most on a straight. In between, by how the way bends: speed x sqrt(radius / tightest radius) (the same sideways
+-- push as the tightest turn at d.speed). Worked out once for a way, for every metre of it (d.vlim): a corner of more
+-- than 15 degrees counts as the tightest turn from 4 m before it to 4 m past it (the tractor rounds it on its own
+-- radius); then, going backwards, no faster anywhere than it can still brake from (TOW.brake) for what follows.
+function Tow.speeds(d)
+  local p, s = d.path, d.s
+  local n = #p
+  local len = s[n]
+  local m = math.floor(len) + 2
+  local v = {}
+  for j = 1, m do v[j] = d.fast end
+  -- (d.cap(x, z): the most it may drive there, or nil: a tractor by itself among aircraft)
+  if d.cap then
+    for j = 1, m do
+      local x, z = routeAt(p, s, math.min(len, j - 1))
+      local c = d.cap(x, z)
+      if c and c < v[j] then v[j] = c end
+    end
+  end
+  local rmin = d.turnR or TOW.turnR
+  for i = 2, n - 1 do
+    local ax, az = p[i][1] - p[i - 1][1], p[i][2] - p[i - 1][2]
+    local bx, bz = p[i + 1][1] - p[i][1], p[i + 1][2] - p[i][2]
+    local la, lb = math.sqrt(ax * ax + az * az), math.sqrt(bx * bx + bz * bz)
+    if la > 1e-6 and lb > 1e-6 then
+      local th = math.abs(atan2(ax * bz - az * bx, ax * bx + az * bz))
+      if th > 1e-4 then
+        local lim, reachM = d.fast, 2
+        if th > math.rad(15) then
+          lim, reachM = d.speed, 4
+        else
+          local r = 0.5 * (la + lb) / th
+          lim = math.max(d.speed, math.min(d.fast, d.speed * math.sqrt(r / rmin)))
+        end
+        if lim < d.fast then
+          for j = math.max(1, math.floor(s[i] - reachM) + 1), math.min(m, math.floor(s[i] + reachM) + 2) do
+            if lim < v[j] then v[j] = lim end
+          end
+        end
+      end
+    end
+  end
+  for j = m - 1, 1, -1 do
+    local cap = math.sqrt(v[j + 1] ^ 2 + 2 * TOW.brake)
+    if cap < v[j] then v[j] = cap end
+  end
+  d.vlim, d.vfor = v, p
+end
+
 -- the tractor driven on along its path for dt seconds; true when it has reached the end
 function Tow.drive(d, dt)
   local total = d.s[#d.path]
@@ -3070,14 +3377,37 @@ function Tow.drive(d, dt)
     d.v = 0
     return true
   end
-  d.v = math.min(math.min(d.speed, math.sqrt(2 * TOW.accel * remain) + 0.05), d.v + TOW.accel * dt)
+  local vmax = d.speed
+  if d.fast and d.fast > d.speed then
+    if d.vfor ~= d.path then Tow.speeds(d) end
+    local j = math.floor(d.at) + 1
+    local a, b = d.vlim[j] or d.speed, d.vlim[j + 1] or d.speed
+    vmax = a + (b - a) * (d.at - (j - 1))
+    -- (and no faster than the turn it is making this instant allows: off its way, coming onto it)
+    if d.kv and d.kv < vmax then vmax = d.kv end
+    if vmax < d.speed then vmax = d.speed end
+  end
+  local acc, brk = d.acc or TOW.accel, d.brk or TOW.brake
+  local want = math.min(vmax, math.sqrt(2 * acc * remain) + 0.05)
+  -- (d.hold: the deck spotting demo's: it gives way to another tractor: it brakes to a stand where it is, on its way,
+  -- and goes on when the hold is taken off)
+  if d.hold then
+    d.v = math.max(0, d.v - brk * dt)
+  elseif d.v > want then
+    d.v = math.max(want, d.v - brk * dt)
+    if not d.fast then d.v = want end
+  else
+    d.v = math.min(want, d.v + acc * dt)
+  end
   local lx, lz, ldx, ldz = routeAt(d.path, d.s, math.min(total, d.at + TOW.look))
   if remain < TOW.look then lx, lz = lx + ldx * (TOW.look - remain), lz + ldz * (TOW.look - remain) end -- past the end: on along the last leg
   local ax, az = lx - d.x, lz - d.z
   local al = math.sqrt(ax * ax + az * az)
   local ang = (math.atan2 or math.atan)(d.hx * az - d.hz * ax, d.hx * ax + d.hz * az) -- to the aim point, + to the right
   local curv = al > 0.01 and 2 * math.sin(ang) / al or 0
-  curv = math.max(-1 / TOW.turnR, math.min(1 / TOW.turnR, curv))
+  local turnR = d.turnR or TOW.turnR -- (with a jet on the bar on the flight deck: TOW.towR)
+  curv = math.max(-1 / turnR, math.min(1 / turnR, curv))
+  if d.fast then d.kv = d.speed * math.sqrt(1 / (turnR * math.max(math.abs(curv), 1e-4))) end
   local c, sn = math.cos(d.v * dt * curv), math.sin(d.v * dt * curv)
   d.hx, d.hz = d.hx * c - d.hz * sn, d.hx * sn + d.hz * c
   d.x, d.z = d.x + d.hx * d.v * dt, d.z + d.hz * d.v * dt
@@ -3087,8 +3417,9 @@ end
 -- statics of ours made (once a mission) by the mission script. spec: "name=type;name=type"; at: { forward, starboard }:
 -- made LINKED to the ship, at that place of its deck. Their object ids in that order (false: that one could not be
 -- made), and the script's note; or nil, why
-function Tow.statics(spec, at)
-  local ok, r = pcall(dostring, 'return (CATCC_CR and CATCC_CR.statics) and CATCC_CR.statics(' .. string.format('%q', spec) .. (at and string.format(', %.3f, %.3f', at[1], at[2]) or '')
+function Tow.statics(spec, at, ship)
+  local ok, r = pcall(dostring, 'return (CATCC_CR and CATCC_CR.statics) and CATCC_CR.statics(' .. string.format('%q', spec) .. (at and string.format(', %.3f, %.3f', at[1], at[2]) or (ship and ', nil, nil' or ''))
+    .. (ship and string.format(', %q', ship) or '')
     .. ') or "ERR|the menu script cannot make statics: run crew-test\\\\install.ps1 with DCS closed"')
   local p = (ok and type(r) == 'string') and split(r) or { 'ERR', tostring(r) }
   if p[1] ~= 'OK' then return nil, tostring(p[2]) end
@@ -3111,17 +3442,22 @@ Tow.OWN = { 1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 0 }
 -- is given there): drawn with the ship, as the axle finder's marker was (steady to the millimetre). So the two are
 -- now made linked, and placed in the ship's own frame (Tow.OWN: metres forward, up, to starboard; any height).
 -- tugOwn / barOwn: that object has a parent (native.staticinfo) and is placed so; else in the world, as before.
-function Tow.ids()
-  if towIds then return towIds end
+-- ship: the carrier they are made on, by name, when that is not the one the player's jet stands on (a tow of a parked
+-- aircraft: the deck tool's carrier). Made once a mission, they stay that ship's.
+function Tow.ids(ship)
+  if towIds then
+    if ship and towIds.ship and towIds.ship ~= ship then return nil, 'the tractor was made on ' .. tostring(towIds.ship) .. ' in this mission and stays there (this is ' .. tostring(ship) .. ')' end
+    return towIds
+  end
   if now() < towRetry then return nil, towFail end
   towRetry = now() + 2
-  local ids, note = Tow.statics('catcc-tug=AS32-31A;catcc-towbar=CATCC_Towbar', { TOW.home.x, TOW.home.z })
+  local ids, note = Tow.statics('catcc-tug=AS32-31A;catcc-towbar=CATCC_Towbar', { TOW.home.x, TOW.home.z }, ship)
   if not ids or not ids[1] then
     towFail = ids and ('the tractor could not be made' .. (note and (': ' .. note) or '')) or tostring(note)
     logLine('tow: no tractor: ' .. towFail)
     return nil, towFail
   end
-  towIds = { tug = ids[1], bar = ids[2] or nil }
+  towIds = { tug = ids[1], bar = ids[2] or nil, ship = ship }
   logLine(string.format('tow: statics made: tractor object %d, tow bar %s%s', ids[1], towIds.bar and ('object ' .. towIds.bar) or 'NONE (the bar type of our mod is missing?)',
     note and (' (' .. note .. ')') or ''))
   for _, k in ipairs({ 'tug', 'bar' }) do
@@ -3174,13 +3510,52 @@ end
 function Tow.axleUp() return TOW.gearUp - TOW.axleDown end
 function Tow.thetaIn() return Tow.thetaFor(math.max(0.01, TOW.axleLen / 2 - TOW.pinIn)) end
 
+-- THE DRIVERS' HEAD (Scripts/CATCC/crewtest_head.lua; crew-test/DRIVER-HEAD.md): where a driver looks: over his right
+-- shoulder while his tractor backs, towards the point of his way Tow.Head.CFG.ahead metres on while it drives, round
+-- about now and then. Tow.Head is nil when the file is not there; a driver whose head cannot be turned (Tow.Head.seat:
+-- no blend space of ours among his animations, an older native module) sits in TOW.seatAnim as before.
+do
+  local f = loadfile(writedir .. 'Scripts/CATCC/crewtest_head.lua')
+  local ok, m = pcall(function() return f and f() end)
+  Tow.Head = (ok and type(m) == 'table') and m or nil
+end
+
+-- THE DRIVERS' LIMBS (crew-test/DRIVER-POSE.md). A driver whose head does not turn sits in the seated pose of ours
+-- with his feet at the pedals and his hands on the steering wheel (TOW.seatPose) when it is among his animations
+-- (install.ps1 -DriverPose on), else in the pilot's own (TOW.seatAnim) as before. (One whose head turns sits in the
+-- blend space: its five poses are made with the same limbs by the same switch.) Returns the pose now played; nil and
+-- why when neither could be.
+function Tow.sit(native, h)
+  local ok, res = pcall(native.play, h, TOW.seatPose, 2)
+  if ok and res then return TOW.seatPose end
+  local ok2, res2, e2 = pcall(native.play, h, TOW.seatAnim, 2)
+  if ok2 and res2 then return TOW.seatAnim end
+  return nil, tostring(ok2 and e2 or res2)
+end
+
 -- everything put where it is this frame
+-- THE FRONT HITCH (w.front; the user, 2026-11-15: "in some situations it could be good to use the forward attachment
+-- instead of the rear"; 2026-11-17, of the packed hangar: "It's also permissible for a tug to ... push an aircraft with
+-- its other connection point"). The tractor then FACES the aircraft, its front pintle (TOW.hitchFront ahead of its
+-- position) in the bar's ring. Everything the tow works with stays as it is: w.d is the tractor as if it stood the
+-- other way round on the same ground with its rear pintle there (its own point TOW.hitch beyond the ring, pointing
+-- away from the aircraft): the two take up the same ground, to the centimetre (2.93 - 1.73 = 1.2: the tractor's
+-- ends are 2.1 m ahead of and 3.3 m behind its point). Only what is DRAWN is the real one: Tow.real.
+function Tow.real(w)
+  local d = w.d
+  if not w.front then return d.x, d.z, d.hx, d.hz end
+  local f = TOW.hitch - TOW.hitchFront
+  return d.x - d.hx * f, d.z - d.hz * f, -d.hx, -d.hz
+end
+
 function Tow.apply(w, ctx, dt)
   local s = ctx.s
   local d = w.d
-  local ok, res, e, rk, took, flags = pcall(native.staticpos, towIds.tug, unpack(Tow.pose(towIds.tugOwn and Tow.OWN or s, d.x, w.floor, d.z, d.hx, d.hz)))
+  local towIds = w.ids or towIds -- (a tow of the demo's has its own tractor and bar; the player's tows share the one pair)
+  local rx, rz, rhx, rhz = Tow.real(w)
+  local ok, res, e, rk, took, flags = pcall(native.staticpos, towIds.tug, unpack(Tow.pose(towIds.tugOwn and Tow.OWN or s, rx, w.floor, rz, rhx, rhz)))
   if not (ok and res) then return nil, 'the tractor could not be placed: ' .. tostring(ok and e or res) end
-  if not w.tugSeen then
+  if not w.tugSeen and not w.quiet then
     w.tugSeen = true
     logLine(string.format('tow: the tractor is placed (class %s, register kind %s; %s; its flag word %s)', tostring(e), tostring(rk),
       took == nil and 'whether it took the place is not known' or (took and 'it says it is there' or 'IT IS NOT WHERE IT WAS PUT'), tostring(flags)))
@@ -3208,15 +3583,35 @@ function Tow.apply(w, ctx, dt)
     end
   end
   if w.driver and not w.driverBad then
-    local okd, resd, ed = pcall(native.place, w.driver.h, d.x + d.hx * TOW.seat.fwd + d.hz * TOW.seat.left, w.floor + TOW.seat.up, d.z + d.hz * TOW.seat.fwd - d.hx * TOW.seat.left, d.hx, d.hz)
+    local okd, resd, ed = pcall(native.place, w.driver.h, rx + rhx * TOW.seat.fwd + rhz * TOW.seat.left, w.floor + TOW.seat.up, rz + rhz * TOW.seat.fwd - rhx * TOW.seat.left, rhx, rhz)
     if not (okd and resd) then
       w.driverBad = true
       logLine('tow: the driver could not be put on the seat (the tow goes on without him): ' .. tostring(okd and ed or resd))
-    elseif not w.driverSaid then
+    elseif not w.driverSaid and not w.quiet then
       -- (ed: how he was placed, from the native module: "origin + pose" when his own pose on the ship was written too)
       w.driverSaid = true
       logLine(string.format('tow: the driver is put on the seat (%s): %.2f m forward, %.2f m left, %.2f m up of the tractor\'s position', tostring(ed or 'origin only: an older native module'),
         TOW.seat.fwd, TOW.seat.left, TOW.seat.up))
+    end
+    if w.driver.head and Tow.Head then
+      -- his head (Tow.Head): the real tractor's place and facing, and the point of its way it drives towards
+      local ax, az
+      if d.path and d.s and d.at then ax, az = routeAt(d.path, d.s, math.min(d.s[#d.path], d.at + Tow.Head.CFG.ahead)) end
+      -- (an aircraft on the bar that goes tail first: pushed back: he looks where IT goes: a point 12 m beyond its
+      -- main wheels along its tail. Told from how the aircraft moved since the last frame (it is moved below), kept
+      -- through a stop; not once it is pulled nose first, or off the bar)
+      local px, pz
+      if w.bar == 'both' and w.jx and w.jfx then
+        if w.headJx and dt and dt > 0 then
+          local back = -((w.jx - w.headJx) * w.jfx + (w.jz - w.headJz) * w.jfz) / dt
+          if back > 0.1 then w.headPush = true elseif back < -0.1 then w.headPush = false end
+        end
+        w.headJx, w.headJz = w.jx, w.jz
+        if w.headPush then px, pz = w.mx - w.jfx * 12, w.mz - w.jfz * 12 end
+      else
+        w.headJx, w.headJz, w.headPush = nil, nil, nil
+      end
+      Tow.Head.drive(native, w.driver, dt, rx, rz, rhx, rhz, ax, az, px, pz)
     end
   end
   if w.bar == 'both' then
@@ -3224,8 +3619,22 @@ function Tow.apply(w, ctx, dt)
     local fx, fz = Tow.unit(w.lx - w.mx, w.lz - w.mz)
     w.mx, w.mz = w.lx - fx * (TOW.noseGear + TOW.mainGear), w.lz - fz * (TOW.noseGear + TOW.mainGear)
     w.jx, w.jz, w.jfx, w.jfz = w.lx - fx * TOW.noseGear, w.lz - fz * TOW.noseGear, fx, fz
-    local okj, resj, ej = pcall(native.forcepos, w.jet, unpack(Tow.pose(s, w.jx, w.jy, w.jz, fx, fz)))
-    if not (okj and resj) then return nil, 'the jet could not be moved: ' .. tostring(okj and ej or resj) end
+    if w.subj then
+      -- a parked aircraft (a static, the ship's child as the tractor is): through its own position setter, in the
+      -- ship's own frame; where it now stands is kept on its deck entry (the click and the mark find it there)
+      local okj, resj, ej, _, took = pcall(native.staticpos, w.subj.id, unpack(Tow.pose(w.subj.own and Tow.OWN or s, w.jx, w.jy, w.jz, fx, fz)))
+      if not (okj and resj) then return nil, 'the aircraft in tow could not be moved: ' .. tostring(okj and ej or resj) end
+      if not w.subjSeen and not w.quiet then
+        w.subjSeen = true
+        logLine(string.format('tow: the aircraft in tow is placed (object %d, class %s; %s; %s)', w.subj.id, tostring(ej), w.subj.own and 'in the ship\'s own frame' or 'in the world',
+          took == nil and 'whether it took the place is not known' or (took and 'it says it is there' or 'IT IS NOT WHERE IT WAS PUT')))
+        if took == false then say('the aircraft in tow did not take the place it was given: DCS leaves this object where it is.') end
+      end
+      w.subj.e.at = { x = w.jx, z = w.jz, hdg = math.deg(atan2(fz, fx)) % 360, where = (w.phase == 'arrived' and 'at ' or 'in tow to ') .. tostring(w.dest.short or w.dest.name) }
+    else
+      local okj, resj, ej = pcall(native.forcepos, w.jet, unpack(Tow.pose(s, w.jx, w.jy, w.jz, fx, fz)))
+      if not (okj and resj) then return nil, 'the jet could not be moved: ' .. tostring(okj and ej or resj) end
+    end
   end
   if w.bar == 'gear' or w.bar == 'both' then
     -- on the nose gear the bar's heading is the nose wheel's: its steering angle, from the jet's nose, + to the right
@@ -3251,6 +3660,7 @@ function Tow.wheelsShow(w, dt)
   if not native.objarg or w.wheelsBad then return end
   local h = shipHandle()
   if not h then return end
+  local towIds = w.ids or towIds
   local d = w.d
   local W = w.wheels
   if not W then
@@ -3258,11 +3668,12 @@ function Tow.wheelsShow(w, dt)
     w.wheels = W
   end
   local TWO_PI_ = 2 * math.pi
-  local function set(id, arg, v)
+  -- (flag: what a failure switches off: all of it, or (a parked aircraft's wheels) only the towed aircraft's)
+  local function set(id, arg, v, flag)
     local ok, res, e = pcall(native.objarg, h, id, arg, v)
     if not (ok and res) then
-      w.wheelsBad = true
-      logLine(string.format('tow: a wheel argument could not be set (object %s argument %d; no more are written): %s', tostring(id), arg, tostring(ok and e or res)))
+      w[flag or 'wheelsBad'] = true
+      logLine(string.format('tow: a wheel argument could not be set (object %s argument %d; no more %s written): %s', tostring(id), arg, flag and 'of the towed aircraft\'s are' or 'are', tostring(ok and e or res)))
       return false
     end
     return true
@@ -3270,6 +3681,7 @@ function Tow.wheelsShow(w, dt)
   -- the tractor
   if W.tx then
     local ds = (d.x - W.tx) * d.hx + (d.z - W.tz) * d.hz
+    if w.front then ds = -ds end -- (on its front hitch the tractor itself stands the other way round)
     local turn = (math.atan2 or math.atan)(W.thx * d.hz - W.thz * d.hx, W.thx * d.hx + W.thz * d.hz) -- + to the right
     W.roll = (W.roll + ds / (TWO_PI_ * TOW.tugWheelR)) % 1
     if dt > 0 then
@@ -3298,11 +3710,12 @@ function Tow.wheelsShow(w, dt)
       W.nr = (W.nr + ((rx - W.jr[1]) * fx + (rz - W.jr[2]) * fz) / (TWO_PI_ * TOW.mainWheelR)) % 1
     end
     W.jn, W.jl, W.jr = { w.lx, w.lz }, { lx, lz }, { rx, rz }
-    if not (set(w.jet, TOW.jetWheelArgs.nose, W.n) and set(w.jet, TOW.jetWheelArgs.left, W.nl) and set(w.jet, TOW.jetWheelArgs.right, W.nr)) then return end
+    local jflag = w.subj and 'jetWheelsBad' or nil
+    if not w.jetWheelsBad and not (set(w.jet, TOW.jetWheelArgs.nose, W.n, jflag) and set(w.jet, TOW.jetWheelArgs.left, W.nl, jflag) and set(w.jet, TOW.jetWheelArgs.right, W.nr, jflag)) and not jflag then return end
   else
     W.jn, W.jl, W.jr = nil, nil, nil
   end
-  if not W.said then
+  if not W.said and not w.quiet then
     W.said = true
     logLine(string.format('tow: the wheels are turned on the models: the tractor\'s arguments %d (wheels), %d (steering), %d (pitch); the jet\'s %d / %d / %d (nose, left main, right main) once it is pulled',
       TOW.tugWheelArg, TOW.tugSteerArg, TOW.tugPitchArg, TOW.jetWheelArgs.nose, TOW.jetWheelArgs.left, TOW.jetWheelArgs.right))
@@ -3316,11 +3729,12 @@ function Tow.armShow(w)
   if not native.objarg or w.armBad then return end
   local h = shipHandle()
   if not h then return end
+  local towIds = w.ids or towIds
   local ok, res, e = pcall(native.objarg, h, towIds.bar, TOW.bar.arg, Tow.armArg(w.theta, w.clamped))
   if not (ok and res) then
     w.armBad = true
     logLine(string.format('tow: the bar\'s arms (its argument %d) could not be set: %s', TOW.bar.arg, tostring(ok and e or res)))
-  elseif not w.armSeen then
+  elseif not w.armSeen and not w.quiet then
     w.armSeen = true
     logLine(string.format('tow: the bar\'s arms are on its argument %d (class %s)', TOW.bar.arg, tostring(e)))
   end
@@ -3347,7 +3761,7 @@ function Tow.steerShow(w, steer)
     logLine('tow: the nose wheel steering could not be shown on the jet: ' .. tostring(ok and e or res))
     return
   end
-  if not w.steerSet then logLine(string.format('tow: the nose wheel\'s steering is shown on the jet (argument %d; was %s; class %s)', TOW.steerArg, tostring(now0), tostring(e))) end
+  if not w.steerSet and not w.quiet then logLine(string.format('tow: the nose wheel\'s steering is shown on the jet (argument %d; was %s; class %s)', TOW.steerArg, tostring(now0), tostring(e))) end
   w.steerSet = v
 end
 
@@ -3365,15 +3779,60 @@ function Tow.barPose(s, rx, ry, rz, lx, ly, lz)
 end
 
 function Tow.phase(w, name, text)
-  w.phase, w.t0 = name, now()
-  logLine(string.format('tow: %s (tractor at %.1f fwd %.1f stbd, heading %.2f %.2f; bar %s, arms open %.1f degrees%s%s)', name, w.d.x, w.d.z, w.d.hx, w.d.hz, tostring(w.bar),
+  w.phase, w.t0 = name, w.clock or Tow.now()
+  logLine(string.format('tow%s: %s (tractor at %.1f fwd %.1f stbd, heading %.2f %.2f; bar %s, arms open %.1f degrees%s%s)', w.name and (' ' .. w.name) or '', name, w.d.x, w.d.z, w.d.hx, w.d.hz, tostring(w.bar),
     math.deg(w.theta), w.clamped and ', clamped' or '', w.bar == 'both' and string.format('; jet at %.1f fwd %.1f stbd, nose %.2f %.2f', w.jx or 0, w.jz or 0, w.jfx or 0, w.jfz or 0) or ''))
-  if text then say(text) end
+  if text and w.quiet then
+    logLine('  (' .. tostring(w.name or 'a tow') .. ') ' .. Tow.words(w, text))
+  elseif text then
+    say(Tow.words(w, text))
+  end
 end
 
-function Tow.path(w, pts, speed)
+-- "Unhook", in any phase (the F10 menu's, the panel's; and by itself once a parked aircraft has been towed to its place)
+function Tow.unhook(w)
+  if w.phase == 'parked' or w.phase == 'leave' then return say('the tractor is unhooked already.') end
+  if w.phase == 'ringoff' or w.phase == 'moveup' or w.phase == 'release' or w.phase == 'setdown' or w.phase == 'roll' or w.phase == 'close' or w.phase == 'ringon' then
+    return say('the bar is being taken off already.')
+  end
+  local was = w.phase
+  w.paused = false
+  w.d.turnR = nil
+  if w.keepBar and w.bar == 'both' then
+    -- (the deck spotting demo: the bar stays on the aircraft: its ring is lifted off the pintle and set down on its
+    -- foot, the tractor moves up and drives away)
+    w.d.v = 0
+    w.bar = 'gear'
+    w.ringUp, w.lugUp = TOW.hitchUp, Tow.axleUp()
+    return Tow.phase(w, 'ringoff', 'tow: unhooking: the bar stays on the aircraft.')
+  end
+  if w.subj and w.subj.e.at and was ~= 'arrived' and w.bar == 'both' then w.subj.e.at.where = 'where its tow to ' .. tostring(w.dest.short or w.dest.name) .. ' was broken off' end
+  if w.bar == 'both' then
+    -- hooked up (at the place, or under way: the tractor stops where it is): the bar comes off the tractor, then off
+    -- the jet, and goes back on the tractor (the phases from 'ringoff' on); the jet is left where it stands
+    w.d.v = 0
+    w.bar = 'gear'
+    w.ringUp, w.lugUp = TOW.hitchUp, Tow.axleUp()
+    return Tow.phase(w, 'ringoff', (was == 'arrived' and 'tow: unhooking. ' or 'tow: broken off. ') .. 'The bar\'s ring is lifted off the tractor\'s pintle and set down...')
+  end
+  if w.bar == 'tug' then
+    -- the bar still on the tractor (it had not reached the jet): it just moves on with it
+    local d0 = w.d
+    Tow.path(w, { { d0.x, d0.z }, { d0.x + d0.hx * 8, d0.z + d0.hz * 8 } }, TOW.speed)
+    return Tow.phase(w, 'leave', 'tow: broken off; the tractor moves 8 m on with its bar and waits there.')
+  end
+  w.bar = (w.bar == 'both' or w.bar == 'gear') and 'gear' or 'free' -- the ring comes off the pintle and is set down; the bar stays on the nose gear
+  local d = w.d
+  Tow.path(w, { { d.x, d.z }, { d.x + d.hx * 8, d.z + d.hz * 8 } }, TOW.speed)
+  -- (broken off while the bar was off the tractor, being put on the jet: it is left where it is)
+  return Tow.phase(w, 'leave', 'tow: broken off; the bar is left where it is and the tractor moves 8 m on and waits there.')
+end
+
+-- fast: the most on a straight stretch of it (Tow.speeds); none: `speed` all the way
+function Tow.path(w, pts, speed, fast)
   local d = w.d
   d.path, d.s, d.at, d.speed = pts, routeLengths(pts), 0, speed
+  d.fast, d.vfor, d.vlim, d.kv = fast, nil, nil, nil
 end
 
 local function smooth(k)
@@ -3381,21 +3840,147 @@ local function smooth(k)
   return k * k * (3 - 2 * k)
 end
 
-local function tickTow(t)
-  local w = tow
-  if not w or not native or not towIds then return end
-  local dt = math.max(0, math.min(0.3, t - (w.last or t)))
-  w.last = t
-  local ctx = Tow.ctx(t)
-  if not ctx then return end
+-- THE TOW'S CLOCK IS THE MISSION'S (2026-11-17, the user: "accelerating time in the mission does not make the tugs move
+-- any faster"): model time, which stands still while the mission is paused and runs 2, 4, 8... times as fast under time
+-- acceleration (real time before, with a frame worth 0.3 s at most). A frame's worth of it is driven in steps of 0.1 s
+-- at most (Tow.STEP), the bar and the jet trailing after every step as in the plan driven in the head: so the tow goes
+-- the same way at any frame rate and any acceleration. A frame is worth TOW.maxFrame seconds at most.
+-- ACTIVE PAUSE (the user, 2026-11-18: "When I pressed active pause in my last session, the tugs continued to move
+-- aircraft. They should pause too"). Under DCS's pause the mission's clock stands, and the tow with it. Under its
+-- ACTIVE pause the clock runs on (DCS holds the player's own aircraft only). DCS says when that is on (Export's
+-- LoSimulationOnActivePause: "true if simulation is in active pause"); the model time that passes while it is on is
+-- taken out of the tow's clock (Tow.ap.off). So Tow.now stands under either pause, and with it every tow, the deck
+-- spotting demo (all of it runs on Tow.now) and an elevator the demo raises. Asked once for each new model time, and
+-- every frame of a mission (frame), so that none of it is missed. (What DCS itself moves goes on: its own deck crew,
+-- an elevator on its way down.)
+Tow.ap = { off = 0 }
+function Tow.now()
+  local okm, v = pcall(function() return DCS.getModelTime() end)
+  local mt = okm and tonumber(v) or nil
+  if not mt then return now() end
+  local A = Tow.ap
+  -- (another mission: its clock begins again)
+  if A.last and mt < A.last - 1e-6 then A.off, A.last, A.on, A.since = 0, nil, nil, nil end
+  if A.last ~= mt then
+    if A.on and A.last then A.off = A.off + (mt - A.last) end
+    local on = false
+    if Export and Export.LoSimulationOnActivePause then
+      local oka, r = pcall(Export.LoSimulationOnActivePause)
+      on = oka and (r == true or r == 1)
+    end
+    -- (said by the main thread's own copy of this clock, not again on the demo's thread)
+    if on and not A.on then
+      A.since = mt
+      if not CATCC_WORKER then logLine('active pause ON: the tow\'s clock is held: tractors, tows and the deck spotting demo stand') end
+    elseif A.on and not on then
+      if not CATCC_WORKER then logLine(string.format('active pause OFF after %.0f s of the mission\'s time: they go on', mt - (A.since or mt))) end
+    end
+    A.on, A.last = on, mt
+  end
+  return mt - A.off
+end
+
+-- the trailing, as Tow.apply places it: the bar's pin end behind the hitch, the jet's main wheels behind the nose wheel
+function Tow.follow(w)
   local d = w.d
-  local k = t - w.t0
+  local hx, hz = d.x - d.hx * TOW.hitch, d.z - d.hz * TOW.hitch
+  if w.bar == 'tug' or w.bar == 'both' then
+    w.ringUp, w.lugUp = TOW.hitchUp, w.bar == 'tug' and TOW.bar.wheelUp or Tow.axleUp()
+    local ux, uz = Tow.unit(hx - w.lx, hz - w.lz)
+    local fl = Tow.flat(w)
+    w.ux, w.uz, w.lx, w.lz = ux, uz, hx - ux * fl, hz - uz * fl
+  end
+  if w.bar == 'both' then
+    local fx, fz = Tow.unit(w.lx - w.mx, w.lz - w.mz)
+    w.mx, w.mz = w.lx - fx * (TOW.noseGear + TOW.mainGear), w.lz - fz * (TOW.noseGear + TOW.mainGear)
+    w.jx, w.jz, w.jfx, w.jfz = w.lx - fx * TOW.noseGear, w.lz - fz * TOW.noseGear, fx, fz
+  end
+end
+
+-- one tow driven on to model time mt (the player's, or one of the deck spotting demo's: each with its own tractor,
+-- w.ids, and its own surroundings, w.env). True; or nil and what went wrong (the tow is then over).
+function Tow.tickOne(w, ctx, mt)
+  local total = math.max(0, math.min(TOW.maxFrame, mt - (w.last or mt)))
+  local steps = math.max(1, math.ceil(total / TOW.stepT - 1e-9))
+  local dt = total / steps
+  local t0 = (w.last or mt)
+  if mt - t0 > total then t0 = mt - total end
+  w.last = mt
+  if w.subj and w.bar ~= 'tug' and w.subj.e.id ~= w.subj.id then
+    -- (the deck tool took the aircraft away, or made it anew on its spot: the object the tow had is gone)
+    return nil, 'the aircraft in tow is no longer there (taken away, or parked anew by the deck tool)'
+  end
+  -- (its surroundings: the hangar's floor and walls for a tow down there; the flight deck's otherwise)
+  local env = w.env
+  if env then Tow.Fd.inside, Tow.Fd.wall, Tow.Fd.blocks = env.inside, env.wall, env.blocks end
+  local d = w.d
   local B = TOW.bar
+  for i = 1, steps do
+  w.clock = t0 + dt * i
+  local k = w.clock - w.t0
   if not w.paused then
-    if w.phase == 'arrive' then
+    if w.phase == 'backout' then
+      -- the tractor backs straight out of where it stands before its way (Tow.Fd.arrival); the bar on its pintle
+      -- goes with it as it lies
+      local b = w.backOut
+      local remain = b.len - b.s
+      b.v = math.min(math.min(TOW.backSpeed, math.sqrt(2 * TOW.accel * remain) + 0.05), b.v + TOW.accel * dt)
+      local step = math.min(remain, b.v * dt)
+      b.s = b.s + step
+      if b.arc then
+        -- (a quarter circle backwards, to turn round: b.arc = { cx, cz, r, a0, a1 }, as the 'backup' onto a bar)
+        local a = b.arc.a0 + (b.arc.a1 - b.arc.a0) * math.min(1, b.s / b.len)
+        local sg = b.arc.a1 >= b.arc.a0 and 1 or -1
+        d.x, d.z = b.arc.cx + b.arc.r * math.cos(a), b.arc.cz + b.arc.r * math.sin(a)
+        d.hx, d.hz = sg * math.sin(a), -sg * math.cos(a)
+      else
+        d.x, d.z = d.x - d.hx * step, d.z - d.hz * step
+        if w.bar == 'tug' then w.lx, w.lz = w.lx - d.hx * step, w.lz - d.hz * step end
+      end
+      d.v = -b.v
+      if b.len - b.s < 1e-4 then
+        d.v = 0
+        -- (w.solo: a tractor of the demo's by itself, on its way to where it waits: it has no aircraft to go to)
+        Tow.phase(w, w.solo and 'leave' or 'arrive')
+      end
+    elseif w.phase == 'arrive' then
       if Tow.drive(d, dt) then
-        w.bar = 'free'
-        Tow.phase(w, 'unhitch', 'tow: the tractor is in front of you. The bar comes off its pintle...')
+        if w.keepBar then
+          -- (the bar is on the aircraft already, its ring on its foot: lifted to the hitch's height, the tractor backs onto it)
+          if w.frontHitch and not w.front then
+            -- (it has driven up FACING the aircraft: from here on w.d is the tractor the other way round: Tow.real)
+            local f = TOW.hitch - TOW.hitchFront
+            d.x, d.z = d.x - d.hx * f, d.z - d.hz * f
+            d.hx, d.hz = -d.hx, -d.hz
+            w.front = true
+            w.wheels = nil
+          end
+          if w.turnTo then
+            -- (THE NOSE WHEEL TURNED AT THE HOOK-UP (the user, 2026-11-18: "Tugs may connect to aircraft with the
+            -- nosewheel turned initially if required. In these cases, the nosewheel and towbar should be rotated
+            -- together after the connection is made, then connected to the tug"): the bar is on the nose gear; it and
+            -- the nose wheel are turned onto the line the tractor stands on (20 degrees a second, 1.5 s at least); the
+            -- nose wheel on the model follows the bar: Tow.apply)
+            local a0, a1 = atan2(w.uz, w.ux), atan2(w.turnTo[2], w.turnTo[1])
+            w.turn = { a = a0, da = (a1 - a0 + math.pi) % (2 * math.pi) - math.pi }
+            w.turn.T = math.max(1.5, math.abs(math.deg(w.turn.da)) / 20)
+            w.turnTo = nil
+            Tow.phase(w, 'turn', string.format('tow: the tractor stands off the aircraft\'s nose line: the nose wheel and the bar are turned %.0f degrees towards it together.', math.abs(math.deg(w.turn.da))))
+          else
+          Tow.phase(w, 'lift', w.front and 'tow: the tractor has driven up to the aircraft\'s nose. The bar\'s ring is lifted to its front hitch.' or 'tow: the tractor is in front of the aircraft. The bar\'s ring is lifted to its hitch.')
+          end
+        else
+          w.bar = 'free'
+          Tow.phase(w, 'unhitch', 'tow: the tractor is in front of you. The bar comes off its pintle...')
+        end
+      end
+    elseif w.phase == 'turn' then
+      local c = w.turn
+      local q = smooth(k / c.T)
+      w.ux, w.uz = math.cos(c.a + c.da * q), math.sin(c.a + c.da * q)
+      if k >= c.T then
+        w.ux, w.uz = math.cos(c.a + c.da), math.sin(c.a + c.da)
+        Tow.phase(w, 'lift', w.front and 'tow: the bar\'s ring is lifted to the tractor\'s front hitch.' or 'tow: the bar\'s ring is lifted to the tractor\'s hitch.')
       end
     elseif w.phase == 'unhitch' then
       w.ringUp = TOW.hitchUp + (B.ringRest - TOW.hitchUp) * smooth(k / TOW.step)
@@ -3438,36 +4023,115 @@ local function tickTow(t)
       if k >= TOW.liftT then
         w.ringUp = TOW.hitchUp
         w.back = { x = d.x, z = d.z, hx = d.hx, hz = d.hz, len = math.sqrt((w.hitchAt.x - d.x) ^ 2 + (w.hitchAt.z - d.z) ^ 2), u = 0 }
+        if w.arc then
+          -- (backing onto the ring on a quarter circle, from the lane: w.arc = { cx, cz, r, a0, a1 }: the tractor's own
+          -- point goes round the centre from angle a0 to a1; it points along the circle, backwards)
+          w.back.arc, w.back.len = w.arc, math.abs(w.arc.a1 - w.arc.a0) * w.arc.r
+        end
         Tow.phase(w, 'backup', 'tow: the tractor backs onto the bar\'s ring.')
       end
     elseif w.phase == 'backup' then
       local b = w.back
       b.u = math.min(1, b.u + TOW.backSpeed * dt / math.max(b.len, 0.5))
       local q = smooth(b.u)
-      d.x, d.z = b.x + (w.hitchAt.x - b.x) * q, b.z + (w.hitchAt.z - b.z) * q
-      d.hx, d.hz = Tow.unit(b.hx + (w.hitchAt.hx - b.hx) * q, b.hz + (w.hitchAt.hz - b.hz) * q)
+      if b.arc then
+        local a = b.arc.a0 + (b.arc.a1 - b.arc.a0) * q
+        local sg = b.arc.a1 >= b.arc.a0 and 1 or -1
+        d.x, d.z = b.arc.cx + b.arc.r * math.cos(a), b.arc.cz + b.arc.r * math.sin(a)
+        d.hx, d.hz = sg * math.sin(a), -sg * math.cos(a) -- (against the way it goes round: it backs)
+        d.v = -TOW.backSpeed
+      else
+        d.x, d.z = b.x + (w.hitchAt.x - b.x) * q, b.z + (w.hitchAt.z - b.z) * q
+        d.hx, d.hz = Tow.unit(b.hx + (w.hitchAt.hx - b.hx) * q, b.hz + (w.hitchAt.hz - b.hz) * q)
+      end
       if b.u >= 1 then
+        if b.arc then d.x, d.z, d.hx, d.hz, d.v = w.hitchAt.x, w.hitchAt.z, w.hitchAt.hx, w.hitchAt.hz, 0 end
         w.bar = 'both'
         Tow.phase(w, 'hooked', 'tow: hooked up. Brakes OFF and hands off: you are pulled in ' .. TOW.pause .. ' seconds.')
       end
     elseif w.phase == 'hooked' then
-      if k >= TOW.pause then
-        Tow.path(w, w.pull, TOW.speed)
-        Tow.phase(w, 'pull', string.format('tow: under way to %s.', TOW.spot.name))
+      if k >= TOW.pause and not w.pull then
+        -- (an aircraft that stands in line with its place already: pushed straight back, no pull)
+        local okp, whyp = Tow.Fd.pushBegin(w)
+        if okp then
+          Tow.phase(w, 'push', w.pushText or string.format('tow: pushed straight back into %s, tail first.', w.dest.name))
+        else
+          Tow.phase(w, 'arrived', string.format('tow: not moved: the push into %s cannot be driven (%s).', w.dest.name, tostring(whyp)))
+        end
+      elseif k >= TOW.pause then
+        d.cap = nil
+        Tow.path(w, w.pull, TOW.speed, TOW.fastTow)
+        d.turnR = w.towR
+        Tow.phase(w, 'pull', string.format('tow: under way to %s.', w.dest.name))
       end
     elseif w.phase == 'pull' then
       if Tow.drive(d, dt) then
-        Tow.phase(w, 'arrived', string.format('tow: stopped. You are %.1f m from the place and %.0f degrees off its heading; the nose wheel turned at most %.0f degrees. Set the parking brake, then F10 > Tow > Unhook.',
-          math.sqrt((w.jx - TOW.spot.x) ^ 2 + (w.jz - TOW.spot.z) ^ 2), math.deg(math.acos(math.max(-1, math.min(1, w.jfx * TOW.spot.fx + w.jfz * TOW.spot.fz)))), math.abs(w.maxSteer or 0)))
+        d.turnR = nil
+        if w.push then
+          -- (a deck spot: the tractor has pulled the jet past it and now pushes it back in, tail first)
+          local okp, whyp = Tow.Fd.pushBegin(w)
+          if okp then
+            Tow.phase(w, 'push', w.pushText or string.format('tow: past %s. Now the tractor pushes you back into it, tail first: hands off.', w.dest.name))
+          else
+            -- (THE TOW STANDS BENT WHERE THE PULL ENDED ("the bar would fold against the tractor", "the nose wheel would
+            -- be turned ..."): in the deck spotting demo a tractor that had given way to another in the middle of its
+            -- pull ended it more bent than the plan had it, and its aircraft was left 19 m short of its spot (the rig,
+            -- 2026-11-18). It is drawn 5 m straight on, the way the tractor points, to straighten, and the push is asked
+            -- for again: twice at the most, and only onto deck that is there.)
+            local tries = w.pushTries or 0
+            local ax, az = d.x + d.hx * 5, d.z + d.hz * 5
+            local bent = tostring(whyp):find('fold against', 1, true) or tostring(whyp):find('nose wheel would be turned', 1, true)
+            if bent and tries < 2 and Tow.Fd.on(ax, az, 1.2) then
+              w.pushTries = tries + 1
+              logLine(string.format('tow%s: the push into %s cannot begin as the tow stands (%s): drawn 5 m straight on to straighten it, then asked again', w.name and (' ' .. tostring(w.name)) or '', tostring(w.dest.name), tostring(whyp)))
+              Tow.path(w, { { d.x, d.z }, { ax, az } }, TOW.speed)
+              d.turnR = w.towR
+            else
+            Tow.phase(w, 'arrived', string.format('tow: stopped short of %s: the push into it cannot be driven from here (%s). Set the parking brake, then F10 > Tow > Unhook.', w.dest.name, tostring(whyp)))
+            end
+          end
+        else
+          Tow.phase(w, 'arrived', Tow.arrivedText(w))
+        end
       end
+    elseif w.phase == 'push' then
+      if Tow.Fd.pushStep(w, dt) then Tow.phase(w, 'arrived', Tow.arrivedText(w)) end
+    elseif w.phase == 'arrived' then
+      -- (a parked aircraft has no pilot to set a brake and ask: the tractor unhooks by itself and drives home)
+      -- (w.hold: the deck spotting demo's: an aircraft drawn up short of a hangar door, its tractor still on the bar,
+      -- until its elevator is down: the demo then gives the tow its push and takes the hold off)
+      if w.subj and w.bar == 'both' and k >= 2 * TOW.pause and not w.hold then Tow.unhook(w) end
     elseif w.phase == 'ringoff' then
       -- UNHOOKING, in the order the user gave (2026-11-16): "disconnect from tug. Disconnect from aircraft. Connect to
       -- tug. Drive away." 1: the ring is lifted off the pintle and set down on its foot (the pins still in the axle)...
       w.ringUp = TOW.hitchUp + (B.ringRest - TOW.hitchUp) * smooth(k / TOW.step)
       if k >= TOW.step then
         w.ringUp = B.ringRest
-        Tow.path(w, { { d.x, d.z }, { d.x + d.hx * TOW.clearBar, d.z + d.hz * TOW.clearBar } }, TOW.backSpeed)
-        Tow.phase(w, 'moveup', 'tow: ...the tractor moves up to make room...')
+        -- (w.offAt: the demo's: how much further it goes on the same line before anything else (a tractor that has
+        -- put an aircraft on a platform: off the platform first, the way it stands, at twice the pace it backs off
+        -- the bar: the user, 2026-11-20: "its priority should be getting off the elevator ASAP so the elevator can
+        -- ascend"). Along w.d's heading: away from the aircraft, on either hitch.)
+        local more = (w.keepBar and w.offAt) and (w.offAt(w) or 0) or 0
+        w.offMore = more > 0 and more or nil
+        Tow.path(w, { { d.x, d.z }, { d.x + d.hx * (TOW.clearBar + more), d.z + d.hz * (TOW.clearBar + more) } }, more > 0 and 2 * TOW.backSpeed or TOW.backSpeed)
+        Tow.phase(w, 'moveup', more > 0 and string.format('tow: ...the tractor moves %.1f m straight off the platform...', TOW.clearBar + more) or 'tow: ...the tractor moves up to make room...')
+      end
+    elseif w.phase == 'moveup' and w.keepBar then
+      -- (the bar stays on the aircraft: the tractor is free; where it goes next is the demo's to say: w.onFree gives
+      -- its way, or it moves 8 m on)
+      -- (w.onFree may say "not yet" (its third result): the tractor stands where it is and asks again)
+      if Tow.drive(d, dt) then
+        local way, fast, wait = nil, nil, nil
+        if w.onFree then way, fast, wait = w.onFree(w) end
+        -- (w.freeWait: it stands off the bar and only waits for its way on: the demo's to know (its tow is over))
+        w.freeWait = wait and true or nil
+        if not wait then
+          d.cap = w.soloCap
+          Tow.path(w, way or { { d.x, d.z }, { d.x + d.hx * 8, d.z + d.hz * 8 } }, TOW.speed, fast)
+          -- (w.startBack: the demo's: it backs first (w.backOut, w.solo): it stood facing the aircraft, on its front hitch)
+          Tow.phase(w, w.startBack and 'backout' or 'leave', 'tow: unhooked: the tractor drives off.')
+          w.startBack = nil
+        end
       end
     elseif w.phase == 'moveup' then
       -- ...and the tractor moves up by as much as the bar must come forward to clear the nose wheels
@@ -3511,15 +4175,33 @@ local function tickTow(t)
       w.ringUp = B.ringRest + (TOW.hitchUp - B.ringRest) * smooth(k / TOW.step)
       if k >= TOW.step then
         w.ringUp, w.bar = TOW.hitchUp, 'tug'
-        Tow.path(w, { { d.x, d.z }, { d.x + d.hx * 8, d.z + d.hz * 8 } }, TOW.speed)
-        Tow.phase(w, 'leave', 'tow: unhooked: the bar is back on the tractor, which moves 8 m on and waits there.')
+        local home = w.deck == 'flight' and Tow.Fd.homeWay(w) or nil
+        Tow.path(w, home or { { d.x, d.z }, { d.x + d.hx * 8, d.z + d.hz * 8 } }, TOW.speed, home and TOW.fastSolo or nil)
+        Tow.phase(w, 'leave', home and 'tow: unhooked: the bar is back on the tractor, which drives back to its place aft of the island.'
+          or 'tow: unhooked: the bar is back on the tractor, which moves 8 m on and waits there.')
       end
     elseif w.phase == 'leave' then
       if w.bar ~= 'tug' then w.ringUp = math.max(B.ringRest, w.ringUp - (TOW.hitchUp - B.ringRest) / TOW.step * dt) end -- (a bar left behind: its ring set down)
       if Tow.drive(d, dt) and k >= TOW.step then Tow.phase(w, 'parked', w.bar == 'tug' and 'tow: the tractor is parked, the bar on its pintle.' or 'tow: the tractor is parked.') end
     end
   end
-  local ok, err = Tow.apply(w, ctx, dt)
+  Tow.follow(w)
+  if w.paused then break end
+  end
+  if env then Tow.Fd.inside, Tow.Fd.wall, Tow.Fd.blocks = nil, nil, nil end
+  return Tow.apply(w, ctx, total)
+end
+
+local function tickTow(t)
+  Tow.Fd.inside, Tow.Fd.wall, Tow.Fd.blocks = nil, nil, nil
+  local w = tow
+  if not w or not native or not towIds then return end
+  local ctx = Tow.ctx(t, w.subj and w.ship or nil)
+  if not ctx then
+    w.last = Tow.now()
+    return
+  end
+  local ok, err = Tow.tickOne(w, ctx, Tow.now())
   if not ok then
     logLine('tow: STOPPED: ' .. tostring(err))
     say('the tow is stopped: ' .. tostring(err))
@@ -3527,41 +4209,252 @@ local function tickTow(t)
   end
 end
 
-function Tow.begin()
+-- For the deck spotting demo (crewtest_demo.lua), which runs on the carrier the camera is at, not the player's: the
+-- catapult crews walked out of the way, the bow bubble lowered, an elevator sent down or brought up: each through
+-- someone on THAT ship (the hook's own commands ask through the player's ship). ctx: that ship (Tow.Deck.ctx).
+Tow.Aux = {}
+
+-- someone on the ship to ask through: the recorder's people, after a look at that ship
+function Tow.Aux.handle(ctx)
+  local h = shipHandle()
+  if not h and ctx then
+    doScan(ctx, 'for the demo', false)
+    h = shipHandle()
+  end
+  return h
+end
+
+-- the four catapult crews walked to `places` ([cat] = { x, z }: the first of six, 2 m apart in two rows of three);
+-- how many were sent, how many crews were found
+function Tow.Aux.crewsAway(ctx, places)
+  local r = doScan(ctx, 'for the demo: the catapult crews', false)
+  local t = catCrews(r)
+  if not t then return 0, 0 end
+  rememberCrews(t)
+  local sent, crews = 0, 0
+  for cat = 1, 4 do
+    local c = t.byCat[cat]
+    if c and places[cat] then
+      crews = crews + 1
+      local members, deckY = crewMembers(r, c.i), -1e9
+      for _, q in ipairs(members) do deckY = math.max(deckY, q.y) end
+      local k = 0
+      for _, q in ipairs(members) do
+        if q.y >= deckY - 0.5 then -- (a man on the catwalk below the deck is left where he is)
+          k = k + 1
+          if not crewHome[q.h] then
+            local okh, _, x, _, z, _, fx, fz = pcall(native.state, q.h, true)
+            crewHome[q.h] = { x = (okh and x) or q.x, z = (okh and z) or q.z, fx = (okh and fx) or 0, fz = (okh and fz) or 0, name = tostring(q.name), cat = cat }
+          end
+          local tx, tz = places[cat][1] + ((k - 1) % 3) * 2, places[cat][2] + (k > 3 and 2 or 0)
+          holding[q.h] = nil
+          local okw, res = walkOrder(q.h, tx, tz, 0, 0, ctx.s, q.name)
+          if okw and res then sent = sent + 1 end
+        end
+      end
+    end
+  end
+  return sent, crews
+end
+
+-- both bubbles lowered and kept down (true), or let go again
+function Tow.Aux.bubbles(ctx, down)
+  local h = Tow.Aux.handle(ctx)
+  if not h then return false end
+  if down then bowWhy.demo = true else bowWhy.demo = nil end
+  bowBubbleUpdate(h)
+  local st = bubbleSet(h, BUBBLE.waist, down and BUBBLE.down or BUBBLE.up)
+  bubbleKeep[BUBBLE.waist] = (down and st) and { cmd = BUBBLE.down, n = 0 } or nil
+  return true
+end
+
+-- elevator k (1..4) sent down (its hangar door opened, the command kept) or brought up (by the hook's own raising,
+-- its door left open): true, or nil and why
+function Tow.Aux.elevator(ctx, k, cmd)
+  local h = Tow.Aux.handle(ctx)
+  if not (h and native.elevator) then return nil, 'nobody on the ship to ask through, or an older native module' end
+  local c = ELEV_CMD[cmd]
+  local okc, st, e = pcall(native.elevator, h, k - 1, c)
+  if not okc or st == nil then return nil, tostring(okc and e or st) end
+  elevWait[k] = nil
+  elevKeep[k - 1] = cmd == 'down' and { cmd = c, n = 0 } or nil
+  ELEV_DOOR.letGo(k - 1)
+  -- (the door too on the mission's clock: the user runs the demo at several times speed)
+  doorOpen[k - 1] = (cmd == 'down' and native.shiparg) and { arg = ELEV_DOOR.args[k], t = Tow.now(), t0 = Tow.now(), clock = Tow.now } or nil
+  -- (model: the demo's elevators come up on the mission's clock, as its tows run: under time acceleration a platform
+  -- raised on real time took a minute and a half of the mission's; 2026-11-18, the user's run)
+  elevRise[k - 1] = (cmd == 'up' and native.shiparg) and { t = Tow.now(), t0 = Tow.now(), model = true, clock = Tow.now } or nil
+  logLine(string.format('demo: elevator %d <- %s (state now: %s)', k, cmd, ELEV_STATE[st] or tostring(st)))
+  return true
+end
+
+-- how far down elevator k's platform is, as the ship's model has it (its argument: 0 up .. 1 down), or nil
+function Tow.Aux.platform(ctx, k)
+  local h = Tow.Aux.handle(ctx)
+  if not (h and native.shiparg) then return nil end
+  local okc, v = pcall(native.shiparg, h, ELEV_DOOR.plat[k])
+  return (okc and type(v) == 'number') and v or nil
+end
+
+-- what the 'arrived' phase says: how near the place the jet was left
+function Tow.arrivedText(w)
+  local g = w.dest
+  return string.format('tow: stopped%s. You are %.1f m from the place and %.0f degrees off its heading; the nose wheel turned at most %.0f degrees. Set the parking brake, then F10 > Tow > Unhook.',
+    g.short and (' at ' .. g.short) or '', math.sqrt((w.jx - g.x) ^ 2 + (w.jz - g.z) ^ 2), math.deg(math.acos(math.max(-1, math.min(1, w.jfx * g.fx + w.jfz * g.fz)))), math.abs(w.maxSteer or 0))
+end
+
+-- mode: 'hangar' (from a lowered elevator into the hangar: the first tow test), or ON THE FLIGHT DECK 'cat' (arg: the
+-- catapult, 1..4) or 'spot' (arg: the deck spot's number): Tow.Fd plans those
+-- who == 'lock' (2026-11-17, the user: "send a tow crew to any aircraft spotted on the deck by using the UI to click on
+-- an aircraft ... and then issuing a tow instruction"): not the player's jet but THE PARKED AIRCRAFT THE DECK TOOL IS
+-- LOCKED ON (w.subj): one of its static Hornets, on the deck tool's carrier (the one the camera was at: the player's
+-- jet need not be on it). It is moved as the tractor is (a static that is the ship's child, through its own position
+-- setter in the ship's frame: native.staticpos) where the player's jet is moved by ForcePosition; where it then stands
+-- is kept on its deck entry (e.at: Tow.Deck.pose); with nobody in it to set a brake, the tractor unhooks by itself at
+-- the place and drives home.
+-- dry: nothing is started: the tow is planned (the tractor's way to the aircraft, the pull, the push) and what would
+-- be driven, or why not, is said ("tow|trycat|N" / "tow|tryspot|n", not on the menu: the tests' sweep)
+function Tow.begin(mode, arg, who, dry)
   if not native then return say('the native module is not loaded: ' .. tostring(nativeWhy)) end
   if not (native.staticpos and native.place and native.forcepos) then return say('towing needs the newer native module: run crew-test\\install.ps1 with DCS closed') end
-  if tow and tow.phase ~= 'parked' and tow.phase ~= 'arrived' then return say('a tow is under way already (F10 > Tow > Unhook ends it)') end
-  local ctx, err = getCtx()
-  if not ctx then return say("can't tell where you are: " .. tostring(err)) end
-  if ctx.jy > TOW.hangarBelow then
-    return say(string.format('this first tow test starts on the hangar deck: ride elevator 1 down first (you are %.1f m above the ship\'s origin; the hangar deck is below %d).', ctx.jy, TOW.hangarBelow))
+  -- (a tractor on its way home with its bar, or parked, can be called again at once)
+  if tow and tow.phase ~= 'parked' and tow.phase ~= 'arrived' and not (tow.phase == 'leave' and tow.bar == 'tug') then return say('a tow is under way already (F10 > Tow > Unhook ends it)') end
+  if tow and tow.phase == 'arrived' and tow.bar ~= 'tug' then
+    return say(tow.subj and 'the tractor is still hooked up to the aircraft it towed: it unhooks by itself in a moment.' or 'the tractor is still hooked up to you: F10 > Tow > Unhook first.')
   end
-  local id = (Export and Export.LoGetPlayerPlaneId) and select(2, pcall(Export.LoGetPlayerPlaneId)) or nil
+  local ctx, err, subj
+  if who == 'lock' then
+    local D = Tow.Deck
+    local e = D.list and D.shown and D.lock and D.list[D.lock] or nil
+    if not e then return say('tow: no aircraft is selected: park the Hornets (Deck spots > Park Hornets), then click the one to tow.') end
+    if e.removed or not e.id then return say('tow: no aircraft stands there to tow (' .. D.text(e) .. ').') end
+    if e.hangar then return say('tow: the hangar\'s aircraft are there to be spotted, not towed (' .. D.text(e) .. ').') end
+    if mode == 'hangar' then return say('tow: only your own jet is towed into the hangar.') end
+    ctx, err = D.ctx()
+    if not ctx then return say('tow: ' .. tostring(err)) end
+    subj = { e = e, id = e.id, name = D.label(e) }
+  else
+    ctx, err = getCtx()
+    if not ctx then return say("can't tell where you are: " .. tostring(err)) end
+  end
+  -- the aircraft to tow: where it stands on the ship (J.y: its own position above the ship's origin) and its nose
+  local J = { x = ctx.jx, y = ctx.jy, z = ctx.jz, fx = ctx.fx, fz = ctx.fz, ship = ctx.ship }
+  if subj then
+    local x, z, hdg = Tow.Deck.pose(subj.e)
+    J = { x = x, y = Tow.Deck.jy, z = z, fx = math.cos(math.rad(hdg)), fz = math.sin(math.rad(hdg)), ship = ctx.ship }
+    -- what DCS says of it: is it an object the native module can place (and the ship's child, as the tractor is)?
+    local oki, cls, kd, parent = pcall(function() return native.staticinfo(subj.id) end)
+    if not (oki and cls) then
+      logLine(string.format('tow: %s (object %s) cannot be towed: %s', subj.name, tostring(subj.id), tostring(kd or cls)))
+      return say('tow: DCS does not let this aircraft be moved (' .. tostring(kd or cls) .. ').')
+    end
+    subj.own = type(parent) == 'string' or nil
+    -- its own height on the ship, as DCS has it (the mission script reads the object; else a parked jet's, Tow.Deck.jy)
+    local okw, r = pcall(dostring, string.format('return (CATCC_CR and CATCC_CR.where) and CATCC_CR.where(%q, %q) or "ERR|the menu script is an older one"', tostring(subj.e.key), tostring(ctx.ship)))
+    local p = (okw and type(r) == 'string') and split(r) or { 'ERR', tostring(r) }
+    local wy = p[1] == 'OK' and tonumber(p[3]) or nil
+    if wy and math.abs(wy - Tow.Deck.jy) < 1.5 then J.y = wy end
+    logLine(string.format('tow: the aircraft to tow: %s (object %d, class %s, %s); the deck tool has it at %.2f / %.2f, nose %.1f; DCS says %s; its height taken as %.3f', subj.name, subj.id, tostring(cls),
+      subj.own and ('the ship\'s child: ' .. tostring(parent)) or 'NO PARENT: placed in the world', x, z, hdg,
+      p[1] == 'OK' and string.format('%.2f fwd %.3f up %.2f stbd, nose %.3f %.3f', tonumber(p[2]) or 0, tonumber(p[3]) or 0, tonumber(p[4]) or 0, tonumber(p[5]) or 0, tonumber(p[6]) or 0) or ('nothing (' .. tostring(p[2]) .. ')'), J.y))
+    if not shipHandle() then doScan(ctx, 'for the tow', false) end
+  end
+  local below = J.y <= TOW.hangarBelow
+  if mode == 'hangar' and not below then
+    return say(string.format('the tow into the hangar starts on the hangar deck: ride elevator 1 down first (you are %.1f m above the ship\'s origin; the hangar deck is below %d). Up here: F10 > Tow > Tow me to a catapult / to a parking spot.', J.y, TOW.hangarBelow))
+  end
+  if mode ~= 'hangar' and below then
+    return say('you are on the hangar deck: a tow to a catapult or a deck spot starts on the flight deck. Down here: F10 > Tow > Tow me into the hangar.')
+  end
+  local id = subj and subj.id or ((Export and Export.LoGetPlayerPlaneId) and select(2, pcall(Export.LoGetPlayerPlaneId)) or nil)
   if type(id) ~= 'number' then return say("your aircraft's object id could not be read (no LoGetPlayerPlaneId)") end
-  local ids, why = Tow.ids()
+  local ids, why = Tow.ids(subj and ctx.ship or nil)
   if not ids then return say('the tow tractor could not be made: ' .. tostring(why)) end
-  local fx, fz = Tow.unit(ctx.fx, ctx.fz)
-  local nx, nz = ctx.jx + fx * TOW.noseGear, ctx.jz + fz * TOW.noseGear -- the nose wheel's axle
+  local fx, fz = Tow.unit(J.fx, J.fz)
+  local nx, nz = J.x + fx * TOW.noseGear, J.z + fz * TOW.noseGear -- the nose wheel's axle
+  -- the other aircraft on this deck the tractor is to keep clear of on its own ways (Tow.Fd.arrival, homeWay): the
+  -- deck tool's, and the player's own jet when another aircraft is towed
+  local others = Tow.Deck.others(subj and subj.e, ctx.ship)
+  local me
+  if subj and ctx.jy > TOW.hangarBelow and insideDeck(ctx.jx, ctx.jz) then
+    local mid = (Export and Export.LoGetPlayerPlaneId) and select(2, pcall(Export.LoGetPlayerPlaneId)) or nil
+    me = { x = ctx.jx, z = ctx.jz, fx = ctx.fx, fz = ctx.fz, name = 'your own jet', half = Tow.Fd.half(type(mid) == 'number' and mid or nil) }
+    others[#others + 1] = me
+  end
+  -- the towed aircraft's own wing: a parked one's as the deck tool has them; the player's read from the jet
+  local half = subj and (Tow.Deck.fold and 4.2 or 6.3) or Tow.Fd.half(id)
   -- hooked up: the bar's arms closed on the axle, its ring on the hitch
   local thetaIn = Tow.thetaIn()
   local alongIn, halfIn = Tow.pins(thetaIn)
   local reach = math.sqrt(alongIn ^ 2 - (Tow.axleUp() - TOW.hitchUp) ^ 2) + TOW.hitch
-  -- where the jet's nose line meets the lane to the parking place
-  local g = TOW.spot
-  local ex, ez = g.x + g.fx * (TOW.noseGear + reach), g.z + g.fz * (TOW.noseGear + reach) -- where the tractor ends up
-  local den = fx * g.fz - fz * g.fx
-  if math.abs(den) < 0.3 then return say('this first tow test pulls you straight ahead into the hangar and then along its port lane: your nose points along the lane, not into the hangar.') end
-  local u = ((ex - nx) * g.fz - (ez - nz) * g.fx) / den -- from the nose wheel to the corner, along the nose
-  local cx, cz = nx + fx * u, nz + fz * u
-  local wAlong = (ex - cx) * g.fx + (ez - cz) * g.fz -- from the corner to the tractor's end place, along the lane
-  if u < reach + TOW.ahead + 4 or wAlong < 10 then
-    return say(string.format('this first tow test needs the lane to the parking place ahead of your nose: it is %.0f m ahead (at least %.0f needed) and the place %.0f m along it (at least 10).', u, reach + TOW.ahead + 4, wAlong))
-  end
   local old = tow
-  local w = { phase = 'arrive', t0 = now(), jet = id, bar = 'tug', theta = 0, clamped = false, thetaIn = thetaIn, jy = ctx.jy, floor = ctx.jy - TOW.gearUp, nx = nx, nz = nz,
-    mx = ctx.jx - fx * TOW.mainGear, mz = ctx.jz - fz * TOW.mainGear, jx = ctx.jx, jz = ctx.jz, jfx = fx, jfz = fz, hitchAt = { x = nx + fx * reach, z = nz + fz * reach, hx = fx, hz = fz } }
-  w.d = old and old.d or { x = TOW.home.x, z = TOW.home.z, hx = TOW.home.hx, hz = TOW.home.hz }
-  w.d.v = 0
+  local home = below and TOW.home or TOW.deckHome
+  local deck = below and 'hangar' or 'flight'
+  -- the tractor: where the last tow left it, if that was on this deck; else at this deck's waiting place
+  local d0 = (old and old.d and old.d.deck == deck) and old.d or { x = home.x, z = home.z, hx = home.hx, hz = home.hz, deck = deck, fresh = true }
+  local plan, arrive, backOut
+  if below then
+    -- where the jet's nose line meets the lane to the parking place
+    local g = TOW.spot
+    local ex, ez = g.x + g.fx * (TOW.noseGear + reach), g.z + g.fz * (TOW.noseGear + reach) -- where the tractor ends up
+    local den = fx * g.fz - fz * g.fx
+    if math.abs(den) < 0.3 then return say('this first tow test pulls you straight ahead into the hangar and then along its port lane: your nose points along the lane, not into the hangar.') end
+    local u = ((ex - nx) * g.fz - (ez - nz) * g.fx) / den -- from the nose wheel to the corner, along the nose
+    local cx, cz = nx + fx * u, nz + fz * u
+    local wAlong = (ex - cx) * g.fx + (ez - cz) * g.fz -- from the corner to the tractor's end place, along the lane
+    if u < reach + TOW.ahead + 4 or wAlong < 10 then
+      return say(string.format('this first tow test needs the lane to the parking place ahead of your nose: it is %.0f m ahead (at least %.0f needed) and the place %.0f m along it (at least 10).', u, reach + TOW.ahead + 4, wAlong))
+    end
+    plan = { pull = { { nx + fx * reach, nz + fz * reach }, { cx, cz }, { ex, ez } }, dest = g,
+      text = string.format('straight ahead %.0f m, a turn, %.0f m along the hangar to %s', u - reach, wAlong, g.name),
+      note = string.format('corner %.1f / %.1f; tractor ends %.1f / %.1f', cx, cz, ex, ez) }
+    -- the arrival: towards the jet beside its nose line, a U-turn onto the line clear of the radome, and on to `ahead`
+    -- metres beyond the hook-up place (the bar trailing straight behind by then)
+    local side = ((d0.x - nx) * -fz + (d0.z - nz) * fx) >= 0 and 1 or -1 -- the side of the nose line the tractor is on
+    local px, pz = -fz * side * TOW.uTurn, fx * side * TOW.uTurn
+    local a0 = reach + TOW.clearNose
+    arrive = { { d0.x, d0.z }, { nx + fx * (a0 + 9) + px, nz + fz * (a0 + 9) + pz }, { nx + fx * a0 + px, nz + fz * a0 + pz }, { nx + fx * a0, nz + fz * a0 },
+      { nx + fx * (reach + TOW.ahead), nz + fz * (reach + TOW.ahead) } }
+  else
+    local whyNot
+    plan, whyNot = Tow.Fd.plan(J, mode, arg, reach, fx, fz, nx, nz, subj, me, others, half)
+    if plan then plan.note = tostring(plan.note) .. tostring(plan.room or '') end
+    if not plan then
+      logLine('tow: no plan: ' .. tostring(whyNot))
+      return say(Tow.words({ subj = subj }, tostring(whyNot)))
+    end
+    arrive, whyNot, backOut = Tow.Fd.arrival(d0, { x = J.x, z = J.z, fx = fx, fz = fz }, nx, nz, fx, fz, reach, others)
+    if not arrive and not d0.fresh then
+      -- LAST RESORT: from where the tractor was left there is no way at all (not even backing out first): it starts
+      -- again from its waiting place (it is put there: said, and logged)
+      local h0 = { x = home.x, z = home.z, hx = home.hx, hz = home.hz, deck = deck, fresh = true }
+      local arr2, _, back2 = Tow.Fd.arrival(h0, { x = J.x, z = J.z, fx = fx, fz = fz }, nx, nz, fx, fz, reach, others)
+      if arr2 then
+        logLine(string.format('tow: from where the tractor stands (%.1f / %.1f, heading %.2f %.2f) there is no way to the aircraft (%s): it is put back on its waiting place and starts from there', d0.x, d0.z, d0.hx, d0.hz, tostring(whyNot)))
+        if not dry then say('tow: the tractor has no way out of where it was left: it starts again from its waiting place.') end
+        d0, arrive, backOut = h0, arr2, back2
+      end
+    end
+    if not arrive then
+      logLine('tow: no way for the tractor to the jet: ' .. tostring(whyNot))
+      return say(Tow.words({ subj = subj }, 'no tow from here: ' .. tostring(whyNot) .. '.'))
+    end
+  end
+  if dry then
+    logLine('tow: a dry run: ' .. tostring(plan.note))
+    return say('tow: can be driven: ' .. tostring(plan.text) .. '.')
+  end
+  -- (floor: the deck the aircraft stands on, above the ship's origin; a parked aircraft's own height may differ from the
+  -- player's jet's: the flight deck is then taken from the height a parked jet has, Tow.Deck.jy)
+  local w = { phase = 'arrive', t0 = Tow.now(), jet = id, bar = 'tug', theta = 0, clamped = false, thetaIn = thetaIn, jy = J.y, floor = (subj and Tow.Deck.jy or J.y) - TOW.gearUp, nx = nx, nz = nz,
+    mx = J.x - fx * TOW.mainGear, mz = J.z - fz * TOW.mainGear, jx = J.x, jz = J.z, jfx = fx, jfz = fz, hitchAt = { x = nx + fx * reach, z = nz + fz * reach, hx = fx, hz = fz },
+    deck = deck, dest = plan.dest, push = plan.push, pushText = plan.pushText, towR = (not below) and TOW.towR or nil, subj = subj, ship = ctx.ship, others = others, half = half, soft = plan.soft }
+  w.d = d0
+  if d0.fresh then
+    d0.fresh = nil
+    logLine(string.format('tow: the tractor starts from its waiting place on the %s deck (%.0f m forward, %.0f m to starboard)', deck, d0.x, d0.z))
+  end
+  w.d.v, w.d.turnR = 0, nil
   -- the bar on the tractor's pintle, closed, trailing straight behind it on its own wheels
   w.ux, w.uz, w.ringUp, w.lugUp = w.d.hx, w.d.hz, TOW.hitchUp, TOW.bar.wheelUp
   do
@@ -3569,37 +4462,75 @@ function Tow.begin()
     w.lx, w.lz = w.d.x - w.d.hx * (TOW.hitch + fl), w.d.z - w.d.hz * (TOW.hitch + fl)
   end
   w.driver = old and old.driver
-  -- the arrival: towards the jet beside its nose line, a U-turn onto the line clear of the radome, and on to `ahead`
-  -- metres beyond the hook-up place (the bar trailing straight behind by then)
-  local side = ((w.d.x - nx) * -fz + (w.d.z - nz) * fx) >= 0 and 1 or -1 -- the side of the nose line the tractor is on
-  local px, pz = -fz * side * TOW.uTurn, fx * side * TOW.uTurn
-  local a0 = reach + TOW.clearNose
-  Tow.path(w, { { w.d.x, w.d.z }, { nx + fx * (a0 + 9) + px, nz + fz * (a0 + 9) + pz }, { nx + fx * a0 + px, nz + fz * a0 + pz }, { nx + fx * a0, nz + fz * a0 },
-    { nx + fx * (reach + TOW.ahead), nz + fz * (reach + TOW.ahead) } }, TOW.speed)
-  w.pull = { { w.hitchAt.x, w.hitchAt.z }, { cx, cz }, { ex, ez } }
+  Tow.path(w, arrive, TOW.speed, deck == 'flight' and TOW.fastSolo or nil)
+  if backOut and backOut > 0 then w.phase, w.backOut = 'backout', { len = backOut, s = 0, v = 0 } end
+  w.pull = plan.pull
   if not w.driver then
     local r = doScan(ctx, 'for the tow', false)
     for _, q in ipairs(r and r.mine or {}) do
-      if kind(q) == 'ours' and role(q) == 'driver' then w.driver = { h = q.h, name = tostring(q.name) } end
+      -- (catcc-t0 if he is there; else another of the drivers)
+      if kind(q) == 'ours' and role(q) == 'driver' and (not w.driver or tostring(q.name) == 'catcc-t0') then w.driver = { h = q.h, name = tostring(q.name) } end
     end
     if w.driver then
       walkQueue[w.driver.h], holding[w.driver.h] = nil, nil
-      local okp, resp, ep = pcall(native.play, w.driver.h, TOW.seatAnim, 2)
-      logLine(string.format('tow: the driver is %s; seated pose "%s": %s', w.driver.name, TOW.seatAnim, (okp and resp) and 'played' or ('FAILED: ' .. tostring(okp and ep or resp))))
+      -- (his head turns if it can: then he sits in the blend space of ours, not in the plain seated pose)
+      local headOn, headWhy
+      if Tow.Head then headOn, headWhy = Tow.Head.seat(native, w.driver) end
+      local sat, why = headOn and Tow.Head.ANIM or nil, nil
+      if not headOn then sat, why = Tow.sit(native, w.driver.h) end
+      logLine(string.format('tow: the driver is %s; seated pose "%s": %s%s', w.driver.name, sat or TOW.seatAnim, sat and 'played' or ('FAILED: ' .. tostring(why)),
+        headOn and '; his head turns' or (Tow.Head and ('; his head does not turn: ' .. tostring(headWhy)) or '')))
     else
       logLine('tow: no driver (catcc-t0 is not on the ship: data patch applied?)')
     end
   end
   tow = w
-  logLine(string.format('tow: begins. Jet at %.1f fwd %.1f up %.1f stbd, nose %.2f %.2f; floor taken as %.2f; the axle taken %.3f m ahead of the jet and %.3f m below it (%.3f above the floor), %.3f m long: at %.1f / %.1f; the bar\'s pins in it with its arms open %.2f degrees (pin tips %.3f m either side; argument %.3f), the ring then %.3f m from the axle on the flat; hook-up place %.1f / %.1f; corner %.1f / %.1f; tractor ends %.1f / %.1f; tractor now %.1f / %.1f',
-    ctx.jx, ctx.jy, ctx.jz, fx, fz, w.floor, TOW.noseGear, TOW.axleDown, Tow.axleUp(), TOW.axleLen, nx, nz, math.deg(thetaIn), halfIn, Tow.armArg(thetaIn, true), reach - TOW.hitch,
-    w.hitchAt.x, w.hitchAt.z, cx, cz, ex, ez, w.d.x, w.d.z))
-  say(string.format('tow: the tractor is coming with the tow bar%s%s. Nose wheel steering OFF; parking brake on until it is hooked up. Then: straight ahead %.0f m, a turn, %.0f m along the hangar to %s.',
-    w.driver and '' or ' (no driver: catcc-t0 not found)', ids.bar and '' or ' (no tow bar: its type is missing)', u - reach, wAlong, g.name))
+  logLine(string.format('tow: begins. Jet at %.1f fwd %.1f up %.1f stbd, nose %.2f %.2f; floor taken as %.2f; the axle taken %.3f m ahead of the jet and %.3f m below it (%.3f above the floor), %.3f m long: at %.1f / %.1f; the bar\'s pins in it with its arms open %.2f degrees (pin tips %.3f m either side; argument %.3f), the ring then %.3f m from the axle on the flat; hook-up place %.1f / %.1f; %s; tractor now %.1f / %.1f',
+    J.x, J.y, J.z, fx, fz, w.floor, TOW.noseGear, TOW.axleDown, Tow.axleUp(), TOW.axleLen, nx, nz, math.deg(thetaIn), halfIn, Tow.armArg(thetaIn, true), reach - TOW.hitch,
+    w.hitchAt.x, w.hitchAt.z, plan.note, w.d.x, w.d.z))
+  if subj then
+    logLine(string.format('tow: of a parked aircraft: %s on %s; %d other aircraft on the deck', subj.name, tostring(ctx.ship), #others))
+    return say(Tow.words(w, string.format('tow: the tractor is coming with the tow bar%s%s for %s. Then: %s; there it unhooks and drives home.',
+      w.driver and '' or ' (no driver: catcc-t0 not found)', ids.bar and '' or ' (no tow bar: its type is missing)', subj.name, plan.text)))
+  end
+  say(string.format('tow: the tractor is coming with the tow bar%s%s. Nose wheel steering OFF; parking brake on until it is hooked up. Then: %s.',
+    w.driver and '' or ' (no driver: catcc-t0 not found)', ids.bar and '' or ' (no tow bar: its type is missing)', plan.text))
 end
 
 function commands.tow(what, a, b)
-  if what == 'hangar' then return Tow.begin() end
+  if what == 'hangar' then return Tow.begin('hangar') end
+  -- (b == 'lock': not the player's jet but the parked aircraft the deck tool is locked on: the panel's Tow page)
+  if what == 'cat' or what == 'spot' then return Tow.begin(what, tonumber(a), b) end
+  if what == 'trycat' or what == 'tryspot' then return Tow.begin(what:sub(4), tonumber(a), b, true) end
+  if what == 'way' then
+    -- (not on the menu) PriFly's own taxi way from where the jet stands to a destination ("C1".."C4", a spot's id), as
+    -- Tow.Net works it out, written to the log point by point: a test holds it against taxiNet.ts's
+    local ctx, err = getCtx()
+    local g = Tow.Net.graph()
+    if not (ctx and g) then return say('no taxi way: ' .. (g and tostring(err) or 'the taxi network is missing')) end
+    local wp = Tow.Net.waypoints(g, { ctx.jx, ctx.jz }, tostring(a), ctx.fx, ctx.fz)
+    local pts = wp and Tow.Net.smooth(wp) or {}
+    local txt = {}
+    for i, q in ipairs(pts) do txt[i] = string.format('%.3f,%.3f', q[1], q[2]) end
+    logLine(string.format('command tow way to %s: %d points: %s', tostring(a), #pts, table.concat(txt, ' ')))
+    return say(string.format('taxi way to %s: %s', tostring(a), #pts > 0 and (#pts .. ' points (in the log)') or 'none'))
+  end
+  if what == 'head' then
+    -- the drivers' head tried by hand (F10 > Tow > Driver head): every driver on the ship, wherever he is
+    if not Tow.Head then return say('driver head: Scripts\\CATCC\\crewtest_head.lua is not there.') end
+    if not native then return say('driver head: the native module is not loaded.') end
+    local ctx = getCtx()
+    local r = ctx and doScan(ctx, 'for the drivers\' heads', false)
+    local list = {}
+    for _, q in ipairs(r and r.mine or {}) do
+      if kind(q) == 'ours' and role(q) == 'driver' then list[#list + 1] = { h = q.h, name = tostring(q.name) } end
+    end
+    table.sort(list, function(p, q) return p.name < q.name end)
+    local text, lines = Tow.Head.probe(native, list, tostring(a))
+    for _, l in ipairs(lines or {}) do logLine(l) end
+    logLine(text)
+    return say(text)
+  end
   local w = tow
   if what == 'seat' then
     local step = tonumber(b) or 0.1
@@ -3607,40 +4538,14 @@ function commands.tow(what, a, b)
     logLine(string.format('tow: driver seat now %.2f m forward, %.2f m left, %.2f m up of the tractor\'s own position', TOW.seat.fwd, TOW.seat.left, TOW.seat.up))
     return say(string.format('driver seat: %.2f m forward, %.2f m left, %.2f m up.', TOW.seat.fwd, TOW.seat.left, TOW.seat.up))
   end
-  if not w then return say('no tow in hand (F10 > Tow > Tow me into the hangar).') end
+  if not w then return say('no tow in hand (F10 > Tow > Tow me to a catapult / to a parking spot / into the hangar).') end
   if what == 'pause' then
     w.paused = not w.paused
     w.d.v = 0
     logLine('tow: ' .. (w.paused and 'held' or 'goes on') .. ' in phase ' .. w.phase)
     return say(w.paused and 'tow: held where it is.' or 'tow: goes on.')
   end
-  if what == 'unhook' then
-    if w.phase == 'parked' or w.phase == 'leave' then return say('the tractor is unhooked already.') end
-    if w.phase == 'ringoff' or w.phase == 'moveup' or w.phase == 'release' or w.phase == 'setdown' or w.phase == 'roll' or w.phase == 'close' or w.phase == 'ringon' then
-      return say('the bar is being taken off already.')
-    end
-    local was = w.phase
-    w.paused = false
-    if w.bar == 'both' then
-      -- hooked up (at the place, or under way: the tractor stops where it is): the bar comes off the tractor, then off
-      -- the jet, and goes back on the tractor (the phases from 'ringoff' on); the jet is left where it stands
-      w.d.v = 0
-      w.bar = 'gear'
-      w.ringUp, w.lugUp = TOW.hitchUp, Tow.axleUp()
-      return Tow.phase(w, 'ringoff', (was == 'arrived' and 'tow: unhooking. ' or 'tow: broken off. ') .. 'The bar\'s ring is lifted off the tractor\'s pintle and set down...')
-    end
-    if w.bar == 'tug' then
-      -- the bar still on the tractor (it had not reached the jet): it just moves on with it
-      local d0 = w.d
-      Tow.path(w, { { d0.x, d0.z }, { d0.x + d0.hx * 8, d0.z + d0.hz * 8 } }, TOW.speed)
-      return Tow.phase(w, 'leave', 'tow: broken off; the tractor moves 8 m on with its bar and waits there.')
-    end
-    w.bar = (w.bar == 'both' or w.bar == 'gear') and 'gear' or 'free' -- the ring comes off the pintle and is set down; the bar stays on the nose gear
-    local d = w.d
-    Tow.path(w, { { d.x, d.z }, { d.x + d.hx * 8, d.z + d.hz * 8 } }, TOW.speed)
-    -- (broken off while the bar was off the tractor, being put on the jet: it is left where it is)
-    return Tow.phase(w, 'leave', 'tow: broken off; the bar is left where it is and the tractor moves 8 m on and waits there.')
-  end
+  if what == 'unhook' then return Tow.unhook(w) end
   if what == 'report' then
     local d = w.d
     local txt = string.format('tow: %s%s. Tractor at %.1f fwd %.1f stbd, heading %.2f %.2f, %.1f m/s; bar %s, its arms open %.1f degrees%s; nose wheel %.1f / %.1f turned %.0f degrees (at most %.0f); %s; driver %s; bar %s.',
@@ -3651,6 +4556,1293 @@ function commands.tow(what, a, b)
     return say(txt)
   end
   say('unknown tow command ' .. tostring(what))
+end
+
+-- ---------------------------------------------------------------- towing on the flight deck
+-- The user, 2026-11-16: "make the deck tug useable on the flight deck. For now, make it so I can request a tow to
+-- any other parking location on the deck, or to a catapult."
+--   F10 > Tow > Tow me to a catapult > 1..4          (tow|cat|N)
+--   F10 > Tow > Tow me to a parking spot > ... > it  (tow|spot|<the spot's number>)
+-- The tractor waits on the flight deck in the pocket aft of the island (TOW.deckHome); it comes along the taxi roads,
+-- turns round ahead of the jet's nose and is hooked up as in the hangar (the same phases). Then:
+--   TO A CATAPULT   it pulls the jet along PriFly's taxi route to that catapult (Tow.Net: taxiNet.ts's own solver,
+--                   here in Lua, on the graph crewtest_routes.lua carries) and on up the track, until the nose wheel
+--                   is TOW.catShort short of the shuttle; the tractor itself then stands beyond the shuttle. Where
+--                   the route comes onto the track too near the shuttle for the jet to be in line by then, it is
+--                   pulled on past the place and pushed straight back to it (Tow.Fd.planCat).
+--   TO A SPOT       jets stand on their spots tail to the deck's edge, so the jet goes in TAIL FIRST: the tractor
+--                   pulls it along the taxi route PAST the spot's front (phase 'pull'), then PUSHES it back round
+--                   into the spot (phase 'push'). The push is worked out from the JET's end (Tow.Fd.back): the main
+--                   wheels are steered backwards along a way into the spot, and where the nose wheel, the bar and
+--                   the tractor must then be follows exactly from that; it is played back at the tractor's backing
+--                   pace. (The first version recorded the way OUT of the spot and played it backwards: for the two
+--                   to meet, the whole 13 m of tractor, bar and jet had to stand straight where the pull ended,
+--                   which takes 25 m of straight deck after every bend: of 43 tows tried, 5 could be planned.)
+-- EVERY TOW IS DRIVEN IN THE HEAD FIRST (Tow.Fd.sim, the same Tow.drive and the same trailing as the real thing; and
+-- Tow.Fd.back): a plan that would take the tractor or one of the jet's wheels off the deck or across a lowered
+-- elevator, turn the nose wheel beyond TOW.steerMax, fold the bar against the tractor, or not bring the jet square
+-- onto the spot is not driven; for a spot several ways are tried (Tow.Fd.planSpot) and the first that passes is
+-- taken. If none does, the menu says why.
+-- After "Unhook" the tractor drives back to its waiting place.
+-- NOT LOOKED AT (yet): other aircraft. The tractor and the tow go where the roads go, whoever stands there (only
+-- the jet in tow is driven round, and a spot one of the deck tool's Hornets stands on is refused). The tractor's
+-- FRONT hitch (pushing with the driver facing the jet) is not used either: it pushes backing up.
+
+-- ---- PriFly's taxi network, solved here: src/components/catcc/prifly/taxiNet.ts in Lua, on the graph the routes file
+-- carries (net: nodes, adj, dest, outline, struct). A test keeps the two the same: every spot to every catapult,
+-- spot to spot, and starts off the roads.
+Tow.Net = { MAX_TURN = 125, TURN_COST = 0.12, OFF_ROAD = 1.5, AT_NODE = 5, SNAP_MAX = 60, NEAR_SLACK = 6, RADIUS = 8, MIN_LINEUP = 8, LINEUP_TURN = 30, MIN_PULL_OUT = 5 }
+
+function Tow.Net.graph()
+  local r = loadRoutes()
+  return r and r.net or nil
+end
+
+function Tow.Net.turn(ux, uz, vx, vz) return math.deg(math.acos(math.max(-1, math.min(1, ux * vx + uz * vz)))) end
+function Tow.Net.dist(a, b) return math.sqrt((a[1] - b[1]) ^ 2 + (a[2] - b[2]) ^ 2) end
+function Tow.Net.dir(a, b)
+  local x, z = b[1] - a[1], b[2] - a[2]
+  local l = math.sqrt(x * x + z * z)
+  if l == 0 then l = 1 end
+  return x / l, z / l
+end
+
+function Tow.Net.inPoly(x, z, q)
+  local inside, j = false, #q
+  for i = 1, #q do
+    local a, b = q[i], q[j]
+    if ((a[2] > z) ~= (b[2] > z)) and (x < (b[1] - a[1]) * (z - a[2]) / (b[2] - a[2]) + a[1]) then inside = not inside end
+    j = i
+  end
+  return inside
+end
+
+-- can something go straight from a to b: on the deck all the way and not through the island
+function Tow.Net.legOk(g, a, b)
+  local n = math.max(1, math.ceil(Tow.Net.dist(a, b) / 2))
+  for i = 1, n do
+    local x, z = a[1] + (b[1] - a[1]) * i / n, a[2] + (b[2] - a[2]) * i / n
+    if not Tow.Net.inPoly(x, z, g.outline) then return false end
+    for _, q in ipairs(g.struct) do
+      if Tow.Net.inPoly(x, z, q) then return false end
+    end
+  end
+  return true
+end
+
+-- start states for an aircraft at `from` = { x, z } (hx, hz: the way it points, or nil): its spot or junction when it
+-- is on one, else the entry points on the roads near it.
+-- opts (the tow's; PriFly has none): tow = true: the jet is PULLED, nose first, so it leaves a junction it stands on
+-- within MAX_TURN of its nose (PriFly: any way, the pilot turns it), it counts as on a junction within 1.5 m only
+-- (PriFly: 5), and it joins a road only by a leg within opts.swing (100) degrees of its nose. lineup: no sharp turn
+-- within this many metres of a catapult's shuttle (PriFly: MIN_LINEUP, 8).
+function Tow.Net.seeds(g, from, hx, hz, opts, wide)
+  local N = Tow.Net
+  local tow = opts and opts.tow
+  local near, nd
+  for i, p in ipairs(g.nodes) do
+    local dd = N.dist(p, from)
+    if dd < (tow and 1.5 or N.AT_NODE) and (not near or dd < nd) then near, nd = i, dd end
+  end
+  if near then return { { node = near, prev = -1, dir = (tow and hx) and { hx, hz } or nil, cost = 0, pts = { from } } } end
+  local function make(maxD, checked)
+    local out = {}
+    for u = 1, #g.nodes do
+      for _, v in ipairs(g.adj[u]) do
+        if v >= u then
+          local a, b = g.nodes[u], g.nodes[v]
+          local dx, dz = b[1] - a[1], b[2] - a[2]
+          local L = math.sqrt(dx * dx + dz * dz)
+          local t = math.max(0, math.min(1, ((from[1] - a[1]) * dx + (from[2] - a[2]) * dz) / (L * L)))
+          local foot = { a[1] + dx * t, a[2] + dz * t }
+          local off = N.dist(from, foot)
+          if off <= maxD then
+            -- join ahead of abeam, the further off the further ahead
+            local lead = math.max(4, math.min(14, off))
+            for _, es in ipairs({ { v, 1 }, { u, -1 } }) do
+              local e, sgn = es[1], es[2]
+              local along = sgn > 0 and (1 - t) * L or t * L -- road left toward that end
+              local ex, ez = dx / L * sgn, dz / L * sgn
+              local entry = along <= lead and g.nodes[e] or { foot[1] + ex * lead, foot[2] + ez * lead }
+              if not checked or N.legOk(g, from, entry) then
+                local leg = N.dist(from, entry)
+                local lx, lz = ex, ez
+                if leg > 0.5 then lx, lz = N.dir(from, entry) end
+                local join = N.turn(lx, lz, ex, ez)
+                local swing = (hx and leg > 1) and N.turn(hx, hz, lx, lz) or 0
+                if join <= N.MAX_TURN and not (tow and swing > (opts.swing or 100)) then
+                  out[#out + 1] = { node = e, prev = -1, dir = { ex, ez }, cost = leg * N.OFF_ROAD + N.dist(entry, g.nodes[e]) + (join + swing * 0.5) * N.TURN_COST,
+                    pts = (leg > 0.5 and N.dist(entry, g.nodes[e]) > 0.05) and { from, entry } or { from } }
+                end
+              end
+            end
+          end
+        end
+      end
+    end
+    return out
+  end
+  -- off the network it joins the nearest road: roads up to NEAR_SLACK further off than the nearest (a straight leg to
+  -- a far road crosses whatever is between, the landing area included). wide: any road within SNAP_MAX (then
+  -- anywhere), for when the nearest roads lead nowhere
+  -- (PriFly's routes only: a tow keeps its own rules, its solved ways are tested as they are)
+  if not wide and not tow then
+    local nearest = math.huge
+    for u = 1, #g.nodes do
+      for _, v in ipairs(g.adj[u]) do
+        if v >= u then
+          local a, b = g.nodes[u], g.nodes[v]
+          local dx, dz = b[1] - a[1], b[2] - a[2]
+          local t = math.max(0, math.min(1, ((from[1] - a[1]) * dx + (from[2] - a[2]) * dz) / (dx * dx + dz * dz)))
+          nearest = math.min(nearest, N.dist(from, { a[1] + dx * t, a[2] + dz * t }))
+        end
+      end
+    end
+    if nearest > N.SNAP_MAX then return {} end
+    return make(nearest + N.NEAR_SLACK, true)
+  end
+  local s = make(N.SNAP_MAX, true)
+  if #s == 0 then s = make(math.huge, false) end
+  return s
+end
+
+-- the cheapest way (distance plus a cost per degree turned, no turn sharper than MAX_TURN) to destination `to`
+-- ("C1".."C4", a spot's id): its corners, from first; or nil
+function Tow.Net.solve(g, from, to, hx, hz, pullOut, opts, wide)
+  local N = Tow.Net
+  local goal = g.dest[to]
+  if not goal then return nil end
+  local open = N.seeds(g, from, hx, hz, opts, wide)
+  local lineUp = tostring(to):match('^C[1-4]$') and g.nodes[goal] or nil
+  local done = {}
+  while #open > 0 do
+    local bi = 1
+    for i = 2, #open do
+      if open[i].cost < open[bi].cost then bi = i end
+    end
+    local s = table.remove(open, bi)
+    if s.node == goal then
+      local chain, x = {}, s
+      while x do
+        table.insert(chain, 1, x)
+        x = x.parent
+      end
+      local pts = {}
+      for _, st in ipairs(chain) do
+        for _, p in ipairs(st.pts) do pts[#pts + 1] = p end
+        if not st.parent then pts[#pts + 1] = g.nodes[st.node] end
+      end
+      local out = {}
+      for i, p in ipairs(pts) do
+        if i == 1 or N.dist(p, pts[i - 1]) > 0.05 then out[#out + 1] = p end -- (a start on its own node)
+      end
+      return out
+    end
+    local key = s.prev .. '>' .. s.node
+    if not done[key] then
+      done[key] = true
+      for _, n in ipairs(g.adj[s.node]) do
+        if n ~= s.prev then
+          local ex, ez = N.dir(g.nodes[s.node], g.nodes[n])
+          local turn = s.dir and N.turn(s.dir[1], s.dir[2], ex, ez) or 0
+          if turn <= N.MAX_TURN and not (lineUp and turn > N.LINEUP_TURN and N.dist(g.nodes[s.node], lineUp) < ((opts and opts.lineup) or N.MIN_LINEUP))
+            and not (pullOut and turn > N.LINEUP_TURN and N.dist(g.nodes[s.node], from) < N.MIN_PULL_OUT) then
+            open[#open + 1] = { node = n, prev = s.node, dir = { ex, ez }, cost = s.cost + N.dist(g.nodes[n], g.nodes[s.node]) + turn * N.TURN_COST, parent = s, pts = { g.nodes[n] } }
+          end
+        end
+      end
+    end
+  end
+  return nil
+end
+
+function Tow.Net.waypoints(g, from, to, hx, hz, opts)
+  local S = Tow.Net.solve
+  local r = S(g, from, to, hx, hz, true, opts) or S(g, from, to, hx, hz, false, opts)
+  if r or (opts and opts.tow) then return r end
+  return S(g, from, to, hx, hz, true, opts, true) or S(g, from, to, hx, hz, false, opts, true)
+end
+
+-- a way's corners only: the points in line with their neighbours dropped (the solver gives every junction passed)
+function Tow.Net.corners(wp)
+  local N = Tow.Net
+  local p = {}
+  for _, q in ipairs(wp) do
+    local n = #p
+    if n > 0 and N.dist(p[n], q) < 0.05 then
+      -- (a repeat)
+    elseif n >= 2 then
+      local ax, az = N.dir(p[n - 1], p[n])
+      local bx, bz = N.dir(p[n], q)
+      if N.turn(ax, az, bx, bz) < 0.5 then p[n] = q else p[n + 1] = q end -- (in line with the two before: no corner)
+    else
+      p[n + 1] = q
+    end
+  end
+  return p
+end
+
+-- corners made a way to drive: straight runs joined by arcs of radius r (less where two corners are too close for
+-- it), a point about every `step` metres
+function Tow.Net.smooth(wp, r, step)
+  local N = Tow.Net
+  r, step = r or N.RADIUS, step or 1
+  local p = N.corners(wp)
+  local n = #p
+  if n < 2 then return p end
+  local want, t = {}, {}
+  for i = 1, n do
+    if i == 1 or i == n then
+      want[i] = 0
+    else
+      local ax, az = N.dir(p[i - 1], p[i])
+      local bx, bz = N.dir(p[i], p[i + 1])
+      want[i] = r * math.tan(math.rad(N.turn(ax, az, bx, bz)) / 2)
+    end
+    t[i] = want[i]
+  end
+  for i = 1, n - 1 do
+    local L = N.dist(p[i], p[i + 1])
+    local need = want[i] + want[i + 1]
+    if need > L then
+      t[i] = math.min(t[i], want[i] * L / need)
+      t[i + 1] = math.min(t[i + 1], want[i + 1] * L / need)
+    end
+  end
+  local out = {}
+  local function run(a, b)
+    local L = N.dist(a, b)
+    if L < 0.01 then
+      if #out == 0 then out[1] = a end
+      return
+    end
+    local k = math.max(1, math.ceil(L / step))
+    for j = (#out > 0 and 1 or 0), k do out[#out + 1] = { a[1] + (b[1] - a[1]) * j / k, a[2] + (b[2] - a[2]) * j / k } end
+  end
+  local cur = p[1]
+  for i = 2, n - 1 do
+    local d1x, d1z = N.dir(p[i - 1], p[i])
+    local d2x, d2z = N.dir(p[i], p[i + 1])
+    local th = math.rad(N.turn(d1x, d1z, d2x, d2z))
+    if t[i] < 0.05 or th < 1e-3 then
+      run(cur, p[i])
+      cur = p[i]
+    else
+      local t1 = { p[i][1] - d1x * t[i], p[i][2] - d1z * t[i] }
+      local rad = t[i] / math.tan(th / 2)
+      local left = (d1x * d2z - d1z * d2x) > 0 and 1 or -1
+      local cx, cz = t1[1] - d1z * rad * left, t1[2] + d1x * rad * left
+      run(cur, t1)
+      local a0 = atan2(t1[2] - cz, t1[1] - cx)
+      local k = math.max(2, math.ceil(rad * th / step))
+      for j = 1, k do out[#out + 1] = { cx + rad * math.cos(a0 + left * th * j / k), cz + rad * math.sin(a0 + left * th * j / k) } end
+      cur = out[#out]
+    end
+  end
+  run(cur, p[n])
+  return out
+end
+
+-- The tractor BY ITSELF from a to b ({ x, z }): along the roads where it can (a leg off them counts 1.6 times its
+-- length; it must stay on the deck and out of the island). obs: aircraft it may not close on, { { x, z, fx, fz } }:
+-- each taken as its fuselage line, 8.5 m either way, with 5.5 m to spare (or as near as a or b already is).
+-- The corners from a to b, or nil.
+function Tow.Net.solo(g, a, b, obs)
+  local N = Tow.Net
+  obs = obs or {}
+  local function spine(p, o)
+    local s = math.max(-8.5, math.min(8.5, (p[1] - o.x) * o.fx + (p[2] - o.z) * o.fz))
+    return math.sqrt((p[1] - o.x - o.fx * s) ^ 2 + (p[2] - o.z - o.fz * s) ^ 2)
+  end
+  local limit = {}
+  for i, o in ipairs(obs) do limit[i] = math.min(5.5, math.min(spine(a, o), spine(b, o)) - 0.3) end
+  local function free(p, q)
+    for i, o in ipairs(obs) do
+      local n = math.max(1, math.ceil(N.dist(p, q) / 1.5))
+      for k = 0, n do
+        if spine({ p[1] + (q[1] - p[1]) * k / n, p[2] + (q[2] - p[2]) * k / n }, o) < limit[i] - 1e-6 then return false end
+      end
+    end
+    return true
+  end
+  local n = #g.nodes
+  local P, nb = {}, {}
+  for i = 1, n do P[i] = g.nodes[i] end
+  P[n + 1], P[n + 2] = a, b
+  for i = 1, n + 2 do nb[i] = {} end
+  local function link(i, j, k)
+    local c = N.dist(P[i], P[j]) * k
+    nb[i][#nb[i] + 1] = { j, c }
+    nb[j][#nb[j] + 1] = { i, c }
+  end
+  for i = 1, n do
+    for _, j in ipairs(g.adj[i]) do
+      if j > i and free(P[i], P[j]) then link(i, j, 1) end
+    end
+    for e = n + 1, n + 2 do
+      if N.dist(P[i], P[e]) < 45 and N.legOk(g, P[e], P[i]) and free(P[e], P[i]) then link(i, e, 1.6) end
+    end
+  end
+  if N.legOk(g, a, b) and free(a, b) then link(n + 1, n + 2, 1.6) end
+  local cost, prev, seen = { [n + 1] = 0 }, {}, {}
+  while true do
+    local u, best
+    for i = 1, n + 2 do
+      if cost[i] and not seen[i] and (not best or cost[i] < best) then u, best = i, cost[i] end
+    end
+    if not u then return nil end
+    if u == n + 2 then break end
+    seen[u] = true
+    for _, e in ipairs(nb[u]) do
+      if not cost[e[1]] or best + e[2] < cost[e[1]] then cost[e[1]], prev[e[1]] = best + e[2], u end
+    end
+  end
+  local out, u = {}, n + 2
+  while u do
+    table.insert(out, 1, P[u])
+    u = prev[u]
+  end
+  return out
+end
+
+-- ---- the flight deck tow's plans (Tow.Fd)
+Tow.Fd = {}
+
+-- the platforms a tow may not cross now (Tow.Fd.blocks: set while a tow of the deck spotting demo is planned or
+-- driven: its own account of its elevators; else the hook's, Walk.blocks)
+function Tow.Fd.blockList() return (Tow.Fd.blocks or Walk.blocks)() end
+
+-- the planners' account of what they tried (Tow.Fd.mute: kept out of the log, or, a table, collected in it: the deck
+-- spotting demo plans again and again until a way is free, and says itself why it waits)
+function Tow.Fd.log(s)
+  local m = Tow.Fd.mute
+  if type(m) == 'table' then m[#m + 1] = s elseif not m then logLine(s) end
+end
+
+function Tow.routeLen(path)
+  local s = routeLengths(path)
+  return s[#s] or 0
+end
+
+-- on the deck, with m metres of it all round
+-- (Tow.Fd.inside: "is there deck under this point": the flight deck's outline, or, for a tow in the hangar, the
+-- hangar's floor: set while such a tow is planned or driven. Tow.Fd.wall: "is something standing at this point that
+-- an aircraft's nose, wing or tail would hit": the hangar's walls and fittings; nothing on the flight deck.)
+function Tow.Fd.on(x, z, m)
+  local f = Tow.Fd.inside or insideDeck
+  return f(x, z) and f(x + m, z) and f(x - m, z) and f(x, z + m) and f(x, z - m)
+end
+
+-- DO TWO AIRCRAFT TOUCH (2026-11-17: in DCS the tractor pushed a Hornet's nose through the nose of one parked on the
+-- six-pack; until then a tow was not held against the other aircraft on the deck at all). An F/A-18C is taken as
+-- four rounded bars (a line with a radius), about its own position, x ahead, across its wings:
+--   the nose       from 2.5 to 8.1 ahead, radius 0.5 (its tip 8.6 ahead)
+--   the body       from 7.4 behind to 2.5 ahead, radius 1.1 (its end 8.5 behind: 17.1 m in all)
+--   the wing       across 2.2 behind, radius 1.8, to 4.2 either side folded or 6.3 spread
+--   the tailplane  across 7.0 behind, radius 1.0, to 3.3 either side
+-- (The aircraft's length and spans as published; where its own position lies along it follows from the nose wheel,
+-- 3.005 ahead of it. Rough: a wing is not a bar. All of it at one height: a wing over a nose counts as touching.)
+-- `low`: what the TRACTOR is held against, which goes under a nose, a wing or a tail but not through the wheels and
+-- what hangs between them: a bar from 2.6 behind to 3.1 ahead, radius 1.7. The tractor itself: a bar from 2.4 behind
+-- its position to 1.2 ahead, radius 0.9.
+function Tow.Fd.shape(x, z, fx, fz, half)
+  local rx, rz = -fz, fx -- across
+  local w, t = half - 1.8, 3.3 - 1.0
+  return { x = x, z = z,
+    { x + fx * 2.5, z + fz * 2.5, x + fx * 8.1, z + fz * 8.1, 0.5 },
+    { x - fx * 7.4, z - fz * 7.4, x + fx * 2.5, z + fz * 2.5, 1.1 },
+    { x - fx * 2.2 - rx * w, z - fz * 2.2 - rz * w, x - fx * 2.2 + rx * w, z - fz * 2.2 + rz * w, 1.8 },
+    { x - fx * 7.0 - rx * t, z - fz * 7.0 - rz * t, x - fx * 7.0 + rx * t, z - fz * 7.0 + rz * t, 1.0 },
+    low = { { x - fx * 2.6, z - fz * 2.6, x + fx * 3.1, z + fz * 3.1, 1.7 } } }
+end
+
+function Tow.Fd.tugShape(x, z, hx, hz)
+  return { x = x, z = z, { x - hx * 2.4, z - hz * 2.4, x + hx * 1.2, z + hz * 1.2, 0.9 } }
+end
+
+-- how far apart two bars are (their surfaces; below 0: into each other)
+function Tow.Fd.barGap(a, b)
+  local function ps(px, pz, s) -- a point to a segment
+    local dx, dz = s[3] - s[1], s[4] - s[2]
+    local l2 = dx * dx + dz * dz
+    local k = l2 > 0 and math.max(0, math.min(1, ((px - s[1]) * dx + (pz - s[2]) * dz) / l2)) or 0
+    return math.sqrt((px - s[1] - dx * k) ^ 2 + (pz - s[2] - dz * k) ^ 2)
+  end
+  local function side(s, px, pz) return (s[3] - s[1]) * (pz - s[2]) - (s[4] - s[2]) * (px - s[1]) end
+  local d
+  if side(a, b[1], b[2]) * side(a, b[3], b[4]) < 0 and side(b, a[1], a[2]) * side(b, a[3], a[4]) < 0 then
+    d = 0 -- (they cross)
+  else
+    d = math.min(math.min(ps(a[1], a[2], b), ps(a[3], a[4], b)), math.min(ps(b[1], b[2], a), ps(b[3], b[4], a)))
+  end
+  return d - a[5] - b[5]
+end
+
+-- the least room between two shapes
+function Tow.Fd.gap(A, B)
+  local g
+  for _, a in ipairs(A) do
+    for _, b in ipairs(B) do
+      local d = Tow.Fd.barGap(a, b)
+      if not g or d < g then g = d end
+    end
+  end
+  return g
+end
+
+-- an aircraft's wing, half its span as it stands: folded or spread, read from its own model (argument 8, the deck
+-- tool's: Tow.Deck.foldArg); spread if it cannot be read
+function Tow.Fd.half(id)
+  local h = shipHandle()
+  if h and id and native and native.objarg then
+    local okh, v = pcall(native.objarg, h, id, Tow.Deck.foldArg)
+    if okh and type(v) == 'number' then return v > 0.5 and 4.2 or 6.3 end
+  end
+  return 6.3
+end
+
+-- The other aircraft a tow is held against (st.others: { x, z, fx, fz, name, half } each; Tow.Fd.plan fills it in) are
+-- given their shapes, and each the room the tow must keep from it: TOW.touch, or less where the aircraft in tow
+-- already stands nearer than that as it starts (jet: { x, z, fx, fz }) or will stand nearer at its place (dest: the
+-- same; neighbours on the deck stand wing to wing): 0.3 m less than the nearer of the two. The same for the tractor
+-- (TOW.tugTouch; where it starts).
+function Tow.Fd.limits(st, jet, dest)
+  local half = st.half or 4.2
+  local A = Tow.Fd.shape(jet.x, jet.z, jet.fx, jet.fz, half)
+  local B = dest and Tow.Fd.shape(dest.x, dest.z, dest.fx, dest.fz, half) or nil
+  local T = Tow.Fd.tugShape(st.d.x, st.d.z, st.d.hx, st.d.hz)
+  for _, o in ipairs(st.others or {}) do
+    o.shape = o.shape or Tow.Fd.shape(o.x, o.z, o.fx, o.fz, o.half or 4.2)
+    local lim = TOW.touch
+    local ga = Tow.Fd.gap(A, o.shape)
+    if ga - 0.3 < lim then lim = ga - 0.3 end
+    if B then
+      local gb = Tow.Fd.gap(B, o.shape)
+      if gb - 0.3 < lim then lim = gb - 0.3 end
+    end
+    o.lim = lim
+    o.tlim = math.min(TOW.tugTouch, Tow.Fd.gap(T, o.shape.low) - 0.2)
+  end
+end
+
+-- What is wrong with the tow as it stands (the tractor's own point at tx, tz, pointing hx, hz; the nose wheel at lx, lz;
+-- the middle of the main wheels at mx, mz), or nil; and how far the nose wheel is turned (degrees). others (with
+-- `half`, the towed aircraft's wing): the other aircraft on the deck, each with its shape and room (Tow.Fd.limits):
+-- the aircraft in tow and the tractor are held against them.
+function Tow.Fd.check(tx, tz, hx, hz, lx, lz, mx, mz, blocks, others, half)
+  local Hx, Hz = tx - hx * TOW.hitch, tz - hz * TOW.hitch
+  local ux, uz = Tow.unit(Hx - lx, Hz - lz)
+  local fx, fz = Tow.unit(lx - mx, lz - mz)
+  local steer = math.abs(math.deg(atan2(fx * uz - fz * ux, fx * ux + fz * uz)))
+  if steer > TOW.steerMax then return string.format('the nose wheel would be turned %.0f degrees (%d at most)', steer, TOW.steerMax), steer end
+  if math.abs(math.deg(atan2(hx * uz - hz * ux, hx * ux + hz * uz))) > TOW.kinkMax then return 'the bar would fold against the tractor', steer end
+  if not Tow.Fd.on(tx, tz, 1.2) then return string.format('the tractor would leave the deck (%.0f m forward, %.0f m to starboard)', tx, tz), steer end
+  local half0 = TOW.track / 2
+  local inside = Tow.Fd.inside or insideDeck
+  if not (inside(lx, lz) and inside(mx + fz * half0, mz - fx * half0) and inside(mx - fz * half0, mz + fx * half0)) then
+    return string.format('the jet\'s wheels would leave the deck (near %.0f m forward, %.0f m to starboard)', lx, lz), steer
+  end
+  if Tow.Fd.wall then
+    -- (in the hangar: the aircraft's nose, its wing tips, its tail and tailplane tips against the walls and fittings)
+    local jx, jz = lx - fx * TOW.noseGear, lz - fz * TOW.noseGear
+    local hw = half or 4.2
+    for _, q in ipairs({ { 8.4, 0 }, { 5.5, 0 }, { -2.2, hw }, { -2.2, -hw }, { -0.6, hw - 0.3 }, { -0.6, 0.3 - hw }, { -3.8, hw - 0.3 }, { -3.8, 0.3 - hw }, { -8.3, 0 }, { -7.0, 3.1 }, { -7.0, -3.1 } }) do
+      local px, pz = jx + fx * q[1] - fz * q[2], jz + fz * q[1] + fx * q[2]
+      if Tow.Fd.wall(px, pz) then return string.format('the aircraft in tow would run into the hangar\'s side or a fitting (near %.0f m forward, %.0f m to starboard)', px, pz), steer end
+    end
+  end
+  for _, b in ipairs(blocks or {}) do
+    if inBox(b, tx, tz) or inBox(b, lx, lz) or inBox(b, mx, mz) then return 'elevator ' .. tostring(b.idx) .. ' is down and in the way', steer end
+  end
+  if others and #others > 0 then
+    local jx, jz = lx - fx * TOW.noseGear, lz - fz * TOW.noseGear
+    local J, T
+    for _, o in ipairs(others) do
+      -- (two Hornets' own positions more than 21 m apart cannot touch; nor the tractor 13 m from one)
+      local dj = (o.x - jx) ^ 2 + (o.z - jz) ^ 2
+      if dj < 441 then
+        J = J or Tow.Fd.shape(jx, jz, fx, fz, half or 4.2)
+        local g = Tow.Fd.gap(J, o.shape)
+        local F = Tow.Fd.least
+        if F and (not F.gap or g < F.gap) then F.gap, F.name = g, o.name end
+        if g < o.lim and not Tow.Fd.soft then
+          return string.format('the aircraft in tow would %s %s (near %.0f m forward, %.0f m to starboard)', g < 0 and 'run into' or string.format('come within %.1f m of', g), tostring(o.name or 'another aircraft'), jx, jz), steer
+        end
+      end
+      if (o.x - tx) ^ 2 + (o.z - tz) ^ 2 < 169 then
+        T = T or Tow.Fd.tugShape(tx, tz, hx, hz)
+        local gt = Tow.Fd.gap(T, o.shape.low)
+        if gt < o.tlim and Tow.Fd.soft then
+          local F = Tow.Fd.least
+          if F and (not F.tug or gt < F.tug) then F.tug, F.tugName = gt, o.name end
+        elseif gt < o.tlim then
+          return string.format('the tractor would run into %s (near %.0f m forward, %.0f m to starboard)', tostring(o.name or 'another aircraft'), tx, tz), steer
+        end
+      end
+    end
+  end
+  return nil, steer
+end
+
+-- The bar and the jet trailing the tractor d ({ x, z, hx, hz }), exactly as Tow.apply places them. q: { lx, lz (the
+-- nose wheel), mx, mz (the middle of the main wheels), fl (the bar from the hitch to the nose wheel, on the flat),
+-- steer (the most the nose wheel has turned), blocks (lowered elevators), others / half (the other aircraft on the
+-- deck: looked at every third time, some 0.4 m of travel) }. Returns what is wrong where they now stand, or nil.
+function Tow.Fd.trail(q, d)
+  local hx, hz = d.x - d.hx * TOW.hitch, d.z - d.hz * TOW.hitch
+  local ux, uz = Tow.unit(hx - q.lx, hz - q.lz)
+  q.lx, q.lz = hx - ux * q.fl, hz - uz * q.fl
+  local fx, fz = Tow.unit(q.lx - q.mx, q.lz - q.mz)
+  local L = TOW.noseGear + TOW.mainGear
+  q.mx, q.mz = q.lx - fx * L, q.lz - fz * L
+  q.fx, q.fz = fx, fz
+  q.n = (q.n or 0) + 1
+  local bad, steer = Tow.Fd.check(d.x, d.z, d.hx, d.hz, q.lx, q.lz, q.mx, q.mz, q.blocks, (q.n % 3 == 0) and q.others or nil, q.half)
+  if steer > q.steer then q.steer = steer end
+  return bad
+end
+
+-- A tow driven in the head: the tractor from st.d on along `path` as Tow.drive drives it (turning no tighter than
+-- turnR), the bar and the jet trailing from st (lx, lz, mx, mz, fl, blocks, others, half). Returns where it all ends
+-- ({ d, lx, lz, mx, mz, steer }), or nil and what goes wrong.
+function Tow.Fd.sim(st, path, speed, turnR)
+  local d = { x = st.d.x, z = st.d.z, hx = st.d.hx, hz = st.d.hz, v = 0, path = path, s = routeLengths(path), at = 0, speed = speed, turnR = turnR, acc = TOW.simAccel, brk = TOW.simBrake }
+  local q = { lx = st.lx, lz = st.lz, mx = st.mx, mz = st.mz, fl = st.fl, steer = 0, blocks = st.blocks, others = st.others, half = st.half }
+  local limit = 40 * (d.s[#path] + 20)
+  local F = {} -- (the least room to another aircraft on the way, and whose: Tow.Fd.check keeps it)
+  Tow.Fd.least = F
+  for _ = 1, limit do
+    local done = Tow.drive(d, 0.1)
+    local bad = Tow.Fd.trail(q, d)
+    if bad then
+      Tow.Fd.least = nil
+      return nil, bad
+    end
+    if done then
+      Tow.Fd.least = nil
+      return { d = d, lx = q.lx, lz = q.lz, mx = q.mx, mz = q.mz, fx = q.fx, fz = q.fz, steer = q.steer, gap = F.gap, gapName = F.name, tug = F.tug, tugName = F.tugName }
+    end
+  end
+  Tow.Fd.least = nil
+  return nil, 'the tractor does not get to the end of its way'
+end
+
+-- the tractor by itself along `path` in the head: true, or nil and what goes wrong. goal ({ x, z, hx, hz }): it must
+-- end there, within 0.5 m (0.3 m to either side) and 6 degrees: on the aircraft's nose line, facing away from it
+-- others ({ x, z, shape } each: the other aircraft): it goes under a nose or a wing, not through the wheels of one
+function Tow.Fd.simSolo(d0, path, blocks, goal, others)
+  local d = { x = d0.x, z = d0.z, hx = d0.hx, hz = d0.hz, v = 0, path = path, s = routeLengths(path), at = 0, speed = TOW.simSpeed, acc = TOW.simAccel, brk = TOW.simBrake }
+  local n = 0
+  for _ = 1, 40 * (d.s[#path] + 20) do
+    local done = Tow.drive(d, 0.1)
+    if not Tow.Fd.on(d.x, d.z, 1.0) then return nil, string.format('the tractor would leave the deck on its way (%.0f m forward, %.0f m to starboard)', d.x, d.z) end
+    n = n + 1
+    if others and n % 3 == 0 then
+      local T
+      for _, o in ipairs(others) do
+        if (o.x - d.x) ^ 2 + (o.z - d.z) ^ 2 < 169 then
+          o.shape = o.shape or Tow.Fd.shape(o.x, o.z, o.fx, o.fz, o.half or 4.2)
+          T = T or Tow.Fd.tugShape(d.x, d.z, d.hx, d.hz)
+          if Tow.Fd.gap(T, o.shape.low) < TOW.tugTouch then
+            return nil, string.format('the tractor would run into the wheels of %s on its way (%.0f m forward, %.0f m to starboard)', tostring(o.name or 'another aircraft'), d.x, d.z)
+          end
+        end
+      end
+    end
+    for _, b in ipairs(blocks or {}) do
+      if inBox(b, d.x, d.z) then return nil, 'elevator ' .. tostring(b.idx) .. ' is down and in the tractor\'s way' end
+    end
+    if done then
+      if goal then
+        local ox, oz = d.x - goal.x, d.z - goal.z
+        local side = math.abs(ox * -goal.hz + oz * goal.hx)
+        local turn = Tow.Net.turn(d.hx, d.hz, goal.hx, goal.hz)
+        -- (goal.turnOk: the deck spotting demo's tractors in the packed hangar: they back the last metres onto the
+        -- ring and straighten as they back: up to that many degrees round is let pass)
+        if math.sqrt(ox * ox + oz * oz) > 0.5 or side > 0.3 or turn > (goal.turnOk or 6) then
+          return nil, string.format('the tractor would not come out of its turn in line with the nose (%.1f m to the side, %.0f degrees round)', side, turn)
+        end
+      end
+      return true
+    end
+  end
+  return nil, 'the tractor does not get to the end of its way'
+end
+
+-- the tractor's way along a route made for the jet's own position: from where the tractor stands, onto the route
+-- `skip` metres along it (the tractor stands that far ahead of the jet), and on to its end
+function Tow.Fd.join(d, route, skip)
+  local s = routeLengths(route)
+  local out = { { d.x, d.z } }
+  for i = 1, #route do
+    local last = out[#out]
+    if s[i] >= skip and math.sqrt((route[i][1] - last[1]) ^ 2 + (route[i][2] - last[2]) ^ 2) > 0.05 then out[#out + 1] = route[i] end
+  end
+  return out
+end
+
+-- To catapult k: along the taxi route and on up the track, the nose wheel left TOW.catShort short of the shuttle, THE
+-- JET IN LINE WITH THE TRACK. The tractor, the bar and the jet are 13 m from end to end, and a taxi route may come
+-- onto a catapult's line 8 m short of its shuttle: stopped there the jet stands several degrees across the track
+-- (7.6 from elevator 2 to catapult 2). So, in turn, until the jet ends within TOW.catTurn degrees of the track and its
+-- nose wheel within TOW.catOff of its line:
+--   1. a taxi way that makes no sharp turn within TOW.catLineUp of the shuttle (if there is one);
+--   2. the taxi way as it is;
+--   3. the taxi way as it is, pulled on up the track 12, 20 or 28 m PAST the place, then pushed straight back to it
+--      (Tow.Fd.back: the push steers the jet onto the track's line as it comes).
+function Tow.Fd.planCat(g, st0, jet, k, reach)
+  local N = Tow.Net
+  local name = 'catapult ' .. k
+  local skip = TOW.noseGear + reach + 1.5
+  local L = TOW.noseGear + TOW.mainGear
+  local why
+  for _, try in ipairs({ { lineup = TOW.catLineUp, extra = 0 }, { extra = 0 }, { extra = 12 }, { extra = 20 }, { extra = 28 } }) do
+    local wp = N.waypoints(g, { jet.x, jet.z }, 'C' .. k, jet.fx, jet.fz, { tow = true, lineup = try.lineup })
+    if not wp or #wp < 2 then
+      if not try.lineup then return nil, string.format('no way from here to catapult %d along which the jet can be pulled nose first (it is pulled, never turned on the spot).', k) end
+    else
+      local route = N.smooth(wp)
+      wp = N.corners(wp)
+      local n = #wp
+      local ex, ez = N.dir(wp[n - 1], wp[n]) -- up the catapult's track
+      local sh = wp[n]                       -- its shuttle
+      local len = routeLengths(route)[#route]
+      if len < skip + 2 then return nil, string.format('you are %.0f m from catapult %d\'s shuttle already: too near for a tow.', len, k) end
+      local path = Tow.Fd.join(st0.d, route, skip)
+      path[#path + 1] = { sh[1] + ex * (reach - TOW.catShort + try.extra), sh[2] + ez * (reach - TOW.catShort + try.extra) }
+      -- (the room to keep from every other aircraft on the deck: as the jet starts, and where it will stand)
+      Tow.Fd.limits(st0, jet, { x = sh[1] - ex * (TOW.catShort + TOW.noseGear), z = sh[2] - ez * (TOW.catShort + TOW.noseGear), fx = ex, fz = ez })
+      local res, bad = Tow.Fd.sim(st0, path, TOW.simSpeed, TOW.towR)
+      if not res then
+        why = why or tostring(bad)
+      else
+        -- where the jet is to stand: its own point, and the middle of its main wheels
+        local dest = { x = sh[1] - ex * (TOW.catShort + TOW.noseGear), z = sh[2] - ez * (TOW.catShort + TOW.noseGear), fx = ex, fz = ez, name = name, short = name }
+        local mF = { x = dest.x - ex * TOW.mainGear, z = dest.z - ez * TOW.mainGear }
+        local plen = routeLengths(path)[#path]
+        local turn = N.turn(res.fx, res.fz, ex, ez)
+        local off = math.abs((res.lx - sh[1]) * -ez + (res.lz - sh[2]) * ex)
+        local what = try.lineup and string.format('a taxi way with no sharp turn within %d m of the shuttle', try.lineup) or 'the taxi way as it is'
+        if try.extra == 0 then
+          if turn <= TOW.catTurn and off <= TOW.catOff then
+            return { kind = 'cat', pull = path, steer = res.steer, dest = dest, room = Tow.Fd.roomText(res), roomOf = { Tow.Fd.roomOf(res) },
+              text = string.format('%.0f m along the deck to %s, your nose wheel left %.0f m short of its shuttle', plen, name, TOW.catShort),
+              note = string.format('to %s by %s: the tractor\'s way %d points, %.0f m, ends %.1f / %.1f; in the head the nose wheel turns %.0f degrees at most and the jet ends %.1f degrees off the track, its nose wheel %.2f m off its line', name, what, #path,
+                plen, path[#path][1], path[#path][2], res.steer, turn, off) }
+          end
+          logLine(string.format('tow: to %s by %s the jet would end %.1f degrees off the track, its nose wheel %.2f m off its line: not taken', name, what, turn, off))
+          why = why or string.format('the jet would end %.0f degrees off the track', turn)
+        else
+          local K = { mF.x + ex * try.extra / 2, mF.z + ez * try.extra / 2 }
+          local rec, facts = Tow.Fd.back({ d = res.d, lx = res.lx, lz = res.lz, mx = res.mx, mz = res.mz, fl = st0.fl, blocks = st0.blocks, others = st0.others, half = st0.half }, mF, ex, ez, K, TOW.backR)
+          if rec then
+            return { kind = 'cat', pull = path, steer = math.max(res.steer, facts.steer), dest = dest, push = { mF = mF, hx = ex, hz = ez, K = K, rho = TOW.backR }, room = Tow.Fd.roomText(res, facts), roomOf = { Tow.Fd.roomOf(res, facts) },
+              pushText = string.format('tow: on %s\'s track, %.0f m past the place. Now the tractor pushes you straight back to it, into line with the track: hands off.', name, try.extra),
+              text = string.format('%.0f m along the deck onto %s\'s track and %.0f m past the place, then pushed %.0f m straight back into line, your nose wheel left %.0f m short of the shuttle', plen, name, try.extra, facts.len, TOW.catShort),
+              note = string.format('to %s by the taxi way as it is, %d m past and back: the pull %d points, %.0f m, ends %.1f / %.1f, the jet then %.1f degrees off the track; the push %.1f m; in the head the nose wheel turns %.0f degrees at most on the pull and %.0f on the push, which ends %.2f m and %.1f degrees off the place (taken out over its last 3 m)',
+                name, try.extra, #path, plen, path[#path][1], path[#path][2], turn, facts.len, res.steer, facts.steer, facts.off, facts.turn) }
+          end
+          Tow.Fd.log(string.format('tow: to %s, pulled %d m past and pushed back, is not driven: %s', name, try.extra, tostring(facts)))
+          why = why or tostring(facts)
+        end
+      end
+    end
+  end
+  return nil, string.format('no tow to catapult %d from here: %s.', k, tostring(why))
+end
+
+-- THE PUSH, worked out: the jet backed, tail first, from where the tow stands (st: d, lx, lz, mx, mz, fl, blocks) round
+-- the corner K onto the spot (mF: where the middle of its main wheels stands on it; hx, hz: the spot's heading).
+-- The middle of the main wheels is steered along the way { where it is, K, mF }, its corner rounded on rho, as a car
+-- is backed: aimed TOW.backLook ahead, its turn changing no faster than TOW.backRate, the nose wheel never beyond
+-- TOW.backSteer. THE NOSE WHEEL, THE BAR AND THE TRACTOR FOLLOW FROM THAT, exactly: the nose wheel is the jet's
+-- wheelbase ahead of the main wheels; the bar lies the way the nose wheel moves (atan(wheelbase x curvature) off the
+-- jet's nose); the tractor's hitch is at the bar's other end, and the tractor's own point trails its hitch (backing,
+-- the hitch leads). Nothing in this is unstable: a pushed trailer is hard to steer from the tractor's end, and this
+-- is worked out from the jet's. It starts with the nose wheel turned as it is, so nothing jumps.
+-- Returns the record { ds, { tractor x, z, heading x, z, nose wheel x, z, main wheels x, z }, ... }, an entry every
+-- ds metres of the main wheels' way, and its facts { steer, len, off, turn }; or nil and what is wrong.
+function Tow.Fd.back(st, mF, hx, hz, K, rho)
+  local N = Tow.Net
+  local L = TOW.noseGear + TOW.mainGear
+  local fx, fz = Tow.unit(st.lx - st.mx, st.lz - st.mz)
+  local Hx, Hz = st.d.x - st.d.hx * TOW.hitch, st.d.z - st.d.hz * TOW.hitch
+  local ux, uz = Tow.unit(Hx - st.lx, Hz - st.lz)
+  -- as it stands: the nose wheel's turn (+ to the right), and so the curvature the main wheels' way starts with
+  -- (backing, a nose wheel turned right swings the nose left)
+  local kap = -math.tan(atan2(fx * uz - fz * ux, fx * ux + fz * uz)) / L
+  -- (K.pts: more corners than one, in the order they are passed: the deck spotting demo's pushes in the hangar, where
+  -- an aircraft standing a few metres off its place's line is backed over onto it in a shallow S)
+  local way = { { st.mx, st.mz } }
+  -- (K.ease: first that many metres straight back the way the aircraft points: a push that begins where a pull ended,
+  -- the tow still bent, is not thrown hard over at once)
+  if K.ease then way[2] = { st.mx - fx * K.ease, st.mz - fz * K.ease } end
+  if K.pts then
+    for _, q in ipairs(K.pts) do way[#way + 1] = q end
+  else
+    way[#way + 1] = K
+  end
+  way[#way + 1] = { mF.x, mF.z }
+  local path = N.smooth(way, rho, 0.25)
+  if #path < 2 then return nil, 'the jet stands on the spot already' end
+  local s = routeLengths(path)
+  local total = s[#path]
+  local mx, mz, tx, tz = st.mx, st.mz, -fx, -fz -- (tx, tz: the way the main wheels go: the jet's tail's)
+  local Tx, Tz = st.d.x, st.d.z
+  local ds, at = 0.05, 0
+  local kmax = math.tan(math.rad(TOW.backSteer)) / L
+  local rec, most = { ds = ds }, 0
+  local F = {} -- (the least room to another aircraft on the push, and whose: Tow.Fd.check keeps it)
+  Tow.Fd.least = F
+  for _ = 1, math.floor((total + 15) / ds) do
+    local near = routeNearest(path, s, mx, mz, at - 0.5, at + 2)
+    if near > at then at = near end
+    local remain = total - at
+    if remain <= 0.02 then break end
+    local ax, az, adx, adz = routeAt(path, s, math.min(total, at + TOW.backLook))
+    if remain < TOW.backLook then ax, az = ax + adx * (TOW.backLook - remain), az + adz * (TOW.backLook - remain) end
+    local vx, vz = ax - mx, az - mz
+    local al = math.sqrt(vx * vx + vz * vz)
+    local want = al > 0.01 and 2 * math.sin(atan2(tx * vz - tz * vx, tx * vx + tz * vz)) / al or 0
+    want = math.max(-kmax, math.min(kmax, want))
+    kap = kap + math.max(-TOW.backRate * ds, math.min(TOW.backRate * ds, want - kap))
+    local c, sn = math.cos(ds * kap), math.sin(ds * kap)
+    tx, tz = tx * c - tz * sn, tx * sn + tz * c
+    mx, mz = mx + tx * ds, mz + tz * ds
+    local lx, lz = mx - tx * L, mz - tz * L
+    local del = math.atan(-L * kap)
+    local cu, su = math.cos(del), math.sin(del)
+    local bx, bz = -tx * cu + tz * su, -tx * su - tz * cu -- the bar, from the nose wheel to the hitch
+    local hxx, hzz = lx + bx * st.fl, lz + bz * st.fl
+    local thx, thz = Tow.unit(Tx - hxx, Tz - hzz)
+    Tx, Tz = hxx + thx * TOW.hitch, hzz + thz * TOW.hitch
+    -- (the other aircraft on the deck: looked at every eighth time, 0.4 m of the push)
+    local bad, steer = Tow.Fd.check(Tx, Tz, thx, thz, lx, lz, mx, mz, st.blocks, (#rec % 8 == 0) and st.others or nil, st.half)
+    if bad then
+      Tow.Fd.least = nil
+      return nil, bad
+    end
+    if steer > most then most = steer end
+    rec[#rec + 1] = { Tx, Tz, thx, thz, lx, lz, mx, mz }
+  end
+  Tow.Fd.least = nil
+  local n = #rec
+  if n < 2 then return nil, 'the jet stands on the spot already' end
+  local e = rec[n]
+  local ox, oz = e[7] - mF.x, e[8] - mF.z
+  local off = math.sqrt(ox * ox + oz * oz)
+  local jfx, jfz = Tow.unit(e[5] - e[7], e[6] - e[8])
+  local turn = N.turn(jfx, jfz, hx, hz)
+  if off > 0.4 or turn > 3 then return nil, string.format('the jet would not come onto the spot squarely (%.1f m and %.0f degrees out)', off, turn) end
+  -- the last centimetres and the last degree: the whole tow slid and turned (about where the main wheels end) onto
+  -- the spot over the push's last 3 m, as one piece
+  local ang = atan2(jfx * hz - jfz * hx, jfx * hx + jfz * hz) -- from the jet's nose as it ends round to the spot's heading
+  local n0 = math.max(1, n - math.floor(3 / ds))
+  for i = n0, n do
+    local k = smooth((i - n0) / math.max(1, n - n0))
+    local r = rec[i]
+    local c, sn = math.cos(ang * k), math.sin(ang * k)
+    for _, j in ipairs({ 1, 5, 7 }) do
+      local px, pz = r[j] - ox * k - mF.x, r[j + 1] - oz * k - mF.z
+      r[j], r[j + 1] = mF.x + px * c - pz * sn, mF.z + px * sn + pz * c
+    end
+    r[3], r[4] = r[3] * c - r[4] * sn, r[3] * sn + r[4] * c
+  end
+  -- how hard the tractor itself turns: the most its heading changes over a metre of its own travel (degrees a metre)
+  local pivot, j, run = 0, 1, { 0 }
+  for i = 2, n do run[i] = run[i - 1] + math.sqrt((rec[i][1] - rec[i - 1][1]) ^ 2 + (rec[i][2] - rec[i - 1][2]) ^ 2) end
+  for i = 1, n do
+    while j < n and run[j] - run[i] < 1 do j = j + 1 end
+    if run[j] - run[i] >= 1 then pivot = math.max(pivot, N.turn(rec[i][3], rec[i][4], rec[j][3], rec[j][4]) / (run[j] - run[i])) end
+  end
+  if j == n and run[n] < 1 then pivot = N.turn(rec[1][3], rec[1][4], rec[n][3], rec[n][4]) end
+  return rec, { steer = most, len = (n - 1) * ds, off = off, turn = turn, pivot = pivot, tug = run[n], gap = F.gap, gapName = F.name, tugGap = F.tug, tugName = F.tugName }
+end
+
+-- the least room to another aircraft on the pull (res) and the push (facts), and whose; and how far the tractor went
+-- into one's wheels (the second go only), and whose
+function Tow.Fd.roomOf(res, facts)
+  local g, name = res and res.gap, res and res.gapName
+  if facts and facts.gap and (not g or facts.gap < g) then g, name = facts.gap, facts.gapName end
+  local tg, tname = res and res.tug, res and res.tugName
+  if facts and facts.tugGap and (not tg or facts.tugGap < tg) then tg, tname = facts.tugGap, facts.tugName end
+  return g, name, tg, tname
+end
+
+-- for a plan's note
+function Tow.Fd.roomText(res, facts)
+  local g, name = Tow.Fd.roomOf(res, facts)
+  if not g then return '; no other aircraft within reach of the way' end
+  return string.format('; the nearest it comes to another aircraft: %.1f m (%s)', g, tostring(name))
+end
+
+-- One way of putting the jet on a spot: pulled along the taxi way and then along a line across the spot's front
+-- (through K, along ax, az) until the whole tow is past K; then backed round K into the spot (Tow.Fd.back), turning
+-- on rho. onRoad: the line is the taxi road's own (K the spot's corner on it): the pull just carries on past it.
+-- The plan, or nil and what is wrong with it.
+function Tow.Fd.trySpot(st0, spot, reach, wp, hx, hz, ax, az, K, rho, onRoad)
+  local N = Tow.Net
+  local L = TOW.noseGear + TOW.mainGear
+  local mF = { x = spot.x - hx * TOW.mainGear, z = spot.z - hz * TOW.mainGear }
+  local t = rho * math.tan(math.rad(N.turn(hx, hz, ax, az)) / 2) -- from K to where the push's bend begins
+  local train = TOW.hitch + st0.fl + L -- from the tractor's own point back to the main wheels, the tow straight
+  -- where the tractor stops: the main wheels then 2 m beyond the bend's beginning
+  local P = { K[1] + ax * (t + 2 + train), K[2] + az * (t + 2 + train) }
+  local n = #wp
+  local corners = {}
+  for i = 1, math.max(1, n - 2) do corners[#corners + 1] = wp[i] end
+  local V = corners[#corners]
+  local ix, iz = N.dir(V, wp[n - 1]) -- the way the taxi way comes to the spot's corner
+  if not onRoad then
+    local cr = ix * az - iz * ax
+    if math.abs(cr) < 0.14 then
+      -- alongside the road but not on it: over onto the line well before K
+      if ix * ax + iz * az < 0 then return nil, 'the line across the spot runs against the way the jet comes' end
+      local q0 = { K[1] - ax * 6, K[2] - az * 6 }
+      local along = (q0[1] - ax * 12 - V[1]) * ix + (q0[2] - az * 12 - V[2]) * iz
+      if along > 1 then corners[#corners + 1] = { V[1] + ix * along, V[2] + iz * along } end
+      local last = corners[#corners]
+      if (q0[1] - last[1]) * ax + (q0[2] - last[2]) * az > 1 then corners[#corners + 1] = q0 end
+    else
+      -- the two lines cross: the pull turns onto the line there
+      local tt = ((P[1] - V[1]) * az - (P[2] - V[2]) * ax) / cr
+      local X = { V[1] + ix * tt, V[2] + iz * tt }
+      if tt < -0.5 or (P[1] - X[1]) * ax + (P[2] - X[2]) * az < 6 then return nil, 'there is no clean way onto the line across the spot' end
+      if tt > 0.5 then corners[#corners + 1] = X end
+    end
+  end
+  corners[#corners + 1] = P
+  local route = N.smooth(corners)
+  local skip = TOW.noseGear + reach + 1.5
+  if routeLengths(route)[#route] < skip + 4 then return nil, 'the spot is too near for a tow' end
+  local path = Tow.Fd.join(st0.d, route, skip)
+  local res, why = Tow.Fd.sim(st0, path, TOW.simSpeed, TOW.towR)
+  if not res then return nil, 'on the pull past the spot ' .. tostring(why) end
+  -- (spot.pushK: the push's own corner(s), where it is not the line's: the demo's tows in the hangar)
+  local pushK = spot.pushK or K
+  local rec, facts = Tow.Fd.back({ d = res.d, lx = res.lx, lz = res.lz, mx = res.mx, mz = res.mz, fl = st0.fl, blocks = st0.blocks, others = st0.others, half = st0.half }, mF, hx, hz, pushK, spot.pushRho or rho)
+  if not rec then return nil, 'on the push into the spot ' .. tostring(facts) end
+  local plen = routeLengths(path)[#path]
+  return { kind = 'spot', pull = path, push = { mF = mF, hx = hx, hz = hz, K = pushK, rho = spot.pushRho or rho }, steer = math.max(res.steer, facts.steer), pivot = facts.pivot, room = Tow.Fd.roomText(res, facts), roomOf = { Tow.Fd.roomOf(res, facts) },
+    dest = { x = spot.x, z = spot.z, fx = hx, fz = hz, name = spot.name, short = spot.name },
+    text = string.format('%.0f m along the deck past %s, then pushed back %.0f m into it, tail first', plen, spot.name, facts.len),
+    note = string.format('to %s (spot %s): the pull %d points, %.0f m, ends %.1f / %.1f; the push %.1f m round %.1f / %.1f on %.1f m; in the head the nose wheel turns %.0f degrees at most on the pull and %.0f on the push, which ends %.2f m and %.1f degrees off the spot (the %.2f m taken out over its last 3 m); the tractor backs %.1f m, turning %.0f degrees a metre at most',
+      spot.name, tostring(spot.spot), #path, plen, P[1], P[2], facts.len, K[1], K[2], rho, res.steer, facts.steer, facts.off, facts.turn, facts.off, facts.tug, facts.pivot) }
+end
+
+-- To a deck spot. The ways tried, in turn, until one can be driven (in the head):
+--   1. along the taxi road's own line past the spot's corner, and back round that corner (if the bend fits between the
+--      corner and the spot on TOW.backRmin or more; if the corner is more than TOW.roadFar ahead of the spot, this
+--      way is tried last: the port side spots' corners are across the deck, 50 m of pushing);
+--   2. a line across the spot's front, TOW.passClear ahead of where the main wheels will stand (clear of the noses of
+--      the jets either side), at 90, 60 and 120 degrees to the spot's heading, on the side the jet comes from; then
+--      the other side.
+-- The first that can be driven with the tractor itself turning no harder than TOW.pivotOk is taken; if none is that
+-- gentle, the gentlest.
+function Tow.Fd.planSpot(g, st0, jet, spot, reach)
+  local N = Tow.Net
+  if not spot.id then return nil, 'the routes file is an older one (no spot ids): run crew-test\\install.ps1 with DCS closed' end
+  local wp = N.waypoints(g, { jet.x, jet.z }, spot.id, jet.fx, jet.fz, { tow = true })
+  if not wp or #wp < 2 then return nil, 'no way from here to ' .. spot.name .. ' along which the jet can be pulled nose first (it is pulled, never turned on the spot).' end
+  wp = N.corners(wp)
+  local hx, hz = Tow.unit(spot.fx, spot.fz)
+  local mFx, mFz = spot.x - hx * TOW.mainGear, spot.z - hz * TOW.mainGear
+  local n = #wp
+  local W = wp[n - 1]
+  local ix, iz = N.dir(wp[math.max(1, n - 2)], W)
+  -- from the spot's heading round to the way the jet comes to the spot's corner, + to the right
+  local phiIn = math.deg(atan2(hx * iz - hz * ix, hx * ix + hz * iz))
+  local sg = phiIn >= 0 and 1 or -1
+  -- (the room to keep from every other aircraft on the deck: as the jet starts, and where it will stand)
+  Tow.Fd.limits(st0, jet, { x = spot.x, z = spot.z, fx = hx, fz = hz })
+  local tries, road = {}, nil
+  if math.abs(phiIn) >= 20 and math.abs(phiIn) <= 165 then
+    local dW = (W[1] - mFx) * hx + (W[2] - mFz) * hz
+    local rho = math.min(TOW.backR, (dW - 2) / math.tan(math.rad(math.abs(phiIn)) / 2))
+    if rho >= TOW.backRmin then
+      road = { ax = ix, az = iz, K = W, rho = rho, onRoad = true, what = string.format('along the road, %.0f degrees round from the spot\'s heading, its corner %.0f m ahead of the main wheels', phiIn, dW) }
+      if dW <= TOW.roadFar then tries[#tries + 1] = road end
+    end
+  end
+  for _, ang in ipairs({ sg * 90, sg * 60, sg * 120, -sg * 90, -sg * 60, -sg * 120 }) do
+    local c, sn = math.cos(math.rad(ang)), math.sin(math.rad(ang))
+    local rho = 4.5
+    local dK = math.max(rho * math.tan(math.rad(math.abs(ang)) / 2) + 2, TOW.passClear)
+    tries[#tries + 1] = { ax = hx * c - hz * sn, az = hx * sn + hz * c, K = { mFx + hx * dK, mFz + hz * dK }, rho = rho, what = string.format('a line %.0f degrees round from the spot\'s heading, %.0f m ahead of its main wheels', ang, dK) }
+  end
+  if road and #tries == 6 then tries[#tries + 1] = road end
+  -- the first way that can be driven with the tractor turning gently is taken; failing that, the gentlest that can.
+  -- (In the second go, Tow.Fd.soft, when no way is clear of the other aircraft: of all that can be driven, the one
+  -- that goes least far into another aircraft.)
+  local first, best, bestI
+  local roomy, roomyI
+  for i, t in ipairs(tries) do
+    -- (the deck spotting demo's: a plan that is spread over frames may give up the frame here: Tow.pauseIn)
+    if Tow.pauseIn then Tow.pauseIn() end
+    local plan, why = Tow.Fd.trySpot(st0, spot, reach, wp, hx, hz, t.ax, t.az, t.K, t.rho, t.onRoad)
+    if plan and Tow.Fd.soft then
+      plan.note = plan.note .. string.format('; way %d of %d tried: %s', i, #tries, t.what)
+      local g = math.min(plan.roomOf[1] or 99, plan.roomOf[3] or 99)
+      if not roomy or g > roomy.g then roomy, roomyI = { plan = plan, g = g }, i end
+    elseif plan then
+      plan.note = plan.note .. string.format('; way %d of %d tried: %s%s', i, #tries, t.what, first and ('; the first was dropped: ' .. first) or '')
+      if plan.pivot <= TOW.pivotOk then return plan end
+      logLine(string.format('tow: to %s, way %d of %d (%s) can be driven, but the tractor would turn %.0f degrees a metre: a gentler one is looked for', tostring(spot.name), i, #tries, t.what, plan.pivot))
+      if not best or plan.pivot < best.pivot then best, bestI = plan, i end
+    else
+      Tow.Fd.log(string.format('tow: to %s, way %d of %d (%s) is not driven: %s', tostring(spot.name), i, #tries, t.what, tostring(why)))
+      first = first or string.format('%s (%s)', tostring(why), t.what)
+    end
+  end
+  if roomy then
+    Tow.Fd.log(string.format('tow: to %s: no way is clear of the other aircraft: way %d keeps the most room', tostring(spot.name), roomyI))
+    return roomy.plan
+  end
+  if best then
+    logLine(string.format('tow: to %s: no gentler way: way %d is driven', tostring(spot.name), bestI))
+    return best
+  end
+  return nil, string.format('no tow to %s from here: %s; nor any of the other %d ways tried (the log has each).', spot.name, tostring(first), #tries - 1)
+end
+
+-- J: where the aircraft to tow stands ({ x, z }); subj: it is a parked aircraft of the deck tool's (Tow.begin), not
+-- the player's jet; me: the player's own jet on this deck, when another aircraft is towed
+-- others: the other aircraft on the deck ({ x, z, fx, fz, name, half } each): the pull and the push are held against
+-- them (Tow.Fd.limits, Tow.Fd.check); half: the towed aircraft's own wing, half its span as it stands
+function Tow.Fd.plan(J, mode, arg, reach, fx, fz, nx, nz, subj, me, others, half)
+  local plan, why = Tow.Fd.planOnce(J, mode, arg, reach, fx, fz, nx, nz, subj, me, others, half)
+  if plan or not (others and #others > 0) then return plan, why end
+  -- NOT CLEAR OF THE OTHER AIRCRAFT (or not at all): once more with a contact noted instead of refused. If that can be
+  -- driven, it is the taxi road itself that runs through a parked aircraft (the roads are PriFly's, drawn before the
+  -- deck was re-spotted): the tow goes, and says whom it goes through.
+  Tow.Fd.log('tow: no way clear of the other aircraft (' .. tostring(why) .. '): looked for again with a contact allowed')
+  Tow.Fd.soft = true
+  local okp, plan2, why2 = pcall(Tow.Fd.planOnce, J, mode, arg, reach, fx, fz, nx, nz, subj, me, others, half)
+  Tow.Fd.soft = nil
+  if not okp then return nil, 'the plan failed: ' .. tostring(plan2) end
+  if not plan2 then return nil, why end
+  local g, name, tg, tname = plan2.roomOf[1], plan2.roomOf[2], plan2.roomOf[3], plan2.roomOf[4]
+  local parts = {}
+  if g and g < 0 then parts[#parts + 1] = string.format('the aircraft in tow goes %.1f m into %s', -g, tostring(name)) end
+  if tg and tg < 0 then parts[#parts + 1] = string.format('the tractor goes through the wheels of %s', tostring(tname)) end
+  if #parts == 0 then parts[1] = string.format('it comes within %.1f m of %s', g or 0, tostring(name or 'another aircraft')) end
+  plan2.soft = true
+  plan2.text = tostring(plan2.text) .. '. NOT CLEAR: ' .. table.concat(parts, ' and ') .. ' (the taxi road runs there; no clear way was found)'
+  return plan2
+end
+
+-- the plan, once (Tow.Fd.soft: a contact with another aircraft is noted, not refused)
+function Tow.Fd.planOnce(J, mode, arg, reach, fx, fz, nx, nz, subj, me, others, half)
+  local routes = loadRoutes()
+  local g = routes and routes.net
+  if not g then return nil, 'the taxi network is missing (Scripts\\CATCC\\crewtest_routes.lua is absent or an older one): run crew-test\\install.ps1 with DCS closed' end
+  local L = TOW.noseGear + TOW.mainGear
+  local st0 = { d = { x = nx + fx * reach, z = nz + fz * reach, hx = fx, hz = fz }, lx = nx, lz = nz, mx = nx - fx * L, mz = nz - fz * L, fl = reach - TOW.hitch, blocks = Tow.Fd.blockList(),
+    others = others, half = half }
+  local jet = { x = J.x, z = J.z, fx = fx, fz = fz }
+  if mode == 'cat' then
+    if not (arg and arg >= 1 and arg <= 4 and arg == math.floor(arg)) then return nil, 'tow to which catapult? (1 to 4)' end
+    return Tow.Fd.planCat(g, st0, jet, arg, reach)
+  end
+  local spot
+  for _, e in ipairs(routes) do
+    if e.spot == arg then spot = e end
+  end
+  if not spot then return nil, 'there is no deck spot ' .. tostring(arg) .. '.' end
+  if math.sqrt((jet.x - spot.x) ^ 2 + (jet.z - spot.z) ^ 2) < 3 then return nil, 'you are on ' .. tostring(spot.name) .. ' already.' end
+  -- one of the deck tool's Hornets on it (where each stands NOW: one that was towed away has left its spot free)? The
+  -- player's own jet?
+  if me and math.sqrt((me.x - spot.x) ^ 2 + (me.z - spot.z) ^ 2) < 8 then return nil, tostring(spot.name) .. ' is taken: your own jet stands on it.' end
+  local by = Tow.Deck.taken(arg, subj and subj.e, J.ship)
+  if by then
+    if by.skipped then return nil, tostring(spot.name) .. ' is taken: an aircraft of the mission stood on it when the deck was filled.' end
+    return nil, string.format('%s is taken: one of the deck tool\'s Hornets stands on it (%s).', tostring(spot.name), tostring(by.name))
+  end
+  return Tow.Fd.planSpot(g, st0, jet, spot, reach)
+end
+
+-- The tractor's way to the jet: along the roads to a point beside the jet's nose line, a U-turn onto the line clear
+-- of the radome, and on to TOW.ahead beyond the hook-up place (as in the hangar); on the side it comes from, or the
+-- other if there is no deck there. Driven in the head first.
+-- others: the other aircraft on the deck ({ x, z, fx, fz } each): the tractor's way keeps clear of them as it does of
+-- the jet it comes for; if there is no such way (a road runs close past a parked nose), it takes the roads
+-- regardless of them, and the log says so.
+-- BACKING OUT (2026-11-17): the tractor starts from where the last tow left it, facing whichever way it came to a
+-- stop (at its waiting place: the way it drove in). Facing the deck's edge or the island it cannot turn onto its way
+-- (a second tow was refused: "the tractor would leave the deck on its way"): it then backs STRAIGHT out TOW.backOut
+-- metres first (the least that works; phase 'backout'), and its way starts there. Returns the way, nil, the metres
+-- backed; or nil and why.
+function Tow.Fd.arrival(d0, jet, nx, nz, fx, fz, reach, others)
+  local g = Tow.Net.graph()
+  if not g then return nil, 'the taxi network is missing' end
+  local A = TOW.arr
+  local pref = ((d0.x - nx) * -fz + (d0.z - nz) * fx) >= 0 and 1 or -1
+  local blocks = Tow.Fd.blockList()
+  -- where the tractor is to end: on the nose line, facing away from the aircraft, `near + R + run` beyond the hook-up
+  -- place (it then backs straight onto the ring)
+  local uG = reach + A.near + A.R + A.run
+  local goal = { x = nx + fx * uG, z = nz + fz * uG, hx = fx, hz = fz }
+  -- THE TURN ONTO THE NOSE LINE, drawn as it is to be driven (a point every half metre of the bend), in the
+  -- aircraft's own frame (u: ahead of the nose wheel, along the nose; v: to the side `side`):
+  --   'u'  along a line 2 R to the side TOWARDS the aircraft, a half circle of radius R (nearest the aircraft `near`
+  --        beyond the hook-up place, R to the side), and out along the nose line;
+  --   'q'  straight in from the side at `near` beyond the hook-up place, a quarter circle onto the nose line, and out.
+  -- (2026-11-17, the first run on the flight deck: the turn was three square corners 8 m apart, which the tractor,
+  -- turning on 4 m, cut: it ended 3.7 m off the nose line FACING the aircraft, and "backing onto the ring" slid it
+  -- 10 m and spun it half round: the user: "the tug warped into its position and did a rapid/unrealistic turn". The
+  -- way was only held to the deck, not to how it ended.)
+  local function pattern(kind, side)
+    local px, pz = -fz * side, fx * side
+    local function at(u, v) return { nx + fx * u + px * v, nz + fz * u + pz * v } end
+    local cu, cv = reach + A.near + A.R, A.R -- the bend's centre
+    local pts, from
+    if kind == 'u' then
+      pts, from = { at(cu + A.lead, 2 * A.R), at(cu, 2 * A.R) }, 90
+    else
+      pts, from = { at(cu - A.R, A.R + A.lead), at(cu - A.R, A.R) }, 180
+    end
+    local n = math.max(2, math.ceil(math.rad(270 - from) * A.R / 0.5))
+    for i = 1, n do
+      local phi = math.rad(from + (270 - from) * i / n)
+      pts[#pts + 1] = at(cu + A.R * math.cos(phi), cv + A.R * math.sin(phi))
+    end
+    pts[#pts + 1] = at(uG, 0)
+    return pts
+  end
+  -- from s0 (the tractor where it stands, or backed out), clear of obs: the first turn that can be driven and ends in line
+  local function ways(obs, s0, strict)
+    local why
+    for _, c in ipairs({ { 'u', pref }, { 'q', pref }, { 'q', -pref }, { 'u', -pref } }) do
+      -- (the deck spotting demo's: planning that is spread over frames may give up the frame here: Tow.pauseIn)
+      if Tow.pauseIn then Tow.pauseIn() end
+      local pat = pattern(c[1], c[2])
+      local room = true
+      for _, p in ipairs(pat) do
+        if not Tow.Fd.on(p[1], p[2], 2) then room = false end
+      end
+      if not room then
+        why = why or string.format('there is not the deck ahead of your nose for the tractor to turn round on (it needs %.0f m straight ahead of the nose wheel and %.0f m to one side)', uG + A.lead - A.run, 2 * A.R)
+      else
+        -- (Tow.Fd.finder: the deck spotting demo's own way across the open deck; else along the taxi roads)
+        local way = (Tow.Fd.finder or Tow.Net.solo)(g, { s0.x, s0.z }, pat[1], obs, s0)
+        if not way then
+          why = why or 'the tractor finds no way to your nose'
+        else
+          local path = Tow.Net.smooth(way, 5)
+          for i = 2, #pat do path[#path + 1] = pat[i] end
+          local good, bad = Tow.Fd.simSolo(s0, path, blocks, goal, strict and others or nil)
+          if good then return path, nil, c[1] .. (c[2] == pref and '' or ', from the other side') end
+          why = why or bad
+        end
+      end
+    end
+    return nil, why
+  end
+  -- where the tractor stands after backing straight out `back` metres, if there is the deck for it
+  local function backed(back)
+    for k = 1, back do
+      local x, z = d0.x - d0.hx * k, d0.z - d0.hz * k
+      -- (the tractor's own point, and the end of the bar trailing 7.4 m behind it, which goes first)
+      if not (Tow.Fd.on(x, z, 1.0) and Tow.Fd.on(x - d0.hx * 7.4, z - d0.hz * 7.4, 0.3)) then return nil end
+      for _, b in ipairs(blocks or {}) do
+        if inBox(b, x, z) then return nil end
+      end
+    end
+    return { x = d0.x - d0.hx * back, z = d0.z - d0.hz * back, hx = d0.hx, hz = d0.hz }
+  end
+  local sets = {}
+  if others and #others > 0 then
+    local obs = { jet }
+    for _, o in ipairs(others) do obs[#obs + 1] = o end
+    sets[1] = { obs = obs, clear = true }
+  end
+  sets[#sets + 1] = { obs = { jet } }
+  local why
+  for _, set in ipairs(sets) do
+    for _, back in ipairs(TOW.backOut) do
+      local s0 = backed(back)
+      if s0 then
+        local path, bad, how = ways(set.obs, s0, set.clear)
+        if path then
+          if others and #others > 0 then
+            Tow.Fd.log(set.clear and string.format('tow: the tractor\'s way to the aircraft keeps clear of the %d other aircraft on the deck', #others)
+              or string.format('tow: the tractor finds no way to the aircraft that keeps clear of the %d other aircraft on the deck: it takes the roads regardless of them', #others))
+          end
+          Tow.Fd.log(string.format('tow: the tractor\'s turn onto the nose line: %s; it ends %.1f m beyond the hook-up place, at %.1f / %.1f, and backs onto the ring from there',
+            how:sub(1, 1) == 'u' and ('a half circle of ' .. A.R .. ' m' .. how:sub(2)) or ('in from the side, a quarter circle of ' .. A.R .. ' m' .. how:sub(2)), uG - reach, goal.x, goal.z))
+          if back > 0 then Tow.Fd.log(string.format('tow: from where it stands (%.1f / %.1f, heading %.2f %.2f) the tractor cannot turn onto its way: it backs straight out %d m first', d0.x, d0.z, d0.hx, d0.hz, back)) end
+          return path, nil, back
+        end
+        why = why or bad
+      end
+    end
+  end
+  return nil, why
+end
+
+-- unhooked: the tractor's way back to its waiting place (round the jet it has just let go), or nil
+function Tow.Fd.homeWay(w)
+  local g = Tow.Net.graph()
+  if not g then return nil end
+  local d, H = w.d, w.home or TOW.deckHome
+  local from = { d.x + d.hx * 4, d.z + d.hz * 4 }
+  local obs = w.jfx and { { x = w.jx, z = w.jz, fx = w.jfx, fz = w.jfz } } or {}
+  -- the ways to try: clear of the other aircraft on the deck too (if there are any), then regardless of them; each
+  -- with its corners rounded on 5 m, then tighter (3, 2: a way that cuts a corner of the island on 5 m may clear it)
+  local sets = {}
+  if w.others and #w.others > 0 then
+    local all = {}
+    for _, o in ipairs(obs) do all[#all + 1] = o end
+    for _, o in ipairs(w.others) do all[#all + 1] = o end
+    sets[1] = { obs = all, what = string.format('clear of the %d other aircraft on the deck', #w.others) }
+  end
+  sets[#sets + 1] = { obs = obs, what = (w.others and #w.others > 0) and string.format('regardless of the %d other aircraft on the deck', #w.others) or nil }
+  local blocks = Tow.Fd.blockList()
+  local why
+  for _, set in ipairs(sets) do
+    local way = (Tow.Fd.finder or Tow.Net.solo)(g, from, { H.x, H.z }, set.obs, d)
+    if way then
+      for _, r in ipairs({ 5, 3, 2 }) do
+        local path = Tow.Net.smooth(way, r)
+        table.insert(path, 1, { d.x, d.z })
+        local good, bad = Tow.Fd.simSolo(d, path, blocks)
+        if good then
+          Tow.Fd.log(string.format('tow: the tractor\'s way home: %d points, %.0f m%s%s', #path, routeLengths(path)[#path], set.what and (', ' .. set.what) or '', r ~= 5 and string.format(' (its corners rounded on %d m)', r) or ''))
+          return path
+        end
+        why = why or bad
+      end
+    end
+  end
+  Tow.Fd.log('tow: the tractor\'s way home is not driven (' .. tostring(why or 'no way found') .. '): it moves 8 m on and waits there')
+  return nil
+end
+
+-- the pull has ended: the push is worked out again from where the tow ACTUALLY stands (the plan's was from where
+-- the pull ended in the head: a few centimetres from this). True; or nil and why it is not driven
+function Tow.Fd.pushBegin(w)
+  local p = w.push
+  -- (held against the other aircraft as the plan was: their shapes and the room for each are the plan's; a plan that
+  -- was not clear of them is not refused for it now)
+  Tow.Fd.soft = w.soft
+  local okb, rec, facts = pcall(Tow.Fd.back, { d = w.d, lx = w.lx, lz = w.lz, mx = w.mx, mz = w.mz, fl = Tow.flat(w), blocks = (w.env and w.env.blocks or Tow.Fd.blockList)(), others = w.others, half = w.half }, p.mF, p.hx, p.hz, p.K, p.rho)
+  Tow.Fd.soft = nil
+  if not okb then rec, facts = nil, rec end
+  if not rec then
+    logLine('tow: the push is not driven from where the pull ended: ' .. tostring(facts))
+    return nil, tostring(facts)
+  end
+  w.pushRec, w.pushAt = rec, { s = 0, v = 0 }
+  w.d.v = 0
+  -- (w.pushDoor = { s, lim, x1, x2, pts }: the deck spotting demo's: a push onto a hangar elevator that is still up
+  -- STOPS SHORT OF ITS DOOR: where the first of the aircraft's points (pts: { forward, to the side } of its own
+  -- position) would come past the line `lim` metres out on side s (1 starboard, -1 port), between x1 and x2 forward.
+  -- w.pushStop: how far along the push that is; the demo takes both off when the platform is down, and the push goes on)
+  w.pushStop, w.pushHeld = nil, nil
+  local D = w.pushDoor
+  if D then
+    for i = 1, #rec do
+      local q = rec[i]
+      local fx, fz = Tow.unit(q[5] - q[7], q[6] - q[8])
+      local px, pz = q[5] - fx * TOW.noseGear, q[6] - fz * TOW.noseGear
+      local over = false
+      for _, pt in ipairs(D.pts) do
+        local x, z = px + fx * pt[1] - fz * pt[2], pz + fz * pt[1] + fx * pt[2]
+        if x >= D.x1 and x <= D.x2 and D.s * z > D.lim then
+          over = true
+          break
+        end
+      end
+      if over then
+        w.pushStop = math.max(0, (i - 2) * rec.ds)
+        break
+      end
+    end
+  end
+  logLine(string.format('tow: the push worked out from where the pull ended: %.1f m, the nose wheel turned %.0f degrees at most; it ends %.2f m and %.1f degrees off the spot (the %.2f m taken out over its last 3 m)',
+    facts.len, facts.steer, facts.off, facts.turn, facts.off))
+  return true
+end
+
+-- the push, dt on: the tractor, the nose wheel and the main wheels put where the record has them (Tow.apply then
+-- places everything from those). True when the jet is on the spot.
+function Tow.Fd.pushStep(w, dt)
+  local r, p, d = w.pushRec, w.pushAt, w.d
+  local total = (#r - 1) * r.ds
+  -- (w.pushStop: it stops there, short of a hangar door, until that is taken off: Tow.Fd.pushBegin)
+  local lim = (w.pushStop and w.pushStop < total) and w.pushStop or total
+  local remain = math.max(0, lim - p.s)
+  local done = total - p.s <= 0.005
+  local held = not done and lim < total and remain <= 0.005
+  w.pushHeld = held or nil
+  if held then
+    p.v = 0
+  elseif not done then
+    -- (where neither the aircraft nor the tractor turns over the next 4 m of the push: TOW.straight times as fast)
+    local vmax = TOW.backSpeed
+    do
+      local i0 = math.max(1, math.min(#r, math.floor(p.s / r.ds) + 1))
+      local a0, a1 = r[i0], r[math.min(#r, i0 + math.floor(4 / r.ds))]
+      local j0x, j0z = Tow.unit(a0[5] - a0[7], a0[6] - a0[8])
+      local j1x, j1z = Tow.unit(a1[5] - a1[7], a1[6] - a1[8])
+      if j0x * j1x + j0z * j1z > 0.9994 and a0[3] * a1[3] + a0[4] * a1[4] > 0.9994 then vmax = TOW.backSpeed * TOW.straight end
+    end
+    p.v = math.min(math.min(vmax, math.sqrt(2 * TOW.accel * remain) + 0.03), p.v + TOW.accel * dt)
+    p.s = math.min(lim, p.s + p.v * dt)
+  end
+  local at = done and #r or (p.s / r.ds + 1)
+  local i = math.max(1, math.min(#r - 1, math.floor(at)))
+  local k = math.min(1, at - i)
+  local a, b = r[i], r[i + 1]
+  local function mix(j) return a[j] + (b[j] - a[j]) * k end
+  d.x, d.z = mix(1), mix(2)
+  d.hx, d.hz = Tow.unit(mix(3), mix(4))
+  d.v = (done or held) and 0 or -p.v
+  w.lx, w.lz, w.mx, w.mz = mix(5), mix(6), mix(7), mix(8)
+  return done
+end
+
+-- the deck spots for the menu's "Tow me to a parking spot", bow to stern, in groups of at most ten (an F10 menu holds
+-- ten items): "label::number=name,number=name;;label::..."
+function Tow.Fd.menu()
+  local routes = loadRoutes()
+  if not routes then return '' end
+  local areas, order = {}, {}
+  for _, e in ipairs(routes) do
+    if e.spot and e.name and e.x then
+      local area = e.area or (tostring(e.name):gsub('%s*%d+$', ''))
+      local a = areas[area]
+      if not a then
+        a = { name = area, x = -1e9, list = {} }
+        areas[area] = a
+        order[#order + 1] = a
+      end
+      a.list[#a.list + 1] = e
+      if e.x > a.x then a.x = e.x end
+    end
+  end
+  table.sort(order, function(p, q) return p.x > q.x end)
+  local groups, cur = {}, nil
+  for _, a in ipairs(order) do
+    table.sort(a.list, function(p, q) return tostring(p.name) < tostring(q.name) end)
+    if not cur or #cur.items + #a.list > 10 then
+      cur = { names = {}, items = {} }
+      groups[#groups + 1] = cur
+    end
+    cur.names[#cur.names + 1] = a.name
+    for _, e in ipairs(a.list) do cur.items[#cur.items + 1] = e.spot .. '=' .. tostring(e.name) end
+  end
+  local out = {}
+  for _, gr in ipairs(groups) do out[#out + 1] = table.concat(gr.names, ', ') .. '::' .. table.concat(gr.items, ',') end
+  return table.concat(out, ';;')
+end
+
+-- the in-game panel shown or put away from the F10 menu (its hot key is Ctrl+Shift+F10)
+function commands.panel()
+  if not (CATCC_UI and CATCC_UI.toggle) then return say('the in-game panel is not there (Scripts\\CATCC\\crewtest_ui.lua was not loaded: the hook\'s log says why).') end
+  local shown, why = CATCC_UI.toggle()
+  if shown == nil then return say('the in-game panel could not be shown: ' .. tostring(why)) end
+  logLine('panel: ' .. (shown and 'shown' or 'put away') .. ' from the F10 menu')
 end
 
 -- ---- the axle finder
@@ -3677,7 +5869,22 @@ function Tow.axlePlace(ctx)
     .. ' or "ERR|the menu script cannot place markers: run crew-test\\\\install.ps1 with DCS closed"')
   local p = (ok and type(r) == 'string') and split(r) or { 'ERR', tostring(r) }
   if p[1] ~= 'OK' then return nil, tostring(p[2]) end
-  return { id = tonumber(p[2]), name = p[3], type = typ, x = x, z = z, jy = ctx.jy }
+  -- THE WIDTH (the user, 2026-11-16: "a tool for gauging the width of the hornet axles... the width still needs to be
+  -- set for the tow bar to look correct"): an upright cyan plate either side of the nose gear, along the jet's own
+  -- line, TOW.axleLen apart (CATCC_AxleEnd: one model, it stands on the deck). Moved in and out until each touches
+  -- its nose tyre's outer face: the tow bar's heads then come 2 cm outside them, their pins inwards into the axle.
+  -- (the jet's right on the ship is (-fz, fx))
+  local half, ang = TOW.axleLen / 2, (math.atan2 or math.atan)(fz, fx)
+  local ends = {}
+  for _, sd in ipairs({ { 'catcc-axle-l', -1 }, { 'catcc-axle-r', 1 } }) do
+    local oke, re = pcall(dostring, string.format('return CATCC_CR.marker(%q, "CATCC_AxleEnd", %.4f, %.4f, %.5f)', sd[1], x - fz * half * sd[2], z + fx * half * sd[2], ang))
+    ends[#ends + 1] = (oke and type(re) == 'string' and re:sub(1, 3) == 'OK|') and 'made' or tostring(re)
+  end
+  return { id = tonumber(p[2]), name = p[3], type = typ, x = x, z = z, jy = ctx.jy, ends = ends[1] == 'made' and ends[2] == 'made' and 'made' or (ends[1] .. ' / ' .. ends[2]) }
+end
+
+function Tow.axleWidthText()
+  return string.format('the end plates are %.3f m apart', TOW.axleLen)
 end
 
 function commands.axle(what, arg)
@@ -3691,15 +5898,17 @@ function commands.axle(what, arg)
       logLine('axle finder: no marker (' .. why .. '): ' .. tostring(e))
       return nil, 'the marker axle could not be made: ' .. tostring(e)
     end
-    logLine(string.format('axle finder: marker "%s" (%s, object %s) linked to the ship at %.3f fwd %.3f stbd; the jet at %.3f / %.3f / %.3f, nose %.3f %.3f (%s)', tostring(m.name), m.type,
-      tostring(m.id), m.x, m.z, ctx.jx, ctx.jy, ctx.jz, ctx.fx, ctx.fz, why))
+    logLine(string.format('axle finder: marker "%s" (%s, object %s) linked to the ship at %.3f fwd %.3f stbd; the jet at %.3f / %.3f / %.3f, nose %.3f %.3f (%s); end plates %.3f m apart: %s', tostring(m.name), m.type,
+      tostring(m.id), m.x, m.z, ctx.jx, ctx.jy, ctx.jz, ctx.fx, ctx.fz, why, TOW.axleLen, tostring(m.ends)))
     return m
   end
   local function numbers() return string.format('noseGear=%.3f axleDown=%.3f axleLen=%.3f', TOW.noseGear, TOW.axleDown, TOW.axleLen) end
   if what == 'show' then
     if a and a.on then
       a.on = false
-      pcall(dostring, 'return CATCC_CR and CATCC_CR.marker and CATCC_CR.marker("catcc-axle", "", 0, 0, 0)')
+      for _, key in ipairs({ 'catcc-axle', 'catcc-axle-l', 'catcc-axle-r' }) do
+        pcall(dostring, string.format('return CATCC_CR and CATCC_CR.marker and CATCC_CR.marker(%q, "", 0, 0, 0)', key))
+      end
       logLine('command axle show: put away. ' .. numbers())
       return say('axle finder: the marker is put away; ' .. Tow.axleText():gsub('^the marker axle is', 'the axle is taken to be') .. '. The tow uses these.')
     end
@@ -3716,14 +5925,17 @@ function commands.axle(what, arg)
     a.on = true
     logLine('command axle show: shown. ' .. numbers())
     return say('axle finder: a rod in magenta and cyan bands with a yellow cube on each end stands across your nose gear, where the hook takes the nose wheel axle to be: '
-      .. Tow.axleText() .. '. Move it (F10 > Tow > Axle finder) until, seen from the side, the yellow cube is on the middle of the wheel hub. It stands on the flight deck and does not follow the jet.')
+      .. Tow.axleText() .. '. Move it (F10 > Tow > Axle finder) until, seen from the side, the yellow cube is on the middle of the wheel hub. The two cyan plates either side are the axle\'s width (' .. Tow.axleWidthText()
+      .. '): move them (Width) until each touches its nose tyre\'s outer face. It all stands on the flight deck and does not follow the jet.')
   end
-  if what == 'fwd' or what == 'up' then
+  if what == 'fwd' or what == 'up' or what == 'len' then
     local step = tonumber(arg)
     if not step then return say('unknown axle finder step') end
     local note = ''
     if what == 'fwd' then
       TOW.noseGear = TOW.noseGear + step
+    elseif what == 'len' then
+      TOW.axleLen = math.max(0.20, math.min(1.20, TOW.axleLen + step))
     else
       local cm = Tow.axleCm() + math.floor(step * 100 + 0.5)
       if cm < 15 or cm > 40 then
@@ -3740,12 +5952,13 @@ function commands.axle(what, arg)
         return say(e)
       end
     end
+    if what == 'len' then return say('axle finder: ' .. Tow.axleWidthText() .. ' (the tow bar\'s pins go ' .. string.format('%.3f', TOW.axleLen / 2 - TOW.pinIn) .. ' m either side).' .. shown) end
     return say('axle finder: ' .. Tow.axleText() .. '.' .. note .. shown)
   end
   if what == 'report' then
     if a and a.on then place('report') end
     logLine('command axle report: ' .. numbers() .. ((a and a.on) and '' or ' (marker not shown)'))
-    return say('axle finder: ' .. Tow.axleText() .. '. The tow uses these.' .. shown)
+    return say('axle finder: ' .. Tow.axleText() .. '; ' .. Tow.axleWidthText() .. '. The tow uses these.' .. shown)
   end
   say('unknown axle finder command ' .. tostring(what))
 end
@@ -3767,7 +5980,98 @@ end
 --   Wings: the statics' model argument 8 (the F/A-18C's wing fold: FA-18C_Collision.edm, 100 degrees at 1) is set
 --   through native.objarg, every second; folded to begin with (the spots were drawn for folded wings).
 -- (All of it hangs on Tow: a Lua chunk takes 200 local names and this file has them.)
-Tow.Deck = { type = 'FA-18C_hornet', clear = 14, foldArg = 8, fold = true, foldT = 0, file = writedir .. 'Logs/catcc-deck-spots.lua' }
+-- jy: a parked jet's own position above the ship's origin (the flight deck 20.149 m, the jet 1.826 m above it: the
+-- player's stood at 21.975): the height the camera's line of sight is measured against.
+-- THE HANGAR TOO (the user, 2026-11-18: "The hangar space doesn't actually manage what was generated in the svg. I need
+-- to manually adjust the deck spotting. Make the 'Park Hornets' function add all the aircraft in the hangar as well so I
+-- can adjust them through the UI"): the hangar plan's slots (Scripts/CATCC/crewtest_hangar.lua, the deck spotting demo's)
+-- are parked with the rest, on the hangar floor (made on the flight deck like the others, then put down by the native
+-- module in the ship's frame, as the demo does). They are entries like the deck's, `hangar = true`, numbered 1000 + the
+-- slot ("Hangar 7" is n = 1007), saved in the same file. Which level the tool works on follows the CAMERA: below the
+-- flight deck (TOW.hangarBelow) the hangar's aircraft are the ones locked, clicked and added; above it the deck's. They
+-- are not the tow tool's (it neither tows them nor steers round them). hy: a hangar aircraft's own position above the
+-- ship's origin (the floor + 1.856, the demo's DY).
+Tow.Deck = { type = 'FA-18C_hornet', clear = 14, foldArg = 8, fold = true, foldT = 0, file = writedir .. 'Logs/catcc-deck-spots.lua', jy = 21.975, hangarN = 1000, hy = 8.711 + 1.856 }
+
+-- the hangar plan's slots as entries (none without the plan or without the native module to put them down)
+function Tow.Deck.hangarBuiltIn()
+  local D, out = Tow.Deck, {}
+  if not (native and native.staticpos) then return out end
+  local f = loadfile(writedir .. 'Scripts/CATCC/crewtest_hangar.lua')
+  local ok, H = pcall(function() return f and f() end)
+  if not (ok and type(H) == 'table' and type(H.slots) == 'table') then return out end
+  if tonumber(H.floor) then D.hy = H.floor + 1.856 end
+  for _, s in ipairs(H.slots) do
+    local hd = math.deg(atan2(s.fz or 0, s.fx or 1)) % 360
+    out[#out + 1] = { n = D.hangarN + s.n, name = 'Hangar ' .. s.n, x = s.x, z = s.z, hdg = hd, x0 = s.x, z0 = s.z, hdg0 = hd, hangar = true }
+  end
+  return out
+end
+
+-- an entry's own height above the ship's origin; is the camera (its height cy) in the hangar
+function Tow.Deck.yOf(e) return e.hangar and Tow.Deck.hy or Tow.Deck.jy end
+-- (IN THE HANGAR: the camera below the flight deck's own surface (jy is a parked jet's position, 1.826 m above it),
+-- less 0.4 m. Until 2026-11-18 the line was TOW.hangarBelow, 14 m above the ship's origin, which is right for a
+-- JET's own position (10.6 in the hangar, 22 on deck) but not for a camera: the hangar is some 7 m high, and a camera
+-- looking down from under its roof was above 14: the user: "when I tried to add an aircraft it appeared on the flight
+-- deck instead of inside the hangar", and his clicks from up there locked deck aircraft 11 m off the line of sight.
+-- From below the flight deck no aircraft on it can be seen, so nothing of the deck's is lost by this.)
+function Tow.Deck.below(cy) return cy ~= nil and cy < Tow.Deck.jy - 1.826 - 0.4 end
+
+-- a hangar entry put down on the hangar floor (after it is made, and in turn every tenth of a second: Tow.Deck.tick)
+function Tow.Deck.putDown(e)
+  if not (e.hangar and e.id and native and native.staticpos) then return end
+  local hr = math.rad(e.hdg)
+  local ok, res, er = pcall(native.staticpos, e.id, unpack(Tow.pose(Tow.OWN, e.x, Tow.Deck.hy, e.z, math.cos(hr), math.sin(hr))))
+  if not (ok and res) and not Tow.Deck.downBad then
+    Tow.Deck.downBad = true
+    logLine(string.format('deck spots: %s could not be put down in the hangar: %s', Tow.Deck.text(e), tostring(ok and er or res)))
+  end
+end
+
+-- What the deck tool says on the screen takes the place of its last message (the user, 2026-11-16: a line for every
+-- nudge, 20 s each, made "a huge long stack that blocks the screen"), and stays 8 s. The panel shows it too.
+function Tow.Deck.say(text) return say(text, 8, true) end
+
+-- WHICH CARRIER (the user, 2026-11-16): the one the CAMERA is at, not the one the player's jet stands on ("if I slot into
+-- an aircraft 100 km away, but have the camera overhead the carrier I want to spot it should still work"). So: the
+-- Supercarrier-class ship nearest the camera, within 5 km (CATCC_CR.ctx with the camera's place); once aircraft are
+-- parked, that same ship by name until they are taken away (a camera wandering to another carrier does not move the
+-- work there). With no camera to read: the jet's own carrier, as before. Asked once a frame at most (t).
+function Tow.Deck.ctx(t)
+  local D = Tow.Deck
+  if t and D.ctxT == t then return D.ctxV, D.ctxErr end
+  -- ON THE DEMO'S THREAD: the main thread's own answer to this, one value sent with each frame. NOT asked here with
+  -- the camera's place: that place is another number every frame (the ship steams), so the question was a new one
+  -- every frame: the user's first run on the thread, 2026-11-20: each was waited for (a frame of DCS's for every
+  -- step) and then asked again by the main thread for another 600 steps: 650 to 830 questions to the mission's
+  -- scripting state every frame, 240 KB a frame sent, the hook 47 ms a frame where it had taken 2.
+  -- (CATCC_DEMO_NO_DECKCTX: the rig's: as it was, to try what the worker does when a question does change every frame)
+  if CATCC_WORKER and not CATCC_DEMO_NO_DECKCTX then
+    local c, err = CATCC_WORKER.read('h.deckctx')
+    D.ctxT, D.ctxV, D.ctxErr = t, c, err
+    return c, err
+  end
+  local c, err
+  if D.shown and D.ship and t then
+    c = Tow.ctx(t, D.ship) -- (asked once a frame for the tow and the deck tool alike)
+    if not c then c, err = getCtx(nil, nil, D.ship) end
+  elseif D.shown and D.ship then
+    c, err = getCtx(nil, nil, D.ship)
+  elseif D.want then
+    -- (the slot picker's "Spot Deck": the carrier it shows, by name, wherever the camera is: demo2|start|<ship>)
+    c, err = getCtx(nil, nil, D.want)
+  else
+    local okc, cp = pcall(function() return Export and Export.LoGetCameraPosition and Export.LoGetCameraPosition() end)
+    if okc and type(cp) == 'table' and cp.p then c, err = getCtx(cp.p.x, cp.p.z) end
+    if not c then
+      local c2, err2 = getCtx()
+      c, err = c2, err or err2
+    end
+  end
+  D.ctxT, D.ctxV, D.ctxErr = t, c, err
+  return c, err
+end
 
 function Tow.Deck.builtIn()
   local out = {}
@@ -3790,6 +6094,18 @@ function Tow.Deck.begin(fresh)
     if ok and type(t) == 'table' and #t > 0 then list, from = t, 'the saved file (Logs\\catcc-deck-spots.lua)' end
   end
   list = list or D.builtIn()
+  -- (the hangar's: from the plan, if the list has none of them yet: a file saved before they were there has none)
+  local hasH = false
+  for _, e in ipairs(list) do if e.hangar then hasH = true end end
+  if not hasH then
+    for _, e in ipairs(D.hangarBuiltIn()) do list[#list + 1] = e end
+  elseif not (native and native.staticpos) then
+    local keep = {}
+    for _, e in ipairs(list) do if not e.hangar then keep[#keep + 1] = e end end
+    list = keep
+  else
+    D.hangarBuiltIn() -- (the floor's height)
+  end
   for i, e in ipairs(list) do e.key, e.id, e.skipped = 'catcc-spot-' .. i, nil, nil end
   D.list, D.lock = list, nil
   return from
@@ -3809,8 +6125,9 @@ function Tow.Deck.save()
   f:write('return {\n')
   for _, e in ipairs(D.list) do
     local moved = e.x0 and (math.abs(e.x - e.x0) > 0.0005 or math.abs(e.z - e.z0) > 0.0005 or math.abs(e.hdg - e.hdg0) > 0.005)
-    f:write(string.format('  { n = %d, name = %q, x = %.3f, z = %.3f, hdg = %.2f%s%s%s%s },\n', e.n, e.name, e.x, e.z, e.hdg,
-      e.x0 and string.format(', x0 = %.3f, z0 = %.3f, hdg0 = %.2f', e.x0, e.z0, e.hdg0) or '', moved and ', moved = true' or '', e.added and ', added = true' or '', e.removed and ', removed = true' or ''))
+    f:write(string.format('  { n = %d, name = %q, x = %.3f, z = %.3f, hdg = %.2f%s%s%s%s%s },\n', e.n, e.name, e.x, e.z, e.hdg,
+      e.x0 and string.format(', x0 = %.3f, z0 = %.3f, hdg0 = %.2f', e.x0, e.z0, e.hdg0) or '', moved and ', moved = true' or '', e.added and ', added = true' or '', e.removed and ', removed = true' or '',
+      e.hangar and ', hangar = true' or ''))
   end
   f:write('}\n')
   f:close()
@@ -3822,9 +6139,10 @@ function Tow.Deck.make(entries, away)
   local D = Tow.Deck
   local parts = {}
   for _, e in ipairs(entries) do
-    parts[#parts + 1] = (away or e.removed) and e.key or string.format('%s,%.3f,%.3f,%.5f', e.key, e.x, e.z, math.rad(e.hdg))
+    -- (its height: the mission script then minds only a live aircraft on the same level)
+    parts[#parts + 1] = (away or e.removed) and e.key or string.format('%s,%.3f,%.3f,%.5f,%.3f', e.key, e.x, e.z, math.rad(e.hdg), D.yOf(e))
   end
-  local ok, r = pcall(dostring, string.format('return (CATCC_CR and CATCC_CR.deck) and CATCC_CR.deck(%q, %q, %d)', table.concat(parts, ';'), D.type, D.clear)
+  local ok, r = pcall(dostring, string.format('return (CATCC_CR and CATCC_CR.deck) and CATCC_CR.deck(%q, %q, %d, %s)', table.concat(parts, ';'), D.type, D.clear, D.ship and string.format('%q', D.ship) or 'nil')
     .. ' or "ERR|the menu script cannot park aircraft: run crew-test\\\\install.ps1 with DCS closed"')
   local p = (ok and type(r) == 'string') and split(r) or { 'ERR', tostring(r) }
   if p[1] ~= 'OK' then return nil, tostring(p[2]) end
@@ -3832,7 +6150,9 @@ function Tow.Deck.make(entries, away)
   for i, e in ipairs(entries) do
     local id = tonumber(p[1 + i])
     e.id, e.skipped = (id and id > 0) and id or nil, id == -1 or nil
+    e.at = nil -- (made anew, it stands on its spot again, wherever a tow had taken it)
     if e.id then n = n + 1 end
+    if e.hangar and e.id and not (away or e.removed) then D.putDown(e) end
   end
   D.foldT = 0 -- (the wings of the new ones: at the next frame)
   return n, (p[2 + #entries] and p[2 + #entries] ~= '') and p[2 + #entries] or nil
@@ -3841,10 +6161,29 @@ end
 -- the wings of every parked aircraft set as D.fold says (once a second, and at once after anything was made)
 function Tow.Deck.tick(t)
   local D = Tow.Deck
+  -- (the hangar's told their place again, one every tenth of a second in turn, as the demo does with its own)
+  if D.list and D.shown and #D.list > 0 and t >= (D.keepT or 0) then
+    D.keepT = t + 0.1
+    D.keepI = (D.keepI or 0) % #D.list + 1
+    local e = D.list[D.keepI]
+    if e and e.hangar and not e.removed then D.putDown(e) end
+  end
   if not (D.list and D.shown and native and native.objarg) or D.foldBad or t < D.foldT then return end
-  D.foldT = t + 1
+  -- (all at once only after something was made or the wings were changed, D.foldT == 0; from then on ONE aircraft
+  -- every tenth of a second, in turn: all forty every second was a hitch every second)
+  local all = D.foldT == 0
+  D.foldT = t + 0.1
   local h = shipHandle()
-  if not h then return end
+  if not h then
+    if all then D.foldT = 0 end
+    return
+  end
+  if not all then
+    D.foldI = (D.foldI or 0) % #D.list + 1
+    local e = D.list[D.foldI]
+    if e and e.id then pcall(native.objarg, h, e.id, D.foldArg, D.fold and 1 or 0) end
+    return
+  end
   local done, bad, why = 0, 0, nil
   for _, e in ipairs(D.list) do
     if e.id then
@@ -3859,12 +6198,13 @@ function Tow.Deck.tick(t)
   end
   if done == 0 and bad > 0 then
     D.foldBad = true -- (a static aircraft's arguments cannot be set this way: left as DCS draws them)
-    say('deck spots: the parked aircraft\'s wings could not be folded (' .. tostring(why) .. '): they stay as DCS draws them.')
+    Tow.Deck.say('deck spots: the parked aircraft\'s wings could not be folded (' .. tostring(why) .. '): they stay as DCS draws them.')
   end
 end
 
 -- where the camera is on the ship and where it looks: the point of the deck it looks at (nil: it looks level or up),
--- its own place, its heading (degrees clockwise from the bow)
+-- its own place, its heading (degrees clockwise from the bow), its height. In the hangar (the camera below the flight
+-- deck) the point is where it looks at the height of a hangar aircraft.
 function Tow.Deck.camera(ctx)
   if not (Export and Export.LoGetCameraPosition) then return nil end
   local ok, cp = pcall(Export.LoGetCameraPosition)
@@ -3878,12 +6218,43 @@ function Tow.Deck.camera(ctx)
   local fx, fy, fz = 1, 0, 0
   if cp.x then fx, fy, fz = onShip(cp.x, false) end
   local at
-  local up = cy - ctx.jy -- (above the height a parked jet's own position has: the player's)
+  local up = cy - (Tow.Deck.below(cy) and Tow.Deck.hy or Tow.Deck.jy) -- (above the height a parked jet's own position has)
   if fy < -0.05 and up > 0.5 then
     local k = up / -fy
     if k < 400 then at = { cx + fx * k, cz + fz * k } end
   end
-  return at, { cx, cz }, math.deg((math.atan2 or math.atan)(fz, fx)) % 360
+  return at, { cx, cz }, math.deg((math.atan2 or math.atan)(fz, fx)) % 360, cy
+end
+
+-- the aircraft nearest a line of sight (o: where it starts, d: its direction, both in the ship's frame: forward, up, to
+-- starboard) is locked on: the in-game panel's click. Within 12 m of the line, else nothing changes. Only the aircraft
+-- of the camera's own level: the flight deck's, or the hangar's with the camera below the flight deck.
+function Tow.Deck.pick(o, d, ctx, why)
+  local D = Tow.Deck
+  if not (D.list and D.shown) then return nil end
+  local dd = d[1] * d[1] + d[2] * d[2] + d[3] * d[3]
+  local best, bd
+  local inH = D.below(o[2])
+  for i, e in ipairs(D.list) do
+    if not e.removed and (e.hangar and true or false) == inH then
+      local ex, ez = D.pose(e) -- (where it stands now: one that was towed is not on its spot)
+      local v = { ex - o[1], D.yOf(e) - o[2], ez - o[3] }
+      local k = (v[1] * d[1] + v[2] * d[2] + v[3] * d[3]) / dd
+      if k > 0 then
+        local off = math.sqrt((v[1] - d[1] * k) ^ 2 + (v[2] - d[2] * k) ^ 2 + (v[3] - d[3] * k) ^ 2)
+        if not bd or off < bd then best, bd = i, off end
+      end
+    end
+  end
+  if not best or bd > 12 then
+    logLine(string.format('deck spots: %s: no aircraft within 12 m of that line of sight (the nearest: %s)', tostring(why), bd and string.format('%.1f m', bd) or 'none ahead'))
+    Tow.Deck.say('deck spots: no aircraft there.')
+    return nil
+  end
+  D.lock = best
+  logLine(string.format('command spot pick: %s; %.1f m from the line of sight (%s)', D.text(D.list[best]), bd, tostring(why)))
+  Tow.Deck.say('deck spots: locked on ' .. D.text(D.list[best]) .. '.')
+  return D.list[best]
 end
 
 function Tow.Deck.text(e)
@@ -3893,74 +6264,134 @@ function Tow.Deck.text(e)
   elseif e.x0 and (math.abs(e.x - e.x0) > 0.0005 or math.abs(e.z - e.z0) > 0.0005 or math.abs(e.hdg - e.hdg0) > 0.005) then
     d = string.format(' (from the built-in spot: %+.2f m forward, %+.2f m to starboard, %+.1f degrees)', e.x - e.x0, e.z - e.z0, (e.hdg - e.hdg0 + 180) % 360 - 180)
   end
-  return string.format('spot %d "%s": %.2f m forward, %.2f m to starboard, nose %.1f degrees%s', e.n, e.name, e.x, e.z, e.hdg, d)
+  return string.format('%s %d "%s": %.2f m forward, %.2f m to starboard, nose %.1f degrees%s', e.hangar and 'hangar slot' or 'spot', e.hangar and (e.n - Tow.Deck.hangarN) or e.n,
+    e.name, e.x, e.z, e.hdg, d)
+end
+
+-- WHERE AN AIRCRAFT STANDS NOW. A deck entry is a SPOT (e.x, e.z, e.hdg: what the file records) with the aircraft
+-- parked on it; a tow takes the aircraft elsewhere: e.at = { x, z, hdg, where } then (kept by Tow.apply while it is
+-- on the bar). The spot is not changed by a tow, nor the file. Made anew by the deck tool (a move, a turn, parked
+-- again), the aircraft stands on its spot again (Tow.Deck.make).
+function Tow.Deck.pose(e)
+  local a = e.at
+  if a then return a.x, a.z, a.hdg end
+  return e.x, e.z, e.hdg
+end
+
+function Tow.Deck.label(e)
+  return string.format('the Hornet of spot %d "%s"%s', e.n, tostring(e.name), e.at and (', now ' .. tostring(e.at.where)) or '')
+end
+
+-- is deck spot n (the routes file's number) taken: one of the deck tool's aircraft within 6 m of it as they stand now
+-- (or a live aircraft, for which the tool left a spot empty)? Its entry, or nil. except: not counting that entry's;
+-- ship: only if the deck tool works on that carrier
+function Tow.Deck.taken(n, except, ship)
+  local D = Tow.Deck
+  if not (D.list and D.shown) or (ship and D.ship ~= ship) then return nil end
+  local spot
+  for _, r in ipairs(loadRoutes() or {}) do
+    if r.spot == n then spot = r end
+  end
+  if not spot then return nil end
+  for _, e in ipairs(D.list) do
+    if e ~= except and not e.removed and not e.hangar and (e.id or e.skipped) then
+      local x, z = D.pose(e)
+      if math.sqrt((x - spot.x) ^ 2 + (z - spot.z) ^ 2) < 6 then return e end
+    end
+  end
+  return nil
+end
+
+-- the deck tool's aircraft as they stand now, { x, z, fx, fz } each (not `except`'s; none if the tool works on
+-- another carrier than `ship`): what the tow tractor keeps clear of
+function Tow.Deck.others(except, ship)
+  local D, out = Tow.Deck, {}
+  if not (D.list and D.shown) or (ship and D.ship ~= ship) then return out end
+  for _, e in ipairs(D.list) do
+    if e ~= except and e.id and not e.removed and not e.hangar then
+      local x, z, hdg = D.pose(e)
+      -- (name, half: for "do two aircraft touch": whose it is, and its wing as the deck tool has them all: Tow.Fd.shape)
+      out[#out + 1] = { x = x, z = z, fx = math.cos(math.rad(hdg)), fz = math.sin(math.rad(hdg)), name = 'the Hornet of ' .. tostring(e.name), half = D.fold and 4.2 or 6.3 }
+    end
+  end
+  return out
 end
 
 function commands.spot(what, a, b)
   local D = Tow.Deck
-  local ctx, err = getCtx()
-  if not ctx then return say("can't tell where you are: " .. tostring(err)) end
+  -- (whatever the tool does makes or takes away static aircraft: a spike of the tool's own, left out of "performance")
+  if what ~= 'lock' and what ~= 'next' and what ~= 'report' then Tow.Prof.testOnly('the spotting tool making or taking away static aircraft') end
+  local ctx, err = D.ctx()
+  if not ctx then return Tow.Deck.say('deck spots: ' .. tostring(err) .. ' (put the camera over the carrier to spot).') end
   if what == 'spawn' or what == 'reset' then
     if D.list and D.shown then D.make(D.list, true) end
+    -- (the carrier: the one the camera is at now; kept until the aircraft are taken away)
+    D.shown, D.ship = nil, nil
+    ctx, err = D.ctx()
+    if not ctx then return Tow.Deck.say('deck spots: ' .. tostring(err) .. ' (put the camera over the carrier to spot).') end
+    D.ship = ctx.ship
     local from = D.begin(what == 'reset')
-    if #D.list == 0 then return say('deck spots: no spots to fill (Scripts\\CATCC\\crewtest_routes.lua is missing: run crew-test\\install.ps1 with DCS closed).') end
+    if #D.list == 0 then return Tow.Deck.say('deck spots: no spots to fill (Scripts\\CATCC\\crewtest_routes.lua is missing: run crew-test\\install.ps1 with DCS closed).') end
     local n, note = D.make(D.list)
     if not n then
       logLine('deck spots: nothing parked: ' .. tostring(note))
-      return say('deck spots: the aircraft could not be parked: ' .. tostring(note))
+      return Tow.Deck.say('deck spots: the aircraft could not be parked: ' .. tostring(note))
     end
     D.shown, D.foldBad, D.foldSaid = true, nil, nil
     if not shipHandle() then doScan(ctx, 'for the deck spots', false) end
-    local empty, gone = {}, 0
+    local empty, gone, nh = {}, 0, 0
     for _, e in ipairs(D.list) do
-      if e.removed then gone = gone + 1 elseif e.skipped then empty[#empty + 1] = tostring(e.n) end
+      if e.removed then gone = gone + 1 elseif e.skipped then empty[#empty + 1] = e.hangar and ('hangar ' .. (e.n - D.hangarN)) or tostring(e.n) elseif e.hangar and e.id then nh = nh + 1 end
     end
+    local inH = nh > 0 and string.format(' (%d of them in the hangar)', nh) or ''
     D.save()
-    logLine(string.format('command spot %s: %d aircraft parked from %s; left empty for a live aircraft: %s; removed spots: %d%s', what, n, from, #empty > 0 and table.concat(empty, ', ') or 'none', gone,
-      note and ('; ' .. note) or ''))
-    return say(string.format('deck spots: %d aircraft parked, from %s%s%s. Look at one from outside (F11) and F10 > CATCC deck spots > Lock on the one the camera looks at.', n, from,
-      #empty > 0 and ('; spot ' .. table.concat(empty, ', ') .. ' left empty (an aircraft stands there)') or '', gone > 0 and ('; ' .. gone .. ' removed before') or ''))
+    logLine(string.format('command spot %s: %d aircraft parked on %s (the carrier at the camera) from %s%s; left empty for a live aircraft: %s; removed spots: %d%s', what, n, tostring(D.ship), from, inH,
+      #empty > 0 and table.concat(empty, ', ') or 'none', gone, note and ('; ' .. note) or ''))
+    return Tow.Deck.say(string.format('deck spots: %d aircraft parked on %s%s, from %s%s%s. Look at one from outside (F11) and F10 > CATCC deck spots > Lock on the one the camera looks at.', n,
+      tostring(D.ship), inH, from, #empty > 0 and ('; spot ' .. table.concat(empty, ', ') .. ' left empty (an aircraft stands there)') or '', gone > 0 and ('; ' .. gone .. ' removed before') or ''))
   end
-  if not (D.list and D.shown) then return say('deck spots: park the aircraft first (F10 > CATCC deck spots > Park a Hornet on every deck spot).') end
+  if not (D.list and D.shown) then return Tow.Deck.say('deck spots: park the aircraft first (F10 > CATCC deck spots > Park a Hornet on every deck spot).') end
   if what == 'clear' then
     D.make(D.list, true)
-    D.shown, D.lock = nil, nil
+    D.shown, D.lock, D.ship = nil, nil, nil
     D.save()
     logLine('command spot clear: all taken away (their places are kept in the file)')
-    return say('deck spots: all taken away. Their places are kept (Logs\\catcc-deck-spots.lua) and come back with "Park a Hornet on every deck spot".')
+    return Tow.Deck.say('deck spots: all taken away. Their places are kept (Logs\\catcc-deck-spots.lua) and come back with "Park a Hornet on every deck spot".')
   end
   if what == 'fold' then
     D.fold, D.foldT, D.foldBad, D.foldSaid = not D.fold, 0, nil, nil
     logLine('command spot fold: wings ' .. (D.fold and 'folded' or 'spread'))
-    return say('deck spots: wings ' .. (D.fold and 'folded.' or 'spread.'))
+    return Tow.Deck.say('deck spots: wings ' .. (D.fold and 'folded.' or 'spread.'))
   end
   if what == 'lock' or what == 'add' then
-    local at, cam, chdg = D.camera(ctx)
-    if not cam then return say('deck spots: the camera cannot be read here (no LoGetCameraPosition).') end
+    local at, cam, chdg, cy = D.camera(ctx)
+    if not cam then return Tow.Deck.say('deck spots: the camera cannot be read here (no LoGetCameraPosition).') end
     local px, pz = (at or cam)[1], (at or cam)[2]
+    local inH = D.below(cy) -- (the camera in the hangar: the hangar's aircraft)
     if what == 'add' then
-      local n = 0
-      for _, e in ipairs(D.list) do n = math.max(n, e.n) end
+      local n, base = 0, inH and D.hangarN or 0
+      for _, e in ipairs(D.list) do if (e.hangar and true or false) == inH then n = math.max(n, e.n - base) end end
       local lock = D.lock and D.list[D.lock]
-      local e = { n = n + 1, name = 'added ' .. (n + 1), x = px, z = pz, hdg = lock and lock.hdg or chdg, added = true, key = 'catcc-spot-' .. (#D.list + 1) }
+      local e = { n = base + n + 1, name = (inH and 'added hangar ' or 'added ') .. (n + 1), x = px, z = pz, hdg = lock and lock.hdg or chdg, added = true, hangar = inH or nil, key = 'catcc-spot-' .. (#D.list + 1) }
       D.list[#D.list + 1] = e
       D.lock = #D.list
       local made, note = D.make({ e })
       D.save()
-      logLine(string.format('command spot add: %s%s', D.text(e), (made == 1) and '' or ('; NOT parked: ' .. tostring(note or (e.skipped and 'an aircraft stands there' or 'DCS made nothing')))))
-      return say('deck spots: added and locked on: ' .. D.text(e) .. (made == 1 and '.' or '. It could not be parked there.'))
+      logLine(string.format('command spot add (the camera %.1f m above the ship\'s origin: %s): %s%s', cy or 0, inH and 'in the hangar' or 'over the flight deck', D.text(e), (made == 1) and '' or ('; NOT parked: ' .. tostring(note or (e.skipped and 'an aircraft stands there' or 'DCS made nothing')))))
+      return Tow.Deck.say('deck spots: added and locked on: ' .. D.text(e) .. (made == 1 and '.' or '. It could not be parked there.'))
     end
     local best, bd
     for i, e in ipairs(D.list) do
-      if not e.removed then
-        local dd = math.sqrt((e.x - px) ^ 2 + (e.z - pz) ^ 2)
+      if not e.removed and (e.hangar and true or false) == inH then
+        local ex, ez = D.pose(e) -- (where it stands now)
+        local dd = math.sqrt((ex - px) ^ 2 + (ez - pz) ^ 2)
         if not bd or dd < bd then best, bd = i, dd end
       end
     end
-    if not best then return say('deck spots: no aircraft to lock on.') end
+    if not best then return Tow.Deck.say('deck spots: no aircraft to lock on.') end
     D.lock = best
     logLine(string.format('command spot lock: %s; %.1f m from %s (%.1f / %.1f)', D.text(D.list[best]), bd, at and 'where the camera looks' or 'the camera (it looks level or up)', px, pz))
-    return say(string.format('deck spots: locked on %s (%.0f m from %s).', D.text(D.list[best]), bd, at and 'where the camera looks' or 'the camera'))
+    return Tow.Deck.say(string.format('deck spots: locked on %s (%.0f m from %s).', D.text(D.list[best]), bd, at and 'where the camera looks' or 'the camera'))
   end
   if what == 'next' then
     local n, i = #D.list, D.lock or 0
@@ -3970,7 +6401,7 @@ function commands.spot(what, a, b)
     end
     D.lock = i
     logLine('command spot next: ' .. D.text(D.list[i]))
-    return say('deck spots: locked on ' .. D.text(D.list[i]) .. '.')
+    return Tow.Deck.say('deck spots: locked on ' .. D.text(D.list[i]) .. '.')
   end
   local e = D.lock and D.list[D.lock]
   if what == 'report' then
@@ -3981,12 +6412,12 @@ function commands.spot(what, a, b)
       elseif math.abs(q.x - q.x0) > 0.0005 or math.abs(q.z - q.z0) > 0.0005 or math.abs(q.hdg - q.hdg0) > 0.005 then moved = moved + 1 end
     end
     logLine(string.format('command spot report: %d spots: %d moved, %d added, %d removed; saved to %s%s', #D.list, moved, added, gone, D.file, e and ('; locked: ' .. D.text(e)) or ''))
-    return say(string.format('deck spots: %s. All saved: %d moved, %d added, %d removed (Logs\\catcc-deck-spots.lua).', e and ('locked on ' .. D.text(e)) or 'none locked', moved, added, gone))
+    return Tow.Deck.say(string.format('deck spots: %s. All saved: %d moved, %d added, %d removed (Logs\\catcc-deck-spots.lua).', e and ('locked on ' .. D.text(e)) or 'none locked', moved, added, gone))
   end
-  if not e then return say('deck spots: lock on an aircraft first (look at it; F10 > CATCC deck spots > Lock on the one the camera looks at).') end
+  if not e then return Tow.Deck.say('deck spots: lock on an aircraft first (look at it; F10 > CATCC deck spots > Lock on the one the camera looks at).') end
   if what == 'move' then
     local d = tonumber(b)
-    if not d then return say('unknown deck spot step') end
+    if not d then return Tow.Deck.say('unknown deck spot step') end
     local hr = math.rad(e.hdg)
     if a == 'fwd' then
       e.x, e.z = e.x + math.cos(hr) * d, e.z + math.sin(hr) * d
@@ -3995,15 +6426,15 @@ function commands.spot(what, a, b)
     end
   elseif what == 'turn' then
     local d = tonumber(a)
-    if not d then return say('unknown deck spot turn') end
+    if not d then return Tow.Deck.say('unknown deck spot turn') end
     e.hdg = (e.hdg + d) % 360
   elseif what == 'undo' then
-    if not e.x0 then return say('deck spots: this one was added here: it has no built-in place (remove it instead).') end
+    if not e.x0 then return Tow.Deck.say('deck spots: this one was added here: it has no built-in place (remove it instead).') end
     e.x, e.z, e.hdg = e.x0, e.z0, e.hdg0
   elseif what == 'remove' then
     e.removed = true
   else
-    return say('unknown deck spot command ' .. tostring(what))
+    return Tow.Deck.say('unknown deck spot command ' .. tostring(what))
   end
   local made, note = D.make({ e })
   D.save()
@@ -4011,9 +6442,175 @@ function commands.spot(what, a, b)
     e.removed and '; REMOVED' or (made == 1 and '' or ('; NOT parked: ' .. tostring(note or (e.skipped and 'an aircraft stands there' or 'DCS made nothing'))))))
   if e.removed then
     D.lock = nil
-    return say('deck spots: removed: ' .. D.text(e) .. '. Nothing is locked now.')
+    return Tow.Deck.say('deck spots: removed: ' .. D.text(e) .. '. Nothing is locked now.')
   end
-  return say('deck spots: ' .. D.text(e) .. (made == 1 and '.' or '. It could not be parked there (an aircraft in the way?).'))
+  return Tow.Deck.say('deck spots: ' .. D.text(e) .. (made == 1 and '.' or '. It could not be parked there (an aircraft in the way?).'))
+end
+
+-- ---------------------------------------------------------------- hangar marks (the in-game panel's "Hangar marks")
+-- Asked for by the user (2026-11-18): "can I just point a cross hair (dot in the middle of the screen) at a surface
+-- that I want to be included in the hangar collision model and you record that?" (the hangar's map, made from DCS's
+-- own models, misses some of it: "the actual forward wall (toward the bow) of the hangar deck"). The line from the
+-- camera through the screen's centre gives a direction, not how far: the point is found one of two ways:
+--   FLOOR POINT    where that line meets the floor of the level the camera is on (the hangar's, 8.711 m above the
+--                  ship's origin; the flight deck's 20.149): aimed at the foot of a wall, where it meets the floor.
+--   TWO-ANGLE      the same point aimed at from two places: where the two lines come nearest each other (the middle
+--                  of the shortest line between them; how long that is, is the error, and is recorded). Not taken if
+--                  the two lines are less than 8 degrees apart (too near to tell the distance).
+-- Every point is kept in the ship's own frame (x forward, y up, z to starboard, metres from its origin), drawn as a
+-- marker standing there (CATCC_AxleEnd, the axle finder's upright cyan plate, put at the point's own height), and
+-- written at once to Saved Games\DCS\Logs\catcc-hangar-marks.lua, which is read again next time: the work carries
+-- over from mission to mission. (All of it hangs on Tow: this chunk has its 200 local names.)
+Tow.Marks = { list = nil, file = writedir .. 'Logs/catcc-hangar-marks.lua', seq = 0, keepT = 0, keepI = 0, minDeg = 8 }
+
+function Tow.Marks.load()
+  local M = Tow.Marks
+  if M.list then return M.list end
+  M.list = {}
+  local f = loadfile(M.file)
+  local ok, t = pcall(function() return f and f() end)
+  if ok and type(t) == 'table' then
+    for _, e in ipairs(t) do
+      if tonumber(e.x) and tonumber(e.y) and tonumber(e.z) then M.list[#M.list + 1] = e end
+    end
+  end
+  for _, e in ipairs(M.list) do M.seq = math.max(M.seq, tonumber(e.n) or 0) end
+  return M.list
+end
+
+function Tow.Marks.save()
+  local M = Tow.Marks
+  local f = io.open(M.file, 'w')
+  if not f then
+    logLine('hangar marks: the file could not be written: ' .. M.file)
+    return false
+  end
+  f:write('-- CATCC hangar marks: points aimed at with the in-game panel\'s crosshair. Written by the crew test hook, ' .. tostring(os.date('%Y-%m-%d %H:%M:%S')) .. '.\n')
+  f:write('-- x: metres forward of the ship\'s origin; y: up; z: to starboard. kind: "floor" (where the line of sight meets the floor)\n')
+  f:write('-- or "two-angle" (where two lines of sight come nearest: gap is how near, deg the angle between them). ship: the carrier.\n')
+  f:write('return {\n')
+  for _, e in ipairs(M.list) do
+    f:write(string.format('  { n = %d, kind = %q, x = %.3f, y = %.3f, z = %.3f%s%s, ship = %q },\n', e.n, e.kind, e.x, e.y, e.z,
+      e.gap and string.format(', gap = %.3f', e.gap) or '', e.deg and string.format(', deg = %.1f', e.deg) or '', tostring(e.ship or '')))
+  end
+  f:write('}\n')
+  f:close()
+  return true
+end
+
+-- its marker: made anew (linked to the ship) and put at the point's own height
+function Tow.Marks.show(e, ship)
+  local ok, r = pcall(dostring, string.format('return (CATCC_CR and CATCC_CR.marker) and CATCC_CR.marker(%q, "CATCC_AxleEnd", %.4f, %.4f, 0, nil, %s) or "ERR|no menu script"',
+    'catcc-hmark-' .. e.n, e.x, e.z, ship and string.format('%q', ship) or 'nil'))
+  local id = ok and type(r) == 'string' and tonumber(r:match('^OK|(%d+)|'))
+  e.id = (id and id > 0) and id or nil
+  Tow.Marks.put(e)
+  return e.id ~= nil, (ok and r) or tostring(r)
+end
+
+function Tow.Marks.put(e)
+  if e.id and native and native.staticpos then pcall(native.staticpos, e.id, unpack(Tow.pose(Tow.OWN, e.x, e.y, e.z, 1, 0))) end
+end
+
+-- every marker of this carrier made (the first time the page is opened in a mission)
+function Tow.Marks.showAll(ship)
+  local M = Tow.Marks
+  if M.shownFor == ship then return end
+  M.shownFor = ship
+  local n = 0
+  for _, e in ipairs(M.load()) do
+    if (e.ship or '') == '' or e.ship == ship then
+      if M.show(e, ship) then n = n + 1 end
+    end
+  end
+  if n > 0 then logLine(string.format('hangar marks: %d marker(s) of earlier points made on %s', n, tostring(ship))) end
+end
+
+-- (told their place again, one every fifth of a second in turn, as the spotting tool does with its own)
+function Tow.Marks.tick(t)
+  local M = Tow.Marks
+  if not M.list or #M.list == 0 or t < M.keepT then return end
+  M.keepT = t + 0.2
+  M.keepI = M.keepI % #M.list + 1
+  M.put(M.list[M.keepI])
+end
+
+-- the floor of the level a camera at height cy is on
+function Tow.Marks.floorY(cy) return Tow.Deck.below(cy) and (Tow.Deck.hy - 1.856) or (Tow.Deck.jy - 1.826) end
+
+function Tow.Marks.text(e)
+  return string.format('point %d (%s): %.2f m forward, %.2f up, %.2f to starboard%s', e.n, e.kind, e.x, e.y, e.z,
+    e.gap and string.format('; the two lines %.2f m apart, %.0f degrees between them', e.gap, e.deg or 0) or '')
+end
+
+function Tow.Marks.add(e, ship)
+  local M = Tow.Marks
+  M.load()
+  M.seq = M.seq + 1
+  e.n, e.ship = M.seq, ship
+  M.list[#M.list + 1] = e
+  local made, r = M.show(e, ship)
+  M.save()
+  logLine('hangar marks: ' .. Tow.Marks.text(e) .. (made and '' or ('; its marker NOT made: ' .. tostring(r))))
+  return 'hangar marks: ' .. Tow.Marks.text(e) .. '.'
+end
+
+-- o, d: the camera's place and the line of sight through the screen's centre, in the ship's frame (as the panel has them)
+function Tow.Marks.floor(o, d, ship)
+  local fy = Tow.Marks.floorY(o[2])
+  if d[2] > -0.02 then return nil, 'hangar marks: the crosshair looks level or up: it never meets the floor. Aim at the foot of the wall, where it meets the floor.' end
+  local k = (fy - o[2]) / d[2]
+  if k > 300 then return nil, 'hangar marks: the floor is more than 300 m away along that line: not taken.' end
+  return Tow.Marks.add({ kind = 'floor', x = o[1] + d[1] * k, y = fy, z = o[3] + d[3] * k }, ship)
+end
+
+-- the first shot is kept; the second gives the point
+function Tow.Marks.shot(o, d, ship)
+  local M = Tow.Marks
+  local P = M.pending
+  if not P then
+    M.pending = { o = o, d = d }
+    logLine(string.format('hangar marks: first shot from %.2f / %.2f / %.2f', o[1], o[2], o[3]))
+    return 'hangar marks: first shot taken. Move the camera well round (more than ' .. M.minDeg .. ' degrees), aim at the same point and take the second.'
+  end
+  local function dot(a, b) return a[1] * b[1] + a[2] * b[2] + a[3] * b[3] end
+  local a, b = P.d, d
+  local aa, bb, ab = dot(a, a), dot(b, b), dot(a, b)
+  local deg = math.deg(math.acos(math.max(-1, math.min(1, ab / math.sqrt(aa * bb)))))
+  if deg < M.minDeg then
+    return nil, string.format('hangar marks: the two lines are only %.1f degrees apart: move the camera further round and take the second shot again (the first is kept).', deg)
+  end
+  local w = { P.o[1] - o[1], P.o[2] - o[2], P.o[3] - o[3] }
+  local den = aa * bb - ab * ab
+  local s1 = (ab * dot(b, w) - bb * dot(a, w)) / den
+  local s2 = (aa * dot(b, w) - ab * dot(a, w)) / den
+  if s1 < 0 or s2 < 0 then
+    return nil, 'hangar marks: the two lines meet behind the camera: aim at the same point from both places. Take the second shot again (the first is kept).'
+  end
+  local p1 = { P.o[1] + a[1] * s1, P.o[2] + a[2] * s1, P.o[3] + a[3] * s1 }
+  local p2 = { o[1] + b[1] * s2, o[2] + b[2] * s2, o[3] + b[3] * s2 }
+  M.pending = nil
+  local gap = math.sqrt((p1[1] - p2[1]) ^ 2 + (p1[2] - p2[2]) ^ 2 + (p1[3] - p2[3]) ^ 2)
+  local msg = M.add({ kind = 'two-angle', x = (p1[1] + p2[1]) / 2, y = (p1[2] + p2[2]) / 2, z = (p1[3] + p2[3]) / 2, gap = gap, deg = deg }, ship)
+  if gap > 0.3 then msg = msg .. ' The two lines pass ' .. string.format('%.2f', gap) .. ' m apart: were both aimed at the same point?' end
+  return msg
+end
+
+function Tow.Marks.cancel()
+  local had = Tow.Marks.pending ~= nil
+  Tow.Marks.pending = nil
+  return had and 'hangar marks: the first shot is dropped.' or 'hangar marks: no first shot to drop.'
+end
+
+function Tow.Marks.undo()
+  local M = Tow.Marks
+  M.load()
+  local e = table.remove(M.list)
+  if not e then return 'hangar marks: there are no points.' end
+  pcall(dostring, string.format('return CATCC_CR and CATCC_CR.marker and CATCC_CR.marker(%q, "", 0, 0, 0)', 'catcc-hmark-' .. e.n))
+  M.save()
+  logLine('hangar marks: removed ' .. Tow.Marks.text(e))
+  return 'hangar marks: removed ' .. Tow.Marks.text(e) .. '.'
 end
 
 function commands.walkthru()
@@ -4099,6 +6696,9 @@ local function installMenu(t)
   end
   local src = fh:read('*a')
   fh:close()
+  -- (the deck spots for the menu's "Tow me to a parking spot", which the mission's Lua state cannot read for itself)
+  local okm, spotList = pcall(Tow.Fd.menu)
+  src = 'CATCC_CR_SPOTS = ' .. string.format('%q', (okm and type(spotList) == 'string') and spotList or '') .. ' ' .. src
   local ok2, r = pcall(dostring, src .. '\nreturn (type(CATCC_CR) == "table") and "CATCC_OK" or "CATCC_FAIL"')
   if ok2 and r == 'CATCC_OK' then
     installed = true
@@ -4148,41 +6748,912 @@ local function autoList(t)
   end
 end
 
+-- PERFORMANCE, IN THE USER'S TERMS (2026-11-18: "Start reporting performance in the following terms: fps range and
+-- average fps; frame time range and average frame time; 1% and .1% lows in ms; exclude spikes for testing only
+-- functions (e.g. suddenly spawning 40 statics)"). The "frame cost" line (below) says what OUR CODE takes of a frame;
+-- this says what the frame itself takes: the real time from one frame of the simulation to the next, every frame,
+-- kept as a count for every half millisecond (Tow.Prof.S.hist), apart for each state of the deck (Tow.Prof.context:
+-- the demo running; static aircraft parked by the spotting tool; nothing of ours there). Written to the log
+-- ("performance, ...") every minute, when the state changes, and when the mission ends:
+--   fps: frames / time; its range: the lowest and highest count over a whole second;
+--   frame time: average, shortest, longest;
+--   1% low / 0.1% low: the average of the slowest 1% / 0.1% of the frames, in ms (and as frames a second);
+--   the hook's share: our own code's time in those frames: average, and the average of its slowest 1% / 0.1%.
+-- LEFT OUT: frames while the mission is paused (its clock stands), and TEST-ONLY SPIKES: the two seconds from the
+-- moment something that only the test tools do was done (Tow.Prof.testOnly: the spotting tool making or taking away
+-- static aircraft, the demo making or taking away its forty, the first seconds of a mission): how many frames were
+-- left out, the longest of them and for what is said with the rest.
+function Tow.Prof.testOnly(what, secs)
+  local P = Tow.Prof
+  local c = (P.clock or os.clock)()
+  if not (P.skipUntil and c <= P.skipUntil) then P.skipFrom = c end
+  P.skipUntil = math.max(P.skipUntil or 0, c + (secs or 2))
+  P.skipWhat = what
+end
+
+function Tow.Prof.context()
+  -- (with what of the demo is drawn, once its "Hide" switches were used: Tow.Hide)
+  if (CATCC_DEMO and CATCC_DEMO.on) or (Tow.Thr and Tow.Thr.live and Tow.Thr.on) then
+    return 'the deck spotting demo running' .. ((Tow.Hide and Tow.Hide.used) and (', ' .. Tow.Hide.label()) or '')
+  end
+  if Tow.Deck.list and Tow.Deck.shown then return 'static aircraft parked by the spotting tool' end
+  return 'nothing of ours on the deck'
+end
+
+-- the average of the slowest `share` of what a histogram counts (bins of `w` ms; n: how many it counts)
+function Tow.Prof.slowest(hist, top, w, n, share)
+  local want = math.max(1, math.floor(n * share + 0.5))
+  local got, sum = 0, 0
+  for b = top, 0, -1 do
+    local k = hist[b]
+    if k then
+      local take = math.min(k, want - got)
+      got, sum = got + take, sum + take * (b + 0.5) * w
+      if got >= want then break end
+    end
+  end
+  return got > 0 and sum / got or 0
+end
+
+function Tow.Prof.say(S, why)
+  if not S or S.n < 2 then return end
+  local P = Tow.Prof
+  local avg = 1000 * S.sum / S.n
+  local l1, l01 = P.slowest(S.hist, S.top, 0.5, S.n, 0.01), P.slowest(S.hist, S.top, 0.5, S.n, 0.001)
+  local h1, h01 = P.slowest(S.hhist, S.htop, 0.1, S.n, 0.01), P.slowest(S.hhist, S.htop, 0.1, S.n, 0.001)
+  local what = {}
+  for k in pairs(S.exclWhat) do what[#what + 1] = k end
+  table.sort(what)
+  logLine(string.format('performance, %s (%s; %.0f s, %d frames): fps %.1f average, %s by the second; frame time %.1f ms average, %.1f to %.1f; 1%% low %.1f ms (%.0f fps), 0.1%% low %.1f ms (%.0f fps); '
+    .. 'the hook\'s share: %.2f ms average, its slowest 1%% %.1f ms, 0.1%% %.1f ms; left out as test-only: %s', S.key, why, S.sum, S.n, S.n / S.sum,
+    S.fpsMin and string.format('%.0f to %.0f', S.fpsMin, S.fpsMax) or 'no whole second', avg, 1000 * S.min, 1000 * S.max, l1, 1000 / math.max(l1, 0.001), l01, 1000 / math.max(l01, 0.001),
+    1000 * S.hsum / S.n, h1, h01, S.excl > 0 and string.format('%d frames (the longest %.0f ms): %s', S.excl, 1000 * S.exclMax, table.concat(what, '; ')) or 'none')
+    .. ((Tow.Thr and Tow.Thr.live and Tow.Thr.report()) and ('; ' .. Tow.Thr.report() .. ' (since it began)') or ''))
+  S.said = S.sum
+end
+
+-- one frame: f0: when it began (P.clock); whole: what the hook took of it. What is counted is the frame BEFORE it,
+-- now that its length is known (from its beginning to this one's).
+function Tow.Prof.frame(f0, whole)
+  local P = Tow.Prof
+  local okm, mt = pcall(function() return DCS.getModelTime() end)
+  mt = okm and tonumber(mt) or nil
+  local ctx = P.context()
+  if P.pf0 then
+    local dt = f0 - P.pf0
+    local S = P.S
+    if not S or S.key ~= P.pctx then
+      P.say(S, 'ended')
+      S = { key = P.pctx, n = 0, sum = 0, min = 1e9, max = 0, hist = {}, top = 0, hsum = 0, hhist = {}, htop = 0, excl = 0, exclMax = 0, exclWhat = {}, secT = 0, secN = 0, said = 0 }
+      P.S = S
+    end
+    local paused = mt ~= nil and P.pmt ~= nil and mt == P.pmt
+    local skip = P.skipUntil and P.pf0 <= P.skipUntil and f0 >= (P.skipFrom or 0)
+    if paused or dt <= 0 then
+      S.secT, S.secN = 0, 0
+    elseif skip or dt > 5 then
+      S.excl = S.excl + 1
+      if dt > S.exclMax then S.exclMax = dt end
+      S.exclWhat[skip and tostring(P.skipWhat) or 'a frame of over 5 s'] = true
+      S.secT, S.secN = 0, 0
+    else
+      S.n, S.sum = S.n + 1, S.sum + dt
+      if dt < S.min then S.min = dt end
+      if dt > S.max then S.max = dt end
+      local b = math.min(4000, math.floor(dt * 2000))
+      S.hist[b] = (S.hist[b] or 0) + 1
+      if b > S.top then S.top = b end
+      local hw = P.pwhole or 0
+      S.hsum = S.hsum + hw
+      local hb = math.min(20000, math.floor(hw * 10000))
+      S.hhist[hb] = (S.hhist[hb] or 0) + 1
+      if hb > S.htop then S.htop = hb end
+      S.secT, S.secN = S.secT + dt, S.secN + 1
+      if Tow.Hide and Tow.Hide.used then Tow.Hide.count(P.pctx, dt) end
+      if S.secT >= 1 then
+        local fps = S.secN / S.secT
+        if not S.fpsMin or fps < S.fpsMin then S.fpsMin = fps end
+        if not S.fpsMax or fps > S.fpsMax then S.fpsMax = fps end
+        S.secT, S.secN = 0, 0
+      end
+      if S.sum - S.said >= 60 then P.say(S, 'so far') end
+    end
+  end
+  P.pf0, P.pwhole, P.pctx, P.pmt = f0, whole, ctx, mt
+end
+
+-- ---------------------------------------------------------------- THE DECK SPOTTING DEMO ON ITS OWN THREAD: the main thread's side
+-- (catcc-handoff/WORKER-THREAD-PLAN.md; the other side: Scripts/CATCC/crewtest_worker.lua, which says what the
+-- messages are.) The native module makes a thread with a Lua state of its own; that state loads this file and the demo
+-- a second time and runs the demo there, whole. Here, every frame (Tow.Thr.tick): what the worker sent is taken
+-- (Tow.Thr.pump): its lists of commands applied in order (Tow.Thr.apply), its calls answered (Tow.Thr.serve); then the
+-- frame is sent to it: the mission's clock, real time, active pause, and every value it reads that has changed
+-- (Tow.Thr.frame). Nothing of DCS's is called on the worker's thread: every call it asks for is made here.
+--   CATCC_DEMO_THREAD = false   the demo runs on the main thread, as before (also when the worker cannot be started)
+--   CATCC_DEMO_LOCKSTEP         (the rig) each frame waits for the worker's step: the same run every time. 'late': and
+--                               its commands are applied a frame later, as in DCS
+--   CATCC_DEMO_DISORDER = seed  (the rig) frames left out and lists of commands held back up to 3 frames, by a seeded
+--                               sequence: what a busy worker and a busy DCS do to each other
+-- BETWEEN TWO LISTS an object that was moving is moved on by what it moved between the last two (its place only, for
+-- up to 3 frames): a frame in which the worker's list has not come yet does not show as a halt (Tow.Thr.carry).
+Tow.Thr = { subs = {}, applied = 0, n = 0, on = false, live = false, held = {}, said = {}, stat = { n = 0, ms = 0, max = 0, calls = 0, late = 0, carried = 0 }, move = {}, tk = 0 }
+-- (in a function of its own: this chunk has its 200 local names)
+(function()
+  local T = Tow.Thr
+  CATCC_THR = T -- (for what is defined above this table, and for the rig)
+  local floor, huge, fmt, concat = math.floor, math.huge, string.format, table.concat
+  -- (COMMA: a C locale that writes 1,5: put right, or the worker could not read the number)
+  local COMMA = fmt('%.1f', 0.5):find(',', 1, true) ~= nil
+  local function num(v)
+    if v ~= v then return '(0/0)' end
+    if v == huge then return 'math.huge' elseif v == -huge then return '-math.huge' end
+    if v == floor(v) and v > -1e15 and v < 1e15 then return fmt('%.0f', v) end
+    local s = fmt('%.17g', v)
+    if COMMA then s = s:gsub(',', '.') end
+    return s
+  end
+  local function ser(v)
+    local t = type(v)
+    if t == 'number' then return num(v) end
+    if t == 'string' then return fmt('%q', v) end
+    if t == 'boolean' then return v and 'true' or 'false' end
+    if t == 'table' then
+      local out, n = {}, 0
+      for k, x in pairs(v) do
+        local tk = type(k)
+        if tk == 'number' or tk == 'string' or tk == 'boolean' then
+          n = n + 1
+          out[n] = '[' .. ser(k) .. ']=' .. ser(x)
+        end
+      end
+      return '{' .. concat(out, ',') .. '}'
+    end
+    return 'nil'
+  end
+  -- what a call gave: { n = how many, ... }
+  local function vals(ok, ...)
+    local n = select('#', ...)
+    if not ok then return false, tostring((...)) end
+    local out = { 'n=' .. n }
+    for i = 1, n do out[i + 1] = ser((select(i, ...))) end
+    return true, '{' .. concat(out, ',') .. '}', (...)
+  end
+  -- what a message's function name stands for: n. the native module, D. DCS, E. Export, N. net, h. this file's own
+  -- (deckctx: which carrier, where it and the jet are: this thread's own answer for this frame, for the worker's
+  -- Tow.Deck.ctx: the question has the camera's place in it, which is another every frame)
+  local own = { log = logLine, info = info, say = say, deckctx = function() return Tow.Deck.ctx(now()) end,
+    deckmap = function(text) if CATCC_SLOTS then CATCC_SLOTS.setMap(text) end end }
+  local function target(f)
+    local kind, name = f:sub(1, 1), f:sub(3)
+    if kind == 'n' then return native and native[name] end
+    if kind == 'D' then return DCS and DCS[name] end
+    if kind == 'E' then return Export and Export[name] end
+    if kind == 'N' then return net and net[name] end
+    if kind == 'h' then return own[name] end
+    return nil
+  end
+  function T.post(s)
+    T.stat.out = (T.stat.out or 0) + #s
+    return native.worker_post(s)
+  end
+
+  function T.fail(err)
+    err = tostring(err)
+    if T.said[err] then return end
+    T.said[err] = true
+    logLine('demo thread: error: ' .. err)
+    if not T.saidOne then
+      T.saidOne = true
+      say('the deck spotting demo\'s thread: an error (in the log): ' .. err:sub(1, 300))
+    end
+  end
+
+  -- a list of commands, in its order
+  function T.apply(m)
+    local mv = T.move
+    for i = 1, #m do
+      local c = m[i]
+      local fn = target(c.f)
+      local ok, r, e
+      if c.key and c.first then
+        -- (the first command for an object, not waited for: what DCS answered goes back, for the calls after it)
+        local body
+        if fn then ok, body, r = vals(pcall(fn, unpack(c, 1, c.n))) else ok, body = false, 'the main thread has no ' .. tostring(c.f) end
+        if ok then
+          T.post('{k="a",key=' .. fmt('%q', c.key) .. ',v=' .. body .. '}')
+        else
+          T.post('{k="a",key=' .. fmt('%q', c.key) .. ',v={n=2,nil,' .. fmt('%q', body) .. '}}')
+        end
+      elseif fn then
+        ok, r, e = pcall(fn, unpack(c, 1, c.n))
+      else
+        ok, r = false, 'the main thread has no ' .. tostring(c.f)
+      end
+      if c.key then
+        if not c.first and not (ok and r) then
+          -- (the worker gives this failure to every later call for the same object)
+          T.post('{k="x",key=' .. fmt('%q', c.key) .. ',err=' .. fmt('%q', tostring(ok and e or r)) .. '}')
+        end
+        if not (ok and r) then
+          -- (nothing to move on)
+        elseif not T.useBlob and m.mt and (c.f == 'n.staticpos' or c.f == 'n.place') then
+          -- where it is now and where it was a list before: what Tow.Thr.carry moves it on by
+          local q = mv[c.key]
+          if not q then
+            q = {}
+            mv[c.key] = q
+          end
+          if q.st ~= m.st then q.p, q.pt = q.c, q.t end
+          q.c, q.t, q.fn, q.st, q.ext = c, m.mt, fn, m.st, nil
+        end
+      end
+    end
+    if m.done then
+      -- (what the worker's step did not place again stands: it is not moved on, and if it was, it is put back)
+      for key, q in pairs(mv) do
+        if q.st ~= m.st then
+          if q.ext then pcall(q.fn, unpack(q.c, 1, q.c.n)) end
+          mv[key] = nil
+        end
+      end
+    end
+    T.head(m.seq, m.done, m.on, m.ran, m.ms, m.calls, m.idle, m.idleMs)
+  end
+  -- what a list says of itself when it has been applied: a text list's fields, a packed list's numbers
+  function T.head(seq, done, on, ran, ms, calls, idle, idleMs)
+    T.applied = seq
+    if on ~= nil then T.on = on end
+    if ran then T.ran = ran end
+    if done then
+      T.doneN = done
+      if not T.defer and not T.held[1] then T.got = done end
+      if T.stepCalls then
+        if #T.stepCalls >= 2 then
+          local key = table.concat(T.stepCalls, ' + ')
+          T.stat.together = T.stat.together or {}
+          T.stat.together[key] = (T.stat.together[key] or 0) + 1
+        end
+        T.stepCalls = nil
+      end
+      local S = T.stat
+      S.n, S.ms, S.calls = S.n + 1, S.ms + (ms or 0), S.calls + (calls or 0)
+      S.idle, S.idleMs = (S.idle or 0) + (idle or 0), (S.idleMs or 0) + (idleMs or 0)
+      if (ms or 0) > S.max then S.max = ms end
+      -- (its steps' times, counted by the tenth of a millisecond for the slowest 1 % and 0.1 %)
+      S.hist = S.hist or {}
+      local b = math.min(20000, floor((ms or 0) * 10))
+      S.hist[b] = (S.hist[b] or 0) + 1
+      if b > (S.top or 0) then S.top = b end
+      -- (late: its list was not there when the frame after its own began)
+      if T.n - done >= 1 then S.late = S.late + 1 end
+    end
+  end
+  -- A PACKED LIST (the native module's worker_blob: WORKER-THREAD-PLAN.md, step 6): the worker's places and model
+  -- arguments as bytes: the module reads them and makes the calls itself, and follows what moves (worker_carry, below:
+  -- what T.carry does here for the text lists). What failed comes back and is told to the worker as for a text list.
+  function T.blob(s)
+    local fails, seq, _, _, done, on, ms, calls, idle, idleMs, count = native.worker_blob(s, CATCC_THREAD_SINK)
+    if not fails then return T.fail('a packed list could not be read: ' .. tostring(seq)) end
+    for i = 1, #fails do
+      local f = fails[i]
+      local op, x, y, z = f[1], f[2], f[3], f[4]
+      local key = (op == 1 and ('n.staticpos:' .. tostring(x))) or (op == 2 and ('n.place:' .. tostring(x))) or (op == 3 and ('n.objarg:' .. tostring(y) .. ':' .. tostring(z)))
+        or ('n.shiparg:' .. tostring(x) .. ':' .. tostring(y))
+      T.post('{k="x",key=' .. fmt('%q', key) .. ',err=' .. fmt('%q', tostring(f[5])) .. '}')
+    end
+    T.stat.bin = (T.stat.bin or 0) + count
+    T.head(seq, done >= 0 and done or nil, on == 1, nil, ms, calls, idle, idleMs)
+  end
+  -- held lists (CATCC_DEMO_LOCKSTEP = 'late', CATCC_DEMO_DISORDER) that are due
+  function T.release(all)
+    local held = T.held
+    while held[1] and (all or held[1].due <= T.n) do
+      local m = table.remove(held, 1)
+      if m.blob then T.blob(m.blob) else T.apply(m) end
+    end
+  end
+
+  -- a call: made, and answered
+  function T.serve(m)
+    T.release(true) -- (everything before it in its order first)
+    local by = T.stat.by or {}
+    T.stat.by = by
+    if T.on then
+      local run = T.stat.run or {}
+      T.stat.run = run
+      run[m.f] = (run[m.f] or 0) + 1
+    end
+    local what = m.f .. ((CATCC_DEMO_THREAD_CALLS and m.f == 'n.objarg') and (' arg ' .. tostring(m.a[3]) .. (m.a.n > 3 and ' written' or ' read') .. (T.on and ' (running)' or ' (starting)')) or '')
+    by[what] = (by[what] or 0) + 1
+    if CATCC_DEMO_THREAD_CALLS and T.on then
+      -- (the rig: which calls come together in one step)
+      T.stepCalls = T.stepCalls or {}
+      T.stepCalls[#T.stepCalls + 1] = m.f:sub(3) .. ((m.f == 'n.objarg' or m.f == 'n.shiparg' or m.f == 'n.elevator') and (' ' .. tostring(m.a[2]) .. (m.a.n > 2 and ('=' .. tostring(m.a[3])) or '')) or '') .. (m.key and ' (read)' or '')
+    end
+    local fn = target(m.f)
+    if not fn then return T.post('{k="r",id=' .. num(m.id) .. ',err=' .. fmt('%q', 'the main thread has no ' .. tostring(m.f)) .. '}') end
+    local ok, body = vals(pcall(fn, unpack(m.a, 1, m.a.n)))
+    if not ok then return T.post('{k="r",id=' .. num(m.id) .. ',err=' .. fmt('%q', body) .. '}') end
+    if m.key then T.subs[m.key] = { f = m.f, a = m.a, last = body } end
+    T.post('{k="r",id=' .. num(m.id) .. ',v=' .. body .. '}')
+  end
+
+  function T.pump()
+    while true do
+      local msgs = native.worker_poll()
+      if not msgs then return end
+      for i = 1, #msgs do
+        local s = msgs[i]
+        local c = s:sub(1, 1)
+        T.stat.inn = (T.stat.inn or 0) + #s
+        if c == 'B' then
+          -- (a packed list: held like a text one where lists are held (the rig); else applied by the module)
+          if T.defer or T.held[1] then
+            local _, _, _, done = native.worker_blobinfo(s)
+            if done and done >= 0 then T.got = done end
+            T.held[#T.held + 1] = { blob = s, due = T.n + (T.defer and T.defer() or 0) }
+          else
+            T.blob(s)
+          end
+        elseif c == 'E' then
+          T.fail(s:sub(2))
+        elseif c == 'X' then
+          T.ended = true
+        else
+          local f, e = loadstring('return ' .. s)
+          local ok, m = pcall(f or error, e)
+          if not ok or type(m) ~= 'table' then
+            T.fail('a message from the worker could not be read: ' .. tostring(m) .. ': ' .. s:sub(1, 160))
+          elseif m.k == 'c' then
+            -- (got: the worker has finished the step for that frame, whenever its list is applied)
+            if m.done then T.got = m.done end
+            if T.defer or T.held[1] then
+              m.due = T.n + (T.defer and T.defer() or 0)
+              T.held[#T.held + 1] = m
+              if m.ran then T.release(true) end
+            else
+              T.apply(m)
+            end
+          elseif m.k == 'q' then
+            local oks, es = pcall(T.serve, m)
+            if not oks then T.post('{k="r",id=' .. num(m.id or 0) .. ',err=' .. fmt('%q', 'the main thread: ' .. tostring(es)) .. '}') end
+          elseif m.k == 'u' then
+            for _, key in ipairs(m.keys or {}) do T.subs[key] = nil end
+          elseif m.k == 'e' then
+            T.fail(m.err)
+          elseif m.k == 'ready' then
+            T.ready = true
+          end
+        end
+      end
+    end
+  end
+
+  -- waits (the worker's messages taken meanwhile) until `cond` holds, the worker has ended, or about `ms` have passed
+  function T.await(cond, ms)
+    for _ = 1, math.max(1, floor(ms / 5)) do
+      T.pump()
+      if cond() then return true end
+      if T.ended then return false end
+      native.worker_wait(5)
+    end
+    T.pump()
+    return cond() == true
+  end
+
+  -- the clocks, as text for a message: the mission's, real time, active pause (with every frame, and with every
+  -- command for the worker: it may have had no frame yet, and the demo begins by the mission's clock)
+  function T.clocks()
+    local okm, mt = pcall(function() return DCS.getModelTime() end)
+    return fmt('mt=%s,rt=%s,ap=%s', num(okm and tonumber(mt) or 0), num(now()), tostring(Tow.ap.on == true))
+  end
+
+  -- the frame: the clocks, and every read whose value has changed
+  function T.frame(t)
+    T.n = T.n + 1
+    local r, nr = {}, 0
+    for key, s in pairs(T.subs) do
+      local fn = target(s.f)
+      local body
+      if fn then
+        local ok, b = vals(pcall(fn, unpack(s.a, 1, s.a.n)))
+        body = ok and b or ('{n=0,err=' .. fmt('%q', b) .. '}')
+      else
+        body = '{n=0,err="the main thread no longer has it"}'
+      end
+      if body ~= s.last then
+        s.last = body
+        nr = nr + 1
+        r[nr] = '[' .. fmt('%q', key) .. ']=' .. body
+      end
+    end
+    T.post(fmt('{k="f",n=%d,mt=%s,rt=%s,ap=%s,seq=%d,r={%s}}', T.n, num(T.mt), num(t), tostring(Tow.ap.on == true), T.applied, concat(r, ',', 1, nr)))
+  end
+
+  -- AN OBJECT THAT IS MOVING IS SHOWN WHERE IT IS A FRAME BEHIND THE MISSION'S CLOCK (see the top). The worker's list
+  -- for a frame comes in the next one: then every place is the worker's own, and nothing is done here. When a list is
+  -- late (the worker deep in a step, or DCS's frames shorter than its steps), an object whose last place is for an
+  -- earlier moment is moved on from it, by what it moved between the worker's last two steps, to where it would be a
+  -- frame behind the clock: so a late list shows neither as a halt nor, when it comes, as a jump. Its place only; not
+  -- one that jumped (over 12 m/s: a tractor turned round on its hitch, an aircraft set on its spot); 3 frames at the most.
+  function T.carry()
+    local tt = T.mtPrev
+    if not tt then return end
+    if T.useBlob then
+      -- (the module follows what it places itself)
+      T.stat.carried = T.stat.carried + (native.worker_carry(tt, T.mt or tt, CATCC_THREAD_SINK) or 0)
+      return
+    end
+    local dtF = (T.mt or tt) - tt
+    if dtF <= 0 then return end
+    for _, q in pairs(T.move) do
+      local ext = tt - q.t
+      if ext > 1e-9 and q.p and q.pt and q.t > q.pt then
+        if ext > 3 * dtF then ext = 3 * dtF end
+        if ext ~= q.ext then
+          local c, p = q.c, q.p
+          local a = c.f == 'n.place' and 2 or 11
+          local k = ext / (q.t - q.pt)
+          local dx, dy, dz = (c[a] - p[a]) * k, (c[a + 1] - p[a + 1]) * k, (c[a + 2] - p[a + 2]) * k
+          local d2 = dx * dx + dy * dy + dz * dz
+          if d2 > 0 and d2 < (12 * ext) ^ 2 then
+            local x, y, z = c[a], c[a + 1], c[a + 2]
+            c[a], c[a + 1], c[a + 2] = x + dx, y + dy, z + dz
+            pcall(q.fn, unpack(c, 1, c.n))
+            c[a], c[a + 1], c[a + 2] = x, y, z
+            q.ext = ext
+            T.stat.carried = T.stat.carried + 1
+          end
+        end
+      end
+    end
+  end
+
+  -- what the worker's steps took (its own clock), and how the two threads kept up with each other
+  function T.report()
+    local S = T.stat
+    if not S or S.n < 1 then return nil end
+    local P = Tow.Prof
+    local reads = 0
+    for _ in pairs(T.subs) do reads = reads + 1 end
+    return string.format('the demo\'s thread: %d steps, %.2f ms average, its slowest 1%% %.1f ms, 0.1%% %.1f ms, the longest %.0f ms; %d calls it waited for; %d lists of commands came late (not there when the next frame began); objects moved on meanwhile %d times; '
+      .. 'planning between the frames: %d pieces, %.1f s in all; %d values read for it every frame; %.1f KB a frame to it, %.1f KB from it (%s)',
+      S.n, S.ms / S.n, P.slowest(S.hist or {}, S.top or 0, 0.1, S.n, 0.01), P.slowest(S.hist or {}, S.top or 0, 0.1, S.n, 0.001), S.max, S.calls, S.late, S.carried,
+      S.idle or 0, (S.idleMs or 0) / 1000, reads, (S.out or 0) / 1024 / math.max(1, T.n), (S.inn or 0) / 1024 / math.max(1, T.n),
+      T.useBlob and string.format('%.0f places and model arguments a frame applied by the native module itself', (S.bin or 0) / math.max(1, T.n)) or 'all of it as text for Lua')
+      .. (function()
+        -- (by function, the most first: the calls it waited for while the demo ran (not while it made its objects),
+        -- and the values read for it now: what to look at when the hook's share or the late lists are high)
+        local function top(t, n)
+          local list = {}
+          for f, k in pairs(t) do list[#list + 1] = { f, k } end
+          table.sort(list, function(a, b) return a[2] > b[2] or (a[2] == b[2] and a[1] < b[1]) end)
+          local out = {}
+          for i = 1, math.min(n, #list) do out[i] = list[i][1] .. ' ' .. list[i][2] end
+          return #out > 0 and table.concat(out, ', ') or 'none'
+        end
+        local byF = {}
+        for _, sub in pairs(T.subs) do byF[sub.f] = (byF[sub.f] or 0) + 1 end
+        return '; waited for while the demo ran: ' .. top(S.run or {}, 8) .. '; read every frame: ' .. top(byF, 8)
+          .. string.format('; the main thread\'s side of it: %.2f ms a frame taking its messages and applying its commands, %.2f ms reading and sending the frame, %.1f ms at the most', 1000 * (S.tApply or 0) / math.max(1, S.tN or 0),
+            1000 * (S.tFrame or 0) / math.max(1, S.tN or 0), 1000 * (S.tMax or 0))
+      end)()
+      .. (CATCC_DEMO_THREAD_CALLS and (function()
+        -- (the rig: which calls it waited for, the most first)
+        local list = {}
+        for f, n in pairs(S.by or {}) do list[#list + 1] = { f, n } end
+        table.sort(list, function(a, b) return a[2] > b[2] end)
+        local out = {}
+        for i = 1, math.min(12, #list) do out[i] = list[i][1] .. ' ' .. list[i][2] end
+        local tg = {}
+        for k, n in pairs(S.together or {}) do tg[#tg + 1] = n .. ' x [' .. k .. ']' end
+        table.sort(tg)
+        return '; calls: ' .. table.concat(out, ', ') .. '; together in one step: ' .. table.concat(tg, '; ')
+      end)() or '')
+  end
+
+  function T.stop(why)
+    if not T.live then return end
+    local rep = T.report()
+    if rep then logLine('demo thread: ' .. rep) end
+    T.live, T.on = false, false
+    pcall(T.post, '{k="quit"}')
+    local ended = native.worker_stop(200)
+    T.subs, T.held, T.move = {}, {}, {}
+    if native.worker_moves then pcall(native.worker_moves) end
+    logLine('demo thread: stopped' .. (why and (' (' .. why .. ')') or '') .. (ended and '' or '; its thread is still in a step and ends by itself'))
+  end
+
+  -- the worker started (if it is not running): true: it runs and has loaded the demo
+  function T.start()
+    if T.live and not T.ended then return true end
+    if CATCC_DEMO_THREAD == false then
+      -- (switched off: said once a mission)
+      if not T.offSaid and not CATCC_WORKER then
+        T.offSaid = true
+        logLine('demo thread: switched off (demoThread = false in Config\\CATCC-test.lua): the deck spotting demo runs on the main thread')
+      end
+      return false
+    end
+    if CATCC_WORKER or not (native and native.worker_start and native.worker_post and native.worker_poll and native.worker_wait and native.worker_stop) then return false end
+    if T.live then T.stop('its thread had ended') end
+    local names, dcs, export, globals = {}, {}, {}, {}
+    for k, v in pairs(native) do if type(v) == 'function' then names[#names + 1] = k end end
+    for k, v in pairs(DCS or {}) do if type(v) == 'function' then dcs[k] = true end end
+    for k, v in pairs(Export or {}) do if type(v) == 'function' then export[k] = true end end
+    for k, v in pairs(_G) do
+      if type(k) == 'string' and k:find('^CATCC_DEMO_') and type(v) ~= 'function' and type(v) ~= 'userdata' then globals[k] = v end
+    end
+    local files = { ['Scripts/CATCC/crewtest_ui.lua'] = false }
+    for k, v in pairs(CATCC_THREAD_FILES or {}) do files[k] = v end
+    local script = CATCC_THREAD_SCRIPT or (writedir .. 'Scripts\\CATCC\\crewtest_worker.lua')
+    -- (useBlob: this module takes the worker's places and model arguments as a packed list: T.blob)
+    T.useBlob = (native.worker_blob and native.worker_blobinfo and native.worker_carry and native.worker_moves and not CATCC_DEMO_NO_BLOB) and true or false
+    if native.worker_moves then pcall(native.worker_moves) end
+    local arg = ser({ writedir = CATCC_THREAD_WRITEDIR or writedir, natives = names, dcs = dcs, export = export, globals = globals, files = files, lockstep = CATCC_DEMO_LOCKSTEP and true or false,
+      blob = T.useBlob })
+    local ok, r, why = pcall(native.worker_start, script, arg)
+    if not (ok and r) then
+      logLine('demo thread: not started (the demo runs on the main thread): ' .. tostring(ok and why or r))
+      return false
+    end
+    T.live, T.ready, T.ended, T.on, T.subs, T.held, T.move, T.applied, T.n, T.ran, T.runId, T.doneN, T.said, T.saidOne = true, false, false, false, {}, {}, {}, 0, 0, nil, 0, nil, {}, nil
+    T.got, T.tk, T.mt, T.mtPrev = nil, 0, nil, nil
+    T.stat = { n = 0, ms = 0, max = 0, calls = 0, late = 0, carried = 0 }
+    T.defer = nil
+    if CATCC_DEMO_DISORDER then
+      -- (a seeded sequence: 0 .. 3 frames a list is held back)
+      local seed = tonumber(CATCC_DEMO_DISORDER) or 1
+      T.rnd = function(n)
+        seed = (seed * 1103515245 + 12345) % 2147483648
+        return floor(seed / 65536) % n
+      end
+      T.defer = function() return T.rnd(4) end
+    elseif CATCC_DEMO_LOCKSTEP == 'late' then
+      -- (held until the next frame begins: T.release, before anything else of that frame)
+      T.defer = function() return 0 end
+    end
+    -- (the worker loads this file and the demo: its calls are answered here until it says it is ready)
+    if not T.await(function() return T.ready end, 20000) then
+      T.stop('it did not load the demo')
+      logLine('demo thread: the demo runs on the main thread')
+      return false
+    end
+    T.runId = T.runId + 1
+    T.post('{k="sim",on=true,id=' .. T.runId .. ',' .. T.clocks() .. '}')
+    T.await(function() return T.ran == T.runId end, 10000)
+    logLine('demo thread: started: the deck spotting demo runs on a thread of its own (Scripts\\CATCC\\crewtest_worker.lua)')
+    return true
+  end
+
+  -- a command of the demo's (start, stop, report, toggle), run by the worker: waited for (its calls answered meanwhile:
+  -- the demo makes and takes away its static aircraft in one go, as it did on the main thread)
+  function T.run(what)
+    T.runId = T.runId + 1
+    local id = T.runId
+    T.post('{k="run",c=' .. fmt('%q', 'demo2|' .. tostring(what or 'toggle')) .. ',id=' .. id .. ',' .. T.clocks() .. '}')
+    if not T.await(function() return T.ran == id end, 30000) then T.fail('the demo\'s thread did not answer "' .. tostring(what) .. '" in 30 s') end
+  end
+
+  function T.tick(t)
+    if not T.live then return end
+    T.tk = T.tk + 1
+    -- (what this side takes of the frame, by the hook's own clock: its messages taken and its commands applied;
+    -- the frame read and sent: said with the worker's figures)
+    local clock = Tow.Prof.clock or os.clock
+    local c0 = clock()
+    T.release(false)
+    T.pump()
+    local c1 = clock()
+    if T.ended then
+      -- (its Lua state is gone, and with it what the demo knew: what it had made stays where it is)
+      if T.on then say('the deck spotting demo\'s thread has ended (the log says why). What it had on the deck stays there: restart the mission to clear it.') end
+      return T.stop('its thread ended')
+    end
+    local okm, mt = pcall(function() return DCS.getModelTime() end)
+    T.mtPrev, T.mt = T.mt, okm and tonumber(mt) or 0
+    local skip = T.rnd and T.rnd(5) == 0
+    if skip then T.n = T.n + 1 else T.frame(t) end
+    do
+      local S, c2 = T.stat, clock()
+      S.tN, S.tApply, S.tFrame = (S.tN or 0) + 1, (S.tApply or 0) + (c1 - c0), (S.tFrame or 0) + (c2 - c1)
+      if c2 - c0 > (S.tMax or 0) then S.tMax = c2 - c0 end
+    end
+    if CATCC_DEMO_LOCKSTEP and not skip then
+      local n = T.n
+      if not T.await(function() return T.got == n end, 120000) then T.fail('the demo\'s thread did not finish frame ' .. n .. ' in two minutes') end
+    end
+    T.carry()
+  end
+end)()
+
+-- ---------------------------------------------------------------- A VIEW SAVED AND HELD (the same camera in every recording)
+-- (2026-11-20, the user: "I'd want the camera angle to be something like this, set by the UI so that it's consistent in
+-- both recordings".) "Save view" (the panel's Tow page; view|save): where the camera is now and how it is turned, in
+-- the ship's own frame (the carrier at the camera), written to Logs\catcc-camera.lua: it is there for every later
+-- mission. "Saved view" (view|hold): the camera is put there every frame, so it rides with the ship, until the button
+-- is pressed again. How: Export's LoGetCameraPosition / LoSetCameraPosition (Scripts\Export.lua: "view camera current
+-- position table": its x, y, z axes and its point p, in metres). NOT YET SEEN IN DCS: whether DCS takes the place in
+-- the outside view the user records in, and keeps it for the frame, is what the first try shows.
+Tow.View = { on = false, file = writedir .. 'Logs/catcc-camera.lua' }
+(function()
+  local V = Tow.View
+  local function shipAxes(t)
+    local c = Tow.Deck.ctx(t)
+    return c and c.s, c and c.ship
+  end
+  function V.load()
+    if V.pose == nil then
+      V.pose = false
+      local f = loadfile(V.file)
+      local ok, q = pcall(function() return f and f() end)
+      if ok and type(q) == 'table' and q.p and q.x and q.y and q.z then V.pose = q end
+    end
+    return V.pose or nil
+  end
+  function V.save(t)
+    local okc, cp = pcall(function() return Export.LoGetCameraPosition() end)
+    if not (okc and type(cp) == 'table' and cp.p and cp.x and cp.y and cp.z) then return say('Save view: the camera could not be read (no LoGetCameraPosition).') end
+    local s, ship = shipAxes(t)
+    if not s then return say('Save view: no carrier near the camera: the view is kept as seen from a carrier.') end
+    -- (into the ship's frame: forward, up, to starboard of its origin)
+    local function rel(v, point)
+      local dx, dy, dz = v.x - (point and s[10] or 0), v.y - (point and s[11] or 0), v.z - (point and s[12] or 0)
+      return { dx * s[1] + dy * s[2] + dz * s[3], dx * s[4] + dy * s[5] + dz * s[6], dx * s[7] + dy * s[8] + dz * s[9] }
+    end
+    local q = { p = rel(cp.p, true), x = rel(cp.x), y = rel(cp.y), z = rel(cp.z) }
+    local f = io.open(V.file, 'w')
+    if f then
+      local function three(v) return string.format('{ %.4f, %.4f, %.4f }', v[1], v[2], v[3]) end
+      f:write('-- The saved view (F10 panel > Tow > Save view): the camera in the ship\'s frame: its point p and its axes x, y, z\n',
+        '-- (forward, up, to starboard of the ship\'s origin; metres).\n',
+        string.format('return { p = %s, x = %s, y = %s, z = %s }\n', three(q.p), three(q.x), three(q.y), three(q.z)))
+      f:close()
+    end
+    V.pose = q
+    logLine(string.format('view saved (%s): the camera %.1f m forward, %.1f m up, %.1f m to starboard of the ship\'s origin, looking %.3f / %.3f / %.3f%s', tostring(ship), q.p[1], q.p[2], q.p[3],
+      q.x[1], q.x[2], q.x[3], f and '' or '; THE FILE COULD NOT BE WRITTEN'))
+    say(string.format('View saved: the camera %.0f m forward, %.0f m up, %.0f m to starboard of the ship. "Saved view" puts it back there.', q.p[1], q.p[2], q.p[3]))
+  end
+  function V.hold()
+    if V.on then
+      V.on = false
+      logLine('saved view: off')
+      return say('Saved view: off: the camera is yours again.')
+    end
+    if not V.load() then return say('Saved view: none saved yet: put the camera where you want it and press "Save view".') end
+    if not (Export and Export.LoSetCameraPosition) then return say('Saved view: the camera cannot be set here (no LoSetCameraPosition).') end
+    V.on, V.failed, V.n = true, nil, 0
+    logLine(string.format('saved view: on: the camera is held %.1f m forward, %.1f m up, %.1f m to starboard of the ship\'s origin', V.pose.p[1], V.pose.p[2], V.pose.p[3]))
+    say('Saved view: on: the camera is held at the saved place. Press it again to let go.')
+  end
+  function V.tick(t)
+    if not V.on then return end
+    local s, q = shipAxes(t), V.pose
+    if not (s and q) then return end
+    local o = Tow.pose3(s, q.p, q.x, q.y, q.z)
+    local ok, err = pcall(Export.LoSetCameraPosition, { x = { x = o[1], y = o[2], z = o[3] }, y = { x = o[4], y = o[5], z = o[6] }, z = { x = o[7], y = o[8], z = o[9] }, p = { x = o[10], y = o[11], z = o[12] } })
+    V.n = (V.n or 0) + 1
+    if not ok and not V.failed then
+      V.failed = true
+      logLine('saved view: the camera could not be set: ' .. tostring(err))
+    elseif ok and V.n == 30 then
+      -- (once, after 30 frames: is the camera where it was put? what the first try in DCS is to show)
+      local okc, cp = pcall(function() return Export.LoGetCameraPosition() end)
+      if okc and type(cp) == 'table' and cp.p then
+        logLine(string.format('saved view: after 30 frames the camera is %.2f m from where it is put each frame', math.sqrt((cp.p.x - o[10]) ^ 2 + (cp.p.y - o[11]) ^ 2 + (cp.p.z - o[12]) ^ 2)))
+      end
+    end
+  end
+end)()
+
+-- ---------------------------------------------------------------- WHAT OF THE DEMO IS DRAWN (Tow.Hide: what each part costs a frame)
+-- (2026-11-20: the frame took 54 ms in the demo's run, the hook 0.85 ms of it; of the rest, which of the demo's objects
+-- cost DCS the most to draw is not known. The user: "Sure, build this into the demo. It's only a visibility switch
+-- right? the run will still complete as normal".) The panel's Tow page: "Hide drivers", "Hide tow bars", "Hide
+-- tractors", "Hide hangar aircraft", "Hide deck aircraft" (each on or off; marked while on) and "Hide each in turn"
+-- (H.SEQ, H.every seconds each, everything drawn between every two, so that each is set against the frames just before
+-- and after it: what the frame takes changes over the run with what is moving). ONLY WHAT IS DRAWN CHANGES: the demo
+-- plans, tows and times everything as before; a hidden object is put far off and back where it is when shown again
+-- (the demo's M.hide). Each state is a context of the performance lines ("performance, the deck spotting demo running,
+-- hidden: tractors (...)"); the 2 s after each switch are left out as test-only (every object put somewhere else at
+-- once, and the worker's step waited for). When the demo stops, or "Hide each in turn" is pressed again: one line
+-- ("demo drawn, ...") with each state's frames, all its periods together, and how much shorter its frame was than
+-- with everything drawn.
+Tow.Hide = { on = {}, KINDS = { 'drivers', 'bars', 'tractors', 'hangar', 'deck' }, every = 15, acc = {},
+  NAME = { drivers = 'drivers', bars = 'tow bars', tractors = 'tractors', hangar = 'hangar aircraft', deck = 'deck aircraft' } }
+(function()
+  local H = Tow.Hide
+  CATCC_HIDE = H -- (for the rig: demo-run.lua's HIDE)
+  H.SEQ ={ {}, { 'drivers' }, {}, { 'bars' }, {}, { 'tractors' }, {}, { 'hangar' }, {}, { 'deck' }, {}, { 'drivers', 'bars', 'tractors', 'hangar', 'deck' } }
+  local function running() return (CATCC_DEMO and CATCC_DEMO.on) or (Tow.Thr.live and Tow.Thr.on) end
+  local function kinds()
+    local list = {}
+    for _, k in ipairs(H.KINDS) do
+      if H.on[k] then list[#list + 1] = k end
+    end
+    return list
+  end
+  function H.label()
+    local list = kinds()
+    for i, k in ipairs(list) do list[i] = H.NAME[k] end
+    return #list == 0 and 'everything drawn' or ('hidden: ' .. table.concat(list, ', '))
+  end
+  function H.send()
+    local list = kinds()
+    local arg = #list > 0 and table.concat(list, ',') or 'none'
+    Tow.Prof.testOnly('the demo hiding or showing what it draws', 2)
+    H.used = true
+    if Tow.Thr.live and Tow.Thr.on then
+      Tow.Thr.run('hide|' .. arg)
+    elseif CATCC_DEMO and CATCC_DEMO.on then
+      local ok, err = pcall(CATCC_DEMO.hide, arg)
+      if not ok then logLine('demo: hiding: ' .. tostring(err)) end
+    end
+    logLine('demo drawn: ' .. H.label() .. (H.cycle and string.format(' (each in turn: %d)', H.cycle.i) or ''))
+  end
+  function H.set(what)
+    if not running() then return say('Hide: the deck spotting demo is not running.') end
+    if what == 'cycle' then
+      if H.cycle then
+        H.cycle, H.on = nil, {}
+        H.send()
+        H.summary('"Hide each in turn" switched off')
+        return say('Hide each in turn: off: everything is drawn.')
+      end
+      H.cycle = { i = 0, at = 0 }
+      return say(string.format('Hide each in turn: on, %d s each; the log has what a frame takes with each.', H.every))
+    end
+    H.cycle = nil
+    if H.NAME[what] then H.on[what] = not H.on[what] or nil else H.on = {} end
+    H.send()
+    say('Demo: ' .. H.label() .. '.')
+  end
+  function H.tick(t)
+    if not (H.used or H.cycle) then return end
+    if not running() then
+      -- (the demo stopped: what it made is gone; the totals)
+      H.summary('the demo stopped')
+      H.on, H.cycle, H.used, H.acc, H.periods = {}, nil, nil, {}, nil
+      return
+    end
+    local c = H.cycle
+    if not c or t < c.at then return end
+    c.i, c.at = c.i + 1, t + H.every
+    H.on = {}
+    for _, k in ipairs(H.SEQ[(c.i - 1) % #H.SEQ + 1]) do H.on[k] = true end
+    H.send()
+  end
+  -- one frame of `dt` s in the state `key` (Tow.Prof.frame: a counted frame)
+  function H.count(key, dt)
+    local A = H.acc[key]
+    if not A then
+      A = { n = 0, sum = 0, hist = {}, top = 0 }
+      H.acc[key] = A
+    end
+    A.n, A.sum = A.n + 1, A.sum + dt
+    -- (and by period, in their order: each hidden period against those with everything drawn either side of it)
+    H.periods = H.periods or {}
+    local Pd = H.periods[#H.periods]
+    if not Pd or Pd.key ~= key then
+      Pd = { key = key, n = 0, sum = 0 }
+      H.periods[#H.periods + 1] = Pd
+    end
+    Pd.n, Pd.sum = Pd.n + 1, Pd.sum + dt
+    local b = math.min(4000, math.floor(dt * 2000))
+    A.hist[b] = (A.hist[b] or 0) + 1
+    if b > A.top then A.top = b end
+  end
+  function H.summary(why)
+    local out = {}
+    -- (each hidden period's average frame against the average of the periods with everything drawn just before and
+    -- just after it; the state's figure: the mean of its periods')
+    local PL, diff = H.periods or {}, {}
+    local function avgOf(Pd) return (Pd and Pd.n >= 2 and Pd.key:find('everything drawn', 1, true)) and 1000 * Pd.sum / Pd.n or nil end
+    for i, Pd in ipairs(PL) do
+      if Pd.n >= 2 and not Pd.key:find('everything drawn', 1, true) then
+        local a, b = avgOf(PL[i - 1]), avgOf(PL[i + 1])
+        local ref = (a and b) and (a + b) / 2 or a or b
+        if ref then
+          local D = diff[Pd.key] or { n = 0, sum = 0 }
+          diff[Pd.key] = D
+          D.n, D.sum = D.n + 1, D.sum + 1000 * Pd.sum / Pd.n - ref
+        end
+      end
+    end
+    local keys = {}
+    for key in pairs(H.acc) do keys[#keys + 1] = key end
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+      local A = H.acc[key]
+      if A.n >= 2 then
+        local avg = 1000 * A.sum / A.n
+        local l1 = Tow.Prof.slowest(A.hist, A.top, 0.5, A.n, 0.01)
+        local D = diff[key]
+        local vs = D and string.format(', %+.1f ms against everything drawn just before and after (%d periods)', D.sum / D.n, D.n) or ''
+        out[#out + 1] = string.format('%s: %d frames, %.1f ms average (%.1f fps), 1%% low %.1f ms%s', key:gsub('^the deck spotting demo running, ', ''), A.n, avg, 1000 / math.max(avg, 0.001), l1, vs)
+      end
+    end
+    if #out > 0 then logLine(string.format('demo drawn, all the periods of each state together (%s): %s', why, table.concat(out, '; '))) end
+  end
+end)()
+
 local function frame()
   if not missionRunning then return end
   local t = now()
-  installMenu(t)
-  if not installed then return end
+  Tow.now() -- (the tow's clock kept up every frame: what passes under active pause is taken out of it)
+  if not CATCC_WORKER then
+    installMenu(t)
+    if not installed then return end
+  end
   if pending and t >= pending.at then
     local f = pending.fn
     pending = nil
     f()
+  end
+  if CATCC_WORKER then
+    -- ON THE DEMO'S THREAD: only what the demo runs on: the catapult crews it sent away, the people it walks, the
+    -- ship's commands it keeps, the doors and platforms it moves, the tows, and the demo itself, in their order
+    local P = Tow.Prof
+    if not P.list then
+      P.list = { tickCats, tickWalkQueue, Walk.tickLegs, tickShipCmds, tickDoors, tickElevWait, tickTow, function(tt) if CATCC_DEMO and CATCC_DEMO.tick then CATCC_DEMO.tick(tt) end end }
+      P.clock = CATCC_WORKER.clock
+    end
+    for i = 1, #P.list do P.list[i](t) end
+    return
   end
   if t - lastPollAt >= 0.25 then
     lastPollAt = t
     local ok, c = pcall(dostring, 'return (CATCC_CR and CATCC_CR.poll) and CATCC_CR.poll() or ""')
     if ok and type(c) == 'string' and c ~= '' then run(c) end
   end
-  tickWatch(t)
-  tickDemo(t)
-  tickSigtest(t)
-  tickMarshal(t)
-  tickCats(t)
-  tickWalkQueue(t)
-  Walk.tickLegs(t)
-  tickCaptain(t)
-  tickDeck(t)
-  tickShipCmds(t)
-  tickDoors(t)
-  tickElevWait(t)
-  tickTeleport(t)
-  tickTow(t)
-  Tow.Deck.tick(t)
-  tickSignals(t)
-  tickCamera(t)
-  autoList(t)
-  tickRecorder(t)
-  tickAnimRec(t)
+  -- WHAT THE HOOK COSTS A FRAME (2026-11-17, the user: "a persistent stutter throughout the run", and nothing in the
+  -- log to say where from): every part timed, and every 20 s one line: the average and the worst frame, and the parts
+  -- that took the most. (Timed with LuaSocket's clock if DCS has it here, else os.clock, which counts in milliseconds.)
+  local P = Tow.Prof
+  if not P.list then
+    P.list = { { 'watch', tickWatch }, { 'demo', tickDemo }, { 'signal test', tickSigtest }, { 'marshal', tickMarshal }, { 'catapult crews', tickCats }, { 'walk queue', tickWalkQueue },
+      { 'walk legs', Walk.tickLegs }, { 'plane captain', tickCaptain }, { 'deck state', tickDeck }, { 'ship commands', tickShipCmds }, { 'doors', tickDoors }, { 'elevators', tickElevWait },
+      { 'teleport', tickTeleport }, { 'tow', tickTow }, { 'deck wings', Tow.Deck.tick }, { 'hangar marks', function(tt) Tow.Marks.tick(tt) end }, { 'panel', function(tt) if CATCC_UI and CATCC_UI.tick then CATCC_UI.tick(tt) end end },
+      { 'signals', tickSignals }, { 'camera', tickCamera }, { 'list', autoList }, { 'recorder', tickRecorder }, { 'animation recorder', tickAnimRec },
+      { 'demo', function(tt) if Tow.Thr.live then Tow.Thr.tick(tt) elseif CATCC_DEMO and CATCC_DEMO.tick then CATCC_DEMO.tick(tt) end end },
+      { 'saved view', function(tt) Tow.View.tick(tt) end }, { 'what is drawn', function(tt) Tow.Hide.tick(tt) end },
+      { 'slots', function(tt) if CATCC_SLOTS then CATCC_SLOTS.tick(tt) end end },
+      -- (the drivers' heads: the native module brings each a step nearer where it was last sent: Tow.Head)
+      { 'driver heads', function() if native and native.headtick then native.headtick() end end } }
+    local oks, sock = pcall(require, 'socket')
+    P.clock = (oks and type(sock) == 'table' and sock.gettime) or os.clock
+    P.sum, P.max, P.n, P.frameSum, P.frameMax, P.at, P.over = {}, {}, 0, 0, 0, t, 0
+  end
+  local clock = P.clock
+  local f0 = clock()
+  local c0 = f0
+  for i = 1, #P.list do
+    P.list[i][2](t)
+    local c1 = clock()
+    local dtp = c1 - c0
+    P.sum[i] = (P.sum[i] or 0) + dtp
+    if dtp > (P.max[i] or 0) then P.max[i] = dtp end
+    c0 = c1
+  end
+  local whole = c0 - f0
+  Tow.Prof.frame(f0, whole)
+  P.n, P.frameSum = P.n + 1, P.frameSum + whole
+  if whole > P.frameMax then P.frameMax = whole end
+  if whole > 0.004 then P.over = P.over + 1 end
+  if t - P.at >= 20 and P.n > 0 then
+    local order = {}
+    for i = 1, #P.list do order[i] = i end
+    table.sort(order, function(a, b) return (P.sum[a] or 0) > (P.sum[b] or 0) end)
+    local parts = {}
+    for k = 1, 4 do
+      local i = order[k]
+      if i and (P.sum[i] or 0) > 0 then parts[#parts + 1] = string.format('%s %.2f (worst %.1f)', P.list[i][1], 1000 * P.sum[i] / P.n, 1000 * (P.max[i] or 0)) end
+    end
+    logLine(string.format('frame cost: %d frames in %.0f s (%.0f a second): the hook took %.2f ms a frame on average, %.1f at worst, over 4 ms in %d; by part, ms: %s', P.n, t - P.at, P.n / (t - P.at),
+      1000 * P.frameSum / P.n, 1000 * P.frameMax, P.over, #parts > 0 and table.concat(parts, '; ') or 'nothing measurable'))
+    P.sum, P.max, P.n, P.frameSum, P.frameMax, P.at, P.over = {}, {}, 0, 0, 0, t, 0
+  end
 end
 
 -- ---------------------------------------------------------------- DCS callbacks
@@ -4204,20 +7675,46 @@ function handler.onSimulationStart()
   camAfter, teleWait, teleDone, doorOpen, elevRise = nil, nil, nil, {}, {}
   cam.who, cam.dead, cam.id, cam.last = nil, false, nil, 0
   tow, towIds, towRetry, towFail, elevWait = nil, nil, 0, nil, {}
-  Tow.ax, Tow.ctxT, Tow.ctxV = nil, nil, nil
-  Tow.Deck.list, Tow.Deck.lock, Tow.Deck.shown = nil, nil, nil
+  Tow.ax, Tow.ctxT, Tow.ctxV, Tow.ap = nil, nil, nil, { off = 0 }
+  Tow.Prof.S, Tow.Prof.pf0, Tow.Prof.skipUntil = nil, nil, nil
+  Tow.Marks.shownFor, Tow.Marks.pending = nil, nil
+  for _, e in ipairs(Tow.Marks.list or {}) do e.id = nil end
+  Tow.Prof.testOnly('the first seconds of the mission', 5)
+  Tow.Deck.list, Tow.Deck.lock, Tow.Deck.shown, Tow.Deck.ship = nil, nil, nil, nil
+  if CATCC_UI and CATCC_UI.reset then pcall(CATCC_UI.reset) end
+  if CATCC_DEMO and CATCC_DEMO.reset then pcall(CATCC_DEMO.reset) end
+  if not CATCC_WORKER and Tow.Thr.live then pcall(Tow.Thr.stop, 'a new mission') end
+  if CATCC_SLOTS and CATCC_SLOTS.start then pcall(CATCC_SLOTS.start) end
+  Tow.Thr.offSaid = nil
+  Tow.View.on = false
   quiet = false
-  logLine('---------------- mission start ----------------')
+  if not CATCC_WORKER then logLine('---------------- mission start ----------------') end
 end
 
 function handler.onSimulationStop()
   missionRunning = false
+  pcall(Tow.Prof.say, Tow.Prof.S, 'the mission ended')
+  Tow.Prof.S, Tow.Prof.pf0 = nil, nil
   watch, pending, demo, sigtest, marsh, recPeople, holding = nil, nil, nil, nil, nil, {}, {}
   captain, camAfter, teleWait, teleDone, bubbleKeep, elevKeep, doorOpen, elevRise = nil, nil, nil, nil, {}, {}, {}, {}
   tow, towIds, elevWait = nil, nil, {}
   Tow.ax, Tow.ctxT, Tow.ctxV = nil, nil, nil
-  Tow.Deck.list, Tow.Deck.lock, Tow.Deck.shown = nil, nil, nil
-  logLine('---------------- mission stop ----------------')
+  Tow.Deck.list, Tow.Deck.lock, Tow.Deck.shown, Tow.Deck.ship = nil, nil, nil, nil
+  if CATCC_UI and CATCC_UI.reset then pcall(CATCC_UI.reset) end
+  if CATCC_DEMO and CATCC_DEMO.reset then pcall(CATCC_DEMO.reset) end
+  if not CATCC_WORKER and Tow.Thr.live then pcall(Tow.Thr.stop, 'the mission ended') end
+  if CATCC_SLOTS and CATCC_SLOTS.stop then pcall(CATCC_SLOTS.stop) end
+  if not CATCC_WORKER then logLine('---------------- mission stop ----------------') end
+end
+
+-- the slot picker's server side (crewtest_slots.lua): a slot whose aircraft is not spotted, or is held for another
+-- player, is refused. (nil: no say: DCS, or another hook, decides.)
+function handler.onPlayerTryChangeSlot(playerID, side, slotID)
+  if CATCC_SLOTS and CATCC_SLOTS.tryChange then
+    local okc, r = pcall(CATCC_SLOTS.tryChange, playerID, side, slotID)
+    if okc then return r end
+    logLine('slots: ' .. tostring(r))
+  end
 end
 
 function handler.onSimulationFrame()
@@ -4228,5 +7725,176 @@ function handler.onSimulationFrame()
   end
 end
 
+-- The in-game panel: Scripts/CATCC/crewtest_ui.lua, given what it needs of this file. Its window is built at the first
+-- frame of a mission; without DCS's window toolkit, or with the file missing, the F10 menu is all there is.
+-- (In a function of its own: this chunk has its 200 local names.)
+(function()
+  local f, lerr = loadfile(writedir .. 'Scripts/CATCC/crewtest_ui.lua')
+  if not f then return info('in-game panel: Scripts/CATCC/crewtest_ui.lua not loaded (' .. tostring(lerr) .. '): the F10 menu only') end
+  local ok, ui, why = pcall(f, { run = run, log = logLine, deck = Tow.Deck, ctx = function(t) return Tow.Deck.ctx(t) end, dostring = dostring, split = split, writedir = writedir, now = now,
+    towSpots = function() return Tow.Fd.menu() end, marks = Tow.Marks, view = Tow.View, hide = Tow.Hide })
+  if ok and type(ui) == 'table' then
+    CATCC_UI = ui
+    info('in-game panel loaded: Ctrl+Shift+F10 in a mission')
+  else
+    info('in-game panel not available: ' .. tostring(ok and why or ui))
+  end
+end)()
+
+-- The deck spotting demo: Scripts/CATCC/crewtest_demo.lua, given what it needs of this file; the hangar's plan,
+-- Scripts/CATCC/crewtest_hangar.lua, is read when the demo starts. (In a function of its own: the 200 local names.)
+-- the slot picker (crewtest_slots.lua): slots|show (the picker, in any mission), slots|release|<slot id> (the host:
+-- a held slot freed for anyone)
+function commands.slots(what, arg)
+  if not CATCC_SLOTS then return say('the slot picker is not there (Scripts\\CATCC\\crewtest_slots.lua was not loaded: the hook\'s log says why).') end
+  if what == 'release' then return CATCC_SLOTS.release(arg) end
+  return CATCC_SLOTS.showPicker(true)
+end
+
+-- the saved view (Tow.View): view|save, view|hold
+function commands.view(what)
+  if what == 'save' then return Tow.View.save(now()) end
+  return Tow.View.hold()
+end
+
+function commands.demo2(what, arg)
+  -- (demo2|hide|<what>: the panel's "Hide" switches, here; the demo's own part (CATCC_DEMO.hide), wherever it runs)
+  if what == 'hide' then
+    if not CATCC_WORKER then return Tow.Hide.set(arg) end
+    local okh, errh = pcall(CATCC_DEMO and CATCC_DEMO.hide or function() end, arg)
+    if not okh then logLine('demo: hiding: ' .. tostring(errh)) end
+    return
+  end
+  -- (demo2|all|1 / demo2|all|0: the slot picker's "Spot All": the next start puts every aircraft on its deck spot at
+  -- once, none in the hangar, nothing towed (crewtest_demo.lua M.all); kept here and sent ahead of every start, below)
+  if what == 'all' then
+    if CATCC_WORKER then
+      if CATCC_DEMO and CATCC_DEMO.all then pcall(CATCC_DEMO.all, tonumber(arg)) end
+    else
+      Tow.Deck.spotAll = tonumber(arg) == 1
+    end
+    return
+  end
+  -- (demo2|man|<spot> / demo2|unman|<spot>: a player has taken / left the slot on that DCS parking spot:
+  -- crewtest_slots.lua; to the demo wherever it runs)
+  -- (demo2|paint|<spot>=<livery>;...: the mission's slots' paint, for the aircraft the demo spots on their parking
+  -- spots (crewtest_slots.lua S.paint): sent ahead of every start, below; to the demo wherever it runs)
+  -- (demo2|block|<spot> / demo2|unblock: every EMPTY deck spot numbered below that one blocked with a static for a
+  -- moment / those taken away again (crewtest_demo.lua M.block): the picker's Spawn)
+  if what == 'man' or what == 'unman' or what == 'paint' or what == 'block' or what == 'unblock' then
+    if not CATCC_WORKER and Tow.Thr.live and Tow.Thr.on then return Tow.Thr.run(what .. '|' .. tostring(arg)) end
+    local D = CATCC_DEMO
+    if D and D[what] then
+      local okm, errm = pcall(D[what], what == 'paint' and arg or tonumber(arg))
+      if not okm then logLine('demo: ' .. what .. ': ' .. tostring(errm)) end
+    end
+    return
+  end
+  -- (demo2|start|<ship>: the slot picker's "Spot Deck" (the user, 2026-11-21: from the slot screen the camera is
+  -- nowhere near a carrier: "no aircraft carrier within 5 km"): the demo on that carrier by name (Tow.Deck.ctx), kept
+  -- while it runs; a start without a ship (the hot key, F10) goes back to the carrier at the camera; a stop lets go)
+  if not CATCC_WORKER then
+    local running = CATCC_DEMO and CATCC_DEMO.on or (Tow.Thr.live and Tow.Thr.on)
+    if what == 'start' and arg and arg ~= '' then
+      if not running then Tow.Deck.want = tostring(arg) end
+    elseif what ~= 'report' then
+      Tow.Deck.want = nil
+    end
+    Tow.Deck.ctxT = nil
+  end
+  -- ON ITS OWN THREAD (Tow.Thr, above), unless that cannot be had: the worker is started with the first demo of a
+  -- mission; a demo that runs on the main thread (the thread was not there when it began) stays there
+  -- (the worker is started with the first demo: the hook and the demo are loaded on its thread while this one waits:
+  -- left out of the performance figures with the making of the static aircraft that follows)
+  if not CATCC_WORKER and not (CATCC_DEMO and CATCC_DEMO.on) and not Tow.Thr.live and what ~= 'stop' and what ~= 'report' and CATCC_DEMO_THREAD ~= false then
+    Tow.Prof.testOnly('the demo making its static aircraft')
+  end
+  -- (no worker is started only to be told "stop" or "report")
+  if not CATCC_WORKER and not (CATCC_DEMO and CATCC_DEMO.on) and (Tow.Thr.live or (what ~= 'stop' and what ~= 'report')) and Tow.Thr.start() then
+    local starts = what == 'start' or (what ~= 'stop' and what ~= 'report' and not Tow.Thr.on)
+    if starts and Tow.Deck.list and Tow.Deck.shown then run('spot|clear') end
+    if what ~= 'report' then Tow.Prof.testOnly(starts and 'the demo making its static aircraft' or 'the demo taking its static aircraft away') end
+    -- (the slots' paint first: the demo reads it as it starts)
+    if starts and CATCC_SLOTS and CATCC_SLOTS.paint then Tow.Thr.run('paint|' .. CATCC_SLOTS.paint()) end
+    if starts then Tow.Thr.run('all|' .. (Tow.Deck.spotAll and 1 or 0)) end
+    Tow.Thr.run(what)
+    return
+  end
+  local D = CATCC_DEMO
+  if not D then return say('the deck spotting demo is not there (Scripts\\CATCC\\crewtest_demo.lua was not loaded: the hook\'s log says why).') end
+  if not CATCC_WORKER and not D.on and what ~= 'stop' and what ~= 'report' and CATCC_SLOTS and CATCC_SLOTS.paint and D.paint then pcall(D.paint, CATCC_SLOTS.paint()) end
+  if not CATCC_WORKER and not D.on and what ~= 'stop' and what ~= 'report' and D.all then pcall(D.all, Tow.Deck.spotAll and 1 or 0) end
+  local okd, err
+  if what == 'start' then
+    okd, err = pcall(D.start)
+  elseif what == 'stop' then
+    okd, err = pcall(D.stop)
+  elseif what == 'report' then
+    okd, err = pcall(D.report)
+  else
+    okd, err = pcall(D.on and D.stop or D.start)
+  end
+  Tow.Fd.inside, Tow.Fd.wall, Tow.Fd.blocks, Tow.Fd.soft = nil, nil, nil, nil
+  if not okd then
+    logLine('demo: error: ' .. tostring(err))
+    say('the deck spotting demo: an error (in the log): ' .. tostring(err))
+  end
+end
+
+(function()
+  local f, lerr = loadfile(writedir .. 'Scripts/CATCC/crewtest_demo.lua')
+  if not f then return info('deck spotting demo: Scripts/CATCC/crewtest_demo.lua not loaded (' .. tostring(lerr) .. ')') end
+  local hangar
+  local ok, demo, why = pcall(f, { Tow = Tow, TOW = TOW, native = function() return native end, log = logLine, say = say, dostring = dostring, split = split, getCtx = getCtx, doScan = doScan,
+    shipHandle = shipHandle, routes = loadRoutes, run = run, walkQueue = walkQueue, holding = holding, unpack = unpack, atan2 = atan2,
+    -- (the deck for the slot picker, once a second: to crewtest_slots.lua, from whichever thread the demo runs on)
+    deckmap = function(text)
+      if CATCC_WORKER then return CATCC_WORKER.deckmap and CATCC_WORKER.deckmap(text) end
+      if CATCC_SLOTS then CATCC_SLOTS.setMap(text) end
+    end,
+    hangar = function()
+      if hangar == nil then
+        hangar = false
+        local hf = loadfile(writedir .. 'Scripts/CATCC/crewtest_hangar.lua')
+        local okh, t = pcall(function() return hf and hf() end)
+        if okh and type(t) == 'table' then hangar = t end
+      end
+      return hangar or nil
+    end })
+  if ok and type(demo) == 'table' then
+    CATCC_DEMO = demo
+    info('deck spotting demo loaded: Ctrl+Shift+F9 in a mission (or F10 > CATCC demo: spot the deck)')
+  else
+    info('deck spotting demo not available: ' .. tostring(ok and why or demo))
+  end
+end)()
+
+-- THE SLOT PICKER: Scripts/CATCC/crewtest_slots.lua (multiplayer: the slots of the mission's carrier aircraft are
+-- given only once their aircraft is spotted, and held for whoever took them; DCS's own slot screen is replaced by a
+-- picture of the deck with the aircraft on it). Not on the demo's thread. (In a function of its own: 200 local names.)
+if not CATCC_WORKER then
+  (function()
+    local f, lerr = loadfile(writedir .. 'Scripts/CATCC/crewtest_slots.lua')
+    if not f then return info('slot picker: Scripts/CATCC/crewtest_slots.lua not loaded (' .. tostring(lerr) .. ')') end
+    -- (shipCtx: where a ship is this frame, by its name: for the view behind the picker)
+    local ok, sl, why = pcall(f, { run = run, log = logLine, say = say, writedir = writedir, now = now, routes = loadRoutes,
+      shipCtx = function(name) return getCtx(nil, nil, name) end })
+    if ok and type(sl) == 'table' then
+      CATCC_SLOTS = sl
+      info('slot picker loaded')
+    else
+      info('slot picker not available: ' .. tostring(ok and why or sl))
+    end
+  end)()
+end
+
+-- (on the demo's thread: the worker runs a command of this file's without the menu's log line)
+if CATCC_WORKER then
+  CATCC_WORKER.run = function(cmd)
+    local parts = split(cmd)
+    local f = commands[parts[1]]
+    if f then return f(parts[2], parts[3], parts[4]) end
+  end
+end
 if DCS and DCS.setUserCallbacks then DCS.setUserCallbacks(handler) end
 info('crew test hook ready' .. (native and '' or ' (WITHOUT the native module)'))

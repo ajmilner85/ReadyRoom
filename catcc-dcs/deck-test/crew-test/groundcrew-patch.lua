@@ -107,11 +107,30 @@ if CATCC_CREW == 'model' then
   --    figure with the brown livery its take-off crew's plane captains wear), with the light wands. At 12 m
   --    forward, 31 m to starboard (off elevator 1's platform, as all of ours now are). (Until 2026-11-15 he was the test of a character model of our own, the
   --    pilot figure: that worked, and the descriptor is still in our mod.)
-  -- 6. "catcc-t0": the tow tractor's driver, one more member: a green shirt (DCS's crew liveries are
-  --    yellow, brown, white, green and the shooter's own: no blue), at 12 m forward, 33 m to starboard.
-  for _, who in ipairs({ { 'catcc-m0', 'brown', 12.0, 31.0 }, { 'catcc-t0', 'green', 12.0, 33.0 } }) do
-    local cid = #crew[1].members + 1
-    crew[1].members[cid] =
+  -- 6. "catcc-t0": the tow tractor's driver, one more member: a BLUE shirt (the user, 2026-11-17: blue
+  --    shirts drive the deck tractors), at 12 m forward, 33 m to starboard. The livery "blue" is DCS's own:
+  --    crew.lua dresses its crews in yellow, brown, white, green and the shooter's default only, but ED's
+  --    missions give the static of this same figure (type "us carrier shooter", shape carrier_shooter) the
+  --    liveries blue, purple and red as well (22 times blue in the Supercarrier's and the F/A-18C's
+  --    missions). NOT YET SEEN on an animated crew member. (Green until then.)
+  -- 7. "catcc-t1" .. "catcc-t7": seven more tractor drivers, blue shirts as he is, for the deck spotting demo
+  --    (2026-11-17: four tractors in the hangar and four on the flight deck, a driver on each). They wait in a row
+  --    by the island, 1 m apart at 34.5 m to starboard, until the demo seats them. Members of catapult crews 2, 3
+  --    and 4 (three, two, two): crew 1 has twelve members with ours and is seen to work with twelve; no crew is
+  --    made larger than that. NOT YET SEEN IN DCS.
+  --    "catcc-t8", "catcc-t9" (2026-11-19: the demo has six tractors on the flight deck and four in the hangar: the
+  --    user, 2026-11-18: "add two additional tugs"; then, of the hangar: "seeing two tugs in the hangar that have no
+  --    driver": the deck's tractors are given their drivers first, and there were eight for ten): two more, in
+  --    catapult crews 3 and 4 (nine members each then, as crew 2 has).
+  --    (Twelve for some hours of 2026-11-19, catcc-t10 and catcc-t11, while twelve tractors were tried; the demo
+  --    went back to ten, and the user: "the only blue shirts should be in tugs. We don't have spare performance to
+  --    waste": A DRIVER FOR EACH TRACTOR OF THE DEMO AND NO MORE.)
+  local people = { { 'catcc-m0', 'brown', 12.0, 31.0, 1 }, { 'catcc-t0', 'blue', 12.0, 33.0, 1 } }
+  for i = 1, 9 do people[#people + 1] = { 'catcc-t' .. i, 'blue', 14.0 - i, 34.5, i <= 3 and 2 or ((i <= 5 or i == 8) and 3 or 4) } end
+  for _, who in ipairs(people) do
+    local c = crew[who[5]] or crew[1] -- (this one's catapult crew)
+    local cid = #c.members + 1
+    c.members[cid] =
     {
       animation = 'idle',
       model_name = 'carrier_shooter',
@@ -123,9 +142,9 @@ if CATCC_CREW == 'model' then
       fast_start_position = { who[3], 20.1494140625, who[4], 0 },
       routes = {},
     }
-    add_gpu_attachment(crew[1], cid, 'RightStick', '__conn_hand_R', light_stick_transform, light_stick_model, { arg_scalable = scale_table })
-    add_gpu_attachment(crew[1], cid, 'LeftStick', '__conn_hand_L', light_stick_transform, light_stick_model, { arg_scalable = scale_table })
-    add_light_attachment(crew[1], cid, 'LeftLight', '__conn_hand_L', light_transform, light_yellow_color)
-    add_light_attachment(crew[1], cid, 'RightLight', '__conn_hand_R', light_transform, light_yellow_color)
+    add_gpu_attachment(c, cid, 'RightStick', '__conn_hand_R', light_stick_transform, light_stick_model, { arg_scalable = scale_table })
+    add_gpu_attachment(c, cid, 'LeftStick', '__conn_hand_L', light_stick_transform, light_stick_model, { arg_scalable = scale_table })
+    add_light_attachment(c, cid, 'LeftLight', '__conn_hand_L', light_transform, light_yellow_color)
+    add_light_attachment(c, cid, 'RightLight', '__conn_hand_R', light_transform, light_yellow_color)
   end
 end

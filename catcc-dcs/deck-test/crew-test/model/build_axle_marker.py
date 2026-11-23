@@ -1,10 +1,10 @@
 # Builds the axle finder's marker (CATCC_AxleMarker_H15 ... _H40 .edm): a banded rod held across the jet at the
-# height of its nose wheel axle. Made the way the chock and the route lines were (chock-model/build_chock.py,
+# height of its nose wheel axle; and its end plate (CATCC_AxleEnd.edm), for the axle's width. Made the way the chock and the route lines were (chock-model/build_chock.py,
 # route-lines/build_route_lines.py): DCS made those as statics linked to the carrier; the markers written by
 # our own .edm writer (towbar.py) it would not make ("unknown static", 2026-11-15).
 #
 # Headless, with Blender 4.5 LTS and Eagle Dynamics' Blender EDM Exporter:
-#   set BLENDER_USER_SCRIPTS=C:\Users\ajmil\Tools\blender-user-scripts
+#   set BLENDER_USER_SCRIPTS=%USERPROFILE%\Tools\blender-user-scripts
 #   blender.exe --background --factory-startup --python build_axle_marker.py -- <Shapes dir>
 #
 # A static linked to a ship stands on its flight deck: a script cannot give it a height. So there is one model
@@ -115,7 +115,49 @@ def build(name, h):
     return o
 
 
+def build_end(name):
+    """the axle finder's END PLATE (CATCC_AxleEnd): a thin upright plate along the jet's own line, standing on the
+    deck: one is stood either side of the nose gear, the axle's width apart, and they are moved in and out until
+    they touch the nose tyres' outer faces. Any height: no model per centimetre. 16 cm fore and aft, 4 mm thick,
+    55 cm high: cyan, a magenta band where the axle is (0.22 to 0.30 m), a yellow top."""
+    verts, faces, mat_idx = [], [], []
+
+    def box(x0, x1, y0, y1, z0, z1, m):
+        i = len(verts)
+        verts.extend([(x0, y0, z0), (x1, y0, z0), (x1, y1, z0), (x0, y1, z0), (x0, y0, z1), (x1, y0, z1), (x1, y1, z1), (x0, y1, z1)])
+        for f in ((0, 3, 2, 1), (4, 5, 6, 7), (0, 1, 5, 4), (1, 2, 6, 5), (2, 3, 7, 6), (3, 0, 4, 7)):
+            faces.append(tuple(i + k for k in f))
+            mat_idx.append(m)
+
+    t = 0.002
+    box(-0.08, 0.08, -t, t, 0.00, 0.22, CYAN)
+    box(-0.08, 0.08, -t, t, 0.22, 0.30, MAGENTA)
+    box(-0.08, 0.08, -t, t, 0.30, 0.50, CYAN)
+    box(-0.08, 0.08, -t, t, 0.50, 0.55, YELLOW)
+    me = bpy.data.meshes.new(name)
+    me.from_pydata(verts, [], faces)
+    bm = bmesh.new()
+    bm.from_mesh(me)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    bm.faces.ensure_lookup_table()
+    for f in bm.faces:
+        f.material_index = mat_idx[f.index]
+    bm.to_mesh(me)
+    bm.free()
+    me.update()
+    o = bpy.data.objects.new(name, me)
+    for pname, rgba in PAINTS:
+        o.data.materials.append(material(name + '_' + pname, rgba))
+    return o
+
+
 os.makedirs(OUT, exist_ok=True)
+clear()
+col = bpy.data.collections.new('Visual')
+bpy.context.scene.collection.children.link(col)
+col.objects.link(build_end('CATCC_AxleEnd'))
+res = bpy.ops.edm.export(filepath=os.path.join(OUT, 'CATCC_AxleEnd.edm'))
+print('CATCC axle marker:', 'CATCC_AxleEnd', res)
 for cm in HEIGHTS:
     clear()
     col = bpy.data.collections.new('Visual')

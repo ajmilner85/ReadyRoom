@@ -37,6 +37,31 @@ function CR.poll()
   return table.remove(CR.queue, 1) or ''
 end
 
+-- The deck spotting tool's carrier (the user, 2026-11-16: "based on camera position, not aircraft position": slotted
+-- into an aircraft 100 km away with the camera over the carrier to spot, it should still work): the aircraft carrier
+-- of the Supercarrier's class nearest a point of the world (the camera's), within 5 km; or, by name, the one the tool
+-- is already working on.
+local CARRIERS = { CVN_71 = true, CVN_72 = true, CVN_73 = true, CVN_75 = true, Stennis = true }
+local function carrierFor(px, pz, name)
+  local best, bestD = nil, 5000
+  for _, side in ipairs(SIDES) do
+    for _, g in ipairs(coalition.getGroups(side, Group.Category.SHIP) or {}) do
+      for _, u in ipairs(g:getUnits() or {}) do
+        if u and u:isExist() then
+          if name then
+            if u:getName() == name then return u end
+          elseif px and pz and CARRIERS[u:getTypeName()] then
+            local q = u:getPoint()
+            local d = math.sqrt((q.x - px) ^ 2 + (q.z - pz) ^ 2)
+            if d < bestD then best, bestD = u, d end
+          end
+        end
+      end
+    end
+  end
+  return best
+end
+
 local function dot(a, b) return a.x * b.x + a.y * b.y + a.z * b.z end
 local function clean(s) return (tostring(s):gsub('[|\r\n]', '/')) end
 
@@ -46,7 +71,10 @@ local function clean(s) return (tostring(s):gsub('[|\r\n]', '/')) end
 --   jx, jy, jz: the jet in ship coordinates (metres forward, up, to starboard of the ship's origin);
 --   fx, fz: the jet's nose direction in ship coordinates.
 -- or "ERR|<why>"
-function CR.ctx()
+-- px, pz (a point of the world: the camera's) or name (a ship's): the carrier is chosen by that instead of by where
+-- the jet stands (carrierFor); the jet's numbers are then still the player's jet's, relative to that carrier (all 0,
+-- nose forward, with no player aircraft).
+function CR.ctx(px, pz, name)
   local u = CR.lastUnit and Unit.getByName(CR.lastUnit)
   if not (u and u:isExist()) then
     u = nil
@@ -56,23 +84,35 @@ function CR.ctx()
       end
     end
   end
-  if not u then return 'ERR|no player aircraft yet' end
-  local jp = u:getPosition()
-  local ship = carrierUnder(jp.p)
-  if not ship then return 'ERR|no carrier within 250 m of ' .. clean(u:getName()) end
+  local ship
+  if name or (tonumber(px) and tonumber(pz)) then
+    ship = carrierFor(tonumber(px), tonumber(pz), name)
+    if not ship then return 'ERR|' .. (name and ('the carrier ' .. clean(name) .. ' is not there any more') or 'no aircraft carrier within 5 km of the camera') end
+  else
+    if not u then return 'ERR|no player aircraft yet' end
+    ship = carrierUnder(u:getPosition().p)
+    if not ship then return 'ERR|no carrier within 250 m of ' .. clean(u:getName()) end
+  end
   local sp = ship:getPosition()
-  local d = { x = jp.p.x - sp.p.x, y = jp.p.y - sp.p.y, z = jp.p.z - sp.p.z }
-  local n = {
-    sp.x.x, sp.x.y, sp.x.z, sp.y.x, sp.y.y, sp.y.z, sp.z.x, sp.z.y, sp.z.z, sp.p.x, sp.p.y, sp.p.z,
-    dot(d, sp.x), dot(d, sp.y), dot(d, sp.z), dot(jp.x, sp.x), dot(jp.x, sp.z),
-  }
-  local out = { 'OK', clean(u:getName()), clean(ship:getName()) }
+  local n = { sp.x.x, sp.x.y, sp.x.z, sp.y.x, sp.y.y, sp.y.z, sp.z.x, sp.z.y, sp.z.z, sp.p.x, sp.p.y, sp.p.z, 0, 0, 0, 1, 0 }
+  if u then
+    local jp = u:getPosition()
+    local d = { x = jp.p.x - sp.p.x, y = jp.p.y - sp.p.y, z = jp.p.z - sp.p.z }
+    n[13], n[14], n[15], n[16], n[17] = dot(d, sp.x), dot(d, sp.y), dot(d, sp.z), dot(jp.x, sp.x), dot(jp.x, sp.z)
+  end
+  local out = { 'OK', u and clean(u:getName()) or '-', clean(ship:getName()) }
   for i = 1, #n do out[#out + 1] = string.format('%.6f', n[i]) end
   return table.concat(out, '|')
 end
 
--- the player's jet and the carrier under it; or nil, nil, why
-local function playerShip()
+-- the player's jet and the carrier under it; or nil, nil, why. shipName: that carrier instead (the deck spotting
+-- tool's: the player's jet need not be on it, nor be there at all)
+local function playerShip(shipName)
+  if shipName then
+    local ship = carrierFor(nil, nil, shipName)
+    if not ship then return nil, nil, 'the carrier ' .. clean(shipName) .. ' is not there any more' end
+    return nil, ship
+  end
   local u = CR.lastUnit and Unit.getByName(CR.lastUnit)
   if not (u and u:isExist()) then
     u = nil
@@ -92,7 +132,7 @@ end
 -- test and the route lines make theirs (chocktest.lua, routelines.lua), which DCS made. It stands on the flight
 -- deck there and rides with the ship.
 local TWO_PI_CR = 2 * math.pi
-local function linkedStatic(ship, name, typ, fwd, stbd, ang, category)
+local function linkedStatic(ship, name, typ, fwd, stbd, ang, category, livery)
   local c = ship:getPoint()
   local sx = ship:getPosition().x
   local hc = ((math.atan2 or math.atan)(sx.z, sx.x)) % TWO_PI_CR
@@ -102,6 +142,7 @@ local function linkedStatic(ship, name, typ, fwd, stbd, ang, category)
     linkUnit = ship:getID(), linkOffset = true,
     offsets = { x = fwd, y = stbd, angle = ang % TWO_PI_CR },
     canCargo = false, dead = false,
+    livery_id = (livery and livery ~= '') and livery or nil, -- (a static aircraft's paint: the livery's folder name)
   })
 end
 
@@ -115,8 +156,10 @@ end
 -- Returns "OK|<object id>|<object id>|...|<note>" (an id 0: that one could not be made: a type of our own
 -- mod's that is missing, say) or "ERR|<why>". The object id is the scripting object's id_ (the world's own
 -- id of the object).
-function CR.statics(spec, fwd, stbd)
-  local u, ship, err = playerShip()
+-- shipName: on that carrier (the deck spotting tool's: a tow of one of its parked aircraft) instead of the one the
+-- player's jet stands on.
+function CR.statics(spec, fwd, stbd, shipName)
+  local u, ship, err = playerShip(shipName)
   if not ship then return 'ERR|' .. err end
   local sp = ship:getPosition().p
   local out, notes = { 'OK' }, {}
@@ -130,7 +173,7 @@ function CR.statics(spec, fwd, stbd)
         if not so then notes[#notes + 1] = typ .. ': not made linked (' .. (ok and 'DCS made nothing' or clean(res)) .. '): made unlinked' end
       end
       if not so then
-        local ok, res = pcall(coalition.addStaticObject, u:getCountry(), { name = name, type = typ, category = 'ADEquipment', x = sp.x, y = sp.z, heading = 0, dead = false })
+        local ok, res = pcall(coalition.addStaticObject, (u or ship):getCountry(), { name = name, type = typ, category = 'ADEquipment', x = sp.x, y = sp.z, heading = 0, dead = false })
         so = (ok and res) or nil
         if not ok then
           notes[#notes + 1] = typ .. ': ' .. clean(res)
@@ -150,8 +193,8 @@ end
 -- a new name each time).
 -- Returns "OK|<object id>|<its name>" ("OK|0|put away" with no type) or "ERR|<why>"
 CR.markers, CR.markerSeq = {}, 0
-function CR.marker(key, typ, fwd, stbd, ang, category)
-  local u, ship, err = playerShip()
+function CR.marker(key, typ, fwd, stbd, ang, category, shipName, livery)
+  local u, ship, err = playerShip(shipName)
   if not ship then return 'ERR|' .. err end
   local old = CR.markers[key]
   if old then
@@ -162,22 +205,99 @@ function CR.marker(key, typ, fwd, stbd, ang, category)
   if not typ or typ == '' then return 'OK|0|put away' end
   CR.markerSeq = CR.markerSeq + 1
   local name = string.format('%s %d', tostring(key), CR.markerSeq)
-  local ok, res = pcall(linkedStatic, ship, name, typ, tonumber(fwd) or 0, tonumber(stbd) or 0, tonumber(ang) or 0, category)
+  local ok, res = pcall(linkedStatic, ship, name, typ, tonumber(fwd) or 0, tonumber(stbd) or 0, tonumber(ang) or 0, category, livery)
   if not ok then return 'ERR|' .. clean(res) end
   if not res then return 'ERR|DCS made nothing for the type ' .. clean(typ) .. ' (dcs.log says why)' end
   CR.markers[key] = name
   return string.format('OK|%d|%s', tonumber(res.id_) or 0, name)
 end
 
+-- Where the object standing under `key` (CR.marker: a deck spot's aircraft) is, as DCS has it, on the carrier shipName:
+-- "OK|<forward>|<up>|<to starboard>|<nose forward>|<nose to starboard>" (metres from the ship's origin, in its own
+-- axes), or "ERR|<why>". The tow of a parked aircraft takes the aircraft's own height from this.
+function CR.where(key, shipName)
+  local u, ship, err = playerShip(shipName)
+  if not ship then return 'ERR|' .. err end
+  local name = CR.markers[key]
+  local o = name and StaticObject.getByName(name) or nil
+  if not (o and o:isExist()) then return 'ERR|nothing stands under ' .. clean(key) end
+  local ok, pos = pcall(o.getPosition, o)
+  if not (ok and type(pos) == 'table' and pos.p and pos.x) then return 'ERR|its position cannot be read' end
+  local sp = ship:getPosition()
+  local d = { x = pos.p.x - sp.p.x, y = pos.p.y - sp.p.y, z = pos.p.z - sp.p.z }
+  return string.format('OK|%.4f|%.4f|%.4f|%.5f|%.5f', dot(d, sp.x), dot(d, sp.y), dot(d, sp.z), dot(pos.x, sp.x), dot(pos.x, sp.z))
+end
+
+-- THE DECK SPOTTING DEMO's objects (the hook's crewtest_demo.lua): its aircraft, its tractors and its tow bars, each a
+-- static linked to the ship (CR.marker), made in one call.
+--   spec: "key,type,category,fwd,stbd,ang,livery,live;..." (ang: radians clockwise from the bow; livery: a livery's
+--     folder name, or nothing; live: 1 = not made if a LIVE aircraft stands within 6 m of the place (on that spot:
+--     static aircraft collide; the spots either side of it are 9 m and more away). An entry of a key alone takes
+--     that one away. Whatever stood under a key is taken away first.
+--   shipName: the carrier they are made on.
+-- A linked static is made standing on the flight deck; the hook's native module then puts each where it belongs (the
+-- hangar's are moved down at once).
+-- Returns "OK|<id>|<id>|...|<note>": for every entry its object id, 0 (taken away, or DCS made nothing: the note
+-- says), -1 (a live aircraft stands there); or "ERR|<why>".
+function CR.demo(spec, shipName)
+  local u, ship, err = playerShip(shipName)
+  if not ship then return 'ERR|' .. err end
+  local sp = ship:getPosition()
+  local live = {}
+  local function note(unit)
+    if not (unit and unit:isExist()) then return end
+    local q = unit:getPosition().p
+    local d = { x = q.x - sp.p.x, y = q.y - sp.p.y, z = q.z - sp.p.z }
+    live[#live + 1] = { dot(d, sp.x), dot(d, sp.z) }
+  end
+  for _, side in ipairs(SIDES) do
+    for _, cat in pairs({ Group.Category.AIRPLANE, Group.Category.HELICOPTER }) do
+      for _, g in ipairs(coalition.getGroups(side, cat) or {}) do
+        for _, un in ipairs(g:getUnits() or {}) do pcall(note, un) end
+      end
+    end
+    for _, pu in ipairs(coalition.getPlayers(side) or {}) do pcall(note, pu) end
+  end
+  local out, notes = { 'OK' }, {}
+  for entry in tostring(spec):gmatch('[^;]+') do
+    local f = {}
+    for v in (entry .. ','):gmatch('(.-),') do f[#f + 1] = v end
+    local key, typ, cat, fwd, stbd, ang, livery, chk = f[1], f[2], f[3], tonumber(f[4]), tonumber(f[5]), tonumber(f[6]), f[7], f[8]
+    local id = '0'
+    if typ and typ ~= '' and fwd and stbd and ang then
+      local blocked = false
+      if chk == '1' then
+        for _, l in ipairs(live) do
+          if math.sqrt((l[1] - fwd) ^ 2 + (l[2] - stbd) ^ 2) < 6 then blocked = true end
+        end
+      end
+      if blocked then
+        CR.marker(key, '', 0, 0, 0, nil, shipName)
+        id = '-1'
+      else
+        local r = CR.marker(key, typ, fwd, stbd, ang, (cat and cat ~= '') and cat or nil, shipName, livery)
+        local got = r:match('^OK|(%d+)|')
+        if got and got ~= '0' then id = got elseif #notes < 3 then notes[#notes + 1] = clean(r:gsub('^ERR|', '')) end
+      end
+    else
+      CR.marker(key, '', 0, 0, 0, nil, shipName)
+    end
+    out[#out + 1] = id
+  end
+  out[#out + 1] = table.concat(notes, '; ')
+  return table.concat(out, '|')
+end
+
 -- The deck spotting tool's aircraft: static aircraft of type typ linked to the ship (CR.marker, category "Planes").
 --   spec: "key,fwd,stbd,ang;key,fwd,stbd,ang;..." (ang: radians clockwise from the bow); an entry of a key alone
 --     takes that one away. Whatever stood under a key is taken away first.
+--   shipName: the carrier (by its unit name) they are parked on.
 --   clear: no aircraft is parked within this many metres of a LIVE aircraft on the ship (the player's own, any
 --     other unit's): static aircraft collide.
 -- Returns "OK|<id>|<id>|...|<note>": for every entry its object id, 0 (taken away, or DCS made nothing: the note
 -- says), -1 (left empty: a live aircraft stands there); or "ERR|<why>".
-function CR.deck(spec, typ, clear)
-  local u, ship, err = playerShip()
+function CR.deck(spec, typ, clear, shipName)
+  local u, ship, err = playerShip(shipName)
   if not ship then return 'ERR|' .. err end
   clear = tonumber(clear) or 0
   local sp = ship:getPosition()
@@ -186,7 +306,7 @@ function CR.deck(spec, typ, clear)
     if not (unit and unit:isExist()) then return end
     local p = unit:getPosition().p
     local d = { x = p.x - sp.p.x, y = p.y - sp.p.y, z = p.z - sp.p.z }
-    live[#live + 1] = { dot(d, sp.x), dot(d, sp.z) }
+    live[#live + 1] = { dot(d, sp.x), dot(d, sp.z), dot(d, sp.y) }
   end
   for _, side in ipairs(SIDES) do
     for _, cat in pairs({ Group.Category.AIRPLANE, Group.Category.HELICOPTER }) do
@@ -199,23 +319,26 @@ function CR.deck(spec, typ, clear)
   local out, notes = { 'OK' }, {}
   for key, rest in tostring(spec):gmatch('([^,;]+)([^;]*)') do
     local fwd, stbd, ang = rest:match('^,([^,]+),([^,]+),([^,]+)')
+    -- (a fifth field: its height above the ship's origin: then only a live aircraft within 5 m of that height counts,
+    -- so one on the flight deck does not keep a hangar aircraft under it from being parked)
+    local up = tonumber(rest:match('^,[^,]+,[^,]+,[^,]+,([^,]+)'))
     fwd, stbd, ang = tonumber(fwd), tonumber(stbd), tonumber(ang)
     local id = '0'
     if fwd and stbd and ang then
       local blocked = false
       for _, l in ipairs(live) do
-        if math.sqrt((l[1] - fwd) ^ 2 + (l[2] - stbd) ^ 2) < clear then blocked = true end
+        if math.sqrt((l[1] - fwd) ^ 2 + (l[2] - stbd) ^ 2) < clear and not (up and math.abs(l[3] - up) > 5) then blocked = true end
       end
       if blocked then
-        CR.marker(key, '', 0, 0, 0)
+        CR.marker(key, '', 0, 0, 0, nil, shipName)
         id = '-1'
       else
-        local r = CR.marker(key, typ, fwd, stbd, ang, 'Planes')
+        local r = CR.marker(key, typ, fwd, stbd, ang, 'Planes', shipName)
         local got = r:match('^OK|(%d+)|')
         if got and got ~= '0' then id = got elseif #notes < 3 then notes[#notes + 1] = clean(r:gsub('^ERR|', '')) end
       end
     else
-      CR.marker(key, '', 0, 0, 0)
+      CR.marker(key, '', 0, 0, 0, nil, shipName)
     end
     out[#out + 1] = id
   end
@@ -286,6 +409,25 @@ local function catItems(n)
   }
 end
 
+-- "Tow me to a parking spot": the deck spots, in groups of at most ten (a menu level holds ten). This Lua state
+-- cannot read the routes file, so the hook hands the list over in CATCC_CR_SPOTS just before it runs this file:
+-- "label::number=name,number=name;;label::..." (the hook's Tow.Fd.menu).
+-- who: '' the player's jet; '|lock' the parked aircraft the deck tool is locked on (the hook's Tow.begin).
+local function towSpotItems(who)
+  who = who or ''
+  local out = {}
+  for grp in (tostring(CATCC_CR_SPOTS or '') .. ';;'):gmatch('(.-);;') do
+    local label, list = grp:match('^(.-)::(.*)$')
+    if label then
+      local items = {}
+      for n, name in list:gmatch('(%d+)=([^,]+)') do items[#items + 1] = { name, 'tow|spot|' .. n .. who } end
+      if #items > 0 then out[#out + 1] = { label, items } end
+    end
+  end
+  if #out == 0 then out[1] = { 'No spots: the routes file is missing (crew-test install.ps1)', 'tow|spot|0' .. who } end
+  return out
+end
+
 local ITEMS = {
   { 'List people on my ship', 'list' },
   { 'Target: change (nearest > yellow > green shirt > cat crew > our model)', 'target' },
@@ -333,8 +475,8 @@ local ITEMS = {
       { 'El 1', 'park|El 1' },
       { 'Point', 'park|Point' },
       { 'Six-pack', 'park|Sixpack' },
-      { 'Bow, starboard', 'park|Bow stbd' },
-      { 'Bow, port', 'park|Bow port' },
+      { 'Starboard bow', 'park|Stbd bow' },
+      { 'Port bow', 'park|Port bow' },
       { 'Crotch', 'park|Crotch' },
     } },
     -- the cockpit view turns to whoever is signalling while the jet is marshalled (on by itself)
@@ -394,8 +536,27 @@ local ITEMS = {
   -- The axle finder: a bright marker axle stood where the hook takes the jet's nose wheel axle to be, moved from
   -- here until it is dead centre on the real one (fore / aft by 10 cm, 1 cm, 1 mm; its height by 10 cm, 1 cm:
   -- there is a model for every centimetre). The tow uses what the finder ends with; every move is logged.
+  -- ON THE FLIGHT DECK (2026-11-16): a tow from where the jet stands to a catapult (pulled up to its shuttle) or to
+  -- any deck spot (pulled past it, then pushed back into it tail first). The spots come from the hook
+  -- (CATCC_CR_SPOTS, see towSpotItems).
   { 'Tow', {
+    { 'Tow me to a catapult', {
+      { 'Catapult 1', 'tow|cat|1' },
+      { 'Catapult 2', 'tow|cat|2' },
+      { 'Catapult 3', 'tow|cat|3' },
+      { 'Catapult 4', 'tow|cat|4' },
+    } },
+    { 'Tow me to a parking spot', towSpotItems() },
     { 'Tow me into the hangar (tractor, bar, driver)', 'tow|hangar' },
+    -- (2026-11-17) not the player's jet but the parked aircraft the deck spotting tool is locked on (clicked on in the
+    -- panel, or F10 > CATCC deck spots > Lock on the one the camera looks at): the panel's Tow page does the same
+    { 'Tow the locked deck aircraft', {
+      { 'To catapult 1', 'tow|cat|1|lock' },
+      { 'To catapult 2', 'tow|cat|2|lock' },
+      { 'To catapult 3', 'tow|cat|3|lock' },
+      { 'To catapult 4', 'tow|cat|4|lock' },
+      { 'To a parking spot', towSpotItems('|lock') },
+    } },
     { 'Hold / go on', 'tow|pause' },
     { 'Unhook (the bar goes back on the tractor)', 'tow|unhook' },
     { 'Messages on screen: hide / show (for filming)', 'messages' },
@@ -407,6 +568,11 @@ local ITEMS = {
       { 'Right 10 cm', 'tow|seat|left|-0.1' },
       { 'Up 10 cm', 'tow|seat|up|0.1' },
       { 'Down 10 cm', 'tow|seat|up|-0.1' },
+      -- the drivers' head tried by hand (the hook's Tow.Head; crew-test/DRIVER-HEAD.md): every driver on the ship
+      { 'Head: right 100 (as when backing)', 'tow|head|right' },
+      { 'Head: left 100', 'tow|head|left' },
+      { 'Head: ahead', 'tow|head|ahead' },
+      { 'Head: report', 'tow|head|report' },
     } },
     { 'Axle finder', {
       { 'Show / hide the marker axle', 'axle|show' },
@@ -416,6 +582,8 @@ local ITEMS = {
         { 'Up 10 cm', 'axle|up|0.1' }, { 'Down 10 cm', 'axle|up|-0.1' },
         { 'Up 1 cm', 'axle|up|0.01' }, { 'Down 1 cm', 'axle|up|-0.01' },
       } },
+      -- the axle's width: the two end plates moved apart or together (the whole width changes by the step)
+      { 'Width (the end plates)', steps('axle|len', 'Wider', 'Narrower') },
     } },
   } },
   { 'Stop the demo / signal test / marshalling', 'demostop' },
@@ -451,6 +619,24 @@ local DECK_ITEMS = {
   { 'Report the locked one; save all', 'spot|report' },
 }
 
+-- The crew test menu as the in-game panel shows it (crewtest_ui.lua): every item as "<depth>::<label>::<command>"
+-- (no command: a submenu, its items follow one deeper), joined by ";;".
+function CR.tree()
+  local out = {}
+  local function walk(items, depth)
+    for _, it in ipairs(items) do
+      if type(it[2]) == 'table' then
+        out[#out + 1] = depth .. '::' .. it[1] .. '::'
+        walk(it[2], depth + 1)
+      else
+        out[#out + 1] = depth .. '::' .. it[1] .. '::' .. it[2]
+      end
+    end
+  end
+  walk(ITEMS, 0)
+  return table.concat(out, ';;')
+end
+
 local function addItems(gid, un, parent, items)
   for _, it in ipairs(items) do
     if type(it[2]) == 'table' then
@@ -473,6 +659,10 @@ local function addMenu(unit)
   CR.menus[gid] = true
   addItems(gid, unit:getName(), missionCommands.addSubMenuForGroup(gid, 'CATCC crew test'), ITEMS)
   addItems(gid, unit:getName(), missionCommands.addSubMenuForGroup(gid, 'CATCC deck spots'), DECK_ITEMS)
+  -- the in-game panel shown / put away from here too (its hot key, Ctrl+Shift+F10, did not always answer)
+  addItems(gid, unit:getName(), nil, { { 'CATCC panel: show / hide', 'panel' } })
+  -- the deck spotting demo (the hook's crewtest_demo.lua; its hot key: Ctrl+Shift+F9)
+  addItems(gid, unit:getName(), nil, { { 'CATCC demo: spot the deck: start / stop', 'demo2|toggle' }, { 'CATCC demo: report', 'demo2|report' } })
 end
 
 local function scan()

@@ -1,0 +1,69 @@
+-- The mark the crew test panel puts on the locked aircraft: a 16 x 16 window with nothing but a yellow picture
+-- (one of DCS's own images), no cursor, clicks let through (crewtest_ui.lua moves it every frame).
+dialog = {
+    ["type"] = "Window",
+    ["params"] = {
+        ["bounds"] = {
+            [1] = {
+                ["h"] = 16,
+                ["w"] = 16,
+                ["x"] = 0,
+                ["y"] = 0
+            }
+        },
+        ["draggable"] = false,
+        ["enabled"] = true,
+        ["hasCursor"] = false,
+        ["lockFlow"] = false,
+        ["modal"] = false,
+        ["offscreen"] = false,
+        ["resizable"] = false,
+        ["zOrder"] = 111,
+        ["text"] = ""
+    },
+    ["skin"] = {
+        ["params"] = {
+            ["headerHeight"] = 0,
+            ["name"] = "windowSkin"
+        },
+        ["states"] = {
+            ["released"] = {
+                [1] = {
+                    ["bkg"] = {
+                        ["center_center"] = "0x00000000"
+                    }
+                }
+            }
+        }
+    },
+    ["children"] = {
+        ["mark"] = {
+            ["type"] = "Static",
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 16,
+                    ["w"] = 16,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["visible"] = true
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "staticSkin"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                            ["picture"] = {
+                                ["color"] = "0xffe000ff",
+                                ["file"] = "dxgui\\skins\\skinME\\images\\mission_editor\\neutral_coalition.png"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

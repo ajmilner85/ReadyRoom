@@ -9,8 +9,38 @@
 #   Scripts\CATCC\crewtest_hook.lua          the hook: takes the F10 commands, calls the module, reports
 #   Scripts\CATCC\crewtest.lua               the F10 menu (installed into each mission by the hook)
 #   Scripts\CATCC\crewtest_routes.lua        taxi routes from PriFly's taxi network (made by crew-test\routes.gen.ts)
+#   Scripts\CATCC\crewtest_ui.lua, .dlg     the in-game panel (Ctrl+Shift+F10 in a mission): the deck spotting tool
+#                                            with click-to-lock, and the F10 menu's items as buttons
+#   Scripts\CATCC\crewtest_demo.lua          the deck spotting demo (Ctrl+Shift+F9 in a mission, or F10 > CATCC demo)
+#   Scripts\CATCC\crewtest_worker.lua        the demo's own thread: run by the native module in a Lua state of its own
+#                                            (it loads the hook and the demo there; the hook on DCS's thread sends it the
+#                                            frames and applies what it asks for). To run the demo on DCS's main thread
+#                                            instead: install.ps1 -DemoThread off (it writes demoThread = false
+#                                            into Config\CATCC-test.lua; -DemoThread on takes it out again)
+#   Scripts\CATCC\crewtest_hangar.lua        the hangar's parking plan for it (made by deck-test\hangar\hangar_plan.py)
+#   Scripts\CATCC\crewtest_head.lua          where a tractor's driver looks (DRIVER-HEAD.md). His head only turns when
+#                                            the mod has the poses and the blend space for it: install.ps1 -DriverHead on
+#                                            (made here by model\driver_head.py from the F/A-18C pilot figure's own
+#                                            look-round clip in this PC's DCS; needs python; writes driverHead = true
+#                                            into Config\CATCC-test.lua so that later installs make them again;
+#                                            -DriverHead off takes them out; not given: left as it is)
+#   (no script of its own)                   the drivers' limbs (DRIVER-POSE.md): install.ps1 -DriverPose on makes the
+#                                            seated pose catcc_drv_seat.fbx (feet at the tractor's pedals, hands on its
+#                                            steering wheel: model\driver_pose.py, from the same clip) and keys the same
+#                                            limbs into the head poses; writes driverPose = true into
+#                                            Config\CATCC-test.lua; -DriverPose off: the pilot's own limbs again
 #   Scripts\CATCC\bin\catcc_crew.dll         the native module (source and self-test: native\)
+#   Scripts\CATCC\bin\catcc_atcprobe.dll     the slot picker's spawn aiming (aim, restore, check): the ATC probe's module,
+#                                            ..\spawn-probe\native (build it with its build.cmd)
 #   Config\CATCC-test.lua                    crewTest = true (other test switches there are kept)
+#   Config\autoexec.cfg                      one line, marked "-- CATCC slot picker" (by autoexec.ps1): adds "userhooks"
+#                                            to net.allow_unsafe_api and "gui" to net.allow_dostring_in, keeping what
+#                                            the file allows already, so the slot picker can put DCS's slot screen away
+#   Scripts\CATCC\crewtest_slots.lua, .dlg, catcc_deck.png, jets\*.png   the slot picker (its deck picture and PriFly's
+#                                            folded-wing Hornet, one picture per colour, turned by the picker:
+#                                            scripts/catcc/deck-picture.tsx)
+#   DCS World\dxgui\skins\fonts\CATCC-*.ttf  the CATCC app's fonts for the picker (fonts.ps1; DCS's folder: one UAC
+#                                            prompt, only when they are missing or changed; -NoFonts leaves them)
 # Results: on screen, and Saved Games\DCS\Logs\catcc-crewtest.log.
 #
 # The data side of the test (DCS's own files, needs admin) is separate:
@@ -25,7 +55,23 @@ param(
   # where the test mod's animation clip is copied from (one of the F/A-18C pilot figure's own, plain FBX files)
   [string]$DcsDir = 'C:\Program Files\Eagle Dynamics\DCS World',
   # testing against a folder that is not DCS's (skips the DCS-running check)
-  [switch]$NoDcsCheck
+  [switch]$NoDcsCheck,
+  # the deck spotting demo: 'off' = on DCS's main thread, as before it had a thread of its own (writes
+  # demoThread = false into Config\CATCC-test.lua); 'on' = on its own thread again (takes that line out);
+  # not given: left as it is
+  [ValidateSet('', 'on', 'off')][string]$DemoThread = '',
+  # the tractor drivers' head (DRIVER-HEAD.md): 'on' = the poses and the blend space that turn it are made into the
+  # test mod (and driverHead = true written into Config\CATCC-test.lua: made again by later installs); 'off' = not
+  # made (the line taken out): the drivers sit in the plain seated pose; not given: left as it is. Off until asked for.
+  [ValidateSet('', 'on', 'off')][string]$DriverHead = '',
+  # the tractor drivers' limbs (DRIVER-POSE.md): 'on' = a seated pose of our own is made into the test mod, its legs
+  # and arms keyed to the tractor's pedals and steering wheel, and the head poses (-DriverHead) are made with the
+  # same limbs (driverPose = true written into Config\CATCC-test.lua: made again by later installs); 'off' = not made
+  # (the line taken out): the pilot's own limbs; not given: left as it is. Off until asked for. A switch of its own:
+  # the heads have been seen to turn well in DCS, the limbs have not been seen yet, and each can be taken out alone.
+  [ValidateSet('', 'on', 'off')][string]$DriverPose = '',
+  # the slot picker's fonts (fonts.ps1: into DCS's own folder, one UAC prompt) left alone
+  [switch]$NoFonts
 )
 
 $ErrorActionPreference = 'Stop'
@@ -62,7 +108,19 @@ $files = @(
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_hook.lua'; to = Join-Path $scriptsDst 'crewtest_hook.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest.lua'; to = Join-Path $scriptsDst 'crewtest.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_routes.lua'; to = Join-Path $scriptsDst 'crewtest_routes.lua' },
-  @{ from = Join-Path $here 'bin\catcc_crew.dll'; to = Join-Path $binDst 'catcc_crew.dll' }
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui.lua'; to = Join-Path $scriptsDst 'crewtest_ui.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui.dlg'; to = Join-Path $scriptsDst 'crewtest_ui.dlg' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui_mark.dlg'; to = Join-Path $scriptsDst 'crewtest_ui_mark.dlg' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_demo.lua'; to = Join-Path $scriptsDst 'crewtest_demo.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_worker.lua'; to = Join-Path $scriptsDst 'crewtest_worker.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_hangar.lua'; to = Join-Path $scriptsDst 'crewtest_hangar.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_head.lua'; to = Join-Path $scriptsDst 'crewtest_head.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_slots.lua'; to = Join-Path $scriptsDst 'crewtest_slots.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_slots.dlg'; to = Join-Path $scriptsDst 'crewtest_slots.dlg' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\catcc_deck.png'; to = Join-Path $scriptsDst 'catcc_deck.png' },
+  @{ from = Join-Path $here 'bin\catcc_crew.dll'; to = Join-Path $binDst 'catcc_crew.dll' },
+  # (the slot picker's spawn aiming: aim / restore / check, from the ATC probe's module: deck-test\spawn-probe\native)
+  @{ from = Join-Path $here '..\spawn-probe\bin\catcc_atcprobe.dll'; to = Join-Path $binDst 'catcc_atcprobe.dll' }
 )
 
 # The test mod (Mods\tech\CATCC-Crew): an animations path and a models path of our own. Its one clip,
@@ -76,16 +134,27 @@ if ($Uninstall) {
   if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst; Write-Host "Removed $modDst" }
   foreach ($f in $files) { if (Test-Path $f.to) { Remove-Item $f.to; Write-Host "Removed $($f.to)" } }
   if ((Test-Path $binDst) -and -not (Get-ChildItem $binDst)) { Remove-Item $binDst }
-  if ($flags.Contains('crewTest')) { $flags.Remove('crewTest'); Write-Config }
+  if ($flags.Contains('demoThread')) { $flags.Remove('demoThread') }
+  if ($flags.Contains('driverHead')) { $flags.Remove('driverHead') }
+  if ($flags.Contains('driverPose')) { $flags.Remove('driverPose') }
+  if ($flags.Contains('crewTest')) { $flags.Remove('crewTest') }
+  Write-Config
+  & (Join-Path $here 'autoexec.ps1') -Uninstall -SavedGames $SavedGames
+  $jetsDst = Join-Path $scriptsDst 'jets'
+  if (Test-Path $jetsDst) { Remove-Item -Recurse -Force $jetsDst; Write-Host "Removed $jetsDst" }
+  if (-not $NoFonts) { & (Join-Path $here 'fonts.ps1') -Uninstall -DcsDir $DcsDir }
   Write-Host 'Crew test uninstalled. (The data side: director-test.ps1 -Revert.)'
   return
 }
 
-foreach ($f in $files) { if (-not (Test-Path $f.from)) { throw "Missing: $($f.from)$(if ($f.from -like '*.dll') { ' (build it: native\build.cmd)' })" } }
+foreach ($f in $files) { if (-not (Test-Path $f.from)) { throw "Missing: $($f.from)$(if ($f.from -like '*atcprobe.dll') { ' (build it: ..\spawn-probe\native\build.cmd)' } elseif ($f.from -like '*.dll') { ' (build it: native\build.cmd)' })" } }
 # the module must be newer than its source: a stale DLL would test something else than the code says
 $dll = Get-Item (Join-Path $here 'bin\catcc_crew.dll')
 $srcNewest = (Get-ChildItem (Join-Path $here 'native') -Filter *.cpp | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
 if ($dll.LastWriteTime -lt $srcNewest) { throw 'bin\catcc_crew.dll is older than native\*.cpp: run native\build.cmd first.' }
+$aimDll = Get-Item (Join-Path $here '..\spawn-probe\bin\catcc_atcprobe.dll')
+$aimSrc = (Get-ChildItem (Join-Path $here '..\spawn-probe\native') -Filter *.cpp | Sort-Object LastWriteTime -Descending | Select-Object -First 1).LastWriteTime
+if ($aimDll.LastWriteTime -lt $aimSrc) { throw '..\spawn-probe\bin\catcc_atcprobe.dll is older than its source: run ..\spawn-probe\native\build.cmd first.' }
 
 foreach ($f in $files) {
   New-Item -ItemType Directory -Force (Split-Path $f.to) | Out-Null
@@ -102,6 +171,63 @@ if (Test-Path $clipSrc) {
 } else {
   Write-Host "Installed: $modDst WITHOUT its animation clip: not found: $clipSrc (pass -DcsDir)"
 }
+# The tractor drivers' head (DRIVER-HEAD.md): five still poses and a blend space over them, made by model\driver_head.py
+# from the F/A-18C pilot figure's look-round clip (DCS's file, from this PC's DCS: not kept in our repository) into the
+# mod's animations\typeV. Without them a driver sits in the plain seated pose and the hook's head code does nothing.
+if ($DriverHead -eq 'on') { $flags['driverHead'] = 'true' }
+elseif ($DriverHead -eq 'off' -and $flags.Contains('driverHead')) { $flags.Remove('driverHead') }
+# The drivers' limbs (DRIVER-POSE.md): with driverPose the head poses are made with the legs and arms keyed to the
+# tractor's pedals and steering wheel (driver_head.py --pose), and the plain seated pose with the same limbs is made
+# too (below).
+if ($DriverPose -eq 'on') { $flags['driverPose'] = 'true' }
+elseif ($DriverPose -eq 'off' -and $flags.Contains('driverPose')) { $flags.Remove('driverPose') }
+$headDir = Join-Path $modDst 'animations\typeV'
+$python = Get-Command python -ErrorAction SilentlyContinue
+if ($flags['driverHead'] -eq 'true') {
+  if (-not $python) {
+    Write-Host 'The drivers'' head: NOT made: python was not found (the drivers sit in the plain seated pose).'
+  } else {
+    $headArgs = @((Join-Path $here 'model\driver_head.py'), $headDir, '--dcs', $DcsDir)
+    if ($flags['driverPose'] -eq 'true') { $headArgs += '--pose' }
+    $said = & $python.Source -I @headArgs
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "The drivers' head: $(@($said)[0])"
+    } else {
+      # (nothing half made is left: a blend space that names a pose that is not there must not reach DCS)
+      Get-ChildItem $headDir -Filter 'catcc_drv_look_*.fbx' -ErrorAction SilentlyContinue | Remove-Item -Force
+      $spaceDir = Join-Path $headDir 'blend_space'
+      if (Test-Path $spaceDir) { Remove-Item -Recurse -Force $spaceDir }
+      Write-Host "The drivers' head: NOT made (the drivers sit in the plain seated pose): $(@($said) -join ' ')"
+    }
+  }
+}
+if ($flags['driverPose'] -eq 'true') {
+  if (-not $python) {
+    Write-Host 'The drivers'' limbs: NOT made: python was not found (the drivers sit in the pilot''s pose).'
+  } else {
+    $said = & $python.Source -I (Join-Path $here 'model\driver_pose.py') $headDir --dcs $DcsDir
+    if ($LASTEXITCODE -eq 0) {
+      Write-Host "The drivers' limbs: $(@($said)[0])"
+    } else {
+      $seatFile = Join-Path $headDir 'catcc_drv_seat.fbx'
+      if (Test-Path $seatFile) { Remove-Item -Force $seatFile }
+      Write-Host "The drivers' limbs: NOT made (the drivers sit in the pilot's pose): $(@($said) -join ' ')"
+    }
+  }
+}
 $flags['crewTest'] = 'true'
+if ($DemoThread -eq 'off') { $flags['demoThread'] = 'false' }
+elseif ($DemoThread -eq 'on' -and $flags.Contains('demoThread')) { $flags.Remove('demoThread') }
 Write-Config
+& (Join-Path $here 'autoexec.ps1') -SavedGames $SavedGames
+# the slot picker's aircraft (PriFly's folded-wing Hornet, every 5 degrees: scripts/catcc/deck-picture.tsx)
+$jetsSrc = Join-Path $repoDcs 'Scripts\CATCC\jets'
+$jetsDst = Join-Path $scriptsDst 'jets'
+if (Test-Path $jetsDst) { Remove-Item -Recurse -Force $jetsDst }
+Copy-Item -Recurse $jetsSrc $jetsDst
+Write-Host "Installed: $jetsDst ($((Get-ChildItem $jetsDst -Filter *.png).Count) pictures)"
+if (-not $NoFonts) { & (Join-Path $here 'fonts.ps1') -DcsDir $DcsDir }
+Write-Host "The deck spotting demo runs $(if ($flags['demoThread'] -eq 'false') { 'on DCS''s main thread (demoThread = false; -DemoThread on puts it back on its own)' } else { 'on a thread of its own (-DemoThread off puts it back on DCS''s main thread)' })."
+Write-Host "The tractor drivers' heads $(if (Test-Path (Join-Path $modDst 'animations\typeV\blend_space\catcc_bs_drv_look.lua')) { 'turn (driverHead = true; -DriverHead off: the plain seated pose again)' } elseif ($flags['driverHead'] -eq 'true') { 'do NOT turn: the poses could not be made (above)' } else { 'do not turn (-DriverHead on makes the poses and the blend space for it: DRIVER-HEAD.md)' })."
+Write-Host "The tractor drivers' limbs $(if (Test-Path (Join-Path $modDst 'animations\typeV\catcc_drv_seat.fbx')) { 'are at the pedals and the steering wheel (driverPose = true; -DriverPose off: the pilot''s own pose again)' } elseif ($flags['driverPose'] -eq 'true') { 'are NOT at the wheel: the pose could not be made (above)' } else { 'are the pilot''s (-DriverPose on puts feet at the pedals and hands on the steering wheel: DRIVER-POSE.md)' })."
 Write-Host 'Installed. Start DCS, load the mission: F10 > CATCC crew test. Results: on screen and Logs\catcc-crewtest.log.'

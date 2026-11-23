@@ -6,6 +6,8 @@
 --   CATCC_AxleMarker_H15 ... _H40   the axle finder's marker, one for every centimetre of height (a static linked
 --                                   to a ship stands on its deck: the height is in the model). Blender-made:
 --                                   crew-test/model/build_axle_marker.py
+--   CATCC_AxleEnd                   the axle finder's end plate: one either side of the nose gear, for the axle's width
+--                                   (Blender-made, the same script)
 --   CATCC_Towbar                    the tow bar (crew-test/model/towbar.py, our own .edm writer)
 --   CATCC_AxleProbe                 a rod written by our own .edm writer: the axle finder makes it once, out of
 --                                   sight, to say in the log whether DCS takes such a model as a static
@@ -39,5 +41,6 @@ for cm = 15, 40 do
   local name = string.format('CATCC_AxleMarker_H%02d', cm)
   deck_static(name, _(string.format('CATCC axle marker, %d cm (test)', cm)), name)
 end
+deck_static('CATCC_AxleEnd', _('CATCC axle end plate (test)'), 'CATCC_AxleEnd')
 deck_static('CATCC_Towbar', _('CATCC tow bar (test)'), 'CATCC_Towbar')
 deck_static('CATCC_AxleProbe', _('CATCC axle probe (test)'), 'CATCC_AxleProbe')
