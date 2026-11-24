@@ -19,10 +19,12 @@ To undo, move the folder back and remove the CATCC files.
 catcc-dcs/Scripts/Hooks/CATCC-hook.lua   ->  Scripts\Hooks\CATCC-hook.lua
 catcc-dcs/Scripts/CATCC/catcc.lua        ->  Scripts\CATCC\catcc.lua
 catcc-dcs/Scripts/CATCC/sampler.lua      ->  Scripts\CATCC\sampler.lua
-catcc-dcs/Config/CATCC.example.lua       ->  Config\CATCC.lua            (then edit it)
+catcc-dcs/Config/CATCC.example.lua       ->  Scripts\CATCC\config.lua    (then edit it)
 ```
 
-In `Config\CATCC.lua`, set `token` to a long random string; anything shorter than 16 characters is refused. For example, in PowerShell:
+The settings file can also go in `Config\CATCC.lua`, the older location. The hook reads `Scripts\CATCC\config.lua` first, which suits hosts whose file access doesn't reach `Config`. When copying a new `Scripts\CATCC` folder later, keep the server's `config.lua`.
+
+In the settings file, set `token` to a long random string; anything shorter than 16 characters is refused. For example, in PowerShell:
 
 ```powershell
 -join ((48..57)+(65..90)+(97..122) | Get-Random -Count 40 | ForEach-Object {[char]$_})

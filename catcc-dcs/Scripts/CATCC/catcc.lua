@@ -60,17 +60,26 @@ local cfg = {
   max_cmds_per_s = 5,
 }
 
+-- Settings: Scripts/CATCC/config.lua (for hosts whose file access doesn't reach Config/), else
+-- Config/CATCC.lua. The first one found is used.
 do
-  local f = loadfile(writedir .. 'Config/CATCC.lua')
-  if f then
-    local ok, user = pcall(f)
-    if ok and type(user) == 'table' then
-      for k, v in pairs(user) do cfg[k] = v end
-    else
-      warn('Config/CATCC.lua did not return a table')
+  local found
+  for _, p in ipairs({ 'Scripts/CATCC/config.lua', 'Config/CATCC.lua' }) do
+    local f = loadfile(writedir .. p)
+    if f then
+      found = p
+      local ok, user = pcall(f)
+      if ok and type(user) == 'table' then
+        for k, v in pairs(user) do cfg[k] = v end
+        info('settings from ' .. p)
+      else
+        warn(p .. ' did not return a table')
+      end
+      break
     end
-  else
-    warn('no Config/CATCC.lua; export disabled until a token is configured')
+  end
+  if not found then
+    warn('no Scripts/CATCC/config.lua or Config/CATCC.lua; export disabled until a token is configured')
   end
 end
 

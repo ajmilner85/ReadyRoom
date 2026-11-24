@@ -1,4 +1,4 @@
--- Copy to Saved Games\<DCS.server>\Config\CATCC.lua and set a long random token.
+-- Copy to Saved Games\<DCS.server>\Scripts\CATCC\config.lua (or Config\CATCC.lua) and set a long random token.
 -- The same token goes in the room service's CATCC_TOKEN secret.
 return {
   token = 'replace-with-a-long-random-string',
