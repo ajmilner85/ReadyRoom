@@ -249,6 +249,9 @@ local SAY_LOCAL = 'local u = world and world.getPlayer and world.getPlayer(); ' 
   'if u and u.getID and trigger and trigger.action and trigger.action.outTextForUnit then ' ..
   'trigger.action.outTextForUnit(u:getID(), %q, %d) return "ok" end return "no"'
 
+-- ON THE SCREEN ONLY WHAT NEEDS THE PILOT (the user, 2026-11-24: "remove any debugging messages that are for systems
+-- we've already settled. Like the CATCC movement with chocks messages"): the chocks' and the salute's comings and goings
+-- are in the log only (logi); what is left here is something wrong: no contact, contact lost, the installer to run again
 local function say(text)
   logi(text)
   if cfg.messages ~= true then return end
@@ -419,9 +422,9 @@ local function syncMenu(t, chock, salHeld, name)
   local a, b = tostring(r):match('^(%d+),(%d+)')
   a, b = tonumber(a) or 0, tonumber(b) or 0
   if a + b > 0 and name then sendLine('EV taxi ' .. name) end
-  if a > 0 then say('chocks request kept: they come off with your taxi instruction') end
-  if b > 0 then say('ready call sent to PriFly: salute again once you have your taxi instruction') end
-  if tostring(r):find('removed', 1, true) then say('PriFly let go: chocks coming off') end
+  if a > 0 then logi('chocks request kept: they come off with your taxi instruction') end
+  if b > 0 then logi('ready call sent to PriFly: salute again once you have your taxi instruction') end
+  if tostring(r):find('removed', 1, true) then logi('PriFly let go: chocks coming off') end
 end
 
 -- the Hornet's own chocks are in (its flight model draws them)
@@ -446,7 +449,7 @@ local function groundChocks(t, chock, onDeck, hornet)
   if inNow then
     if gc.askedAt and not gc.ours then
       gc.ours, gc.inAt = true, t
-      say('ground crew chocks in: PriFly holds them until your taxi instruction')
+      logi('ground crew chocks in: PriFly holds them until your taxi instruction')
     end
     -- their "chocks placed" call has had time to come: the quiet window ends, so whatever the pilot asks
     -- for himself from here on is voiced (his own F8 Place request ends it too: comm.lua)
@@ -466,7 +469,7 @@ local function groundChocks(t, chock, onDeck, hornet)
     QUIET_S .. '; S.place() return "asked," .. quiet end return "no"')
   if r and r:sub(1, 6) == 'asked,' then
     logi('ground crew asked for chocks; their radio call ' .. (r == 'asked,on' and 'silenced' or ('NOT silenced (' .. r:sub(7) .. ')')))
-    say('no chocks in: asking the ground crew for them (PriFly holds you until your taxi instruction)')
+    logi('no chocks in: asking the ground crew for them (PriFly holds you until your taxi instruction)')
   else
     logi('ground crew chocks: the F8 menu did not take the request')
   end
@@ -701,7 +704,7 @@ local function holdLayerSync(t, want)
         logi(string.format('salute key held: %d binding(s) [%s] (%s); input layers %s: %s', n, text, how,
           layer.topFirst == nil and '(order unknown)' or (layer.topFirst and '(top first)' or '(top last)'),
           names and table.concat(names, ' > ') or 'not readable'))
-        say('your salute is held until your taxi instruction (' .. n .. (n == 1 and ' binding)' or ' bindings)'))
+        logi('your salute is held until your taxi instruction (' .. n .. (n == 1 and ' binding)' or ' bindings)'))
         return
       end
     end
@@ -760,7 +763,7 @@ local function pollSalute(t, name, salHeld)
     local kept = salHeld and layer.on and how == 'command'
     logi('salute seen (' .. how .. ')' .. (kept and ': held, the deck crew did not get it'
       or (salHeld and ': NOT held, it went through to the deck crew' or '')))
-    say(kept and 'ready call sent to PriFly: salute again once you have your taxi instruction' or 'salute reported to PriFly')
+    logi(kept and 'ready call sent to PriFly: salute again once you have your taxi instruction' or 'salute reported to PriFly')
   end
   wasSaluting = saluting
 end
@@ -776,7 +779,7 @@ local function tick()
   -- in touch with the CATCC server hook (it sends the hold list every 5 s, PriFly staffed or not)
   local contact = fresh(t)
   if contact ~= inContact then
-    if contact then say('in contact with PriFly') else say('lost contact with PriFly: nothing is held') end
+    if contact then logi('in contact with PriFly') else say('lost contact with PriFly: nothing is held') end
     inContact = contact
   elseif not contact and not contactWarned and t - startedAt > 30 then
     contactWarned = true
@@ -808,7 +811,7 @@ local function tick()
   if testHold == 'on' then chock = true elseif testHold == 'off' then chock = false end
   if chock ~= chockWas then
     chockWas = chock
-    say(chock and 'PriFly holds your chocks until your taxi instruction' or 'PriFly let go of your chocks')
+    logi(chock and 'PriFly holds your chocks until your taxi instruction' or 'PriFly let go of your chocks')
   end
   if chock and menuState and menuSalute == false and not menuSaluteSaid then
     menuSaluteSaid = true

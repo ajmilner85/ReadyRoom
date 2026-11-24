@@ -141,6 +141,7 @@ tick()
 jet.arg23 = 0
 tick()
 rec('logged ' .. #logged .. ' ' .. tostring(logged[1]))
+for _, l in ipairs(logged) do rec('log ' .. l) end
 return table.concat(out, '\\n')
 `;
 
@@ -276,10 +277,11 @@ describe('CATCC chock test (mission environment)', () => {
       expect(got[i][1]).toBeCloseTo(y, 3);
     }
   });
-  it("watches the Hornet's own chocks: on, movement while on, off", () => {
-    expect(out).toContain("say 5 CATCC test: the Hornet's own wheel chocks are ON. Add power: any movement is reported here");
-    expect(out).toContain("say 5 CATCC test: moved 0.20 m with the Hornet's own chocks on; life 20.0/20.0");
-    expect(out).toContain("say 5 CATCC test: the Hornet's own wheel chocks are OFF (moved 0.20 m at most while they were on)");
+  it("watches the Hornet's own chocks: on, movement while on, off, in dcs.log only", () => {
+    expect(out).toContain("log CATCC chock test: the Hornet's own wheel chocks are ON");
+    expect(out).toContain("log CATCC chock test: moved 0.20 m with the Hornet's own chocks on; life 20.0/20.0");
+    expect(out).toContain("log CATCC chock test: the Hornet's own wheel chocks are OFF (moved 0.20 m at most while they were on)");
+    expect(out.filter((l) => l.startsWith('say ') && /own (wheel )?chocks/.test(l))).toEqual([]);
   });
   it('takes the blockers behind the wheels away on request, and removes them all', () => {
     expect(out).toContain('alive after toggle 3');

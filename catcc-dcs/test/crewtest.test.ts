@@ -902,6 +902,12 @@ local function done()
 end
 `;
 
+// the hook's list of the people at mission start: in the log only since 2026-11-24 (the user: "remove any debugging
+// messages that are for systems we've already settled")
+function startList(r: { logLines: string[] }): string[] {
+  return r.logLines.filter((l) => l.startsWith('at mission start:'));
+}
+
 function hook(
   script: string,
   opts: { flag?: boolean; noNative?: boolean; quick?: boolean; world?: boolean; parentPos?: boolean; replaced?: number; noAnim?: boolean; ui?: boolean; demo?: boolean; head?: boolean } = {},
@@ -1050,7 +1056,9 @@ describe('crew test hook and menu', () => {
     const at = r.rec.indexOf('at 7 s');
     expect(at).toBeGreaterThan(0);
     expect(r.rec.slice(0, at).some((l) => l.startsWith('say '))).toBe(false);
-    expect(r.says).toEqual([
+    // (in the log only since 2026-11-24, the user: "remove any debugging messages that are for systems we've already settled")
+    expect(r.says).toEqual([]);
+    expect(r.logLines.filter((l) => l.startsWith('at mission start:'))).toEqual([
       'at mission start: 4 people on your ship: 1 yellow, 1 brown, 1 catapult crew. People of ours: catcc-00. (4 more on other ships.) ' +
         'Nearest to you: brown-2-4 7 m, yellow-04 14 m, catcc-00 25 m. Our own animation clip: NOT in the list.',
     ]);
@@ -1066,7 +1074,7 @@ describe('crew test hook and menu', () => {
 
   it("says whether our own mod's animation clip is among the deck crew's animations, and plays it from the menu", () => {
     const r = hook('OUR_CLIP = true\nHANDLER.onSimulationStart()\nframes(10)\nclick("Target: signal > Our own clip (catcc_test_clip, once)")\nframes(1)');
-    expect(r.says[0]).toMatch(/ Our own animation clip: in the list\.$/);
+    expect(startList(r)[0]).toMatch(/ Our own animation clip: in the list\.$/);
     expect(r.logLines).toContain('our mod\'s animation clip "catcc_test_clip": IN the list (index 7, length 2.17 s)');
     expect(r.rec.filter((l) => l.startsWith('play '))).toEqual(['play 102 catcc_test_clip']);
     const no = hook('HANDLER.onSimulationStart()\nframes(10)');
@@ -1076,22 +1084,22 @@ describe('crew test hook and menu', () => {
   it('says which people of ours are there, or that none is', () => {
     const none = hook(`for i = #PEOPLE, 1, -1 do if PEOPLE[i].name == 'catcc-00' then table.remove(PEOPLE, i) end end
 HANDLER.onSimulationStart()\nframes(10)`);
-    expect(none.says[0]).toContain('People of ours: NONE.');
+    expect(startList(none)[0]).toContain('People of ours: NONE.');
     const two = hook("add(105, 'catcc-c0', '1: catcc-c0', 10, 27, SHIP_A)\nHANDLER.onSimulationStart()\nframes(10)");
-    expect(two.says[0]).toContain('5 people on your ship: 1 yellow, 1 brown, 1 catapult crew. People of ours: catcc-00, catcc-c0.');
+    expect(startList(two)[0]).toContain('5 people on your ship: 1 yellow, 1 brown, 1 catapult crew. People of ours: catcc-00, catcc-c0.');
   });
 
   it("tells the ships apart by the men's own world positions when their ship's is not readable", () => {
     const r = hook('HANDLER.onSimulationStart()\nframes(10)', { parentPos: false });
-    expect(r.says[0]).toContain('4 people on your ship: 1 yellow, 1 brown, 1 catapult crew.');
-    expect(r.says[0]).toContain('(4 more on other ships.)');
+    expect(startList(r)[0]).toContain('4 people on your ship: 1 yellow, 1 brown, 1 catapult crew.');
+    expect(startList(r)[0]).toContain('(4 more on other ships.)');
     expect(r.logLines.some((l) => l.includes('(told apart by their own position)'))).toBe(true);
   });
 
   it('says so when the ships cannot be told apart (no world positions at all)', () => {
     const r = hook('HANDLER.onSimulationStart()\nframes(10)', { world: false, parentPos: false });
-    expect(r.says[0]).toContain('8 people on your ship');
-    expect(r.says[0]).toContain('(Ships could not be told apart: no world positions.)');
+    expect(startList(r)[0]).toContain('8 people on your ship');
+    expect(startList(r)[0]).toContain('(Ships could not be told apart: no world positions.)');
   });
 
   it('says so on screen when the native module is missing, and still installs the menu', () => {
@@ -1177,7 +1185,7 @@ ${START}click("${TARGET}")\nframes(1)\nclick("Target: signal > Attention (once)"
     // ship axes: forward = (cos 0.5, 0, sin 0.5), position (1000, 0, 2000)
     expect(r.rec.filter((l) => l.startsWith('walk '))).toEqual(['walk 101 to -10.50 18.00 facing 0.00 1.00 ship 12: 0.878 0.000 0.479 | 1000.0 0.0 2000.0']);
     expect(r.says[1]).toBe('yellow-04 told to walk to a point 16 m ahead of your nose (10 m from him) and face you. Watch him.');
-    expect(r.says.filter((s) => s.includes('at mission start')).length).toBe(1);
+    expect(startList(r).length).toBe(1);
     // (10.5 m to go; the stand-in has already stepped 0.6 m when it is first asked where he is)
     expect(r.says[r.says.length - 1]).toBe('yellow-04, 45 s after "walk": ended 9.9 m from where he started (walked 9.9 m). ' +
       'Now 0.0 m from the target (was 9.9 m). States (0 standing, 1 moving): 1 > 0.');
@@ -1280,10 +1288,10 @@ ${START}click("${DEMO}")\nframes(1)`);
     const r = hook(`HANDLER.onSimulationStart()\nframes(10)\nclick("${SIGTEST}")\nframes(95)`);
     // jet (-10.5, 34) nose to port: 14 m ahead is (-10.5, 20); he is to face the jet
     expect(r.rec.filter((l) => l.startsWith('walk '))).toEqual(['walk 103 to -10.50 20.00 facing 0.00 1.00 ship 12: 0.878 0.000 0.479 | 1000.0 0.0 2000.0']);
-    expect(r.says[1]).toBe('signal test: catcc-00 is walking to 14 m ahead of your nose (25 m to go). Then 15 steps, about 75 s in all: watch him; each one is announced.');
+    expect(r.says[0]).toBe('signal test: catcc-00 is walking to 14 m ahead of your nose (25 m to go). Then 15 steps, about 75 s in all: watch him; each one is announced.');
     expect(r.rec.filter((l) => l.startsWith('play '))).toEqual(SIGNALS);
-    expect(r.says[2]).toBe('signal test 1 of 15: attention');
-    expect(r.says[5]).toBe('signal test 4 of 15: turn LEFT (your left)');
+    expect(r.says[1]).toBe('signal test 1 of 15: attention');
+    expect(r.says[4]).toBe('signal test 4 of 15: turn LEFT (your left)');
     // night: the wands on with the first night step, three arm poses shown in turn, the first one back for the signals; all off at the end
     expect(r.rec.filter((l) => l.startsWith('override '))).toEqual([
       'override 103 night_stick_armpose', 'override 103 night_stick_armpose_r', 'override 103 night_stick_armpose_l', 'override 103 night_stick_armpose', 'override 103 ',
@@ -3173,8 +3181,8 @@ click("Target: walk > To 16 m ahead of my nose, facing me")\nframes(20)`);
     const flown = r.rec.indexOf('7 s flown');
     expect(r.rec.indexOf('fly')).toBeGreaterThan(0);
     expect(r.rec.slice(0, flown).some((l) => l.startsWith('say '))).toBe(false);
-    expect(r.says.length).toBe(1);
-    expect(r.says[0]).toContain('at mission start: 4 people on your ship');
+    expect(r.says.length).toBe(0);
+    expect(startList(r)[0]).toContain('at mission start: 4 people on your ship');
   });
 
   it('at mission start the memory scan follows by itself when the quick scan finds nobody', () => {
@@ -3190,15 +3198,15 @@ click("Target: walk > To 16 m ahead of my nose, facing me")\nframes(20)`);
     const r = hook('PLAYER = false\nHANDLER.onSimulationStart()\nframes(400)\nrec("in the jet")\nPLAYER = nil\nframes(6)');
     const at = r.rec.indexOf('in the jet');
     expect(r.rec.slice(0, at).some((l) => l.startsWith('say '))).toBe(false);
-    expect(r.says.length).toBe(1);
-    expect(r.says[0]).toContain('at mission start: 4 people on your ship');
+    expect(r.says.length).toBe(0);
+    expect(startList(r)[0]).toContain('at mission start: 4 people on your ship');
     expect(r.rec.filter((l) => l === 'submenu CATCC crew test').length).toBe(1); // the menu came with the player
   });
 
   it('a new mission gets the menu and the list again', () => {
     const r = hook('HANDLER.onSimulationStart()\nframes(14)\nHANDLER.onSimulationStop()\nMISSION.CATCC_CR = nil\nframes(5)\nHANDLER.onSimulationStart()\nframes(14)');
     expect(r.rec.filter((l) => l === 'submenu CATCC crew test').length).toBe(2);
-    expect(r.says.filter((s) => s.includes('at mission start')).length).toBe(2);
+    expect(startList(r).length).toBe(2);
   });
 });
 
@@ -4069,7 +4077,7 @@ click('CATCC demo: report')\nframes(1)`, { demo: true });
     // stopped: everything taken away, the elevators told up again
     expect(r.rec).toContain('left 0');
     for (const k of [0, 1, 2, 3]) expect(r.rec.some((l) => new RegExp(`^elevator \\d+ ${k} 2$`).test(l))).toBe(true);
-    expect(r.says.some((l) => l.startsWith('demo: stopped: the aircraft, the tractors and the bars are taken away'))).toBe(true);
+    expect(r.logLines).toContain('demo: stopped: everything taken away');
     expect(r.says[r.says.length - 1]).toBe('demo: it is not running (Ctrl+Shift+F9, or F10 > CATCC demo: spot the deck).');
   }, 120000);
 
@@ -4395,8 +4403,41 @@ rec('left ' .. n)`, { demo: true, ui: true });
         expect(pitch, l).toBeGreaterThan(10);
         expect(pitch, l).toBeLessThan(33);
       }
-      // (the picker's Spawn: the static first, the slot three seconds later)
-      expect(rec).toContain('Spawn pressed: slot "", its static taken away true, reserved for Host');
+      // (the picker's Spawn without the GUI state: the static first, the slot three seconds later)
+      expect(rec).toContain('the host spawned: his slot 901, statics on spot 1: 0, held for Host');
+      // DCS'S FLY HELD UNTIL THE STATIC IS GONE (the user, 2026-11-23: "tighten the delay between removing the static
+      // and spawning the actual aircraft"): with the GUI state reached, the briefing's FLY and net.spawn_player wrapped;
+      // Spawn takes the slot at once with the static standing; through the briefing it stands; the FLY (as DCS calls
+      // it: the button bound when the briefing was made) is only noted, the briefing stays up; the static taken away,
+      // seen gone from the mission, no wait (FLY.settle 0), then DCS's own FLY (the briefing away,
+      // net.spawn_player); a FLY with nothing held is DCS's own at once
+      expect(rec).toContain('FLY wrapped: 00:00:00 hook    slots: FLY, in the GUI state: net.spawn_player: wrapped; BriefingDialog.Fly_onChange: wrapped');
+      expect(rec).toContain('before Spawn: statics on spot 1: 1, state parked');
+      expect(rec).toContain('Spawn pressed: slot "901", its static taken away false, reserved for Host');
+      expect(rec).toContain('in the briefing 3 s: statics on spot 1: 1, spawned 0');
+      expect(rec).toContain('on spot 1: catcc-demo-a1 76; 10 m off it: ""');
+      // (no wait: the FLY held, the static taken away and seen gone, DCS's own FLY, all within the frame the FLY is seen:
+      // the static's destroy recorded before the spawn)
+      expect(rec).toContain('FLY asked: ' + "slots: FLY: Hornet 1: DCS's FLY asked for (the briefing's FLY)");
+      expect(rec.indexOf('destroy catcc-demo-a1 76')).toBeLessThan(rec.indexOf('FLY pressed: spawned 1, statics on spot 1: 0, briefing up false'));
+      expect(rec).toContain('FLY pressed: spawned 1, statics on spot 1: 0, briefing up false');
+      expect(rec).toContain('FLY + 2 s: spawned 1 (0 s after FLY), statics on spot 1: 0, briefing up false');
+      expect(rec).toContain('FLY: FLY: Hornet 1: the spot clear 0.00 s after its static was taken away; the ATC refreshed: no (switched off); the wait 0.00 s (FLY.settle)');
+      expect(rec).toContain("FLY: FLY: Hornet 1: DCS's FLY made (done (fly)), 0.00 s after the static was seen gone");
+      expect(rec).toContain('FLY again, nothing held: spawned 2');
+      // THE FIRST-SPAWN TEST (the user, 2026-11-24: "try lower first spawn timings to see where the same limit is"): each
+      // mission start runs the next case (25, 20, 15, 10 s); its line written before DCS's FLY; a start that finds
+      // "started" last writes "froze" and the series stops, the hold back at 60 s
+      expect(rec).toContain('series, an empty file: case 1 at 25 s; the hold 25 s');
+      expect(rec).toContain('series, case 1 landed: case 2 at 20 s');
+      expect(rec).toContain('series, case 2 started and never finished: case nil; the hold 0 s; the file: case 1 at=25s started (test) / case 1 at=25s landed (DCS 6.0 s) / case 2 at=20s started (test) / case 2 at=20s froze');
+      // (the series done, 2026-11-24: off as installed, and no hold: AIM.notBefore 0)
+      expect(rec).toContain('series off: the hold 0 s, case nil');
+      expect(rec).toContain('series, the next start: case nil; the file: case 1 at=25s started (test) / case 1 at=25s landed (DCS 6.0 s) / case 2 at=20s started (test) / case 2 at=20s froze');
+      // (each FLY says how long its spot stood empty, of that the wait, the check and aim, and DCS; and whether updobs ran)
+      expect(rec).toContain('result: done; FLY: Hornet 1: ON ITS SPOT; its spot stood empty 2.50 s: the wait 0.00 s, the check and aim 0.00 s, DCS 2.5 s (its longest frame 2.4 s); the ATC refreshed: yes');
+      // (on the screen only when it did not come up on its spot)
+      expect(rec.some((l) => l.startsWith('say CATCC crew test: Hornet 1 is on its spot'))).toBe(false);
       // (the mission's slot on spot 1 is painted 744, which the demo's plan gives Corral 1: the demo paints its aircraft
       // on spot 1 744 and Corral 1's that spot's 623; the user's run of 2026-11-20: he chose the demo's 744 and it had no slot)
       expect(rec).toContain('paint: spot 1 board 744 (KING - LineJet - 744); the one the plan had as 744 (Corral 1) now 623 (KING - LineJet-FL - 623)');

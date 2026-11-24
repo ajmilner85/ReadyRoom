@@ -187,10 +187,19 @@ end
 function MSR.checkSpectatorExternalViews() return MSR.spectate end
 local COAL = { up = false }
 function COAL.show(b) COAL.up = b ~= false end
+-- (DCS's briefing: its FLY (Fly_onChange, bound to its button when the window is made) calls net.spawn_player and puts
+-- the briefing away; the GUI state's own net, as BriefingDialog.lua has it: require('net'))
 local BRIEF = {}
+SPAWNS = {}
+local GNET = setmetatable({ spawn_player = function() SPAWNS[#SPAWNS + 1] = 'at ' .. T end }, { __index = net })
 function BRIEF.show(from) BRIEF.shown = from end
+function BRIEF.Fly_onChange()
+  GNET.spawn_player()
+  BRIEF.shown = nil
+end
+BRIEF.buttonFly = { onChange = BRIEF.Fly_onChange }
 local GUI = setmetatable({ package = { loaded = { MultiplayerSelectRole = MSR, MultiplayerSelectCoalitionDialog = COAL,
-  MultiplayerSelectRoleDialog = { show = function() end }, BriefingDialog = BRIEF } },
+  MultiplayerSelectRoleDialog = { show = function() end }, BriefingDialog = BRIEF, net = GNET } }, net = GNET,
   DCS = setmetatable({ getPlayerUnitType = function() return 'FA-18C_hornet' end, preloadCockpit = function(t) BRIEF.preloaded = t end }, { __index = DCS }) },
   { __index = _G })
 local inMission = net.dostring_in
@@ -204,6 +213,7 @@ local function logged(text)
   for i = #LOG, 1, -1 do if LOG[i]:find(text, 1, true) then return (LOG[i]:gsub('[\r\n]+$', '')) end end
 end
 rec('the GUI state reached: ' .. tostring(logged('slots: DCS\'s slot screen, in the GUI state: ')))
+rec('FLY wrapped: ' .. tostring(logged('slots: FLY, in the GUI state: ')))
 rec(string.format('wrapped: picker shown %s, DCS\'s screen up %s', tostring(onScreen()), tostring(MSR.up)))
 -- 9) the picker's Close: DCS's own close (onEsc: spectating); DCS asks for its screen again (its Esc menu's "Choose
 -- Slot"): nothing drawn, the picker instead
@@ -253,15 +263,57 @@ rec(string.format('no spectators: Close %s, picker shown %s', #MSR.escs == 0 and
 MSR.spectate = true
 -- 15) Spawn: the slot taken (net.set_slot), then DCS's briefing as DCS's own BRIEFING button opens it (onEsc(true), the
 -- cockpit preloaded, the briefing 'Menu'); its FLY puts the player in the jet
+-- (the mission asked what stands on a spot (S.staticOn): every static the mission script has made, where it is)
+do
+  local own = MISSION.Unit.getByName
+  MISSION.Unit.getByName = function(n) if n == 'CVN-72' then return CV end return own(n) end
+  MISSION.coalition.getStaticObjects = function(side)
+    local out = {}
+    for name, s in pairs(side == 2 and STATICS or {}) do
+      out[#out + 1] = { isExist = function() return STATICS[name] ~= nil end, getName = function() return name end, getPoint = function() return s.getPosition().p end }
+    end
+    return out
+  end
+end
+-- (spot 1's static back: step 6's Spawn took it away (static first) and its slot came to the host as the rig moved on)
+D.unman(1)
+frames(1)
+rec(string.format('before Spawn: statics on spot 1: %d, state %s', statics(), tostring(stateOf(1))))
 SL.sel = nil
 for _, it in ipairs(SL.items()) do if it.slot and it.slot.id == '901' then SL.sel = it end end
 press('Spawn')
 frames(1)
--- (the static goes first, the slot is taken three seconds later: with the static still on its spot DCS puts the
--- player's aircraft on another: the run of 2026-11-22)
+-- (DCS'S FLY HELD: the slot at once, the static standing until his FLY: the user, 2026-11-23, "tighten the delay
+-- between removing the static and spawning the actual aircraft")
 rec(string.format('Spawn pressed: slot "%s", its static taken away %s, reserved for %s', players[1].slot, tostring(D.onSpot(1).manned == true), tostring(SL.hold['901'] and SL.hold['901'].name)))
 frames(3)
 rec(string.format('Spawn: slot %s; DCS %s, cockpit %s, briefing %s; picker shown %s', players[1].slot, table.concat(MSR.escs, ' '), tostring(BRIEF.preloaded), tostring(BRIEF.shown), tostring(onScreen())))
+rec(string.format('in the briefing 3 s: statics on spot 1: %d, spawned %d', statics(), #SPAWNS))
+-- (what the mission says stands on spot 1's place, and on a place 10 m off it)
+local sp1 = SL.spotPos[1]
+rec(string.format('on spot 1: %s; 10 m off it: "%s"', tostring(SL.staticOn('CVN-72', sp1, 3)), tostring(SL.staticOn('CVN-72', { x = sp1.x + 10, z = sp1.z }, 3))))
+-- his FLY, as DCS calls it (the button bound when the briefing was made): noted, not done; the briefing stays up
+BRIEF.buttonFly.onChange()
+frames(0.25)
+rec(string.format('FLY pressed: spawned %d, statics on spot 1: %d, briefing up %s', #SPAWNS, statics(), tostring(BRIEF.shown ~= nil)))
+local flyT = T
+frames(0.75)
+rec(string.format('FLY + 1 s: spawned %d, statics on spot 1: %d', #SPAWNS, statics()))
+frames(1)
+rec(string.format('FLY + 2 s: spawned %d (%s s after FLY), statics on spot 1: %d, briefing up %s', #SPAWNS, SPAWNS[1] and tostring(tonumber(SPAWNS[1]:match('[%d.]+')) - flyT) or '-', statics(), tostring(BRIEF.shown ~= nil)))
+rec('FLY asked: ' .. tostring(logged("slots: FLY: Hornet 1: DCS's FLY asked for")):gsub('^.-(slots: )', '%1'))
+rec('FLY: ' .. tostring(logged('slots: FLY: Hornet 1: the spot')):gsub('^.-slots: ', ''))
+rec('FLY: ' .. tostring(logged('slots: FLY: Hornet 1: DCS\'s FLY made')):gsub('^.-slots: ', ''))
+-- (nothing held: DCS's own FLY at once)
+BRIEF.buttonFly.onChange()
+rec('FLY again, nothing held: spawned ' .. #SPAWNS)
+-- WHAT EACH FLY SAYS (what aimTick reports: the rig has no native module to aim with): how long its spot stood empty,
+-- of that the wait, the check and aim, and DCS; whether updobs ran
+do
+  local f = { state = 'spawning', sl = { name = 'Hornet 1' }, settle = 0, goneT = T - 2.5, at = T - 2.5, goT = T - 2.5, gap = 2.4, refresh = 'yes' }
+  SL.flyResult(f, 'landed', T)
+  rec('result: ' .. f.state .. '; ' .. tostring(logged('slots: FLY: Hornet 1: ON ITS SPOT')):gsub('^.-slots: ', ''))
+end
 -- 16) THE TWO RELEASES (the user, 2026-11-20: Release slot unseats as DCS's own does; a separate release of a player's
 -- reservation on a spotted aircraft; "visually distinct and physically separate ... Both should have confirmations").
 -- In the jet, back to the picker through "Choose Slot": Release slot shown (amber), Release reservation not (he is in it)
@@ -430,4 +482,53 @@ do
     rec(string.format('picture %d x %d: bow right of stern %s; the length %.2f of the width, its ends at %d and %d; the hull %d to %d across, %d to %d down; the camera %d m off, looking down %.1f',
       sw, sh, tostring(bx > sx and math.abs(by - sy) < 1), (bx - sx) / sw, sx, bx, q.x0, q.x1, q.y0, q.y1, q.range, q.pitch))
   end
+end
+-- 20) THE FIRST-SPAWN TEST'S SERIES (crewtest_slots.lua FIRST, S.firstStart): each mission start runs the next case;
+-- a start that finds "started" as the last line writes "froze" and the series stops there
+do
+  local path = 'W/Logs/catcc-firstspawn-test.txt'
+  SL.firstFile, SL.firstOn = path, true -- (the series is off in the file since it was done, 2026-11-24)
+  SL.firstDone = nil -- (as at a mission's start: step 15's FLY was this mission's first)
+  -- (the file, as the harness keeps its files: in memory; written, appended to, read by lines)
+  local text, own = nil, io.open
+  io.open = function(p, mode)
+    if p ~= path then return own(p, mode) end
+    mode = mode or 'r'
+    if mode == 'r' then
+      if not text then return nil end
+      local t = text
+      return { lines = function() return t:gmatch('([^\n]*)\n') end, close = function() end }
+    end
+    if mode == 'w' or not text then text = '' end
+    return { write = function(_, ...) text = text .. table.concat({ ... }) end, close = function() end }
+  end
+  local function lines()
+    local out, f = {}, io.open(path, 'r')
+    if not f then return 'no file' end
+    for l in f:lines() do out[#out + 1] = (l:gsub('^.-case', 'case')) end
+    f:close()
+    return table.concat(out, ' / ')
+  end
+  local function add(l)
+    local f = assert(io.open(path, 'a'))
+    f:write('2026-11-24 00:00:00 ' .. l .. '\n')
+    f:close()
+  end
+  do local f0 = io.open(path, 'w') if f0 then f0:close() end end
+  SL.firstStart()
+  rec('series, an empty file: case ' .. tostring(SL.first and SL.first.n) .. ' at ' .. tostring(SL.first and SL.first.at) .. ' s; the hold ' .. SL.notBefore() .. ' s')
+  add('case 1 at=25s started (test)')
+  add('case 1 at=25s landed (DCS 6.0 s)')
+  SL.firstStart()
+  rec('series, case 1 landed: case ' .. tostring(SL.first and SL.first.n) .. ' at ' .. tostring(SL.first and SL.first.at) .. ' s')
+  add('case 2 at=20s started (test)')
+  SL.firstStart()
+  rec('series, case 2 started and never finished: case ' .. tostring(SL.first and SL.first.n) .. '; the hold ' .. SL.notBefore() .. ' s; the file: ' .. lines())
+  SL.firstStart()
+  rec('series, the next start: case ' .. tostring(SL.first and SL.first.n) .. '; the file: ' .. lines())
+  io.open = own
+  SL.first, SL.firstFile, SL.firstOn = nil, nil, nil
+  -- (and with the series off, as installed: no case, no hold)
+  SL.firstDone, SL.firstAsked = nil, nil
+  rec('series off: the hold ' .. SL.notBefore() .. ' s, case ' .. tostring(SL.first and SL.first.n))
 end

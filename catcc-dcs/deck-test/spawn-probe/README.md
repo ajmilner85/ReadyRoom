@@ -1,7 +1,7 @@
 # ATC probe (spawn-probe)
 
 An experiment, not part of the mod. Runs 1 to 9 and the slot picker's first run with mission slots were on
-2026-11-22. The module is `atcprobe-10` (`aim`, `restore`, `check`); **`check` and `aim`'s `fromOne` have not run
+2026-11-22. The module is `atcprobe-11` (`aim`, `restore`, `check`, and since 2026-11-23 `updobs`); **`check` and `aim`'s `fromOne` have not run
 in DCS.**
 
 Question: can the carrier's air traffic control (class `woATC`, `Flight.dll`) be told which spawn spot
@@ -199,12 +199,13 @@ play. What decides that is not known.
 Two freezes at 16 and 23 s, none from 29 s on: five data points, no proof. Every plain first spawn (25 s and
 later) was fine; no spawn after the first ever froze (about 50).
 
-## The three calls (native module `atcprobe-10`)
+## The calls (native module `atcprobe-11`)
 
 | Call | What it does |
 |---|---|
 | `native.aim(shipObjectId, T [, mode, allowWrite])` | Every terminal whose number is in play before T (5 <= number < T) is lifted out of play. With a `Term_Index`: one `procInitTerminals` call. Spawn-only: counted as `blocked`, or, with `allowWrite`, the number word written directly. Verified by a fresh list of the ATC's records. Returns `{ target, taken, client, lifted, written, blocked, failed, layoutBad }`. Calling it again lifts nothing twice. |
 | `native.restore([shipObjectId])` | Every lifted number put back, verified. Returns `{ records, written, left, failed }`. Calling it twice does nothing the second time. |
+| `native.updobs(shipObjectId)` | `woATC::updateTermObstructions()` (protected, `void()`, Flight.dll) on the ship's ATC: its own pass over what stands on its terminals. `true`, or `nil, why`. Added 2026-11-23 for the slot picker's held FLY, called the moment a spot's static is seen gone. **NOT YET RUN IN DCS**: whether DCS keeps obstructions from such a pass, or works them out afresh when it chooses, is what the picker's wait ladder tells. |
 
 | `native.check(shipObjectId, spot [, typeName [, mass]])` | **Read only.** DCS's own answers about that spot's terminal, now. Returns `{ spot, place, termIndex, number, type, lifted, free, client, taken, object, obstructed, obstructedWide, usable, why }`. `nil, message` if the ship or the spot's terminal is not found. Without a spot: `{ [spot] = that table }` for every terminal. NOT YET RUN IN DCS. |
 
@@ -360,7 +361,7 @@ crew module is already the largest native file; B saves about 150 lines and one 
 | File | What |
 |---|---|
 | `CATCC-atcprobe-hook.lua` | the run; its settings are at the top |
-| `native/catcc_atcprobe.cpp` | the native Lua module (`luaopen_catcc_atcprobe`, version `atcprobe-10`): `aim`, `restore`, `check`, and the read-only functions the hook logs with |
+| `native/catcc_atcprobe.cpp` | the native Lua module (`luaopen_catcc_atcprobe`, version `atcprobe-11`): `aim`, `restore`, `check`, `updobs`, and the read-only functions the hook logs with |
 | `native/catcc_atcprobe_selftest.cpp` | its self-test, on stand-in classes shaped like DCS's |
 | `native/build.cmd` | builds and runs the self-test, then builds `bin\catcc_atcprobe.dll` (only if it passed) |
 | `native/check_exports.py` | checks every decorated name of the module against the DLLs' export tables (`bin` and `bin-mt`) |

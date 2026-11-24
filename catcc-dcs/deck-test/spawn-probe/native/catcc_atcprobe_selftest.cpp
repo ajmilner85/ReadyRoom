@@ -122,6 +122,8 @@ class woATC {
   }
   NOINL void Clean_Taxi(unsigned id) { taxiId = id; }
   NOINL void onObjectDestroy(unsigned id) { destroyedId = id; }
+  int obsPasses = 0;
+  NOINL void updateTermObstructions() { obsPasses++; }
   int inits = 0;
   NOINL void procInitTerminals(const std::vector<TerminalState> &v) {
     inits++;
@@ -478,6 +480,12 @@ int main() {
   s_cleanTaxi = addrOf(&woATC::Clean_Taxi);
   s_objDestroy = addrOf(&woATC::onObjectDestroy);
   s_initTerms = addrOf(&woATC::procInitTerminals);
+  check(!updObsRaw(&atc) && atc.obsPasses == 0, "updateTermObstructions not exported: not called");
+  s_updObs = addrOf(&woATC::updateTermObstructions);
+  check(updObsRaw(&atc) && atc.obsPasses == 1, "updateTermObstructions(): called once on the ATC");
+  s_updObs = addrOf(&woATC::crash);
+  check(!updObsRaw(&atc), "an updateTermObstructions that raises: caught");
+  s_updObs = addrOf(&woATC::updateTermObstructions);
   check(gByteUInt(s_freeUnused, &atc, 900001u, &v) && v == 1 && atc.unusedId == 900001u && gByteUInt(s_freeUnused, &atc, 7, &v) && v == 0, "freeUnusedTerminalAcquirement(unsigned) -> bool");
   check(gSetUInt(s_cleanTaxi, &atc, 900002u) && atc.taxiId == 900002u && gSetUInt(s_objDestroy, &atc, 900003u) && atc.destroyedId == 900003u, "Clean_Taxi(unsigned), onObjectDestroy(unsigned)");
   check(stateSnapRaw(&atc) == 48 && ((TerminalState *)g_state0)[4].number == 5 && !((TerminalState *)g_state0)[4].taken, "the terminals' states kept (fillTerminalsState)");

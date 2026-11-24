@@ -90,7 +90,7 @@
 #include <functional>
 #include <new>
 
-static const char VERSION[] = "atcprobe-10";
+static const char VERSION[] = "atcprobe-11";
 
 // ---------------------------------------------------------------- log file
 static char g_logPath[MAX_PATH];
@@ -259,7 +259,7 @@ static void *s_regInstance, *s_shipGetAtc, *s_airbaseGetAtc;
 static void *s_termList, *s_forEach, *s_byIdx, *s_byIdx0, *s_getTerminal, *s_haveFree0, *s_haveFree2, *s_canSpawn, *s_obstr,
     *s_obstrDyn, *s_clients, *s_fillState, *s_spawnOn, *s_spawnOnPt, *s_spawnOnFree, *s_myTerm, *s_termByClient;
 static void *s_isFree, *s_clientId, *s_getOrder, *s_setOrder, *s_missId, *s_typeAcq, *s_acqObj, *s_isAcqBy, *s_acquire, *s_acquire3,
-    *s_free, *s_adrVt, *s_freeForMeS, *s_freeForMeI, *s_isAcqByS, *s_ownerDead, *s_waitSpawn, *s_spawnOnMiss, *s_forced, *s_termStatus, *s_freeUnused, *s_cleanTaxi, *s_objDestroy, *s_initTerms;
+    *s_free, *s_adrVt, *s_freeForMeS, *s_freeForMeI, *s_isAcqByS, *s_ownerDead, *s_waitSpawn, *s_spawnOnMiss, *s_forced, *s_termStatus, *s_freeUnused, *s_cleanTaxi, *s_objDestroy, *s_initTerms, *s_updObs;
 
 struct Sym {
   const char *dll, *name;
@@ -317,6 +317,9 @@ static const Sym SYMS[] = {
     {"Flight.dll", "?Clean_Taxi@woATC@@QEAAXI@Z", &s_cleanTaxi, "woATC::Clean_Taxi(unsigned)"},
     {"Flight.dll", "?onObjectDestroy@woATC@@IEAAXI@Z", &s_objDestroy, "woATC::onObjectDestroy(unsigned)"},
     {"Flight.dll", "?procInitTerminals@woATC@@QEAAXAEBV?$vector@UTerminalState@@V?$allocator@UTerminalState@@@ed@@@ed@@@Z", &s_initTerms, "woATC::procInitTerminals(vector<TerminalState>)"},
+    // atcprobe-11: the ATC's own pass over which terminals have something standing on them (the slot picker calls it the
+    // moment a spot's static is gone, so that a spawn asked for at once is not turned away by what stood there)
+    {"Flight.dll", "?updateTermObstructions@woATC@@IEAAXXZ", &s_updObs, "woATC::updateTermObstructions()"},
 };
 static const int NSYMS = sizeof SYMS / sizeof SYMS[0];
 
@@ -371,6 +374,8 @@ static bool gUInt(void *fn, const void *self, unsigned int *out) {
 static bool gVoid(void *fn, void *self) {
   __try { ((FnVoid)fn)(self); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
+// woATC::updateTermObstructions() on an ATC (atcprobe-11: l_updobs)
+static bool updObsRaw(void *atc) { return s_updObs && gVoid(s_updObs, atc); }
 static bool gSetInt(void *fn, void *self, int v) {
   __try { ((FnSetInt)fn)(self, v); return true; } __except (EXCEPTION_EXECUTE_HANDLER) { return false; }
 }
@@ -1364,6 +1369,20 @@ static int l_check(lua_State *L) {
   }
   return 1;
 }
+// updobs(shipObjectId) -> true: woATC::updateTermObstructions() on the ship's ATC (its own pass over what stands on its
+// terminals, which DCS otherwise makes when it chooses); nil, why if it could not be called. NOT YET RUN IN DCS.
+static int l_updobs(lua_State *L) {
+  unsigned int id = 0;
+  if (!idArg(L, 1, &id) || id == 0) return fail(L, "not an object id");
+  const char *why = ensureShip(id);
+  if (why) return fail(L, why);
+  if (!s_updObs) return fail(L, "woATC::updateTermObstructions is not exported");
+  bool ok = updObsRaw(g_atc);
+  nlog("updateTermObstructions(): %s", ok ? "returned" : "EXCEPTION");
+  if (!ok) return fail(L, "it raised an exception");
+  p_lua_pushboolean(L, 1);
+  return 1;
+}
 // restore([shipObjectId]) -> { records, written, left, failed }
 static int l_restorelifts(lua_State *L) {
   unsigned int id = 0;
@@ -2036,7 +2055,7 @@ static const luaL_Reg funcs[] = {{"info", l_info},           {"setlog", l_setlog
                                  {"waitspawn", l_waitspawn}, {"freeforme", l_freeforme}, {"acquiredby", l_acquiredby}, {"spawnonmiss", l_spawnonmiss},
                                  {"forced", l_forced},       {"termstatus", l_termstatus}, {"atccall", l_atccall},
                                  {"snapstate", l_snapstate}, {"initterms", l_initterms}, {"poke", l_restore},   {"initrows", l_initrows},
-                                 {"aim", l_aim},             {"restore", l_restorelifts}, {"check", l_check},
+                                 {"aim", l_aim},             {"restore", l_restorelifts}, {"check", l_check},       {"updobs", l_updobs},
                                  {"peekatc", l_peekatc},     {nullptr, nullptr}};
 
 extern "C" __declspec(dllexport) int luaopen_catcc_atcprobe(lua_State *L) {

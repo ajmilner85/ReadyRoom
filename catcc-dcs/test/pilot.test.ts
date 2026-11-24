@@ -142,8 +142,15 @@ for k = mark + 1, #out do if out[k] == 'gate 11873=1' then rec('sp gate 11873=1'
 DCS.isMultiplayer = function() return true end
 DCS.isServer = function() return false end
 net.get_player_info = function() return 'Volt 3-1 | 401 Ace' end
+-- (the chocks' comings and goings are in the log only since 2026-11-24: the message relayed is one still shown, the
+-- contact lost, kept until the server is heard again)
 before = #server.sent
 server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":["Volt 3-1 | 401 Ace"]}'
+frame(2.1)
+frame(0.1)
+before = #server.sent
+for _ = 1, 14 do frame(1) end
+server.inbox[#server.inbox + 1] = '{"type":"hold","p":[],"c":[]}'
 frame(2.1)
 frame(0.1)
 rec('relay ' .. server.sent:sub(before + 1):gsub('\\n', '|'))
@@ -541,7 +548,10 @@ describe('CATCC pilot hook', () => {
   it('asks nobody for chocks in an aircraft that is not a Hornet', () => {
     expect(out).not.toContain('chocks placed');
   });
-  it('shows the pilot what the mod is doing when messages are on (single player or hosting: directly)', () => {
+  it("shows the pilot only what needs him when messages are on (single player or hosting: directly); the chocks' and the salute's comings and goings in the log only", () => {
+    // (the user, 2026-11-24: "remove any debugging messages that are for systems we've already settled. Like the CATCC
+    // movement with chocks messages")
+    expect(out).toContain('say CATCC: lost contact with PriFly: nothing is held');
     for (const m of [
       'in contact with PriFly',
       'salute reported to PriFly',
@@ -549,16 +559,13 @@ describe('CATCC pilot hook', () => {
       'chocks request kept: they come off with your taxi instruction',
       'PriFly let go: chocks coming off',
       'PriFly let go of your chocks',
-      'lost contact with PriFly: nothing is held',
     ]) {
-      expect(out).toContain('say CATCC: ' + m);
+      expect(out).not.toContain('say CATCC: ' + m);
     }
-    // the same message at most every 10 s (the first two salutes, 7 s apart: shown once)
-    const end = out.findIndex((l) => l.startsWith('salutes '));
-    expect(out.slice(0, end).filter((l) => l === 'say CATCC: salute reported to PriFly').length).toBe(1);
   });
   it('sends its messages through the server hook when it joined someone else\'s server', () => {
-    expect(line(out, 'relay ')).toBe('relay MSG Volt 3-1 | 401 Ace\tPriFly holds your chocks until your taxi instruction|');
+    // (the contact lost while a client: kept, and relayed once the server is heard again)
+    expect(line(out, 'relay ')).toBe('relay MSG Volt 3-1 | 401 Ace\tlost contact with PriFly: nothing is held|');
   });
   it('knows the pilot by the unit\'s pilot name too (single player)', () => {
     expect(out).toContain('gate 11873=1'); // held under the multiplayer name above; the single-player case follows
@@ -592,7 +599,6 @@ describe('CATCC pilot hook: the salute is held while PriFly holds the chocks (de
   it('tells PriFly the pilot is ready to taxi when he salutes by key or by the F8 item', () => {
     expect(line(out, 'key salute ')).toBe('key salute SALUTE Ace|');
     expect(line(out, 'F8 salute ')).toBe('F8 salute EV taxi Ace|');
-    expect(out).toContain('say CATCC: ready call sent to PriFly: salute again once you have your taxi instruction');
     expect(out.indexOf('F8 salute sent (stock)')).toBeGreaterThan(out.findIndex((l) => l.startsWith('released layer ')));
   });
   it('goes back above the aircraft\'s layer when something puts that on top, and leaves other layers alone', () => {
@@ -659,7 +665,6 @@ describe('CATCC pilot hook: ground crew chocks while PriFly holds a jet with non
   });
   it('asks the Hornet\'s ground crew once, on a carrier under way too, and knows the chocks as its own', () => {
     expect(out).toContain('asked 1 chocks 1');
-    expect(out).toContain('say CATCC: ground crew chocks in: PriFly holds them until your taxi instruction');
   });
   it('has them taken out again when PriFly lets go, once', () => {
     expect(out).toContain('removed 1 chocks 0');

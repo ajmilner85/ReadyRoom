@@ -8,7 +8,7 @@
 --    (CATCC-pilot-hook.lua) reads CATCC_CT.hold from here. While held it keeps the jet's own chocks in:
 --    with the Supercarrier deck crew on, the salute never reaches the crew (they pull the chocks on
 --    it); with the deck crew off, it asks the Hornet's ground crew for chocks.
--- 2. The Hornet's own wheel chocks (draw argument 23) are watched all the time: on screen and in dcs.log
+-- 2. The Hornet's own wheel chocks (draw argument 23) are watched all the time: in dcs.log only
 --    ("CATCC chock test: ...") when they go on or come off, and how far the jet moves while they are on.
 -- 3. PARKED (2026-11-13, the user's call: not the right approach, and it would be worse in multiplayer):
 --    collision "blockers", static objects at the wheels or gear legs, linked to the carrier. What they
@@ -104,6 +104,11 @@ local GEAR_ARGS = { 0, 5, 3 } -- nose, left, right gear (1 = down): a collapsed 
 local function say(gid, text)
   trigger.action.outTextForGroup(gid, 'CATCC test: ' .. text, SAY_S)
   if env and env.info then env.info('CATCC chock test: ' .. text) end -- dcs.log too, so it can be read afterwards
+end
+-- dcs.log only: the watch on the Hornet's own chocks (settled 2026-11-24, the user: those messages are not
+-- needed on screen any more)
+local function note(text)
+  if env and env.info then env.info('CATCC chock test: ' .. text) end
 end
 
 local function heading(v) return (atan2(v.z, v.x)) % TWO_PI end
@@ -283,9 +288,9 @@ local function watchOwnChocks(unit, s, gid)
       own.ship = ship and ship:getName() or nil
       if ship then own.fwd, own.stb = toShip(ship, unit:getPoint()) end
       own.last, own.max = 0, 0
-      say(gid, "the Hornet's own wheel chocks are ON. Add power: any movement is reported here")
+      note("the Hornet's own wheel chocks are ON")
     else
-      say(gid, string.format("the Hornet's own wheel chocks are OFF (moved %.2f m at most while they were on)", own.max or 0))
+      note(string.format("the Hornet's own wheel chocks are OFF (moved %.2f m at most while they were on)", own.max or 0))
     end
     return
   end
@@ -297,7 +302,7 @@ local function watchOwnChocks(unit, s, gid)
   if moved > own.max then own.max = moved end
   if math.abs(moved - own.last) >= 0.05 then
     own.last = moved
-    say(gid, string.format("moved %.2f m with the Hornet's own chocks on; life %.1f/%.1f", moved, unit:getLife(), unit:getLife0()))
+    note(string.format("moved %.2f m with the Hornet's own chocks on; life %.1f/%.1f", moved, unit:getLife(), unit:getLife0()))
   end
 end
 
@@ -363,7 +368,7 @@ local function addMenu(unit)
     end))
   end
   hold('PriFly hold: ON', 'on', 'PriFly hold ON (test): the pilot mod keeps your chocks in. Deck crew on: your salute is ' ..
-    'held back from the crew. Deck crew off: the ground crew is asked for chocks. Add power: any movement is reported here')
+    'held back from the crew. Deck crew off: the ground crew is asked for chocks')
   hold('PriFly hold: OFF (taxi instruction)', 'off', 'PriFly hold OFF (test), as after a taxi instruction: your salute ' ..
     'works again, and chocks the mod asked for come off')
   hold('PriFly hold: follow PriFly', nil, 'test switch out: the pilot mod follows PriFly again')

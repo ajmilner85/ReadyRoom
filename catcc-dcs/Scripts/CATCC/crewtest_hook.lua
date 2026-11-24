@@ -6741,7 +6741,9 @@ local function autoList(t)
   if not r then return end
   pathFindingOn(r)
   if #r.people > 0 then
-    say('at mission start: ' .. summary(r, ctx) .. (customClip ~= nil and (customClip and ' Our own animation clip: in the list.' or ' Our own animation clip: NOT in the list.') or ''))
+    -- (in the log only: settled, the user, 2026-11-24: "remove any debugging messages that are for systems we've
+    -- already settled")
+    logLine('at mission start: ' .. summary(r, ctx) .. (customClip ~= nil and (customClip and ' Our own animation clip: in the list.' or ' Our own animation clip: NOT in the list.') or ''))
   else
     say('at mission start: ' .. summary(r, ctx) .. ' the quick way. Scanning memory instead: DCS will freeze for a few seconds.')
     pending = { at = now() + 1, fn = function() commands.memory(true) end }

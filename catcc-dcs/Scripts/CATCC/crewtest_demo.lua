@@ -7771,7 +7771,8 @@ function M.tick(t)
         logLine(string.format('demo: LANES the tractors\' own ways, metres: in their lane (inner) %d, in their far lane %d, on a centreline %d, between lanes %d, in a lane the wrong way %d, off the roads %d',
           L.inner or 0, L.far or 0, L.centre or 0, L.between or 0, L.wrong or 0, L.off or 0))
       end
-      say(txt)
+      -- (on the screen only when something did not go as planned)
+      if (M.failed or 0) > 0 or (M.notClear or 0) > 0 then say(txt) end
     end
   end
   -- nothing moving for a long while: said once, in the log
@@ -8223,7 +8224,9 @@ function M.start()
   for _, pl in ipairs(M.spotPlaces) do names[#names + 1] = tostring(pl.a.spot.name) end
   logLine(string.format('demo: the deck\'s %d tractors take whatever costs them least (no sections); they wait in the junkyard, in the pocket between the island and elevator 2 (%d places) and on deck spots while those are empty (%s)',
     nDeck, #M.pocket, #names > 0 and table.concat(names, ', ') or 'none: they keep out of the parking places'))
-  say(string.format('demo: %d aircraft on %s: %d on the flight deck, %d in the hangar. The elevators bring those up two at a time; %d tractors below, %d above.%s Ctrl+Shift+F9 stops it.',
+  -- (in the log only: the demo is settled (the user, 2026-11-24: "remove any debugging messages that are for systems
+  -- we've already settled"); a server finds its drivers later, so a count of them at the start says nothing)
+  logLine(string.format('demo: %d aircraft on %s: %d on the flight deck, %d in the hangar. The elevators bring those up two at a time; %d tractors below, %d above.%s Ctrl+Shift+F9 stops it.',
     made, tostring(M.ship), onDeck, hangarN, nHangar, nDeck, #drivers < #M.tugs and string.format(' (%d of %d tractors have a driver: for the others run deck-test\\director-test.ps1 -Spawn Spots -Crew Model with DCS closed.)', #drivers, #M.tugs) or ''))
 end
 
@@ -8475,7 +8478,7 @@ function M.stop(quiet)
   M.on, M.jobs, M.aircraft, M.tugs, M.elevators, M.el = false, {}, {}, {}, {}, {}
   if not quiet then
     logLine('demo: stopped: everything taken away')
-    say(was and 'demo: stopped: the aircraft, the tractors and the bars are taken away; the elevators come up.' or 'demo: it was not running.')
+    if not was then say('demo: it was not running.') end
   end
 end
 
