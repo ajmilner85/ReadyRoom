@@ -11,6 +11,11 @@
 --   CATCC_Towbar                    the tow bar (crew-test/model/towbar.py, our own .edm writer)
 --   CATCC_AxleProbe                 a rod written by our own .edm writer: the axle finder makes it once, out of
 --                                   sight, to say in the log whether DCS takes such a model as a static
+--   CATCC_Tiedown                   the Navy's TD-1A aircraft tiedown (crew-test/model/tiedown.py, our own .edm writer):
+--                                   placed with its origin on a padeye (the chain's hook), headed level towards the
+--                                   aircraft's tiedown fitting (the tensioner's hook); argument 10 = the length to the
+--                                   fitting / 4 m (0.512 to 3.240 m), 11 = the chain's rise from the deck / 90 degrees,
+--                                   12 = the tensioner's finish (0 yellow, 0.1 red, 0.2 bare metal)
 local function deck_static(name, displayName, shape)
   local u = {}
   u.shape_table_data =
@@ -44,3 +49,4 @@ end
 deck_static('CATCC_AxleEnd', _('CATCC axle end plate (test)'), 'CATCC_AxleEnd')
 deck_static('CATCC_Towbar', _('CATCC tow bar (test)'), 'CATCC_Towbar')
 deck_static('CATCC_AxleProbe', _('CATCC axle probe (test)'), 'CATCC_AxleProbe')
+deck_static('CATCC_Tiedown', _('CATCC tiedown'), 'CATCC_Tiedown')

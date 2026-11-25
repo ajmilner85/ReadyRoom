@@ -302,7 +302,8 @@ OUT = table.concat({
     expect(entry).toContain("mount_vfs_texture_path(current_mod_path .. '/Shapes/textures')");
     const markers = Array.from({ length: 26 }, (_, i) => `Shapes/CATCC_AxleMarker_H${15 + i}.edm`);
     for (const f of ['Database/db_catcc_crew.lua', 'Shapes/CATCC_Towbar.edm', 'Shapes/CATCC_AxleProbe.edm', ...markers, 'Shapes/textures/catcc_towbar_diff.dds', 'Shapes/textures/catcc_towbar_nm.dds',
-      'Shapes/textures/catcc_towbar_diff_roughmet.dds'])
+      'Shapes/textures/catcc_towbar_diff_roughmet.dds', 'Shapes/CATCC_Tiedown.edm', 'Shapes/textures/catcc_tiedown_diff.dds', 'Shapes/textures/catcc_tiedown_nm.dds',
+      'Shapes/textures/catcc_tiedown_diff_roughmet.dds'])
       expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/${f}`)), f).toBe(true);
     expect(fs.existsSync(here('../deck-test/crew-test/Mods/tech/CATCC-Crew/models/catcc_test_pilot.chanimgpu'))).toBe(true);
     expect(fs.readFileSync(here('../deck-test/crew-test/Mods/tech/CATCC-Crew/entry.lua'), 'utf8')).toContain("mount_vfs_animations_path(current_mod_path .. '/animations')");
@@ -981,7 +982,7 @@ OUT = table.concat(types, ';') .. '|' .. table.concat(mounts, ';') .. '|' .. tos
     const [types, mounts, done] = out.split('|');
     // a type's name is its model's file name and its shape's name, as the chock's and the route lines' are
     const one = (n: string) => `${n}/${n}/${n}/lLandVehicle/ADEquipment/1/2`;
-    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe')]);
+    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe'), one('CATCC_Tiedown')]);
     for (const t of types.split(';')) expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/Shapes/${t.split('/')[1]}.edm`)), t).toBe(true);
     expect(db).not.toMatch(/pcall\s*\(/);
     expect(mounts.split(';')).toEqual(['anim M/animations', 'model M/models', 'model M/Shapes', 'tex M/Shapes/textures']);
