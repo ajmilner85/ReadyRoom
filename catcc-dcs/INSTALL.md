@@ -128,3 +128,18 @@ How it works:
 - It fails open at every step: no seat, no room, no hook, no word for 12–15 s, or no mod means no hold.
 
 Not verified in DCS yet: that draw argument 997 is free and settable on the Hornet (the hook logs what it reads back while held: `CATCC-PILOT ... gate argument 997 reads ...` in `dcs.log`), that `LoSetCommand` from the GUI hook reaches the cockpit device, and which PC runs the launch sequence in multiplayer.
+
+## Another PC from a USB stick (crew test, slot picker, pilot mod)
+
+For testing on a second PC without the repository: build the installer onto the stick on the development PC, then double-click on the other PC.
+
+```
+powershell -ExecutionPolicy Bypass -File catcc-dcs\usb\make-usb.ps1          (or VS Code's "USB" status bar button)
+powershell -ExecutionPolicy Bypass -File catcc-dcs\usb\make-usb.ps1 -Check   (only says which drive it would use)
+```
+
+It takes no destination. It writes only onto the one drive that is removable, not the system drive, labelled exactly `USB DRIVE 01`, and has `CATCC-USB-TARGET.txt` at its root with the first line `CATCC USB target`. With no such drive, or more than one, it writes nothing. The stick is used for nothing else: each build first empties it, keeping only the sentinel file and Windows' own `System Volume Information` and `$RECYCLE.BIN`, then writes `Install CATCC.cmd` and `Uninstall CATCC.cmd` in the root and everything else in `CATCC-files`. If anything on the stick is a link (a junction or symbolic link), it deletes nothing. Every file is checked to be on the stick before it is deleted or written.
+
+`CATCC-files` holds the crew test's and the pilot mod's installers with every file they read, in the repository's layout, so they run there unchanged. Both `.cmd` files run `CATCC-files\catcc-usb.ps1`, which finds that PC's `Saved Games\DCS` and DCS folder (DCS's registry entry), refuses while DCS is running, asks for admin once, runs the crew test's installer and then the pilot mod's (`-Uninstall` for the other), and waits for Enter. What they printed is kept in `CATCC-files\last-run.log`. Uninstall takes out everything they put in and returns the patched DCS files to stock.
+
+The folder is built from the working tree as it is, so rebuild it after changing anything. `Scripts\CATCC\config.lua` (the room's settings) is left out. The native modules must be built first (the builder checks that each is newer than its source).

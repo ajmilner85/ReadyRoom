@@ -1,10 +1,11 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef, lazy, Suspense } from 'react';
 import { Icon } from '../ui/primitives';
 import KneeboardPendingBanner from './KneeboardPendingBanner';
 import FlightAssignmentsKneeboard from './FlightAssignmentsKneeboard';
 import CommsPlanKneeboard from './CommsPlanKneeboard';
 import DeckKneeboard from './DeckKneeboard';
 import { useAuth } from '../../context/AuthContext';
+import { usePermissions } from '../../hooks/usePermissions';
 import { supabase } from '../../utils/supabaseClient';
 import type { Cycle } from '../../types/EventTypes';
 import type { CommsPlanEntry } from '../../types/CommsTypes';
@@ -41,10 +42,23 @@ const KNEEBOARD_HEIGHT = 2048;
 const PAGE_1_GUID = 'f8a8b3c1-4d2e-4f5a-9b1c-2d3e4f5a6b7c'; // Flight Assignments
 const PAGE_2_GUID = 'a1b2c3d4-5e6f-7a8b-9c0d-1e2f3a4b5c6d'; // Comms Plan
 const PAGE_3_GUID = '6d1f3e2a-8c4b-4a7e-9f05-3b2c1d0e9a87'; // Flight Deck (live taxi clearance)
-const PAGE_GUIDS = [PAGE_1_GUID, PAGE_2_GUID, PAGE_3_GUID];
+const PAGE_4_GUID = 'c7e2a913-5b0d-4f68-a2e4-91d03b6f8c25'; // Test Script (developers only)
+// the pages, in order; dev: listed only for users with access_developer_settings
+const PAGES: { guid: string; title: string; dev?: boolean }[] = [
+  { guid: PAGE_1_GUID, title: 'Flight Assignments' },
+  { guid: PAGE_2_GUID, title: 'Comms Plan' },
+  { guid: PAGE_3_GUID, title: 'Flight Deck' },
+  { guid: PAGE_4_GUID, title: 'Test Script', dev: true },
+];
+// (the test script page's code and text are fetched only when it is shown)
+const TestScriptKneeboard = lazy(() => import('./TestScriptKneeboard'));
 
 const KneeboardLayout: React.FC = () => {
   const { userProfile, loading: authLoading } = useAuth();
+  const { hasPermission, loading: permissionsLoading } = usePermissions();
+  const showDevPages = !permissionsLoading && hasPermission('access_developer_settings');
+  const wantedPages = useMemo(() => PAGES.filter((p) => !p.dev || showDevPages), [showDevPages]);
+  const wantedKey = wantedPages.map((p) => p.guid).join(',');
   const [theme, setTheme] = useState<ThemeMode>(() => {
     // Load theme preference from localStorage (per-user)
     const userId = userProfile?.id;
@@ -69,89 +83,83 @@ const KneeboardLayout: React.FC = () => {
   const [pageGuids, setPageGuids] = useState<string[]>([]);
   const [isOpenKneeboard, setIsOpenKneeboard] = useState(false);
 
-  // Initialize OpenKneeboard page-based content
+  // Initialize OpenKneeboard page-based content: the experimental feature and the page-change listener, once
+  // (okReady: done, before the pages are asked for or set)
+  const okReady = useRef<Promise<boolean> | null>(null);
   useEffect(() => {
-    const initializeOpenKneeboard = async () => {
-      if (!window.OpenKneeboard) {
-        console.log('[KNEEBOARD] Not running in OpenKneeboard context');
-        // Default to page 1 when not in OpenKneeboard
-        setPageGuids(PAGE_GUIDS);
-        setCurrentPageGuid(PAGE_1_GUID);
-        return;
-      }
-
-      try {
-        setIsOpenKneeboard(true);
-        console.log('[KNEEBOARD] Initializing OpenKneeboard page-based content');
-
-        // Enable experimental feature
-        await window.OpenKneeboard.EnableExperimentalFeatures([
-          { name: 'PageBasedContent', version: 2024073001 }
-        ]);
-
-        // Set up event listeners BEFORE GetPages/SetPages
-        const handlePageChanged = (ev: CustomEvent) => {
-          const guid = ev.detail?.page?.guid;
-          if (guid) {
-            console.log('[KNEEBOARD] Page changed to:', guid);
-            setCurrentPageGuid(guid);
-          }
-        };
-
-        window.OpenKneeboard.addEventListener('pageChanged', handlePageChanged);
-
-        // Check if pages already exist
-        const existingPages = await window.OpenKneeboard.GetPages();
-
-        // pages OpenKneeboard kept from an earlier version of this list are replaced, so new pages appear
-        const same = existingPages.havePages && existingPages.pages.length === PAGE_GUIDS.length && existingPages.pages.every((p, i) => p.guid === PAGE_GUIDS[i]);
-        if (same) {
-          console.log('[KNEEBOARD] Using existing pages:', existingPages.pages);
-          const guids = existingPages.pages.map(p => p.guid);
-          setPageGuids(guids);
-          setCurrentPageGuid(guids[0]);
-        } else {
-          // Define pages for the first time
-          const pages: OpenKneeboardPage[] = [
-            {
-              guid: PAGE_1_GUID,
-              pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
-              extraData: { title: 'Flight Assignments' }
-            },
-            {
-              guid: PAGE_2_GUID,
-              pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
-              extraData: { title: 'Comms Plan' }
-            },
-            {
-              guid: PAGE_3_GUID,
-              pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
-              extraData: { title: 'Flight Deck' }
-            }
-          ];
-
-          await window.OpenKneeboard.SetPages(pages);
-          console.log('[KNEEBOARD] Pages initialized:', pages);
-          setPageGuids(PAGE_GUIDS);
-          setCurrentPageGuid(PAGE_1_GUID);
-        }
-
-        // Cleanup event listener on unmount
-        return () => {
-          if (window.OpenKneeboard) {
-            window.OpenKneeboard.removeEventListener('pageChanged', handlePageChanged);
-          }
-        };
-      } catch (error) {
-        console.error('[KNEEBOARD] Error initializing OpenKneeboard:', error);
-        // Fallback to page 1
-        setPageGuids(PAGE_GUIDS);
-        setCurrentPageGuid(PAGE_1_GUID);
+    const ok = window.OpenKneeboard;
+    if (!ok) {
+      console.log('[KNEEBOARD] Not running in OpenKneeboard context');
+      okReady.current = Promise.resolve(false);
+      return;
+    }
+    setIsOpenKneeboard(true);
+    console.log('[KNEEBOARD] Initializing OpenKneeboard page-based content');
+    const handlePageChanged = (ev: CustomEvent) => {
+      const guid = ev.detail?.page?.guid;
+      if (guid) {
+        console.log('[KNEEBOARD] Page changed to:', guid);
+        setCurrentPageGuid(guid);
       }
     };
-
-    initializeOpenKneeboard();
+    okReady.current = (async () => {
+      try {
+        await ok.EnableExperimentalFeatures([{ name: 'PageBasedContent', version: 2024073001 }]);
+        // (the listener BEFORE GetPages/SetPages)
+        ok.addEventListener('pageChanged', handlePageChanged);
+        return true;
+      } catch (error) {
+        console.error('[KNEEBOARD] Error initializing OpenKneeboard:', error);
+        return false;
+      }
+    })();
+    return () => {
+      ok.removeEventListener('pageChanged', handlePageChanged);
+    };
   }, []);
+
+  // The pages: once the permissions are known (the developers' test script page), and again whenever the list changes
+  useEffect(() => {
+    if (permissionsLoading) return;
+    const guids = wantedPages.map((p) => p.guid);
+    const show = (list: string[]) => {
+      setPageGuids(list);
+      setCurrentPageGuid((cur) => (cur && list.includes(cur) ? cur : list[0]));
+    };
+    let cancelled = false;
+    (async () => {
+      const ready = await (okReady.current ?? Promise.resolve(false));
+      if (cancelled) return;
+      const ok = window.OpenKneeboard;
+      if (!ready || !ok) {
+        show(guids);
+        return;
+      }
+      try {
+        const existingPages = await ok.GetPages();
+        // pages OpenKneeboard kept from an earlier version of this list are replaced, so new pages appear
+        const same = existingPages.havePages && existingPages.pages.length === guids.length && existingPages.pages.every((p, i) => p.guid === guids[i]);
+        if (!same) {
+          const pages: OpenKneeboardPage[] = wantedPages.map((p) => ({
+            guid: p.guid,
+            pixelSize: { width: KNEEBOARD_WIDTH, height: KNEEBOARD_HEIGHT },
+            extraData: { title: p.title },
+          }));
+          await ok.SetPages(pages);
+          console.log('[KNEEBOARD] Pages set:', pages);
+        }
+        if (!cancelled) show(guids);
+      } catch (error) {
+        console.error('[KNEEBOARD] Error setting OpenKneeboard pages:', error);
+        if (!cancelled) show(guids);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+    // (wantedKey stands for wantedPages)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [wantedKey, permissionsLoading]);
 
   // Set OpenKneeboard preferred pixel size and viewport for 1:1 rendering
   useEffect(() => {
@@ -899,6 +907,11 @@ const KneeboardLayout: React.FC = () => {
         )}
         {currentPageGuid === PAGE_3_GUID && (
           <DeckKneeboard board={userProfile?.pilot?.boardNumber} colors={colors} />
+        )}
+        {currentPageGuid === PAGE_4_GUID && showDevPages && (
+          <Suspense fallback={null}>
+            <TestScriptKneeboard colors={colors} />
+          </Suspense>
         )}
       </div>
     </div>
