@@ -125,8 +125,15 @@ if CATCC_CREW == 'model' then
   --    (Twelve for some hours of 2026-11-19, catcc-t10 and catcc-t11, while twelve tractors were tried; the demo
   --    went back to ten, and the user: "the only blue shirts should be in tugs. We don't have spare performance to
   --    waste": A DRIVER FOR EACH TRACTOR OF THE DEMO AND NO MORE.)
+  -- 8. "catcc-b0" .. "catcc-b8": the deck spotting demo's brake riders (the user, 2026-11-25: "add brown shirts to
+  --    the cockpit of aircraft being towed"): brown shirts as catcc-m0 is, put in the cockpit of an aircraft just before
+  --    its tractor arrives and taken away once it is clear (crewtest_cockpit.lua). Three in each of catapult crews 2, 3
+  --    and 4: twelve members each then, as crew 1 has (no crew larger than that), so nine, for ten tractors: a tenth
+  --    tow at the same moment goes without one. They wait in a row at 33 m to starboard, 10 m forward to 2 m forward
+  --    (between the drivers' row and the directors), until the demo puts them away. NOT YET SEEN IN DCS.
   local people = { { 'catcc-m0', 'brown', 12.0, 31.0, 1 }, { 'catcc-t0', 'blue', 12.0, 33.0, 1 } }
   for i = 1, 9 do people[#people + 1] = { 'catcc-t' .. i, 'blue', 14.0 - i, 34.5, i <= 3 and 2 or ((i <= 5 or i == 8) and 3 or 4) } end
+  for i = 0, 8 do people[#people + 1] = { 'catcc-b' .. i, 'brown', 10.0 - i, 33.0, 2 + math.floor(i / 3) } end
   for _, who in ipairs(people) do
     local c = crew[who[5]] or crew[1] -- (this one's catapult crew)
     local cid = #c.members + 1

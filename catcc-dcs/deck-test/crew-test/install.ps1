@@ -31,6 +31,11 @@
 #                                            steering wheel: model\driver_pose.py, from the same clip) and keys the same
 #                                            limbs into the head poses; writes driverPose = true into
 #                                            Config\CATCC-test.lua; -DriverPose off: the pilot's own limbs again
+#   Scripts\CATCC\crewtest_cockpit.lua       the demo's brake riders: brown shirts in the cockpit of an aircraft being
+#                                            towed (BRAKE-RIDER.md). Their poses (hands on the windscreen arch's grab
+#                                            handles, the head free to turn) are made at every install by
+#                                            model\rider_pose.py from the same clip (needs python); without them a rider
+#                                            sits in the pilot's own pose
 #   Scripts\CATCC\bin\catcc_crew.dll         the native module (source and self-test: native\)
 #   Scripts\CATCC\bin\catcc_atcprobe.dll     the slot picker's spawn aiming (aim, restore, check): the ATC probe's module,
 #                                            ..\spawn-probe\native (build it with its build.cmd)
@@ -118,6 +123,7 @@ $files = @(
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_worker.lua'; to = Join-Path $scriptsDst 'crewtest_worker.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_hangar.lua'; to = Join-Path $scriptsDst 'crewtest_hangar.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_head.lua'; to = Join-Path $scriptsDst 'crewtest_head.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_cockpit.lua'; to = Join-Path $scriptsDst 'crewtest_cockpit.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_slots.lua'; to = Join-Path $scriptsDst 'crewtest_slots.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_slots.dlg'; to = Join-Path $scriptsDst 'crewtest_slots.dlg' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\catcc_deck.png'; to = Join-Path $scriptsDst 'catcc_deck.png' },
@@ -216,6 +222,22 @@ if ($flags['driverPose'] -eq 'true') {
       if (Test-Path $seatFile) { Remove-Item -Force $seatFile }
       Write-Host "The drivers' limbs: NOT made (the drivers sit in the pilot's pose): $(@($said) -join ' ')"
     }
+  }
+}
+# The brake riders' poses (BRAKE-RIDER.md): five head poses, the plain one and a blend space over the five, made by
+# model\rider_pose.py from the same clip as the drivers' head, at every install (no switch: the demo always has riders).
+if (-not $python) {
+  Write-Host 'The brake riders'' poses: NOT made: python was not found (the riders sit in the pilot''s pose).'
+} else {
+  $said = & $python.Source -I (Join-Path $here 'model\rider_pose.py') $headDir --dcs $DcsDir
+  if ($LASTEXITCODE -eq 0) {
+    Write-Host "The brake riders' poses: $(@($said)[0])"
+  } else {
+    # (nothing half made: a blend space that names a pose that is not there must not reach DCS)
+    Get-ChildItem $headDir -Filter 'catcc_rdr_*.fbx' -ErrorAction SilentlyContinue | Remove-Item -Force
+    $riderSpace = Join-Path $headDir 'blend_space\catcc_bs_rdr_look.lua'
+    if (Test-Path $riderSpace) { Remove-Item -Force $riderSpace }
+    Write-Host "The brake riders' poses: NOT made (the riders sit in the pilot's pose): $(@($said) -join ' ')"
   }
 }
 $flags['crewTest'] = 'true'

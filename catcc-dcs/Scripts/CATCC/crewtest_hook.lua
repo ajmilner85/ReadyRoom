@@ -174,6 +174,8 @@ local function role(p)
   if n == 'catcc-m0' then return 'captain' end
   -- (catcc-t1 .. t7: the deck spotting demo's seven more drivers)
   if n:find('^catcc%-t%d') then return 'driver' end
+  -- (catcc-b0 .. b8: the deck spotting demo's brake riders, brown shirts: crewtest_cockpit.lua)
+  if n:find('^catcc%-b%d') then return 'rider' end
   return 'director'
 end
 
@@ -1068,7 +1070,7 @@ function commands.demo()
   local r = doScan(ctx, 'for the demo', false)
   local ours = {}
   for _, p in ipairs(r and r.mine or {}) do
-    if kind(p) == 'ours' and role(p) ~= 'driver' and p.x and p.z then ours[#ours + 1] = p end
+    if kind(p) == 'ours' and role(p) ~= 'driver' and role(p) ~= 'rider' and p.x and p.z then ours[#ours + 1] = p end
   end
   if #ours == 0 then return say('the demo needs a person of ours (catcc-...) on your ship: none found (data patch applied?)') end
   loadAnimInfo(ours[1])
@@ -1706,7 +1708,7 @@ function commands.marshal(arg, parkArea, hold)
   local r = doScan(ctx, 'for the marshalling', false)
   local ours, catDir = {}, nil
   for _, p in ipairs(r and r.mine or {}) do
-    if kind(p) == 'ours' and role(p) ~= 'driver' and p.x and p.z and not (captain and captain.h == p.h) then ours[#ours + 1] = p end -- (the plane captain stays with the jet)
+    if kind(p) == 'ours' and role(p) ~= 'driver' and role(p) ~= 'rider' and p.x and p.z and not (captain and captain.h == p.h) then ours[#ours + 1] = p end -- (the plane captain stays with the jet)
     if cat and tostring(p.full) == cat .. ': director' and p.x and p.z then catDir = { x = p.x, z = p.z, h = p.h, name = cat .. ': director' } end
   end
   do -- the yellow shirts direct; the brown shirt only if there is no yellow shirt at all
@@ -2673,7 +2675,7 @@ function commands.captain(what, arg)
     local r = doScan(ctx, 'for the plane captain', false)
     local best, bd, bs
     for _, p in ipairs(r and r.mine or {}) do
-      local d = (kind(p) == 'ours' and role(p) ~= 'driver') and distTo(p, ctx.jx, ctx.jz)
+      local d = (kind(p) == 'ours' and role(p) ~= 'driver' and role(p) ~= 'rider') and distTo(p, ctx.jx, ctx.jz)
       if d then
         local sc = role(p) == 'captain' and d - 1e6 or d -- the brown shirt, wherever he stands; else the nearest of ours
         if not bs or sc < bs then best, bd, bs = p, d, sc end
@@ -3205,6 +3207,8 @@ local TOW = {
   -- the mod only after install.ps1 -DriverPose on (Tow.sit); what it is solved for is `seat` above: change one,
   -- change POSE['seat'] in crew-test/model/driver_pose.py too (a test holds them together) and install again
   seatPose = 'catcc_drv_seat',
+  -- a demo tow whose push cannot begin where its pull ended asks again this often (s), for this long (s) (Tow.tickOne)
+  pushRetry = 2, pushWait = 90,
   -- ON THE FLIGHT DECK (Tow.Fd). towR: the tightest the tractor turns with a jet on the bar (its own is turnR): the
   -- nose wheel then stays within about 57 degrees of straight (bar 4.4 m behind a hitch 2.93 m behind the tractor's
   -- own point, the jet's wheelbase 5.44 m); steerMax / kinkMax: a tow whose plan turns the nose wheel, or folds the
@@ -3518,6 +3522,13 @@ do
   local f = loadfile(writedir .. 'Scripts/CATCC/crewtest_head.lua')
   local ok, m = pcall(function() return f and f() end)
   Tow.Head = (ok and type(m) == 'table') and m or nil
+end
+-- THE BRAKE RIDERS (Scripts/CATCC/crewtest_cockpit.lua; crew-test/BRAKE-RIDER.md): brown shirts in the cockpit of an
+-- aircraft the demo tows. Tow.Cockpit is nil when the file is not there: the demo's tows go without them.
+do
+  local f = loadfile(writedir .. 'Scripts/CATCC/crewtest_cockpit.lua')
+  local ok, m = pcall(function() return f and f() end)
+  Tow.Cockpit = (ok and type(m) == 'table') and m or nil
 end
 
 -- THE DRIVERS' LIMBS (crew-test/DRIVER-POSE.md). A driver whose head does not turn sits in the seated pose of ours
@@ -4065,12 +4076,20 @@ function Tow.tickOne(w, ctx, mt)
         Tow.phase(w, 'pull', string.format('tow: under way to %s.', w.dest.name))
       end
     elseif w.phase == 'pull' then
-      if Tow.drive(d, dt) then
+      -- (w.pushRetryAt: a demo tow whose push could not begin where the pull ended holds there, on the bar, and asks
+      -- again every TOW.pushRetry seconds: below)
+      if w.pushRetryAt and w.clock < w.pushRetryAt then
+        d.v = 0
+      elseif Tow.drive(d, dt) then
         d.turnR = nil
         if w.push then
           -- (a deck spot: the tractor has pulled the jet past it and now pushes it back in, tail first)
           local okp, whyp = Tow.Fd.pushBegin(w)
           if okp then
+            if w.pushWaitFrom then
+              logLine(string.format('tow%s: the push into %s begins after all, %.0f s later', w.name and (' ' .. tostring(w.name)) or '', tostring(w.dest.name), w.clock - w.pushWaitFrom))
+              w.pushWaitFrom, w.pushRetryAt = nil, nil
+            end
             Tow.phase(w, 'push', w.pushText or string.format('tow: past %s. Now the tractor pushes you back into it, tail first: hands off.', w.dest.name))
           else
             -- (THE TOW STANDS BENT WHERE THE PULL ENDED ("the bar would fold against the tractor", "the nose wheel would
@@ -4086,7 +4105,20 @@ function Tow.tickOne(w, ctx, mt)
               logLine(string.format('tow%s: the push into %s cannot begin as the tow stands (%s): drawn 5 m straight on to straighten it, then asked again', w.name and (' ' .. tostring(w.name)) or '', tostring(w.dest.name), tostring(whyp)))
               Tow.path(w, { { d.x, d.z }, { ax, az } }, TOW.speed)
               d.turnR = w.towR
+            elseif w.keepBar and w.clock - (w.pushWaitFrom or w.clock) < TOW.pushWait then
+              -- (THE DECK SPOTTING DEMO'S TOWS DO NOT GIVE UP HERE: the user's run of 2026-11-26: a hangar tow to elevator
+              -- 1 whose pull ended exactly as in the run before was refused its push ("the bar would fold against the
+              -- tractor": the planner held it against what stood round it then), unhooked short of the platform, and
+              -- the demo took the aircraft up through the hangar's ceiling with the platform. It holds on the bar and
+              -- asks again every TOW.pushRetry seconds, for TOW.pushWait seconds; then it stops short as before)
+              if not w.pushWaitFrom then
+                w.pushWaitFrom = w.clock
+                logLine(string.format('tow%s: the push into %s cannot begin as the tow stands (%s): it holds on the bar and asks again every %d s', w.name and (' ' .. tostring(w.name)) or '', tostring(w.dest.name), tostring(whyp), TOW.pushRetry))
+              end
+              w.pushRetryAt = w.clock + TOW.pushRetry
+              d.v = 0
             else
+            w.pushShort = true
             Tow.phase(w, 'arrived', string.format('tow: stopped short of %s: the push into it cannot be driven from here (%s). Set the parking brake, then F10 > Tow > Unhook.', w.dest.name, tostring(whyp)))
             end
           end

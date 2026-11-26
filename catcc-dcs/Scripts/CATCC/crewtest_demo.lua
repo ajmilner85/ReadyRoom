@@ -195,7 +195,10 @@ local SOLO = 1.4
 -- one argument: 442, 31 or 32. Taken as hundreds, tens, units, a digit d as d / 10 (the usual way of DCS models: NOT
 -- SEEN IN DCS YET). DCS gives a static a number of its own when it is made; ours is written over it, and again in turn
 -- with the wings.
-local ARG = { chocks = 23, covers = 24, modex = { 442, 31, 32 } }
+-- (canopy: argument 38, opened as the jet's own mechanism opens it (FA-18C_hornet.lua: Door0, "to 0.9"): opened when a
+-- brake rider climbs in (Tow.Cockpit, crewtest_cockpit.lua; the user, 2026-11-25: "The canopy should remain open") and
+-- left open)
+local ARG = { chocks = 23, covers = 24, canopy = 38, canopyOpen = 0.9, modex = { 442, 31, 32 } }
 -- where the catapult crews are sent: the port deck edge forward of the landing area ([catapult] = the first of six places)
 local CREW_AWAY = { { 20, -34.5 }, { 27, -35.5 }, { 34, -37.5 }, { 41, -37.5 } }
 
@@ -488,8 +491,8 @@ local function foldWings(a)
       M.foldBad = true
       logLine('demo: the wings could not be folded (' .. tostring(ok and er or res) .. '): they stay as DCS draws them')
     end
-    for _, q in ipairs({ { ARG.chocks, a.chocks }, { ARG.covers, a.covers } }) do
-      local ok2, res2, er2 = pcall(api.native().objarg, h, a.id, q[1], q[2] and 1 or 0)
+    for _, q in ipairs({ { ARG.chocks, a.chocks }, { ARG.covers, a.covers }, { ARG.canopy, a.canopy, ARG.canopyOpen } }) do
+      local ok2, res2, er2 = pcall(api.native().objarg, h, a.id, q[1], q[2] and (q[3] or 1) or 0)
       if not (ok2 and res2) and not M.argBad then
         M.argBad = true
         logLine(string.format('demo: argument %d (chocks %d, covers %d) could not be written on %s: %s', q[1], ARG.chocks, ARG.covers, tostring(a.name), tostring(ok2 and er2 or res2)))
@@ -7660,7 +7663,17 @@ function M.tick(t)
         local a = job.a
         a.x, a.z, a.fx, a.fz = w.jx, w.jz, w.jfx, w.jfz
         a.towed = nil
-        if job.to == 'el' then
+        -- (NOT ON THE PLATFORM: its tow stopped short of it (the hook's w.pushShort: the push could not begin, even after
+        -- waiting on the bar), or it stands off it for another reason: it is not taken up with the platform (the user's
+        -- run of 2026-11-26: such an aircraft was raised through the hangar's ceiling). Left where it stands, as a tow
+        -- that STOPPED is: the elevator goes on without it)
+        local pe = job.to == 'el' and H.elevators[job.E.k]
+        if pe and (w.pushShort or a.x < pe.x[1] - 1 or a.x > pe.x[2] + 1 or a.z < math.min(pe.z[1], pe.z[2]) - 1 or a.z > math.max(pe.z[1], pe.z[2]) + 1) then
+          job.load.done = true
+          M.failed = (M.failed or 0) + 1
+          logLine(string.format('demo: %s is NOT on elevator %d: its tow stopped short of the platform (%.2f / %.2f): it stays in the hangar where it stands; the elevator goes on without it', a.name, job.E.k, a.x, a.z))
+          say(string.format('demo: %s could not be pushed onto elevator %d: it stays in the hangar.', a.name, job.E.k))
+        elseif job.to == 'el' then
           a.level, a.st = 'el', job.load.st
           a.y = H.elevators[job.E.k].top - drop(job.E.k, job.E.f or 1) + DY -- (it stands on the platform, 11 cm above the hangar's floor)
           job.E.riders[#job.E.riders + 1] = a
@@ -7747,6 +7760,14 @@ function M.tick(t)
       if not tg.job then placeTug(tg) end
     end
   end
+  -- (the brake riders: brown shirts in the cockpits of the aircraft being towed: M.cockpitTick)
+  if M.cockpit then
+    local okc, errc = pcall(M.cockpitTick, ctx, mt)
+    if not okc and not M.cockpitErr then
+      M.cockpitErr = true
+      logLine('demo: the brake riders: ' .. tostring(errc))
+    end
+  end
   -- done?
   if not M.done then
     local left = false
@@ -7801,6 +7822,92 @@ end
 local function livery(sq, board, lead)
   return string.format('%s - LineJet%s - %d', sq, lead and '-FL' or '', board)
 end
+
+-- THE BRAKE RIDERS (Tow.Cockpit: crewtest_cockpit.lua; our people named catcc-b...: brown shirts). The user
+-- (2026-11-25): "Please add brown shirts to the cockpit of aircraft being towed. They should spawn into the cockpit just
+-- before the tug arrives. They should remain in the cockpit until the tug is clear." Found as the drivers are (looked
+-- for again every 5 s until all nine are there: a server makes its people only once a player is aboard).
+M.RIDERS = 9
+function M.findRiders(ctx)
+  if not (Tow.Cockpit and M.cockpit) then return 0 end
+  local scan = api.doScan(ctx, 'for the demo: the brake riders', false)
+  local found = {}
+  for _, q in ipairs(scan and scan.mine or {}) do
+    if tostring(q.name):find('^catcc%-b%d') then
+      found[#found + 1] = { h = q.h, name = tostring(q.name) }
+      api.walkQueue[q.h], api.holding[q.h] = nil, nil
+    end
+  end
+  local n = Tow.Cockpit.add(M.cockpit, found)
+  if n > 0 then logLine(string.format('demo: %d brake rider(s) found (%d of %d)', n, #M.cockpit.pool, M.RIDERS)) end
+  return #M.cockpit.pool
+end
+
+-- each frame: the aircraft the tractors are working on, as crewtest_cockpit.lua takes them (C.tick: coming, on, done)
+function M.cockpitTick(ctx, mt)
+  local CK = M.cockpit
+  if M.riderAt and mt >= M.riderAt then
+    M.riderAt = (M.findRiders(ctx) < M.RIDERS) and mt + 5 or nil
+  end
+  if #CK.pool == 0 then return end
+  local list, seen = {}, {}
+  CK.tugOf = CK.tugOf or {}
+  for _, job in ipairs(M.jobs) do
+    local a, w = job.a, job.w
+    if a and w and not job.move and not job.shift and type(w.subj) == 'table' and w.subj.e == a then
+      seen[a] = true
+      local tx, tz = Tow.real(w)
+      local e = { key = a, name = a.name, tx = tx, tz = tz }
+      if job.freed or job.delivered then
+        e.stage, e.x, e.y, e.z, e.fx, e.fz = 'done', a.x, a.y, a.z, a.fx, a.fz
+        CK.tugOf[a] = job.tug
+      else
+        e.x, e.y, e.z, e.fx, e.fz = w.jx or a.x, w.jy or a.y, w.jz or a.z, w.jfx or a.fx, w.jfz or a.fz
+        if (w.phase == 'arrive' or w.phase == 'backout') and w.bar ~= 'both' then
+          e.stage = 'coming'
+          -- (where it hooks on: the tractor's own point then (w.d is that point, whichever hitch it uses))
+          local hp = w.hitchAt
+          e.tx, e.tz = w.d.x, w.d.z
+          if hp then e.hx, e.hz = hp.x, hp.z end
+        else
+          e.stage = 'on'
+        end
+      end
+      list[#list + 1] = e
+    end
+  end
+  -- (DELIVERED, ITS TRACTOR ALREADY GIVEN SOMETHING ELSE (its next tow at once, or its job ended): the rider still
+  -- waits until that tractor is clear of the aircraft: the tractor followed wherever its work now is)
+  for a, tug in pairs(CK.tugOf) do
+    if seen[a] or not CK.aboard[a] then
+      if not CK.aboard[a] then CK.tugOf[a] = nil end
+    else
+      local tx, tz = tug.d.x, tug.d.z
+      if tug.job and tug.job.w and tug.job.w.d == tug.d then tx, tz = Tow.real(tug.job.w) end
+      list[#list + 1] = { key = a, name = a.name, stage = 'done', x = a.x, y = a.y, z = a.z, fx = a.fx, fz = a.fz, tx = tx, tz = tz }
+    end
+  end
+  -- (ON A PLATFORM BETWEEN ITS TWO TRACTORS: the rider stays in (the user, 2026-11-26: "I would prefer the brake rider
+  -- to remain in the cockpit during elevator rides between tugs"), from the hangar's tractor leaving it to the deck's
+  -- taking it; not one of the two that stay on the platform as their deck spots, once it is up (a.stayed))
+  for _, E in ipairs(M.elevators or {}) do
+    for _, a in ipairs(E.riders or {}) do
+      if not a.stayed then list[#list + 1] = { key = a, name = a.name, stage = 'hold', x = a.x, y = a.y, z = a.z, fx = a.fx, fz = a.fz } end
+    end
+  end
+  Tow.Cockpit.tick(CK, api.native(), Tow.Head, mt, list, M.cockpitCb)
+end
+
+M.cockpitCb = {
+  -- (in: its canopy opens, and stays open)
+  board = function(a)
+    if not a.canopy then
+      a.canopy = true
+      foldWings(a)
+    end
+  end,
+  log = function(text) logLine('demo: ' .. text) end,
+}
 
 -- THE DRIVERS (our people named catcc-t...: one to a tractor, the deck's tractors first): every one found now that
 -- has no tractor yet is seated on the next tractor without a driver. The list of all that are seated.
@@ -8183,6 +8290,9 @@ function M.start()
   -- aircraft on it, so none is found now (the user, 2026-11-22: "none of the tractors had their drivers"): looked for
   -- again every 5 s until every tractor has one: M.tick)
   M.driverAt = #drivers < #M.tugs and Tow.now() + 5 or nil
+  -- the brake riders (catcc-b...: Tow.Cockpit): they wait out of sight until a tractor comes for an aircraft
+  M.cockpit, M.cockpitErr = Tow.Cockpit and Tow.Cockpit.new() or nil, nil
+  M.riderAt = (M.cockpit and M.findRiders(ctx) < M.RIDERS) and Tow.now() + 5 or nil
   -- (what is drawn: the panel's "Hide" switches: M.hideSetup)
   M.hideSetup(native)
   -- everything put where it belongs (the hangar's go down at once)
@@ -8453,6 +8563,9 @@ end
 
 function M.stop(quiet)
   pcall(M.unblock)
+  -- (the brake riders out of the cockpits and away)
+  if M.cockpit and Tow.Cockpit then pcall(Tow.Cockpit.stop, M.cockpit, api.native(), Tow.Head) end
+  M.cockpit, M.riderAt = nil, nil
   if Tow.Prof and Tow.Prof.testOnly then Tow.Prof.testOnly('the demo taking its static aircraft away') end
   pcall(M.hideOff)
   local parts = {}

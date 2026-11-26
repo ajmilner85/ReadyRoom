@@ -33,6 +33,8 @@ if THREAD then
   for _, n in ipairs({ 'crewtest_hook.lua', 'crewtest_demo.lua', 'crewtest_hangar.lua', 'crewtest_routes.lua' }) do CATCC_THREAD_FILES['Scripts/CATCC/' .. n] = SCRIPTS_DIR .. n end
   -- (HEAD_ON: the drivers' head on the demo's thread too)
   if HEAD_ON then CATCC_THREAD_FILES['Scripts/CATCC/crewtest_head.lua'] = SCRIPTS_DIR .. 'crewtest_head.lua' end
+  -- (COCKPIT_ON: the brake riders, there too)
+  if COCKPIT_ON then CATCC_THREAD_FILES['Scripts/CATCC/crewtest_cockpit.lua'] = SCRIPTS_DIR .. 'crewtest_cockpit.lua' end
   -- FREE=<ms>: NOT in lockstep, as in DCS: a frame of the rig takes that long by the clock and the worker keeps up as it
   -- can (its planning by its own clock, between the frames): no two runs are the same
   if FREE then CATCC_DEMO_LOCKSTEP = false elseif CATCC_DEMO_LOCKSTEP == nil then CATCC_DEMO_LOCKSTEP = true end
@@ -66,6 +68,9 @@ local RT = load(ROUTES_REAL)()
 local me
 for _, e in ipairs(RT) do if e.id == (JET_SPOT or 'SB3') then me = e end end
 for i = 0, 9 do add(105 + i, 'catcc-t' .. i, '1: catcc-t' .. i, 12 + i, 33, SHIP_A) end
+-- COCKPIT_ON=true: the brake riders (Scripts/CATCC/crewtest_cockpit.lua): nine brown shirts, catcc-b0 .. b8, as the crew
+-- data patch declares them
+if COCKPIT_ON then for i = 0, 8 do add(130 + i, 'catcc-b' .. i, (2 + math.floor(i / 3)) .. ': catcc-b' .. i, 10 - i, 33, SHIP_A) end end
 if NO_JET then PLAYER = false else setJet(me.x, me.z, me.fx, me.fz) end
 -- the stand-in ship's elevators: command 1 takes the deck-edge fence up, the platform down, the lower fence down (the
 -- hook raises a platform itself)
@@ -442,6 +447,12 @@ for _, a in ipairs(planes) do
 end
 for name in pairs(STATICS) do if name:find('^catcc%-demo%-a%d+%-bar') then bars = bars + 1 end end
 rec(string.format('chocks: out on %d aircraft while they were towed, %d samples of an aircraft moving with them in; in on %d at the end; covers on %d at the end; tow bars left %d', nOut, rolledChocked, chocked, covered, bars))
+-- (COCKPIT_ON: the canopies the brake riders opened (argument 38 at 0.9) and left open)
+if COCKPIT_ON then
+  local open = 0
+  for _, a in ipairs(planes) do if math.abs((JETARG[a.id .. '/38'] or 0) - 0.9) < 1e-4 then open = open + 1 end end
+  rec('canopies open at the end: ' .. open)
+end
 if not NO_JET then
   click('CATCC demo: report')
   frames(1)
@@ -462,6 +473,14 @@ if HIDE then
     if q and q.x and q.x <= -899 then away = away + 1 end
   end
   rec('drivers left away after the stop: ' .. away)
+end
+if COCKPIT_ON then
+  local away = 0
+  for i = 0, 8 do
+    local q = byH[130 + i]
+    if q and q.x and q.x <= -899 then away = away + 1 end
+  end
+  rec('brake riders away after the stop: ' .. away)
 end
 local left = 0
 for name in pairs(STATICS) do if name:find('catcc-demo', 1, true) then left = left + 1 end end

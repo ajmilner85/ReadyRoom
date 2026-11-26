@@ -35,6 +35,7 @@ const demoSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_demo.lua'), 'utf
 const hangarSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hangar.lua'), 'utf8');
 const slotsSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_slots.lua'), 'utf8');
 const headSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_head.lua'), 'utf8');
+const cockpitSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_cockpit.lua'), 'utf8');
 
 /** the names a PE file exports */
 function peExports(file: string): Set<string> {
@@ -289,7 +290,8 @@ OUT = table.concat({
     // deck, four in the hangar), and the user saw "two tugs in the hangar that have no driver". Twelve tractors were
     // tried the same day and dropped: a driver for each of the ten and no more: the user: "the only blue shirts should
     // be in tugs")
-    expect(m.crews).toBe('12,9,9,9');
+    // (and the brake riders, catcc-b0 .. b8, brown shirts, three in each of crews 2, 3 and 4: twelve in each crew now)
+    expect(m.crews).toBe('12,12,12,12');
     expect(m.c10).toBe(f.c10);
     const patched = patch.replace(/\r\n/g, '\n');
     expect(patched).toContain("{ { 'catcc-m0', 'brown', 12.0, 31.0, 1 }, { 'catcc-t0', 'blue', 12.0, 33.0, 1 } }");
@@ -764,6 +766,8 @@ loadfile = function(p)
   if p == 'W/Scripts/CATCC/crewtest_slots.lua' then return SLOTS_ON and load(SLOTS_SRC, 'crewtest_slots') or nil end
   -- (the drivers' head: only where a test asks for it (HEAD_ON): everywhere else the drivers sit as they always did)
   if p == 'W/Scripts/CATCC/crewtest_head.lua' then return (HEAD_ON and HEAD_SRC) and load(HEAD_SRC, 'crewtest_head') or nil end
+  -- (the brake riders: only where a test asks for them (COCKPIT_ON))
+  if p == 'W/Scripts/CATCC/crewtest_cockpit.lua' then return (COCKPIT_ON and COCKPIT_SRC) and load(COCKPIT_SRC, 'crewtest_cockpit') or nil end
   if p == 'W/Config/CATCC-test.lua' and FLAG then return function() return { chockTest = true, crewTest = true } end end
   if p == 'W/Scripts/CATCC/crewtest_routes.lua' and ROUTES_SRC then return load(ROUTES_SRC) end
   return nil
@@ -923,7 +927,7 @@ function hook(
     (opts.parentPos === false ? 'PARENTPOS = false\n' : '') +
     (opts.replaced ? `REPLACED = ${opts.replaced}\n` : '') +
     (opts.noAnim ? 'NO_ANIM = true\n' : '');
-  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, FLAG_SRC: flagSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc };
+  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, FLAG_SRC: flagSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc, COCKPIT_SRC: cockpitSrc };
   // (CATCC_LUA_DUMP=<folder>: the harness and its sources written there, for a run under DCS's own Lua 5.1, which is
   // some fifty times as fast as fengari: deck-test/crew-test/luarun.py)
   if (process.env.CATCC_LUA_DUMP) {
@@ -4108,7 +4112,7 @@ rec('left ' .. n)`, { demo: true, ui: true });
   const whole = (args: string[]) => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'catcc-demo-'));
     fs.writeFileSync(path.join(dir, 'world.lua'), world);
-    for (const k of ['HOOK_SRC', 'MENU_SRC', 'ROUTES_REAL', 'UI_SRC', 'DEMO_SRC', 'HANGAR_SRC', 'SLOTS_SRC', 'HEAD_SRC']) fs.writeFileSync(path.join(dir, `${k}.txt`), '');
+    for (const k of ['HOOK_SRC', 'MENU_SRC', 'ROUTES_REAL', 'UI_SRC', 'DEMO_SRC', 'HANGAR_SRC', 'SLOTS_SRC', 'HEAD_SRC', 'COCKPIT_SRC']) fs.writeFileSync(path.join(dir, `${k}.txt`), '');
     // (CATCC_DEMO_BUDGET: the hangar's planning steps a frame: the rig's frame is half a second of the mission's time, DCS
     // has 30 and more in that)
     const out = spawnSync('python', ['-I', here('../deck-test/crew-test/luarun.py'), dir, here('demo-run.lua'), 'DEMO_ON=true', 'CATCC_DEMO_BUDGET=30', ...args], { encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 });
@@ -4344,6 +4348,53 @@ rec('left ' .. n)`, { demo: true, ui: true });
     300000,
   );
 
+  // THE BRAKE RIDERS (2026-11-25, the user: "Please add brown shirts to the cockpit of aircraft being towed";
+  // crew-test/BRAKE-RIDER.md). COCKPIT_ON=true (demo-run.lua): Scripts/CATCC/crewtest_cockpit.lua is there and nine
+  // brown shirts, catcc-b0 .. b8, are on the ship. On its own thread, with the drivers' heads: the run is the one without
+  // them, line for line, but for the riders' own lines.
+  it.skipIf(!python || !fs.existsSync(`${BIN}/lua.dll`))(
+    'the brake riders in the whole demo, on its own thread: found; one climbs into every aircraft towed before it is hooked on and stays through the elevator ride to its deck spot, out again once the tractor that delivered it is clear; seated in our blend space, looking round; the canopies they opened stay open; away when the demo stops; the run is otherwise line for line the one without',
+    () => {
+      const riderLine = (l: string) => /^demo: (cockpit: |\d+ brake rider\(s\) found)/.test(l);
+      const demoLines = (r: { log: string[] }) => r.log.filter((l) => (l.startsWith('demo:') || l.startsWith('SAY demo:') || /^tow \S/.test(l)) && !riderLine(l));
+      const results = (r: { rec: string[] }) =>
+        r.rec.filter((l) => /^(statics:|covers on|finished |least distance|spots with|wings folded|board numbers|chocks:|left after|catcc-demo-t\S+ ends at)/.test(l)).map((l) => l.replace(/ \(log line \d+\)/, ''));
+      const plain = whole(['THREAD=true', 'HEAD_ON=true']);
+      const r = whole(['THREAD=true', 'HEAD_ON=true', 'COCKPIT_ON=true']);
+      expect(r.log.filter((l) => l.startsWith('demo thread: error') || l.startsWith('frame error') || l.startsWith('demo: error') || l.startsWith('demo: the brake riders: '))).toEqual([]);
+      expect(r.rec.find((l) => l.startsWith('finished '))).toMatch(/^finished true at model time \d+$/);
+      expect(demoLines(r)).toEqual(demoLines(plain));
+      expect(results(r)).toEqual(results(plain));
+      expect(r.log).toContain('demo: 9 brake rider(s) found (9 of 9)');
+      // in and out: every aircraft towed has had a rider (24 from the hangar, each towed twice: to its platform and on
+      // to its deck spot), each tow at most one; nine riders for ten tractors: a few tows go without one
+      const ins = r.log.filter((l) => l.startsWith('demo: cockpit: ') && l.includes(' climbs into '));
+      const outs = r.log.filter((l) => l.startsWith('demo: cockpit: ') && l.includes(' climbs out of '));
+      const none = r.log.filter((l) => l.startsWith('demo: cockpit: no brake rider free for '));
+      // ONE RIDER AN AIRCRAFT, FROM THE HANGAR TO ITS DECK SPOT (the user, 2026-11-26: "I would prefer the brake rider to
+      // remain in the cockpit during elevator rides between tugs"): each of the 24 is climbed into once, and climbed
+      // out of only when the tractor that delivered it is clear (or after 60 s), never because its tow ended first
+      expect(ins.every((l) => /^demo: cockpit: catcc-b\d climbs into .+ \(catcc_bs_rdr_look\)$/.test(l))).toBe(true);
+      expect(new Set(ins.map((l) => l.match(/catcc-b\d climbs into (.+) \(/)![1])).size).toBe(24);
+      expect(ins.length).toBe(24);
+      expect(outs.length).toBeGreaterThan(20);
+      expect(outs.every((l) => /: its tractor is (clear \(\d+\.\d m off\)|still near after 60 s)$/.test(l))).toBe(true);
+      expect(none.length).toBeLessThan(4);
+      // seated in our blend space and looking round (the module told where the head goes: ahead first)
+      const riderH = new Set(Array.from({ length: 9 }, (_, i) => String(130 + i)));
+      const plays = r.rec.filter((l) => /^play 13\d catcc_bs_rdr_look mode 2$/.test(l));
+      expect(plays.length).toBe(ins.length);
+      const heads = r.rec.filter((l) => l.startsWith('head ')).map((l) => l.split(' ')).filter((c) => riderH.has(c[1]));
+      expect(heads.filter((c) => c[2] === '0' && c[3] === 'w6').length).toBe(ins.length);
+      expect(heads.filter((c) => Math.abs(Number(c[2])) >= 35).length).toBeGreaterThan(ins.length);
+      expect(heads.every((c) => c[2] === 'forgotten' || Math.abs(Number(c[2])) <= 100)).toBe(true);
+      // the canopies: every aircraft a rider climbed into has its canopy open at the end
+      expect(r.rec).toContain('canopies open at the end: 24');
+      expect(r.rec).toContain('brake riders away after the stop: 9');
+    },
+    300000,
+  );
+
   // THE SLOT PICKER (2026-11-20, the user: "wait until spotted ... in conjunction with a new graphical slot selection
   // interface ... only the aircraft assigned to the player can be selected ... That slot should be held for them with
   // a static until they return or someone with authority (PriFly) releases it"): its server side, in a multiplayer
@@ -4354,7 +4405,7 @@ rec('left ' .. n)`, { demo: true, ui: true });
     () => {
       const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'catcc-slots-'));
       fs.writeFileSync(path.join(dir, 'world.lua'), world);
-      for (const k of ['HOOK_SRC', 'MENU_SRC', 'ROUTES_REAL', 'UI_SRC', 'DEMO_SRC', 'HANGAR_SRC', 'SLOTS_SRC', 'HEAD_SRC']) fs.writeFileSync(path.join(dir, `${k}.txt`), '');
+      for (const k of ['HOOK_SRC', 'MENU_SRC', 'ROUTES_REAL', 'UI_SRC', 'DEMO_SRC', 'HANGAR_SRC', 'SLOTS_SRC', 'HEAD_SRC', 'COCKPIT_SRC']) fs.writeFileSync(path.join(dir, `${k}.txt`), '');
       const out = spawnSync('python', ['-I', here('../deck-test/crew-test/luarun.py'), dir, here('slots-run.lua'), 'DEMO_ON=true', 'UI_ON=true', 'SLOTS_ON=true', 'NO_JET=true', 'CATCC_DEMO_THREAD=false', 'CATCC_DEMO_BUDGET=30'], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
       fs.rmSync(dir, { recursive: true, force: true });
       if (out.status !== 0) throw new Error(`luarun.py: ${out.stderr || out.stdout}`);

@@ -18,7 +18,8 @@ BIN = r'C:\Program Files\Eagle Dynamics\DCS World\bin-mt'
 HERE = os.path.dirname(os.path.abspath(__file__))
 SCRIPTS = os.path.normpath(os.path.join(HERE, '..', '..', 'Scripts', 'CATCC'))
 LIVE = {'HOOK_SRC': 'crewtest_hook.lua', 'MENU_SRC': 'crewtest.lua', 'ROUTES_REAL': 'crewtest_routes.lua', 'UI_SRC': 'crewtest_ui.lua', 'DEMO_SRC': 'crewtest_demo.lua',
-        'HANGAR_SRC': 'crewtest_hangar.lua', 'SLOTS_SRC': 'crewtest_slots.lua', 'HEAD_SRC': 'crewtest_head.lua'}
+        'HANGAR_SRC': 'crewtest_hangar.lua', 'SLOTS_SRC': 'crewtest_slots.lua', 'HEAD_SRC': 'crewtest_head.lua',
+        'COCKPIT_SRC': 'crewtest_cockpit.lua'}
 # what Lua 5.3 (fengari) has and 5.1 has under another name
 SHIM = b"""
 REAL_CLOCK = os.clock
