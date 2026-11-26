@@ -11,6 +11,8 @@
 #   Scripts\CATCC\crewtest_routes.lua        taxi routes from PriFly's taxi network (made by crew-test\routes.gen.ts)
 #   Scripts\CATCC\crewtest_ui.lua, .dlg     the in-game panel (Ctrl+Shift+F10 in a mission): the deck spotting tool
 #                                            with click-to-lock, and the F10 menu's items as buttons
+#   Scripts\CATCC\crewtest_flag.lua          the panel's "Flag" page: a folded flag (the mod's CATCC_Flag) on the
+#                                            glareshield of the player's jet or of selected aircraft
 #   Scripts\CATCC\crewtest_demo.lua          the deck spotting demo (Ctrl+Shift+F9 in a mission, or F10 > CATCC demo)
 #   Scripts\CATCC\crewtest_worker.lua        the demo's own thread: run by the native module in a Lua state of its own
 #                                            (it loads the hook and the demo there; the hook on DCS's thread sends it the
@@ -111,6 +113,7 @@ $files = @(
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui.lua'; to = Join-Path $scriptsDst 'crewtest_ui.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui.dlg'; to = Join-Path $scriptsDst 'crewtest_ui.dlg' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui_mark.dlg'; to = Join-Path $scriptsDst 'crewtest_ui_mark.dlg' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_flag.lua'; to = Join-Path $scriptsDst 'crewtest_flag.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_demo.lua'; to = Join-Path $scriptsDst 'crewtest_demo.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_worker.lua'; to = Join-Path $scriptsDst 'crewtest_worker.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_hangar.lua'; to = Join-Path $scriptsDst 'crewtest_hangar.lua' },

@@ -1562,7 +1562,9 @@ function S.staticOn(carrier, sp, r)
     local p, X, Z, R = s:getPosition(), %.3f, %.3f, %.2f
     for _, side in pairs(coalition.side) do
       for _, o in ipairs(coalition.getStaticObjects(side) or {}) do
-        if o:isExist() then
+        -- (nor a flag on a glareshield, crewtest_flag.lua: it stands 4.4 m forward of its aircraft, on the spot)
+        if o:isExist()
+          and not tostring(o:getName()):find('^catcc%%-flag%%-') then
           local q = o:getPoint()
           local dx, dy, dz = q.x - p.p.x, q.y - p.p.y, q.z - p.p.z
           local up = dx * p.y.x + dy * p.y.y + dz * p.y.z

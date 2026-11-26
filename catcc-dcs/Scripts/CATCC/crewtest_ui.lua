@@ -32,6 +32,9 @@
 --                      Ctrl+Shift+X  a two-angle shot: the same point from two places, the second gives it;
 --                    and buttons for both, for dropping a first shot, for taking away the last point. Each point
 --                    is drawn as a cyan plate where it is, and saved at once (Logs\catcc-hangar-marks.lua).
+--   Flag             (2026-11-25) a folded US flag (CATCC_Flag) on the glareshield of the player's jet or of the aircraft
+--                    selected on the deck page, any number of them; where it sits moved and turned for all at once
+--                    (crewtest_flag.lua, which says how).
 --   Crew test menu   everything the F10 menu has, as buttons: the same tree (asked from the mission script), the
 --                    panel staying where it is after a click.
 --   Ctrl+Shift+S     saves the deck spots (they are also saved at every change).
@@ -68,8 +71,8 @@ end)
 if not ok then return nil, 'no window toolkit here (' .. tostring(T) .. ')' end
 
 local UI = { visible = false, mouse = false, live = false, page = 'deck', step = '0.1', turn = '1', pick = true, fovH = true, dead = false, msg = '', path = {}, towGroup = 1,
-  pages = { deck = {}, tow = {}, menu = {}, marks = {} } }
-local L = { w = 620, h = 620, x = 8, bh = 26, gap = 4, top = 30, x0 = 60, y0 = 120 } -- (wide enough for the F10 menu's longest items in one column)
+  pages = { deck = {}, tow = {}, menu = {}, marks = {}, flag = {} } }
+local L = { w = 700, h = 620, x = 8, bh = 26, gap = 4, top = 30, x0 = 60, y0 = 120 } -- (wide enough for the F10 menu's longest items in one column)
 local STEPS = { { '1 m', '1' }, { '10 cm', '0.1' }, { '1 cm', '0.01' } }
 local TURNS = { { '5 deg', '5' }, { '1 deg', '1' }, { '0.1 deg', '0.1' } }
 local SLOTS = 10 -- the menu page's buttons, one column (an F10 menu holds ten items on a level); the tow page's spots
@@ -405,6 +408,54 @@ local function refreshMenu()
   end
 end
 
+-- ---- the flag page (the tool: crewtest_flag.lua, UI.flag)
+local FLAG_MOVES = {
+  { 'Fore / aft', 'fwd', { { 'Aft 5 cm', -0.05 }, { 'Aft 1 cm', -0.01 }, { 'Aft 2 mm', -0.002 }, { 'Fwd 2 mm', 0.002 }, { 'Fwd 1 cm', 0.01 }, { 'Fwd 5 cm', 0.05 } } },
+  { 'Left / right', 'side', { { 'Left 5 cm', -0.05 }, { 'Left 1 cm', -0.01 }, { 'Left 2 mm', -0.002 }, { 'Right 2 mm', 0.002 }, { 'Right 1 cm', 0.01 }, { 'Right 5 cm', 0.05 } } },
+  { 'Up / down', 'up', { { 'Down 5 cm', -0.05 }, { 'Down 1 cm', -0.01 }, { 'Down 2 mm', -0.002 }, { 'Up 2 mm', 0.002 }, { 'Up 1 cm', 0.01 }, { 'Up 5 cm', 0.05 } } },
+  { 'Turn', 'turn', { { 'Left 10', -10 }, { 'Left 2', -2 }, { 'Left 0.5', -0.5 }, { 'Right 0.5', 0.5 }, { 'Right 2', 2 }, { 'Right 10', 10 } } },
+  { 'Pitch', 'pitch', { { 'Down 10', -10 }, { 'Down 2', -2 }, { 'Down 0.5', -0.5 }, { 'Up 0.5', 0.5 }, { 'Up 2', 2 }, { 'Up 10', 10 } } },
+  { 'Lean', 'lean', { { 'Left 10', -10 }, { 'Left 2', -2 }, { 'Left 0.5', -0.5 }, { 'Right 0.5', 0.5 }, { 'Right 2', 2 }, { 'Right 10', 10 } } },
+}
+
+local function refreshFlag()
+  if not UI.window then return end
+  setText(UI.flagStatus, UI.flag and UI.flag.status() or 'The flag tool is not there (Scripts\\CATCC\\crewtest_flag.lua: run crew-test\\install.ps1 with DCS closed).')
+end
+
+local function flagDo(fn)
+  return function()
+    if not UI.flag then return end
+    local msg, why = fn(UI.flag)
+    if msg or why then UI.msg = msg or why end
+  end
+end
+
+local function buildFlag()
+  local x, y = L.x, L.top + L.bh + 2 * L.gap
+  local W = L.w - 2 * L.x
+  local w3 = math.floor((W - 2 * L.gap) / 3)
+  local w6 = math.floor((W - 94 - 5 * L.gap) / 6)
+  local function row() y = y + L.bh + L.gap end
+  local function third(i) return x + (i - 1) * (w3 + L.gap) end
+  UI.flagStatus = label('flag', '', x, y, W, 3 * L.bh)
+  y = y + 3 * L.bh + L.gap
+  button('flag', 'Flag my jet', third(1), y, w3, flagDo(function(Fl) return Fl.toggle('jet') end))
+  button('flag', 'Flag selected', third(2), y, w3, flagDo(function(Fl) return Fl.toggle('lock') end))
+  button('flag', 'Take away all', third(3), y, w3, flagDo(function(Fl) return Fl.clear() end))
+  row()
+  for _, m in ipairs(FLAG_MOVES) do
+    label('flag', m[1], x, y, 90)
+    for i, s in ipairs(m[3]) do
+      button('flag', s[1], x + 94 + (i - 1) * (w6 + L.gap), y, w6, flagDo(function(Fl) return Fl.move(m[2], s[2]) end))
+    end
+    row()
+  end
+  button('flag', 'Report', third(1), y, w3, flagDo(function(Fl) return Fl.report() end))
+  row()
+  UI.msgY = math.max(UI.msgY or 0, y)
+end
+
 local function buildMenu()
   local x, y = L.x, L.top + L.bh + 2 * L.gap
   UI.backBtn = button('menu', '< Back', x, y, 80, function() table.remove(UI.path) end)
@@ -423,7 +474,7 @@ end
 
 -- ---- the panel as a whole
 local function refreshPage()
-  if UI.page == 'deck' then refreshDeck() elseif UI.page == 'tow' then refreshTow() elseif UI.page == 'marks' then refreshMarks() else refreshMenu() end
+  if UI.page == 'deck' then refreshDeck() elseif UI.page == 'tow' then refreshTow() elseif UI.page == 'marks' then refreshMarks() elseif UI.page == 'flag' then refreshFlag() else refreshMenu() end
 end
 
 local function refresh()
@@ -437,6 +488,7 @@ local function refresh()
     setText(UI.tabTow, UI.page == 'tow' and '[Tow]' or 'Tow')
     setText(UI.tabMenu, UI.page == 'menu' and '[Crew test menu]' or 'Crew test menu')
     setText(UI.tabMarks, UI.page == 'marks' and '[Hangar marks]' or 'Hangar marks')
+    setText(UI.tabFlag, UI.page == 'flag' and '[Flag]' or 'Flag')
     refreshPage()
   end
 end
@@ -555,12 +607,20 @@ local function build()
   UI.tabTow = button(nil, 'Tow', L.x + 134, L.top, 90, function() UI.page = 'tow' end)
   UI.tabMenu = button(nil, 'Crew test menu', L.x + 228, L.top, 160, function() UI.page = 'menu' end)
   UI.tabMarks = button(nil, 'Hangar marks', L.x + 392, L.top, 132, function() UI.page = 'marks' end)
+  UI.tabFlag = button(nil, 'Flag', L.x + 528, L.top, 72, function() UI.page = 'flag' end)
   local hide = button(nil, 'Hide', L.w - L.x - 80, L.top, 80, function() UI.want = false end)
-  UI.always = { UI.tabDeck, UI.tabTow, UI.tabMenu, UI.tabMarks, hide }
+  UI.always = { UI.tabDeck, UI.tabTow, UI.tabMenu, UI.tabMarks, UI.tabFlag, hide }
+  -- the flag tool (no window of its own: the page is the panel's)
+  guard('the flag tool', function()
+    local f, err = loadfile(api.writedir .. 'Scripts/CATCC/crewtest_flag.lua')
+    if not f then return api.log('panel: the flag tool not loaded: ' .. tostring(err)) end
+    UI.flag = f({ dostring = api.dostring, split = api.split, objarg = api.objarg, jetId = api.jetId, deck = api.deck, log = api.log, now = api.now })
+  end)
   buildDeck()
   buildTow()
   buildMenu()
   buildMarks()
+  buildFlag()
   UI.msgLabel = label(nil, '', L.x, UI.msgY, L.w - 2 * L.x, L.h - UI.msgY - 30)
   UI.always[#UI.always + 1] = UI.msgLabel
   -- the mark on the locked aircraft: a small window of its own, which lets clicks through
@@ -677,6 +737,14 @@ local function tick(t)
     local ctx = api.ctx(t)
     if ctx then pcall(api.marks.showAll, ctx.ship) end
   end
+  -- (the flags: their arguments kept, their aircraft followed)
+  if UI.flag then
+    local okf, fmsg = pcall(UI.flag.tick)
+    if okf and fmsg then UI.msg = fmsg elseif not okf and not UI.flagErr then
+      UI.flagErr = true
+      api.log('panel: the flag tool: ' .. tostring(fmsg))
+    end
+  end
   if UI.wantDemo then
     local cmd = UI.wantDemo
     UI.wantDemo = nil
@@ -752,6 +820,7 @@ function UI.reset()
   UI.live, UI.want, UI.wantMouse, UI.wantDemo, UI.wantAim, UI.wantMarks, UI.marksOn = false, nil, nil, nil, nil, nil, nil
   if UI.cross then pcall(function() UI.cross:setBounds(0, 0, 1, 1) end) end
   UI.crossOn, UI.crossAt = false, nil
+  if UI.flag then pcall(UI.flag.reset) end
   if UI.window and not UI.dead then
     pcall(function()
       if UI.visible then apply(false) end

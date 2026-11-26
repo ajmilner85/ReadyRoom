@@ -50,3 +50,8 @@ deck_static('CATCC_AxleEnd', _('CATCC axle end plate (test)'), 'CATCC_AxleEnd')
 deck_static('CATCC_Towbar', _('CATCC tow bar (test)'), 'CATCC_Towbar')
 deck_static('CATCC_AxleProbe', _('CATCC axle probe (test)'), 'CATCC_AxleProbe')
 deck_static('CATCC_Tiedown', _('CATCC tiedown'), 'CATCC_Tiedown')
+-- CATCC_Flag: a folded US flag for a jet's glareshield (crew-test/model/flag.py, our own .edm writer): its origin under
+-- the middle of its long edge, x along that edge; at arguments 0 the user's pose on a Hornet (2.68 m over the deck, pitch
+-- 7, lean -45); argument 10 = its height over the deck / 2.68 m - 1, 11 and 12 = pitch and lean from those / 90 degrees.
+-- Four levels of detail in Shapes/CATCC_Flag.lods (crewtest_flag.lua puts it on the panel's "Flag" page)
+deck_static('CATCC_Flag', _('CATCC folded flag'), 'CATCC_Flag')

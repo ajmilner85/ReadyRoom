@@ -30,6 +30,7 @@ const menuSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest.lua'), 'utf8');
 const hookSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hook.lua'), 'utf8');
 const routesSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_routes.lua'), 'utf8').replace(/\r\n/g, '\n');
 const uiSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_ui.lua'), 'utf8');
+const flagSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_flag.lua'), 'utf8');
 const demoSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_demo.lua'), 'utf8');
 const hangarSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hangar.lua'), 'utf8');
 const slotsSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_slots.lua'), 'utf8');
@@ -756,6 +757,8 @@ loadfile = function(p)
   if p == 'W/Logs/catcc-deck-spots.lua' then return SPOTS_FILE and load(SPOTS_FILE) or nil end
   if p == 'W/Logs/catcc-hangar-marks.lua' then return MARKS_FILE and load(MARKS_FILE) or nil end
   if p == 'W/Scripts/CATCC/crewtest_ui.lua' then return UI_ON and load(UI_SRC, 'crewtest_ui') or nil end
+  -- (the panel's flag tool: with the panel)
+  if p == 'W/Scripts/CATCC/crewtest_flag.lua' then return UI_ON and load(FLAG_SRC, 'crewtest_flag') or nil end
   if p == 'W/Scripts/CATCC/crewtest_demo.lua' then return DEMO_ON and load(DEMO_SRC, 'crewtest_demo') or nil end
   if p == 'W/Scripts/CATCC/crewtest_hangar.lua' then return DEMO_ON and load(HANGAR_SRC, 'crewtest_hangar') or nil end
   if p == 'W/Scripts/CATCC/crewtest_slots.lua' then return SLOTS_ON and load(SLOTS_SRC, 'crewtest_slots') or nil end
@@ -920,7 +923,7 @@ function hook(
     (opts.parentPos === false ? 'PARENTPOS = false\n' : '') +
     (opts.replaced ? `REPLACED = ${opts.replaced}\n` : '') +
     (opts.noAnim ? 'NO_ANIM = true\n' : '');
-  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc };
+  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, FLAG_SRC: flagSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc };
   // (CATCC_LUA_DUMP=<folder>: the harness and its sources written there, for a run under DCS's own Lua 5.1, which is
   // some fifty times as fast as fengari: deck-test/crew-test/luarun.py)
   if (process.env.CATCC_LUA_DUMP) {
@@ -982,7 +985,7 @@ OUT = table.concat(types, ';') .. '|' .. table.concat(mounts, ';') .. '|' .. tos
     const [types, mounts, done] = out.split('|');
     // a type's name is its model's file name and its shape's name, as the chock's and the route lines' are
     const one = (n: string) => `${n}/${n}/${n}/lLandVehicle/ADEquipment/1/2`;
-    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe'), one('CATCC_Tiedown')]);
+    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe'), one('CATCC_Tiedown'), one('CATCC_Flag')]);
     for (const t of types.split(';')) expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/Shapes/${t.split('/')[1]}.edm`)), t).toBe(true);
     expect(db).not.toMatch(/pcall\s*\(/);
     expect(mounts.split(';')).toEqual(['anim M/animations', 'model M/models', 'model M/Shapes', 'tex M/Shapes/textures']);
@@ -2308,7 +2311,7 @@ for name in pairs(STATICS) do if name:find('^catcc%-hmark%-') then n = n + 1 end
 rec('next mission: markers ' .. n)`, { ui: true });
     // the crosshair: 6 x 6 at the middle of the 2560 x 1600 screen while the page is open; the page's buttons
     expect(r.rec).toContain('crosshair: 1277 797 6 x 6');
-    expect(r.rec.find((l) => l.startsWith('marks page: '))).toBe('marks page: Deck spots | Tow | Crew test menu | [Hangar marks] | Hide | Floor point (Ctrl+Shift+Z) | Two-angle shot (Ctrl+Shift+X) | Drop the first shot | Remove the last point');
+    expect(r.rec.find((l) => l.startsWith('marks page: '))).toBe('marks page: Deck spots | Tow | Crew test menu | [Hangar marks] | Flag | Hide | Floor point (Ctrl+Shift+Z) | Two-angle shot (Ctrl+Shift+X) | Drop the first shot | Remove the last point');
     // A FLOOR POINT: where the line through the screen's centre meets the hangar floor (8.711 m above the ship's origin)
     expect(r.says).toContain('hangar marks: point 1 (floor): 2.00 m forward, 8.71 up, 3.00 to starboard.');
     expect(r.says).toContain('hangar marks: the crosshair looks level or up: it never meets the floor. Aim at the foot of the wall, where it meets the floor.');
@@ -2488,12 +2491,12 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     // with a see-through skin, 10 x 10, nothing in it shown; shown, its own skin and size where it stood. The mark the
     // same: always there, one pixel in the corner with nothing to mark
     expect(r.rec).toContain('put away: visible true, hidden skin true, 10 x 10, cursor false; buttons ""; mark true 1 x 1');
-    expect(r.rec).toContain('shown: visible true, hidden skin false, 620 x 620, cursor false at 60 120');
+    expect(r.rec).toContain('shown: visible true, hidden skin false, 700 x 620, cursor false at 60 120');
     expect(r.rec).toContain('made invisible: 0 times');
-    expect(r.logLines.some((l) => /^panel: shown \(the window says: visible true, at 60 \/ 120, 620 x 620\)$/.test(l))).toBe(true);
+    expect(r.logLines.some((l) => /^panel: shown \(the window says: visible true, at 60 \/ 120, 700 x 620\)$/.test(l))).toBe(true);
     expect(r.logLines.some((l) => /^panel: hidden \(the window says: visible true, at 60 \/ 120, 10 x 10\)$/.test(l))).toBe(true);
     // shown: the deck page's buttons, the chosen steps in [ ]
-    expect(r.rec.find((l) => l.startsWith('deck page: '))).toBe('deck page: [Deck spots] | Tow | Crew test menu | Hangar marks | Hide | Park Hornets | Take away | Wings | Click picks: ON | Previous | Next | 1 m | [10 cm] | 1 cm | '
+    expect(r.rec.find((l) => l.startsWith('deck page: '))).toBe('deck page: [Deck spots] | Tow | Crew test menu | Hangar marks | Flag | Hide | Park Hornets | Take away | Wings | Click picks: ON | Previous | Next | 1 m | [10 cm] | 1 cm | '
       + 'Forward | Left | Aft | Right | 5 deg | [1 deg] | 0.1 deg | Turn left | Turn right | Add where I look | Remove | Back to built-in | Save (Ctrl+Shift+S) | Start over | FOV: H');
     // "Next" three times: spot 1, spot 2, spot 3; the mark is on the screen where each of the first two stands
     const nexts = r.rec.filter((l) => l.startsWith('next: '));
@@ -2522,7 +2525,7 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     // THE TOW PAGE: the four catapults, the deck's areas (one group here: four spots), its spots (the one the selected
     // aircraft stands on, and the others that are taken, say so), hold / unhook / report. A click in the world selects
     // there as on the deck page; the buttons give "tow|cat|N|lock" and "tow|spot|n|lock"
-    expect(r.rec.find((l) => l.startsWith('tow page: '))).toBe('tow page: Deck spots | [Tow] | Crew test menu | Hangar marks | Hide | Cat 1 | Cat 2 | Cat 3 | Cat 4 | [Bow, Six, El 2 a] | Bow 1 | Bow 2  - taken | Six 1  - taken | El 2 a  - taken | Hold / go on | Unhook now | Report | Deck spotting demo: start / stop | Demo: report | Save view | Saved view | Slot picker | Hide drivers | Hide tow bars | Hide tractors | Hide hangar aircraft | Hide deck aircraft | Hide each in turn');
+    expect(r.rec.find((l) => l.startsWith('tow page: '))).toBe('tow page: Deck spots | [Tow] | Crew test menu | Hangar marks | Flag | Hide | Cat 1 | Cat 2 | Cat 3 | Cat 4 | [Bow, Six, El 2 a] | Bow 1 | Bow 2  - taken | Six 1  - taken | El 2 a  - taken | Hold / go on | Unhook now | Report | Deck spotting demo: start / stop | Demo: report | Save view | Saved view | Slot picker | Hide drivers | Hide tow bars | Hide tractors | Hide hangar aircraft | Hide deck aircraft | Hide each in turn');
     expect(r.rec.find((l) => l.startsWith('tow status: '))).toBe('tow status: Selected: the Hornet of spot 1 "Bow 1". Choose where the tractor takes it. (Your own jet: Crew test menu > Tow.)');
     expect(r.rec.find((l) => l.startsWith('tow status after a click: '))).toBe('tow status after a click: Selected: the Hornet of spot 2 "Bow 2". Choose where the tractor takes it. (Your own jet: Crew test menu > Tow.)');
     expect(r.rec).toContain('tow mark: true');
@@ -2530,10 +2533,10 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     // (these four spots come without the taxi network: the tow itself is refused, by the hook)
     expect(r.says.some((l) => l.startsWith('the taxi network is missing'))).toBe(true);
     // the other page: the F10 menu's top level as buttons; a submenu opens in place, "< Back" goes up; a leaf runs its command
-    expect(r.rec.find((l) => l.startsWith('menu page: '))).toMatch(/^menu page: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Hide \| List people on my ship \| .*\| Our crew {2}> \| Plane captain {2}> \| Catapult crews {2}> \| Tow {2}> \| Stop the demo/);
+    expect(r.rec.find((l) => l.startsWith('menu page: '))).toMatch(/^menu page: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Flag \| Hide \| List people on my ship \| .*\| Our crew {2}> \| Plane captain {2}> \| Catapult crews {2}> \| Tow {2}> \| Stop the demo/);
     expect(r.rec.find((l) => l.startsWith('tow menu: '))).toMatch(/\| < Back \| Tow me to a catapult {2}> \| Tow me to a parking spot {2}> \| Tow me into the hangar \(tractor, bar, driver\) \| Tow the locked deck aircraft {2}> \| Hold \/ go on \| Unhook \(the bar goes back on the tractor\) \| Messages on screen: hide \/ show \(for filming\) \| Report \| Driver seat {2}> \| Axle finder {2}>$/);
     expect(r.logLines).toContain('menu: axle|report');
-    expect(r.rec.find((l) => l.startsWith('back: '))).toMatch(/^back: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Hide \| List people on my ship/);
+    expect(r.rec.find((l) => l.startsWith('back: '))).toMatch(/^back: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Flag \| Hide \| List people on my ship/);
     // ONE PRESS, ONE ACTION (2026-11-16: in DCS each press showed the panel and hid it again in the same instant): the
     // key's function called twice at once shows it (once, at the next frame: nothing inside the call); called on and on
     // while the key is held, nothing more; a second press, a second later, hides it
