@@ -1,6 +1,7 @@
-// The Navy's TD-1A aircraft tiedown (catcc-dcs/deck-test/crew-test/model/tiedown.py): a model of our own .edm writer with
-// its length on model argument 10 and its rise from the deck on 11, and its textures. The model as written to the mod is
-// read back and its node tree evaluated at many settings: what DCS would draw, by the keys and ranges in the file.
+// The Navy's TD-1A aircraft tiedown (catcc-dcs/deck-test/crew-test/model/tiedown.py): four models of our own .edm writer
+// (its levels of detail, listed in CATCC_Tiedown.lods) with its length on model argument 10, its rise from the deck on 11
+// and its finish on 12, and its textures. The models as written to the mod are read back and their node trees evaluated
+// at many settings: what DCS would draw, by the keys and ranges in the files.
 import { execFileSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -13,8 +14,9 @@ const MODEL = here('../deck-test/crew-test/model');
 const MOD = here('../deck-test/crew-test/Mods/tech/CATCC-Crew');
 const EDM = path.join(MOD, 'Shapes/CATCC_Tiedown.edm');
 const py = (args: string[]) => execFileSync('python', ['-I', ...args], { encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-const FILES = ['Shapes/CATCC_Tiedown.edm', 'Shapes/textures/catcc_tiedown_diff.dds', 'Shapes/textures/catcc_tiedown_nm.dds',
-  'Shapes/textures/catcc_tiedown_diff_roughmet.dds'];
+const LEVELS = ['CATCC_Tiedown', 'CATCC_Tiedown_lod1', 'CATCC_Tiedown_lod2', 'CATCC_Tiedown_lod3'];
+const FILES = [...LEVELS.map((n) => `Shapes/${n}.edm`), 'Shapes/CATCC_Tiedown.lods', 'Shapes/textures/catcc_tiedown_diff.dds',
+  'Shapes/textures/catcc_tiedown_nm.dds', 'Shapes/textures/catcc_tiedown_diff_roughmet.dds'];
 
 // (python: the written file read back; every shown render node's matrix and vertices in the model's frame at L and deg)
 const READ = `import sys, json, math, struct; sys.path.insert(0, ${JSON.stringify(MODEL)}); import edm, tiedown as td
@@ -46,6 +48,12 @@ describe('the tiedown model', () => {
     expect(said).toContain('argument 10: length / 4 m, from 0.512 to 3.240 m (padeye to fitting); the body moves 0 to 0.044 m along the bar, the chain seated every 2 links');
     expect(said).toContain('argument 11: rise / 90 degrees; chain lock 0.381 to 0.425 m from the fitting');
     expect(said).toContain("argument 12: the tensioner's finish: 0 yellow, 0.1 red, 0.2 bare");
+    // the levels, drawn to 10, 30, 100 and 300 m: level 1 keeps every link (the user saw the cable come in at 10 m), so
+    // it is only lighter than level 0; each after it under a third and a half of the one before
+    const lv = [...said.matchAll(/level (\d): (\S+)\.edm to (\d+) m: \d+ parts; drawn (\d+) to (\d+) triangles/g)].map((m) => [m[2], Number(m[3]), Number(m[5])]);
+    expect(lv.map((l) => [l[0], l[1]])).toEqual([['CATCC_Tiedown', 10], ['CATCC_Tiedown_lod1', 30], ['CATCC_Tiedown_lod2', 100], ['CATCC_Tiedown_lod3', 300]]);
+    expect(lv[1][2]).toBeLessThan(lv[0][2] as number);
+    for (let i = 2; i < lv.length; i++) expect(lv[i][2], lv[i][0]).toBeLessThan((lv[i - 1][2] as number) / 3.5);
     for (const f of FILES) expect(fs.readFileSync(path.join(out, f)).equals(fs.readFileSync(path.join(MOD, f))), f).toBe(true);
     fs.rmSync(out, { recursive: true, force: true });
   }, 180000);
@@ -68,6 +76,46 @@ describe('the tiedown model', () => {
     expect(dump.match(/model::ArgVisibilityNode 'paint_(yellow|red|bare)' parent \d+ vis \[\(12, /g)?.length).toBe(3);
     expect(dump).toContain('round trip: IDENTICAL');
   });
+
+  it('CATCC_Tiedown.lods lists the four models, nearest first, each with how far it is drawn (as DCS\'s own .lods files do)', () => {
+    const lods = fs.readFileSync(path.join(MOD, 'Shapes/CATCC_Tiedown.lods'), 'utf8');
+    expect(lods).toContain('model = {\n\tlods = {\n\t\t{"CATCC_Tiedown.edm", 10.0},\n\t\t{"CATCC_Tiedown_lod1.edm", 30.0},\n\t\t{"CATCC_Tiedown_lod2.edm", 100.0},\n\t\t{"CATCC_Tiedown_lod3.edm", 300.0},\n\t};\n}\n');
+  });
+
+  it('every level follows the arguments as the full model does: the same argument-driven nodes and keys; at every setting its tensioner at the length along the rise and its painted parts in the chosen finish', () => {
+    const res = JSON.parse(py(['-c', `import sys, json, math, struct; sys.path.insert(0, ${JSON.stringify(MODEL)}); import edm, tiedown as td
+out = {}
+files = {n: edm.read(open(${JSON.stringify(MOD)} + '/Shapes/' + n + '.edm', 'rb').read()) for n in ${JSON.stringify(LEVELS)}}
+key = lambda f: [(n['type'], n['name'], n.get('pos'), n.get('rot'), n.get('vis'), n['base']['position'] if 'base' in n else None) for n in f['nodes'][1:]]
+full = key(files['CATCC_Tiedown'])
+for name, f in files.items():
+    nodes, parents = f['nodes'][1:], f['parents'][1:]
+    rn = {n['name']: n['parents'][0][0] for n in f['items'][0][1]}
+    nd = {n['name']: i + 1 for i, n in enumerate(nodes)}
+    bad, chain = [], 0
+    for L in [td.L_MIN, 0.8, 1.6, 2.7, td.L_MAX]:
+        for deg in [0, 30, 60, 90]:
+            for c in [0.0, 0.1, 0.2]:
+                mats, shown = td.evaluate(nodes, parents, {td.LEN_ARG: td.len_arg(L), td.ELEV_ARG: td.elev_arg(deg), td.COLOUR_ARG: c})
+                e = math.radians(deg)
+                h = td.apply(mats[nd['tensioner']], (0.0, 0.0, 0.0))   # (the node, there at every level)
+                if max(abs(h[0] - L * math.cos(e)), abs(h[1] - L * math.sin(e)), abs(h[2])) > 2e-4:
+                    bad.append([L, deg, c])
+                painted = sorted(n for n in rn if n.startswith('paint_') and shown[rn[n]])
+                if painted != ['paint_' + td.COLOURS[int(round(c * 10))]]:
+                    bad.append(['paint', L, deg, c, painted])
+                chain += sum(1 for n in rn if (n.startswith('chain_') or n.startswith('loop')) and shown[rn[n]])
+    out[name] = {'sameNodes': key(f) == full, 'bad': bad, 'chainShown': chain, 'parts': sorted(rn)}
+print(json.dumps(out))`]));
+    for (const n of LEVELS) {
+      expect(res[n].sameNodes, n).toBe(true);
+      expect(res[n].bad, n).toEqual([]);
+    }
+    // the farthest level is the tensioner alone, no chain; the others carry the chain at every setting
+    expect(res.CATCC_Tiedown_lod3.chainShown).toBe(0);
+    expect(res.CATCC_Tiedown_lod3.parts).toEqual(['paint_bare', 'paint_red', 'paint_yellow', 'tensioner_body']);
+    for (const n of LEVELS.slice(0, 3)) expect(res[n].chainShown, n).toBeGreaterThan(0);
+  }, 120000);
 
   it('at every setting: the tensioner is the length away along the rise; its pocket holds the link the length puts there; every link is drawn once, taut or in a loop; the loops hang clear of the deck when the pocket is high enough', () => {
     const res = JSON.parse(py(['-c', `${READ}

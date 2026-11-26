@@ -306,7 +306,8 @@ OUT = table.concat({
     const markers = Array.from({ length: 26 }, (_, i) => `Shapes/CATCC_AxleMarker_H${15 + i}.edm`);
     for (const f of ['Database/db_catcc_crew.lua', 'Shapes/CATCC_Towbar.edm', 'Shapes/CATCC_AxleProbe.edm', ...markers, 'Shapes/textures/catcc_towbar_diff.dds', 'Shapes/textures/catcc_towbar_nm.dds',
       'Shapes/textures/catcc_towbar_diff_roughmet.dds', 'Shapes/CATCC_Tiedown.edm', 'Shapes/textures/catcc_tiedown_diff.dds', 'Shapes/textures/catcc_tiedown_nm.dds',
-      'Shapes/textures/catcc_tiedown_diff_roughmet.dds'])
+      'Shapes/textures/catcc_tiedown_diff_roughmet.dds', 'Shapes/CATCC_Tiedown.lods', 'Shapes/CATCC_Tiedown_lod1.edm', 'Shapes/CATCC_Tiedown_lod2.edm',
+      'Shapes/CATCC_Tiedown_lod3.edm'])
       expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/${f}`)), f).toBe(true);
     expect(fs.existsSync(here('../deck-test/crew-test/Mods/tech/CATCC-Crew/models/catcc_test_pilot.chanimgpu'))).toBe(true);
     expect(fs.readFileSync(here('../deck-test/crew-test/Mods/tech/CATCC-Crew/entry.lua'), 'utf8')).toContain("mount_vfs_animations_path(current_mod_path .. '/animations')");

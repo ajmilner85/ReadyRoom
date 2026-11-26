@@ -1438,3 +1438,40 @@ Replaces the parts of "The TD-1A tiedown model" (above) that the user's review c
   - Now (crewtest_demo.lua): a hangar tow that ends short, or with the aircraft off the platform's area by more than 1 m, does not put the aircraft on the elevator. It stays in the hangar where it stands, as a STOPPED tow's aircraft does, and the elevator goes on without it. The log says so and so does a mission message.
   - Why the same push was refused one time and not the other is not known. The push is planned against what stands round it at that moment, which differed between the runs.
 - **The chocks (crewtest_chocks.lua, "the other Hornets"):** the chocks of the run before (40 Hornets on deck) stayed on deck spots whose aircraft the next run started in the hangar. The demo's statics are made anew with the same object ids, so the "gone" check never fired. Now chocks put on an object are taken away and put again when that object id's name, ship or place (0.3 m, or its heading) changes.
+
+## The TD-1A tiedown: four levels of detail (2026-11-25; built, tested in the rig; NOT YET SEEN IN DCS)
+
+- **Asked (the user):** LODs for the tiedown: beyond some distance the chain is only a cable, and the tensioner can be simpler. Can the distances be worked out, and does DCS choose a level by distance alone or by zoom too?
+- **How DCS does it (read from its own files):** a `.lods` file next to the models lists them nearest first, each with how far it is drawn, e.g. `CoreMods/tech/USS_Nimitz/Shapes/Light_Stick.lods` (15, 50, 150, 500 m) and the deck tractor of the asset pack (`M92_AM32a-60_01.lods`: 10, 25, 150, 500 m). A static type names its shape without an extension, and DCS takes the `.lods` of that name (the asset pack has no `.edm` of the bare name at all). `9a33.lods` lists `9A33.EDM` itself as its first level, so the tiedown keeps `CATCC_Tiedown.edm` as level 0, and a DCS that took the `.edm` would still get the full model.
+- **Zoom counts (read from the binaries):** NGModel.dll's level choice is given the camera's distance to the object and `(hFov / GetDistanceMultiplier())²` (GraphicsCore.dll's `GetDistanceMultiplier2`). Field 0x5BC of the view is its horizontal field of view in radians: GraphicsCore.dll's own debug line prints it as `hFov:%.1f` after multiplying by 57.3. The multiplier comes from Visualizer.dll's camera, which loads it as `lodMult` from `Config/graphics.lua` (1.0 in every preset) and overrides it with the options' LOD slider (`LODmult`, 0.1 to 2.0; 1 on this machine). So zooming in (a narrower hFov) draws the nearer levels further out, and the slider scales every distance. What hFov the `.lods` distances are written for was not found in the code.
+- **The distances, from what a pixel is** at the user's 2560 px across and 78 degrees (0.63 mm a metre away):
+  - Level 0, to 10 m: every link (a link's hole 11 mm: 1.7 px at 10 m).
+  - Level 1, to 30 m: the chain is a square cable textured with its links (a link 29 mm: 4.6 px at 10 m, 1.5 px at 30 m). The tensioner loses its bolt heads and the ring's rounded rim, and the hooks are four-sided.
+  - Level 2, to 100 m: the chain is a thin three-sided line. The tensioner keeps its cheeks' outline (eight points), the ring (eight sides), the bar (a block) and the three-sided hooks (the body 0.2 m: 10 px at 30 m, 3 px at 100 m).
+  - Level 3, to 300 m: two blocks (the painted body, the ring), no chain (16 mm: 0.25 px at 100 m). 1 px at 300 m, and nothing beyond.
+  - About 7,200, 1,100 to 1,600, 270 to 440 and 32 triangles.
+- **Every level has the same nodes, keys and arguments** (length, rise, finish): only the meshes differ, and a part with nothing at a level is left out. The cable keeps the link's size on its texture: it starts again every two pitches. The chain's loops are cables along the same paths.
+- **Files:** `Shapes/CATCC_Tiedown.lods`, `CATCC_Tiedown.edm` and `CATCC_Tiedown_lod1..3.edm` (the crew test installer copies the mod folder whole). Pictures in `model/out/catcc_tiedown_lods.png`: the levels side by side, then each at the size it has on that screen where it is first drawn and where the next takes over.
+- **To check in DCS:** the switches at about 10, 30, 100 and 300 m at the default view. Zoomed in, each switch should come further out.
+
+## The TD-1A tiedown: the chain stays links to 30 m (2026-11-26; built, tested in the rig; NOT YET SEEN IN DCS)
+
+- **The user, in DCS:** the chain turning into a cable at the first switch (10 m) was "quite noticeable"; it should happen where the second switch is. The tensioner's changes were never noticeable.
+- **Changed:** level 1 (10 to 30 m) keeps every link and only simplifies the tensioner. Level 2 (30 to 100 m) draws the chain as the textured square cable that level 1 had, in place of the thin line. Levels 0 and 3 and the distances (10, 30, 100, 300 m) are unchanged. About 7,200, 6,500, 700 to 1,300 and 32 triangles.
+
+## The TD-1A tiedown's levels of detail: SEEN IN DCS (2026-11-26)
+
+- The user ran the Session Board test in DCS and it passed, 5 of 5 steps. The chain stays as links past 10 m and turns into the textured cable at about 30 m. Small blocks remain at about 100 m, and nothing is drawn past 300 m. Zoomed in, the links come back.
+
+## The TD-1A tiedown: the cable lit like the links (2026-11-26; built, tested in the rig; NOT YET SEEN IN DCS)
+
+- **The user, in DCS (with two screenshots):** at the switch to the cable, the light changed noticeably: the cable caught the sun and its lit side was brighter than the links'.
+- **Not the cable's width:** the links cover 64% of their 25.4 mm width, the same as a solid 16.2 mm strip; the cable is 16 mm.
+- **Changed:**
+  - The cable has smooth normals, out through its corners, as a round wire's are. It had one flat normal a face, so the whole sun-facing face lit evenly.
+  - Its surface is rougher and less metallic (0.86 and 0.45, from the links' own 0.62 and 0.75): seen from far off, the links' round sections spread the sun's reflection every way, where a smooth cable gives one broad highlight.
+- **Measured in the generator's own (diffuse only) pictures:** a stretch of taut chain as links and as cable, from three directions. The cable covers 1.3 to 1.45 times the pixels, each 0.62 to 0.82 as bright, which is 0.83 to 1.19 of the links' total light. DCS's specular highlights can only be judged in DCS.
+
+## The TD-1A tiedown's cable lighting: SEEN IN DCS (2026-11-26)
+
+- The user ran the Session Board test in DCS and it passed, 3 of 3 steps. Backing away through about 30 m, the chain turns into the cable with no noticeable jump in brightness, from two sides of the jet.

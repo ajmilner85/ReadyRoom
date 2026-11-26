@@ -5,9 +5,13 @@ from the deck and its finish are three model arguments.
     python -I tiedown.py              writes into ../Mods/tech/CATCC-Crew, and model/out (OBJ, pictures)
     python -I tiedown.py <out dir>    writes the DCS files only, into <out dir> (the tests do this)
 
-DCS files (a version 10 .edm written by edm.py, with towbar.py's mesh, tangent-frame and node helpers, and a copy of
-wheel_chock.py's face, noise and BC1 / BC5 code; the textures beside the models, as the chock's are):
-    Shapes/CATCC_Tiedown.edm                          the tiedown
+DCS files (version 10 .edm files written by edm.py, with towbar.py's mesh, tangent-frame and node helpers, and a copy
+of wheel_chock.py's face, noise and BC1 / BC5 code; the textures beside the models, as the chock's are):
+    Shapes/CATCC_Tiedown.lods                         its levels of detail (LODS below): the models and how far each
+                                                      is drawn, as DCS's own .lods files have them; DCS takes it for
+                                                      the shape "CATCC_Tiedown"
+    Shapes/CATCC_Tiedown.edm                          the tiedown, every link (level 0)
+    Shapes/CATCC_Tiedown_lod1.edm .. _lod3.edm        the tiedown simpler (levels 1 to 3): the same nodes and arguments
     Shapes/textures/catcc_tiedown_diff.dds            colours (BC1)
     Shapes/textures/catcc_tiedown_nm.dds              normal map (BC5: red along the texture's width, green DOWN it)
     Shapes/textures/catcc_tiedown_diff_roughmet.dds   ambient occlusion (red), roughness (green), metalness (blue) (BC1)
@@ -49,7 +53,8 @@ links are always drawn, taut or hanging: about 7,200 triangles at every setting.
 pieces of 2, 4, 8, 16, 32 and 64 links, shown and placed by the length (any even count is a sum of them); the spare
 chain is two links round the jaw's end, loops of 24 links and one shorter loop, each one piece. At most 15 pieces are
 drawn. The rims, bosses, lugs, tongue, cast words, the bar's teeth, the ring's grooves, pitting and rust are in the
-textures.
+textures. That is the nearest level of detail, drawn to 10 m; beyond it simpler ones take over (LODS below): about
+6,500 triangles to 30 m (every link still), 700 to 1,300 to 100 m (the chain a cable), 32 to 300 m, nothing further.
 
 THE MODEL'S FRAME: metres; the origin is the PADEYE: the centre of the bend of the chain's hook, where the padeye's bar
 sits, on the deck; y up; x level, towards the aircraft's tiedown fitting (the script turns the model to face it).
@@ -350,6 +355,19 @@ PART_FAN = 1.6                  # the short loop's
 LOOP_DEEP = -LOOP_TOP + (LOOP_N * P - math.pi * LOOP_W / 2) / 2 + LOOP_W / 2 + RC + RW
 WRAP = 2                        # spare links round the jaw's end, from the chain lock to where the loops hang
 NORMAL_VALUE = 1.0
+# THE LEVELS OF DETAIL, as DCS's own .lods files list them: each model and how far (m) it is drawn to; beyond the last,
+# nothing. Set by what can be seen on the screen (2560 px across, the default 78 degrees: a pixel is 0.63 mm a metre
+# away). DCS scales these by the view's horizontal field of view (zoomed in, the nearer levels are drawn further out)
+# and by the LOD slider of its options.
+#   0  to  10 m  everything
+#   1  to  30 m  every link still (the user, 2026-11-26: the chain turning into a cable at 10 m showed; the tensioner's
+#                changes never did); the tensioner without its bolts, the ring's rounded rim, the hook's fine sections
+#   2  to 100 m  the chain a square cable textured with its links (a link 29 mm: 1.5 px at 30 m); the tensioner its
+#                cheeks' outline, the ring, the bar and the hook (the body 0.2 m: 10 px at 30 m, 3 px at 100 m)
+#   3  to 300 m  the tensioner as two blocks, no chain (the chain 16 mm: 0.25 px at 100 m); 1 px at 300 m
+LODS = [('CATCC_Tiedown', 10.0), ('CATCC_Tiedown_lod1', 30.0), ('CATCC_Tiedown_lod2', 100.0), ('CATCC_Tiedown_lod3', 300.0)]
+CHAIN_LOD = (0, 0, 1, 3)        # how the chain is drawn at each level: 0 links, 1 the textured cable, 3 not at all
+CABLE_HW = 0.008                # the cable standing for the chain: half its width
 NAMES = ('catcc_tiedown_diff', 'catcc_tiedown_nm', 'catcc_tiedown_diff_roughmet')
 EPS = 1e-6
 
@@ -548,6 +566,7 @@ REGIONS = [Region('link%d' % i, LINK_PERIM * 1000, 2 * math.pi * RW * 1000, 2.5)
     Region('nut_side', 2 * math.pi * (NUT_RO - NUT_LUG / 2) * 1000, NUT_RIM * 1000, 1.5),
     Region('nut_face', 2 * NUT_RO * 1000, 2 * NUT_RO * 1000, 1.6),
     Region('dark', 24, 24, 1.5), Region('zinc', 32, 32, 1.5), Region('bolt', 24, 24, 2.0), Region('cast', 40, 40, 1.5),
+    Region('cable', 2 * P * 1000, 8 * CABLE_HW * 1000, 2.5),
 ]
 for _c in COLOURS:   # what is painted, once for each finish
     REGIONS += [
@@ -939,6 +958,39 @@ def face_cast():
     return f
 
 
+def face_cable():
+    """the chain drawn on a square cable (a along it: one flat link and one on edge, 2 pitches; b round it, four faces
+    of 16 mm): on the two faces a flat link shows broad, it is a ring with its hole, the link on edge a bar; on the
+    other two the other way round; between them shadow"""
+    fw = 2 * CABLE_HW * 1000
+    la, rc, rw = LA * 1000, RC * 1000, RW * 1000
+
+    def f(a, b):
+        k = min(3, int(b // fw))
+        y = b - k * fw - fw / 2                         # across the face from its middle
+        best = (-2.0, 0.0)                              # (height, how lit)
+        for c, broad in ((P * 500, k % 2 == 0), (P * 1500, k % 2 == 1)):
+            for x in (a - c, a - c + 2 * P * 1000, a - c - 2 * P * 1000):
+                if broad:                               # the ring: its centre line a stadium
+                    d = abs(abs(y) - rc) if abs(x) <= la else abs(math.hypot(abs(x) - la, y) - rc)
+                else:                                   # the bar: the link seen on edge
+                    d = abs(y) if abs(x) <= la + rc else math.hypot(abs(x) - la - rc, y)
+                if d < rw:
+                    h = math.sqrt(rw * rw - d * d)
+                    if h > best[0]:
+                        best = (h, h / rw)
+        h, lit = best
+        if h < 0:
+            return -2.0, mix(DARK, DIRT, 0.3), 0.3, 0.9, 0.2
+        col = mul3(CHAIN, 0.8 + 0.3 * lit)
+        if vn(a / 6.0 + k * 3, b / 4.0) > 0.72:
+            col = mix(col, RUST, 0.6)
+        # rougher and less metallic than a link's own surface (0.62, 0.75): seen as a cable the links' round sections
+        # spread the sun's reflection every way, where a smooth cable gives one broad highlight
+        return h, col, 0.6 + 0.4 * lit, 0.86, 0.45
+    return f
+
+
 def face_paint(colour):
     """the painted parts' undersides and edges: rubbed through over most of them"""
     def f(a, b):
@@ -952,7 +1004,7 @@ FACES = {
     'hookA': face_steel(5, HOOK_LEN * 1000, THROAT, 'hookA'), 'hookB': face_steel(6, HOOK_LEN * 1000, THROAT, 'hookB'),
     'eye': face_steel(7, EYE_PERIM * 1000, None, 'eye'), 'bar': face_bar(), 'bar_edge': face_bar_edge(),
     'nut_side': face_nut_side(), 'nut_face': face_nut_face(),
-    'dark': face_flat((66, 63, 60), 0.6, 0.7), 'zinc': face_flat(ZINC, 0.4, 0.85), 'bolt': face_bolt(), 'cast': face_cast(),
+    'dark': face_flat((66, 63, 60), 0.6, 0.7), 'zinc': face_flat(ZINC, 0.4, 0.85), 'bolt': face_bolt(), 'cast': face_cast(), 'cable': face_cable(),
 }
 for _c in COLOURS:
     FACES.update({'plate_m:' + _c: face_plate('m', _c), 'plate_p:' + _c: face_plate('p', _c), 'plate_edge:' + _c: face_plate_edge(_c),
@@ -1084,23 +1136,107 @@ def link_frame(i):
     return (X, Z) if i % 2 == 0 else (X, Y)
 
 
-def padeye_hook():
+def cable(m, pts, lod):
+    """the chain as a cable along the points (3D): at level 1 square, textured with its links (a piece of the texture
+    every two pitches, so the links keep their size); at level 2 a three-sided line, dark"""
+    if lod >= 3 or len(pts) < 2:
+        return
+    sides = 4 if lod == 1 else 3
+    reg = R['cable'] if lod == 1 else R['dark']
+    # the points, with one more at every two pitches along (level 1): the texture starts again there
+    run, sv = [(pts[0], 0.0)], 0.0
+    for i in range(len(pts) - 1):
+        a, b = pts[i], pts[i + 1]
+        ln = tb.length(tb.sub(b, a))
+        if lod == 1:
+            nxt = (math.floor(sv / (2 * P) + 1e-9) + 1) * 2 * P
+            while nxt < sv + ln - 1e-6:
+                run.append((tb.comb(a, (tb.sub(b, a), (nxt - sv) / ln)), nxt))
+                nxt += 2 * P
+        sv += ln
+        run.append((b, sv))
+    tang = []
+    for i in range(len(run)):
+        a, b = run[max(0, i - 1)][0], run[min(len(run) - 1, i + 1)][0]
+        tang.append(tb.unit(tb.sub(b, a)))
+    rings = []
+    e1 = None
+    for i, (q, sv) in enumerate(run):
+        t = tang[i]
+        # the section carried along the path (no twist where the path turns): the last one's side, square to here
+        ref = e1 if e1 is not None else (Y if abs(t[1]) < 0.9 else Z)
+        e1 = tb.unit(tb.sub(ref, tb.mul(t, tb.dot(ref, t))))
+        e2 = tb.cross(t, e1)
+        period = sv / (2 * P)
+        u = (period - math.floor(period + 1e-9)) if lod == 1 else 0.5
+        rings.append((q, e1, e2, u))
+    hw = CABLE_HW if lod == 1 else CABLE_HW * 0.7
+    for i in range(len(rings) - 1):
+        (q0, a1, a2, u0), (q1, b1, b2, u1) = rings[i], rings[i + 1]
+        if lod == 1 and u1 < u0 + 1e-6:
+            u1 = 1.0                                    # the end of a period
+        for k in range(sides):
+            th0, th1 = 2 * math.pi * k / sides + math.pi / sides, 2 * math.pi * (k + 1) / sides + math.pi / sides
+            n0 = (math.cos(th0), math.sin(th0))
+            n1 = (math.cos(th1), math.sin(th1))
+            nf = (math.cos((th0 + th1) / 2), math.sin((th0 + th1) / 2))
+            r = hw * math.sqrt(2) if sides == 4 else hw
+            corner = lambda c, e1, e2, n: tb.comb(c, (e1, r * n[0]), (e2, r * n[1]))
+            quad = [corner(q0, a1, a2, n0), corner(q1, b1, b2, n0), corner(q1, b1, b2, n1), corner(q0, a1, a2, n1)]
+            nrm = tb.unit(tb.comb((0, 0, 0), (a1, nf[0]), (a2, nf[1])))
+            v0, v1 = reg.h * k / sides, reg.h * (k + 1) / sides
+            # smooth normals, out through each corner (the user, 2026-11-26: with one flat normal a face, the whole
+            # face caught the sun and the cable showed brighter than the round links it stands for)
+            cn = [tb.unit(tb.comb((0, 0, 0), (e1_, n[0]), (e2_, n[1]))) for e1_, e2_, n in ((a1, a2, n0), (b1, b2, n0), (b1, b2, n1), (a1, a2, n1))]
+            uvs = [(reg.w * u0, v0), (reg.w * u1, v0), (reg.w * u1, v1), (reg.w * u0, v1)]
+            ids = [m.vert(quad[j], cn[j], reg.uv(*uvs[j]), reg.name) for j in range(4)]
+            m.face(ids[0], ids[1], ids[2], nrm)
+            m.face(ids[0], ids[2], ids[3], nrm)
+
+
+def thin(pts, rad, keep):
+    """every keep-th point of a path (its ends always) with its radii"""
+    idx = sorted(set(list(range(0, len(pts), keep)) + [len(pts) - 1]))
+    return [pts[i] for i in idx], [rad[i] for i in idx]
+
+
+def hook_at(m, reg, lod):
+    """the padeye hook (bend at the origin, shank along +x) and its eye, at a level of detail"""
+    if lod == 0:
+        m.sweep([(x, y, 0.0) for x, y in HOOK2], HOOK_RAD, Z, False, 6, reg, caps=True)
+        eye(m, (EYE_C, 0.0, 0.0), X, Y)
+        return
+    pts, rad = thin(HOOK2, HOOK_RAD, 2 if lod == 1 else 3)
+    m.sweep([(x, y, 0.0) for x, y in pts], rad, Z, False, 4 if lod == 1 else 3, reg, caps=True)
+    e = ring_path(0.0, EYE_R, 3 if lod == 1 else 2)
+    m.sweep(plane_pts((EYE_C, 0.0, 0.0), X, Y, e), [(EYE_W, EYE_W)] * len(e), tb.unit(tb.cross(X, Y)), True, 3, R['eye'])
+
+
+def padeye_hook(lod=0):
     """the chain's hook in the padeye (its bend's centre at the origin), its eye, and links 0 and 1"""
     m = Mesh()
-    m.sweep([(x, y, 0.0) for x, y in HOOK2], HOOK_RAD, Z, False, 6, R['hookB'], caps=True)
-    eye(m, (EYE_C, 0.0, 0.0), X, Y)
-    for i in (0, 1):
-        e1, e2 = link_frame(i)
-        link(m, (X0 + i * P, 0.0, 0.0), e1, e2, i)
+    if lod >= 3:
+        return m
+    hook_at(m, R['hookB'], lod)
+    if CHAIN_LOD[lod] == 0:
+        for i in (0, 1):
+            e1, e2 = link_frame(i)
+            link(m, (X0 + i * P, 0.0, 0.0), e1, e2, i)
+    else:
+        cable(m, [(X0 - P / 2, 0.0, 0.0), (X0 + 1.5 * P, 0.0, 0.0)], CHAIN_LOD[lod])
     return m
 
 
-def chunk(b):
+def chunk(b, lod=0):
     """2 ** (b + 1) links of the taut chain, the first (lying flat) centred on the origin"""
     m = Mesh()
-    for i in range(2 ** (b + 1)):
-        e1, e2 = link_frame(i)
-        link(m, (i * P, 0.0, 0.0), e1, e2, i + b)
+    n = 2 ** (b + 1)
+    if CHAIN_LOD[lod] == 0:
+        for i in range(n):
+            e1, e2 = link_frame(i)
+            link(m, (i * P, 0.0, 0.0), e1, e2, i + b)
+    else:
+        cable(m, [(-P / 2, 0.0, 0.0), ((n - 0.5) * P, 0.0, 0.0)], CHAIN_LOD[lod])
     return m
 
 
@@ -1123,17 +1259,27 @@ def flat_piece(m, u0, u1, v0, v1, top, bottom, ends):
             m.poly([(u, v0, -t), (u, v1, -t), (u, v1, t), (u, v0, t)], (nx, 0.0, 0.0), reg, [(2, 2), (reg.w - 2, 2), (reg.w - 2, reg.h - 2), (2, reg.h - 2)])
 
 
-def tensioner_hook():
+def tensioner_hook(lod=0):
     """what stays at the fitting, in the model's frame of the tensioner's node: the hook, its eye and the link (the
     padeye hook's, on the chain's line), and, turned about the joint, the slotted bar: its eyelet end, its two threaded
     rails either side of the slot, its inner end"""
     h = Mesh()
-    h.sweep([(x, y, 0.0) for x, y in HOOK2], HOOK_RAD, Z, False, 6, R['hookA'], caps=True)
-    eye(h, (EYE_C, 0.0, 0.0), X, Y)
-    h.sweep(plane_pts((CL_C, 0.0, 0.0), X, Z, CLINK2), [(CL_W, CL_W)] * len(CLINK2), tb.unit(tb.cross(X, Z)), True, 4, R['eye'], phase=math.pi / 4)
+    if lod >= 3:
+        return h
+    hook_at(h, R['hookA'], lod)
+    if lod == 0:
+        h.sweep(plane_pts((CL_C, 0.0, 0.0), X, Z, CLINK2), [(CL_W, CL_W)] * len(CLINK2), tb.unit(tb.cross(X, Z)), True, 4, R['eye'], phase=math.pi / 4)
+    else:
+        c = ring_path(CL_LA, CL_RC, 2)
+        h.sweep(plane_pts((CL_C, 0.0, 0.0), X, Z, c), [(CL_W, CL_W)] * len(c), tb.unit(tb.cross(X, Z)), True, 3, R['eye'])
     h.transform(hook_model, hook_model)
     m = Mesh()
     zr, be = R['zinc'], R['bar_edge']
+    if lod == 2:                                        # the bar: a plain block
+        m.box((BAR_U0, -BAR_HV, -BAR_T), (BAR_U1, BAR_HV, BAR_T), be)
+        m.transform(to_model, dir_model)
+        h.merge(m)
+        return h
     u0, ue, u1 = BAR_U0, BAR_U0 + BAR_EYE, BAR_U1
     # the eyelet end: rounded towards the hook, as wide as the eyelet needs
     outline = [(u0, -0.009), (u0 + 0.006, -BAR_EYE_HV), (ue - 0.004, -BAR_EYE_HV), (ue, -BAR_HV), (ue, BAR_HV), (ue - 0.004, BAR_EYE_HV),
@@ -1166,11 +1312,36 @@ def ribbon(m, pts, wl, wh, top_ab, top_reg, pr, t):
         m.poly([top[i][0], top[i][1], bot[i][1], bot[i][0]], tb.mul(d, sgn), pr, [(2, 19), (22, 19), (22, 22), (2, 22)])
 
 
-def tensioner_body():
+def ring_simple(m, sides, lugs):
+    """the tensioning ring as a prism: its rim and both faces (lugs: its eight lugs in the outline)"""
+    ns, nf = R['nut_side'], R['nut_face']
+    pts = []
+    for i in range(sides):
+        th = 2 * math.pi * (i + 0.5) / sides
+        r = NUT_RO - (NUT_LUG if lugs and i % 3 == 2 else 0.0) - (0.0 if lugs else NUT_LUG / 2)
+        pts.append((r * math.cos(th), r * math.sin(th)))
+    for i in range(sides):
+        (ya, za), (yb, zb) = pts[i], pts[(i + 1) % sides]
+        nrm = tb.unit((0.0, (ya + yb) / 2, (za + zb) / 2))
+        a0, a1 = ns.w * i / sides, ns.w * (i + 1) / sides
+        m.poly([(NUT_U0, ya, za), (NUT_U0, yb, zb), (NUT_U0 + NUT_T, yb, zb), (NUT_U0 + NUT_T, ya, za)], nrm, ns, [(a0, 0.0), (a1, 0.0), (a1, ns.h), (a0, ns.h)])
+    c = NUT_RO * 1000
+    for u, sgn in ((NUT_U0, -1.0), (NUT_U0 + NUT_T, 1.0)):
+        m.poly([(u, y, z) for y, z in pts], (sgn, 0.0, 0.0), nf, [(c + z * 1000, c - y * 1000) for y, z in pts])
+
+
+def tensioner_body(lod=0):
     """what moves along the bar (built home) and is not painted, in the tensioner's frame (u, v, w): the tensioning ring
     and its hub, the chain lock's housing, the jaw's pin, the bolts"""
     m = Mesh()
     zr = R['zinc']
+    if lod >= 1:                                        # the ring a prism; at level 1 the hub and the chain lock too
+        ring_simple(m, (24, 8, 6)[lod - 1], lod == 1)
+        if lod == 1:
+            m.box((HUB_U0, -HUB_HV, -HUB_HW), (HUB_U0 + HUB_LEN, HUB_HV, HUB_HW), R['cast'], skip=('+x',))
+            ct = R['cast']
+            m.slab([uv_px(*q) for q in LOCK_BLOCK_PX], -LOCK_HW, LOCK_HW, ct, lambda u, v, nz: (4 + 32 * (u - U_LO) / (U_HI - U_LO), 4 + 32 * (v - V_LO) / (V_HI - V_LO)), ct, edge_b=(2.0, 12.0))
+        return m
     m.box((HUB_U0, -HUB_HV, -HUB_HW), (HUB_U0 + HUB_LEN, HUB_HV, HUB_HW), R['cast'], skip=('+x',))
     # the tensioning ring: round, eight lugs, its rim rounded towards its faces (smooth round it)
     ns, nf = R['nut_side'], R['nut_face']
@@ -1214,18 +1385,31 @@ def tensioner_body():
     return m
 
 
-def tensioner_paint(colour):
+CHEEK_LOD = {1: [0, 2, 4, 6, 8, 9, 11, 13, 14, 16, 18, 20, 22, 24], 2: [0, 4, 9, 13, 14, 17, 20, 24]}   # outline points kept
+
+
+def tensioner_paint(colour, lod=0):
     """what is painted (or left bare), in one finish, in the tensioner's frame: the two cheeks, the neck between them,
     the release lever (its lip, trigger plate and two prongs)"""
     m = Mesh()
     rg = lambda name: R['%s:%s' % (name, colour)]
+    if lod >= 3:                                        # the body a block, both cheeks' width
+        reg = rg('plate_p')
+        w0, w1 = cheek_out(U_LO), cheek_out(U_HI)
+        q = [(U_LO, V_LO), (U_HI, V_LO), (U_HI, V_HI), (U_LO, V_HI)]
+        m.slab(q, lambda u: -(w0 + (w1 - w0) * (u - U_LO) / (U_HI - U_LO)), lambda u: w0 + (w1 - w0) * (u - U_LO) / (U_HI - U_LO), reg,
+               lambda u, v, nz: ((u - U_LO) * 1000, (V_HI - v) * 1000), rg('paint'), edge_b=(4.0, 20.0))
+        return m
+    outline = BODY if lod == 0 else [BODY[i] for i in CHEEK_LOD[lod]]
     # the cheeks: the drawing's outline, closing in from the jaw to the ring
     for side, reg in ((-1.0, rg('plate_m')), (1.0, rg('plate_p'))):
         def ab(u, v, nz, side=side):
             return (((U_HI - u) if side < 0 else (u - U_LO)) * 1000, (V_HI - v) * 1000)
         fin = lambda u, side=side: side * cheek_in(u)
         fout = lambda u, side=side: side * cheek_out(u)
-        m.slab(BODY, fout if side < 0 else fin, fin if side < 0 else fout, reg, ab, rg('plate_edge'))
+        m.slab(outline, fout if side < 0 else fin, fin if side < 0 else fout, reg, ab, rg('plate_edge'))
+    if lod == 2:
+        return m
     # the neck between the cheeks (its top, its underside, its end towards the jaw)
     (u0, v1), (u1, v0) = uv_px(NECK_PX[0], NECK_PX[2]), uv_px(NECK_PX[1], NECK_PX[3])
     bk = rg('block')
@@ -1243,10 +1427,13 @@ def tensioner_paint(colour):
     return m
 
 
-def wrap_links():
+def wrap_links(lod=0):
     """the first spare links, from the chain lock round the jaw's end to where the loops hang (the tensioner's frame)"""
     m = Mesh()
     pts = [uv_px(*q) for q in WRAP_PX]
+    if CHAIN_LOD[lod] >= 1:
+        cable(m, [(u, v, 0.0) for u, v in pts], CHAIN_LOD[lod])
+        return m
     seg, sv = [], 0.0
     for i in range(len(pts) - 1):
         ln = math.dist(pts[i], pts[i + 1])
@@ -1263,6 +1450,22 @@ def wrap_links():
         t = tb.unit((p1[0] - p0[0], p1[1] - p0[1], 0.0))
         link(m, c, t, Z if j % 2 else (-t[1], t[0], 0.0), j)
     return m
+
+
+def loop_path(c, fan):
+    """the path c links hang along in a loop (both its ends up), turned by fan about the vertical"""
+    eh = (math.cos(fan), 0.0, math.sin(fan))
+    top = (0.0, LOOP_TOP, LOOP_Z)
+    r = LOOP_W / 2
+    a = max(0.002, (c * P - math.pi * r) / 2)
+    path = [tb.comb(top, (eh, -r))]
+    path.append(tb.comb(top, (eh, -r), (Y, -a)))
+    for i in range(1, 12):
+        th = math.pi * i / 12
+        path.append(tb.comb(top, (eh, -r * math.cos(th)), (Y, -a - r * math.sin(th))))
+    path.append(tb.comb(top, (eh, r), (Y, -a)))
+    path.append(tb.comb(top, (eh, r)))
+    return path
 
 
 def loop_poses(c, fan):
@@ -1299,10 +1502,15 @@ def loop_poses(c, fan):
     return out
 
 
-def loop(c, fan):
+def loop(c, fan, lod=0):
     m = Mesh()
-    for i, (pos, t, n) in enumerate(loop_poses(c, fan)):
-        link(m, pos, t, tb.unit(tb.cross(n, t)), i)
+    cl = CHAIN_LOD[lod]
+    if cl == 0:
+        for i, (pos, t, n) in enumerate(loop_poses(c, fan)):
+            link(m, pos, t, tb.unit(tb.cross(n, t)), i)
+    elif cl <= 2:
+        path = loop_path(c, fan)
+        cable(m, path if cl == 1 else [path[0], path[1], path[4], path[7], path[10], path[-2], path[-1]], cl)
     return m
 
 
@@ -1357,24 +1565,31 @@ def colour_range(i):
     return (-1.01 if i == 0 else i / 10 - 0.05, 1.01 if i == len(COLOURS) - 1 else i / 10 + 0.05)
 
 
-def build():
-    """the nodes (index 1 on: 0 is the root), their parents, and the meshes on them: [(name, node, mesh)]"""
+def build(lod=0):
+    """the nodes (index 1 on: 0 is the root), their parents, and the meshes on them: [(name, node, mesh)], at a level of
+    detail (the same nodes and arguments at every level; a part with nothing at a level is left out)"""
     nodes, parents, parts = [], [], []
 
     def add(n, parent):
         nodes.append(n)
         parents.append(parent)
         return len(nodes)
+
+    class Parts(list):
+        def append(self, item):
+            if item[2].tri:
+                list.append(self, item)
+    parts = Parts()
     turn = lambda sign: [(ELEV_ARG, [[-1.0] + quat_z(0)] + [[j / 12, *quat_z(sign * 90 * j / 12)] for j in range(13)])]
     tilt = add(tb.anim_node('model::ArgRotationNode', 'tilt', rot=turn(1)), 0)
-    parts.append(('padeye_hook', tilt, padeye_hook()))
+    parts.append(('padeye_hook', tilt, padeye_hook(lod)))
     for b in range(CHUNKS):
         v = add(vis_node('chain_%d' % b, LEN_ARG, ranges_k(lambda k, b=b: (k >> b) & 1)), tilt)
         p = add(tb.anim_node('model::ArgPositionNode', 'chain_%d_place' % b, pos=[(LEN_ARG, step_keys(lambda k, b=b: (chunk_x(b, k), 0.0, 0.0)))]), v)
-        parts.append(('chain_%d' % b, p, chunk(b)))
+        parts.append(('chain_%d' % b, p, chunk(b, lod)))
     far = add(tb.anim_node('model::ArgPositionNode', 'tensioner', pos=[(LEN_ARG, [[-1.0, L_MIN, 0.0, 0.0], [len_arg(L_MIN), L_MIN, 0.0, 0.0],
                                                                                   [len_arg(L_MAX), L_MAX, 0.0, 0.0], [1.0, L_MAX, 0.0, 0.0]])]), tilt)
-    parts.append(('tensioner', far, tensioner_hook()))
+    parts.append(('tensioner', far, tensioner_hook(lod)))
     saw = [[-1.0, 0.0, 0.0, 0.0]]
     for k in range(STEPS):
         a0, a1 = len_arg(L_MIN + k * TRAVEL), len_arg(L_MIN + (k + 1) * TRAVEL)
@@ -1383,23 +1598,23 @@ def build():
         saw.append([a1 - (0.0 if k == STEPS - 1 else EPS)] + [ROD_DIR[i] * end for i in range(3)])
     saw.append([1.0] + [ROD_DIR[i] * TRAVEL for i in range(3)])
     body = add(tb.anim_node('model::ArgPositionNode', 'tensioner_body', pos=[(LEN_ARG, saw)]), far)
-    parts.append(('tensioner_body', body, tensioner_body().transform(to_model, dir_model)))
+    parts.append(('tensioner_body', body, tensioner_body(lod).transform(to_model, dir_model)))
     for i, c in enumerate(COLOURS):   # the painted parts, once in each finish: one is shown
         v = add(vis_node('paint_' + c, COLOUR_ARG, [colour_range(i)]), body)
-        parts.append(('paint_' + c, v, tensioner_paint(c).transform(to_model, dir_model)))
+        parts.append(('paint_' + c, v, tensioner_paint(c, lod).transform(to_model, dir_model)))
     # the spare chain: its first links round the jaw's end (with the body), then loops hanging from there in a level frame
     spare = lambda k: N_LINKS - 2 - 2 * k
     v = add(vis_node('wrap', LEN_ARG, ranges_k(lambda k: spare(k) >= WRAP)), body)
-    parts.append(('wrap', v, wrap_links().transform(to_model, dir_model)))
+    parts.append(('wrap', v, wrap_links(lod).transform(to_model, dir_model)))
     hang = add(tb.anim_node('model::ArgRotationNode', 'spare', position=to_model((EXIT[0], EXIT[1], 0.0)), rot=turn(-1)), body)
     looped = lambda k: max(0, spare(k) - WRAP)
     for q, fan in enumerate(LOOP_FAN):
         v = add(vis_node('loop_%d' % q, LEN_ARG, ranges_k(lambda k, q=q: looped(k) // LOOP_N > q)), hang)
-        parts.append(('loop_%d' % q, v, loop(LOOP_N, fan)))
+        parts.append(('loop_%d' % q, v, loop(LOOP_N, fan, lod)))
     for c in range(2, LOOP_N, 2):
         v = add(vis_node('loop_short_%02d' % c, LEN_ARG, ranges_k(lambda k, c=c: looped(k) % LOOP_N == c)), hang)
-        parts.append(('loop_short_%02d' % c, v, loop(c, PART_FAN)))
-    return nodes, parents, parts
+        parts.append(('loop_short_%02d' % c, v, loop(c, PART_FAN, lod)))
+    return nodes, parents, list(parts)
 
 
 # ---------------------------------------------------------------- the tree evaluated (for pictures, bounds and the tests)
@@ -1558,26 +1773,44 @@ def tiedown_edm(tree):
     return f, lo, hi
 
 
+def drawn_counts(tree):
+    """(triangles, parts) drawn at each of the POSES"""
+    nodes, parents, parts = tree
+    out = []
+    for L, d in POSES:
+        _, shown = evaluate(nodes, parents, {LEN_ARG: len_arg(L), ELEV_ARG: elev_arg(d)})
+        drawn = [m for _, node, m in parts if shown[node]]
+        out.append((sum(len(m.tri) for m in drawn), len(drawn)))
+    return out
+
+
+def lods_file():
+    """the .lods file: the models in order, each with how far it is drawn"""
+    rows = ''.join('\t\t{"%s.edm", %.1f},\n' % (name, dist) for name, dist in LODS)
+    return '-- the CATCC tiedown\'s levels of detail (generated by crew-test/model/tiedown.py)\nmodel = {\n\tlods = {\n%s\t};\n}\n' % rows
+
+
 def main(out, extras):
     col, nx, ny, ao, ro, me = atlas()
-    tree = build()
-    f, lo, hi = tiedown_edm(tree)
-    data = edm.write(f)
-    assert edm.write(edm.read(data), keep_table=True) == data, 'the written model does not read back the same'
+    trees = [build(i) for i in range(len(LODS))]
+    tree = trees[0]
     os.makedirs(os.path.join(out, 'Shapes', 'textures'), exist_ok=True)
-    open(os.path.join(out, 'Shapes', 'CATCC_Tiedown.edm'), 'wb').write(data)
+    boxes = []
+    for (name, _), t in zip(LODS, trees):
+        f, lo, hi = tiedown_edm(t)
+        data = edm.write(f)
+        assert edm.write(edm.read(data), keep_table=True) == data, name + ': the written model does not read back the same'
+        open(os.path.join(out, 'Shapes', name + '.edm'), 'wb').write(data)
+        boxes.append((lo, hi))
+    open(os.path.join(out, 'Shapes', 'CATCC_Tiedown.lods'), 'w', encoding='utf-8', newline='\n').write(lods_file())
+    lo, hi = boxes[0]
     rgb = [col[0::3], col[1::3], col[2::3]]
     open(os.path.join(out, 'Shapes', 'textures', NAMES[0] + '.dds'), 'wb').write(dds(rgb, 'bc1'))
     open(os.path.join(out, 'Shapes', 'textures', NAMES[1] + '.dds'), 'wb').write(dds([nx, ny], 'bc5'))
     open(os.path.join(out, 'Shapes', 'textures', NAMES[2] + '.dds'), 'wb').write(dds([ao, ro, me], 'bc1'))
     parts = tree[2]
     fixed = sum(len(m.tri) for name, _, m in parts if name in ('padeye_hook', 'tensioner', 'tensioner_body', 'paint_yellow'))
-    counts = []
-    for L, d in POSES:
-        nodes, parents, _ = tree
-        mats, shown = evaluate(nodes, parents, {LEN_ARG: len_arg(L), ELEV_ARG: elev_arg(d)})
-        drawn = [m for _, node, m in parts if shown[node]]
-        counts.append((sum(len(m.tri) for m in drawn), len(drawn)))
+    counts = drawn_counts(tree)
     print('tiedown: %d parts on %d nodes; tensioner, hooks and links 0 and 1: %d triangles; a link %d; chain %d links, %.3f m, pitch %.3f, wire %.4f'
           % (len(parts), len(tree[0]), fixed, len(chunk(0).tri) // 2, N_LINKS, N_LINKS * P, P, 2 * RW))
     print('  argument %d: length / %.0f m, from %.3f to %.3f m (padeye to fitting); the body moves 0 to %.3f m along the bar, the chain seated every %d links'
@@ -1585,8 +1818,12 @@ def main(out, extras):
     print('  argument %d: rise / 90 degrees; chain lock %.3f to %.3f m from the fitting; drawn: %d to %d triangles in %d to %d parts; loops hang %.3f m'
           % (ELEV_ARG, B_MIN, B_MIN + TRAVEL, min(c[0] for c in counts), max(c[0] for c in counts), min(c[1] for c in counts), max(c[1] for c in counts), LOOP_DEEP))
     print('  argument %d: the tensioner\'s finish: %s' % (COLOUR_ARG, ', '.join('%s %s' % (('%.1f' % (i / 10)).rstrip('0').rstrip('.') or '0', c) for i, c in enumerate(COLOURS))))
-    print('  bounding box %s to %s; atlas %d x %d, %d rows used; wrote CATCC_Tiedown.edm and three textures to %s'
-          % (['%.3f' % v for v in lo], ['%.3f' % v for v in hi], W, W, ATLAS_USED, out))
+    for i, ((name, dist), t) in enumerate(zip(LODS, trees)):
+        cs = drawn_counts(t)
+        print('  level %d: %s.edm to %.0f m: %d parts; drawn %d to %d triangles in %d to %d parts'
+              % (i, name, dist, len(t[2]), min(c[0] for c in cs), max(c[0] for c in cs), min(c[1] for c in cs), max(c[1] for c in cs)))
+    print('  bounding box %s to %s; atlas %d x %d, %d rows used; wrote CATCC_Tiedown.lods, %d models and three textures to %s'
+          % (['%.3f' % v for v in lo], ['%.3f' % v for v in hi], W, W, ATLAS_USED, len(LODS), out))
     if not extras:
         return
     extra = os.path.join(HERE, 'out')
@@ -1635,6 +1872,20 @@ def main(out, extras):
         (ts[1], (0.0, 0.0, 1.0), (0, 500, 1000, 500), (body, 0.062)),
         (ts[1], (0.0, -1.0, 0.02), (1000, 500, 600, 500), ((0.9 - 0.25, 0.0, 0.0), 0.075)),
     ], tex))
+    # the levels of detail: close, side by side; then each as big as it is on the screen where it is first drawn (the
+    # 2560 px, 78 degree screen); then each where the next takes over
+    lv = [posed(t, 1.3, 35, colour=0.1) for t in trees]
+    whole = near(1.3, 35)
+    views = []
+    for i in range(len(LODS)):
+        views.append((lv[i], (-0.45, -0.30, -0.84), (400 * i, 0, 400, 400), (whole, 0.30)))
+    px_per_m = lambda dist: 2560 / (2 * math.tan(math.radians(39)) * dist)
+    for row, which in ((1, 'start'), (2, 'end')):
+        for i, (name, dist) in enumerate(LODS):
+            d = LODS[i - 1][1] if which == 'start' and i else (2.0 if which == 'start' else dist)
+            half = 150 / px_per_m(d)
+            views.append((lv[i], (-0.45, -0.30, -0.84), (400 * i, 400 + 300 * (row - 1), 400, 300), (whole, half)))
+    open(os.path.join(extra, 'catcc_tiedown_lods.png'), 'wb').write(picture(1600, 1000, views, tex))
     print('wrote the atlas pictures, the OBJ copy and the previews to', extra)
 
 

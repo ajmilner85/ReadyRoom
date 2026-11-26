@@ -15,7 +15,8 @@
 --                                   placed with its origin on a padeye (the chain's hook), headed level towards the
 --                                   aircraft's tiedown fitting (the tensioner's hook); argument 10 = the length to the
 --                                   fitting / 4 m (0.512 to 3.240 m), 11 = the chain's rise from the deck / 90 degrees,
---                                   12 = the tensioner's finish (0 yellow, 0.1 red, 0.2 bare metal)
+--                                   12 = the tensioner's finish (0 yellow, 0.1 red, 0.2 bare metal). Four levels of
+--                                   detail in Shapes/CATCC_Tiedown.lods (DCS takes the .lods for the shape's name)
 local function deck_static(name, displayName, shape)
   local u = {}
   u.shape_table_data =
