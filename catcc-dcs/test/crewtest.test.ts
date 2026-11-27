@@ -1049,9 +1049,10 @@ describe('crew test hook and menu', () => {
     expect(deck.filter((m) => m.startsWith('Turn it > ')).map((m) => m.split(' > ')[1])).toEqual(['Right 5 degrees', 'Left 5 degrees', 'Right 1 degree', 'Left 1 degree', 'Right 0.1 degree', 'Left 0.1 degree']);
     const top = r.menu.filter((m) => !m.startsWith('CATCC deck spots > ') && !SUBS.some((s) => m.startsWith(`${s} > `)));
     // (the panel's show / hide is not in the crew test's menu: it is on the radio menu's own top level)
-    // (nor are the deck spotting demo's two)
-    expect(top).toEqual(['List people on my ship', TARGET, NIGHT, 'Stop the demo / signal test / marshalling', 'CATCC panel: show / hide', 'CATCC demo: spot the deck: start / stop', 'CATCC demo: report']);
-    expect(top.length - 3 + SUBS.length).toBeLessThanOrEqual(10);
+    // (nor are the deck spotting demo's three: its lookalike test since 2026-11-24)
+    expect(top).toEqual(['List people on my ship', TARGET, NIGHT, 'Stop the demo / signal test / marshalling', 'CATCC panel: show / hide', 'CATCC demo: spot the deck: start / stop', 'CATCC demo: report',
+      'CATCC demo: lookalike: swap the nearest aircraft']);
+    expect(top.length - 4 + SUBS.length).toBeLessThanOrEqual(10);
     expect(inSub('Target: signal')[2]).toBe('Target: signal > Turn left');
     expect(inSub('Our crew').slice(0, 6)).toEqual([SIGTEST, DEMO, ...[1, 2, 3, 4].map((k) => `${MARSHAL} ${k}`)]);
     expect(inSub('Our crew').slice(-2)).toEqual(['Our crew > Camera follows the director: on / off', 'Our crew > Put me square on the nearest spot (teleport)']);
@@ -4471,11 +4472,14 @@ rec('left ' .. n)`, { demo: true, ui: true });
       expect(rec).toContain('before Spawn: statics on spot 1: 1, state parked');
       expect(rec).toContain('Spawn pressed: slot "901", its static taken away false, reserved for Host');
       expect(rec).toContain('in the briefing 3 s: statics on spot 1: 1, spawned 0');
-      expect(rec).toContain('on spot 1: catcc-demo-a1 76; 10 m off it: ""');
+      // (the static's number: the mission's 78th; the lookalikes made before it count too. The mission's answer leaves
+      // the lookalike out: its "-look" name)
+      expect(rec).toContain('on spot 1: catcc-demo-a1 78; 10 m off it: ""');
       // (no wait: the FLY held, the static taken away and seen gone, DCS's own FLY, all within the frame the FLY is seen:
       // the static's destroy recorded before the spawn)
       expect(rec).toContain('FLY asked: ' + "slots: FLY: Hornet 1: DCS's FLY asked for (the briefing's FLY)");
-      expect(rec.indexOf('destroy catcc-demo-a1 76')).toBeLessThan(rec.indexOf('FLY pressed: spawned 1, statics on spot 1: 0, briefing up false'));
+      expect(rec.indexOf('destroy catcc-demo-a1 78')).toBeGreaterThan(0);
+      expect(rec.indexOf('destroy catcc-demo-a1 78')).toBeLessThan(rec.indexOf('FLY pressed: spawned 1, statics on spot 1: 0, briefing up false'));
       expect(rec).toContain('FLY pressed: spawned 1, statics on spot 1: 0, briefing up false');
       expect(rec).toContain('FLY + 2 s: spawned 1 (0 s after FLY), statics on spot 1: 0, briefing up false');
       expect(rec).toContain('FLY: FLY: Hornet 1: the spot clear 0.00 s after its static was taken away; the ATC refreshed: no (switched off); the wait 0.00 s (FLY.settle)');
@@ -4535,6 +4539,28 @@ rec('left ' .. n)`, { demo: true, ui: true });
       expect(rec).toContain('before: statics on spot 1: 1');
       expect(rec).toContain('Bob in Hornet 1: statics on spot 1: 0, state manned, held for Bob');
       expect(rec).toContain('Bob out: statics on spot 1: 1, state parked, held for Bob');
+      // THE LOOKALIKE (the user, 2026-11-24: "Can we test the lookalike placeholder ... Can our lookalike placeholder
+      // have the correct livery and board number?"; crewtest_demo.lua LOOK): the static goes and, in the same call, a
+      // lookalike Hornet (deck equipment) stands linked in its place with the slot's livery; its wings folded, chocks
+      // in, covers off and board number written as the static's (744: 0.7 0.4 0.4); taken away with the static's
+      // return when the player leaves, and once an aircraft is on the spot (S.lookTick)
+      const bobLook = rec.findIndex((l) => /^static catcc-demo-a1-look \d+ type CATCC_HornetLookF category ADEquipment linked true to 77 at 162\.390 9\.330 angle 3\.3839 offset true cargo false livery KING - LineJet - 744$/.test(l));
+      expect(bobLook).toBeGreaterThan(0);
+      expect(bobLook).toBeLessThan(rec.indexOf('Bob in Hornet 1: statics on spot 1: 0, state manned, held for Bob'));
+      expect(rec).toContain('Bob in: lookalikes on spot 1: 1; wings 1, chocks 1, covers 0, board 0.7 0.4 0.4');
+      // (the kind with liveries of its own: the looks run of 2026-11-24, "Only the 2nd one had the correct livery"; and
+      // a parked static's pose copied, read a few arguments a frame: "Both also had no landing gear extended")
+      expect(rec).toContain("pose read: a parked static's pose read from 744 (VFA-44, flight 1, for Stbd bow 6): arguments 0 to 40, 6 not 0 to be copied: 0=1.000 1=0.400 3=1.000 4=0.350 5=1.000 6=0.350");
+      expect(rec).toContain('Bob in: its lookalike: gear 1 1 1, struts 0.4 0.35 0.35');
+      expect(rec).toContain('Bob out: lookalikes on spot 1: 0');
+      expect(rec).toContain('FLY + 2 s: lookalikes on spot 1: 1');
+      expect(rec).toContain('his jet on spot 1: lookalikes on spot 1: 0; lookalike: Hornet 1 (spot 1): Host is on the spot: its lookalike taken away (it stood 2.0 s)');
+      // (the lookalike test, F10: one aircraft standing on its spot, each press the next: lookalike 1, lookalike 2, static)
+      const where = '511 (VFA-44, flight 3, for Point 1), livery KING - LineJet - 511, on Point 1';
+      expect(rec).toContain(`lookalike test 1: ${where}: now its LOOKALIKE 1 of 2, CATCC_HornetLook (the Hornet's liveries through livery_entry). Press again for the next.`);
+      expect(rec).toContain(`lookalike test 2: ${where}: now its LOOKALIKE 2 of 2, CATCC_HornetLookF (liveries of its own (Liveries\\CATCC_HornetLookF)). Press again for the next.`);
+      expect(rec).toContain(`lookalike test 3: ${where}: its STATIC again. Press again to start over.`);
+      expect(rec.some((l) => /^static catcc-demo-a10-look \d+ type CATCC_HornetLookF category ADEquipment linked true .* livery KING - LineJet - 511$/.test(l))).toBe(true);
       expect(rec).toContain('the host asks for Hornet 1: false (1: CATCC: Hornet 1: reserved for Bob)');
       expect(rec).toContain('Bob asks for it again: nil');
       expect(rec).toContain('released; the host asks: nil');

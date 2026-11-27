@@ -129,6 +129,12 @@ How it works:
 
 Not verified in DCS yet: that draw argument 997 is free and settable on the Hornet (the hook logs what it reads back while held: `CATCC-PILOT ... gate argument 997 reads ...` in `dcs.log`), that `LoSetCommand` from the GUI hook reaches the cockpit device, and which PC runs the launch sequence in multiplayer.
 
+The installer also puts in the lookalike Hornet (`Mods\tech\CATCC-Lookalike`). It stands on a deck spot from the moment a player takes the slot there until his jet is on the spot, so nobody on the deck sees the parked aircraft vanish first. Every PC in a session needs it, the server's too. It is deck equipment drawn with the Hornet's own model, in two kinds that get their paint differently:
+- `CATCC_HornetLook` uses the Hornet's own liveries (`livery_entry`).
+- `CATCC_HornetLookF` uses liveries of its own in `Saved Games\DCS\Liveries\CATCC_HornetLookF`. `lookalike-liveries.ps1` makes one there for each Hornet livery in `Saved Games\DCS\Liveries\FA-18C_hornet`, pointing at that livery's textures, and the installer runs it. Run it again (DCS closed) after adding or renaming a Hornet livery.
+
+DCS paints only the second kind (the looks run of 2026-11-24), so that is the one the slot picker uses. The crew test's F10 item "CATCC demo: lookalike: swap the nearest aircraft" still shows both in turn.
+
 ## Another PC from a USB stick (crew test, slot picker, pilot mod)
 
 For testing on a second PC without the repository: build the installer onto the stick on the development PC, then double-click on the other PC.

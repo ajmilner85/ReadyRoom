@@ -513,6 +513,118 @@ local function foldWings(a)
   end
 end
 
+-- ---------------------------------------------------------------- the lookalike
+-- THE LOOKALIKE (the user, 2026-11-24: "Can we test the lookalike placeholder for filling in any gaps that might exist
+-- when we get to multiplayer testing? Can our lookalike placeholder have the correct livery and board number?"). When
+-- a player takes the slot on a spot (M.man) its static Hornet is taken away and, in the same call to the mission, a
+-- lookalike is made in its place: deck equipment drawn with the Hornet's own model (pilot/Mods/tech/CATCC-Lookalike),
+-- placed, folded, chocked and numbered as the static was, with its livery and that livery's own custom_args. It stands
+-- until his jet is on the spot (M.unlook, from the slot picker) or he leaves the slot (M.unman: the static again).
+-- Deck equipment because it never collides with a jet (the chock tests of 2026-11-13); whether DCS keeps a jet off a
+-- spot it stands on is what the slot picker's result line shows (on its spot, or "came up on ANOTHER spot").
+-- types: [1] borrows the Hornet's liveries (livery_entry), [2] has liveries of its own made from them
+-- (pilot/lookalike-liveries.ps1); which one DCS paints is not known yet. M.lookswap shows each in turn.
+-- CATCC_DEMO_LOOK = false (the rig): none made.
+local LOOK = { on = CATCC_DEMO_LOOK ~= false, types = { 'CATCC_HornetLook', 'CATCC_HornetLookF' },
+  how = { 'the Hornet\'s liveries through livery_entry', 'liveries of its own (Liveries\\CATCC_HornetLookF)' } }
+-- (the looks run of 2026-11-24, the user: "Only the 2nd one had the correct livery": DCS does not paint deck equipment
+-- through livery_entry; the second kind is the one used)
+LOOK.type = LOOK.types[2]
+-- ITS POSE, AS A PARKED STATIC'S (the same run: "Both also had no landing gear extended"): DCS sets a static
+-- aircraft's model arguments (the gear down, ...) and leaves deck equipment's at their defaults. So the arguments of a
+-- static Hornet standing on its spot are read, once a mission, from the first frame one stands (api.objargs, the hook's
+-- Tow.objargs: every one from 0 until the model has no more, or LOOK.scan.max, on the main thread, in one call), and the
+-- ones not 0 are written on every lookalike, before its wings, chocks, covers, board number and livery's places (those,
+-- 27 and 1000 up: each its own).
+LOOK.scan = { max = 1100 }
+LOOK.skip = { [8] = true, [23] = true, [24] = true, [27] = true, [31] = true, [32] = true, [442] = true }
+-- (its functions in LOOK too: the file's main chunk is near Lua's 200 local names)
+-- a Hornet livery's custom_args (description.lua: which of the model's places show the board number), from its
+-- folder in Saved Games; { { arg, value }, ... }, {} where there is none or it cannot be read
+LOOK.cache = {}
+function LOOK.liveryArgs(lv)
+  lv = tostring(lv or '')
+  if lv == '' then return {} end
+  if LOOK.cache[lv] then return LOOK.cache[lv] end
+  local out = {}
+  local okf, f = pcall(function()
+    local wd = (lfs and lfs.writedir and lfs.writedir()) or ''
+    return io.open(wd .. 'Liveries/FA-18C_hornet/' .. lv .. '/description.lua', 'r')
+  end)
+  if okf and f then
+    local text = f:read('*a') or ''
+    f:close()
+    local block = text:match('custom_args%s*=%s*(%b{})')
+    for k, v in (block or ''):gmatch('%[%s*(%d+)%s*%]%s*=%s*(%-?[%d%.]+)') do out[#out + 1] = { tonumber(k), tonumber(v) } end
+  end
+  LOOK.cache[lv] = out
+  return out
+end
+-- the lookalike's model arguments: the wings, chocks, covers and board number as its static's (foldWings), and its
+-- livery's custom_args, written again in turn with the aircraft's
+function LOOK.args(l)
+  local h = api.shipHandle()
+  local can = h and l.id and api.native().objarg
+  if can and LOOK.scan.done then
+    for _, kv in ipairs(LOOK.scan.vals) do pcall(api.native().objarg, h, l.id, kv[1], kv[2]) end
+  end
+  foldWings(l)
+  if not can then return end
+  for _, kv in ipairs(LOOK.liveryArgs(l.livery)) do pcall(api.native().objarg, h, l.id, kv[1], kv[2]) end
+end
+-- (every frame while the demo runs, until it is done) a static Hornet standing on its spot: its pose read, LOOK.scan
+function LOOK.scanStep()
+  local S = LOOK.scan
+  if S.done or S.tried or not (M.aircraft and api.objargs) then return end
+  local h = api.shipHandle()
+  if not h then return end
+  local from
+  for _, a in ipairs(M.aircraft) do
+    if not from and a.id and a.level == 'deck' and a.parked and not a.towed and not a.manned then from = a end
+  end
+  if not from then return end
+  S.tried = true
+  local ok, r, why = pcall(api.objargs, h, from.id, S.max)
+  if not (ok and type(r) == 'string') then
+    return logLine(string.format("demo: lookalike: a parked static's pose could not be read from %s: %s", tostring(from.name), tostring(ok and why or r)))
+  end
+  local last, list = r:match('^(%-?%d+)|(.*)$')
+  S.vals = {}
+  for n, v in tostring(list or ''):gmatch('(%d+)=([%-%d%.]+)') do
+    n, v = tonumber(n), tonumber(v)
+    if not LOOK.skip[n] and n < 1000 then S.vals[#S.vals + 1] = { n, v } end
+  end
+  S.done = true
+  local said = {}
+  for _, kv in ipairs(S.vals) do said[#said + 1] = string.format('%d=%.3f', kv[1], kv[2]) end
+  logLine(string.format("demo: lookalike: a parked static's pose read from %s: arguments 0 to %s, %d not 0 to be copied: %s", tostring(from.name), tostring(last), #S.vals,
+    #said > 0 and table.concat(said, ' ') or 'none'))
+  -- (the lookalikes already standing take it now)
+  for _, a in ipairs(M.aircraft) do if a.look then LOOK.args(a.look) end end
+end
+-- the mission's entry for the lookalike of aircraft a (crewtest.lua CR.demo: key,type,category,fwd,stbd,ang,livery,check)
+function LOOK.part(a, typ)
+  return string.format('%s-look,%s,ADEquipment,%.3f,%.3f,%.5f,%s,0', a.key, typ or LOOK.type, a.x, a.z, atan2(a.fz, a.fx) % (2 * math.pi), tostring(a.livery or ''))
+end
+-- (after the mission's answer r to a spec whose entry n was the lookalike's): a.look, placed and numbered; or why not
+function LOOK.made(a, r, n, typ)
+  local p = type(r) == 'string' and api.split(r) or {}
+  local id = tonumber(p[n + 1])
+  if p[1] ~= 'OK' or not id or id <= 0 then
+    a.look = nil
+    if not LOOK.bad then
+      LOOK.bad = true
+      logLine(string.format('demo: the lookalike of %s (%s) was not made: %s', tostring(a.name), tostring(typ), tostring(p[#p] ~= '' and p[#p] or p[2] or r)))
+    end
+    return nil
+  end
+  a.look = { id = id, key = a.key .. '-look', type = typ, name = tostring(a.name) .. ' (lookalike)', x = a.x, y = a.y, z = a.z, fx = a.fx, fz = a.fz,
+    board = a.board, livery = a.livery, chocks = true, covers = false, canopy = a.canopy }
+  placeAircraft(a.look)
+  LOOK.args(a.look)
+  return a.look
+end
+
 -- an aircraft that has reached its deck spot: its tow bar is taken away (the user: "just disappearing it is fine"),
 -- its covers come off
 local function spotted(a)
@@ -7745,8 +7857,12 @@ function M.tick(t)
     M.rel, M.relWant, M.relAt = (M.rel or 0) + 1, nil, mt + 2
   end
   if #M.aircraft > 0 then
+    -- (the parked static's pose for the lookalikes, a few arguments a frame: LOOK.scan)
+    LOOK.scanStep()
     M.foldI = (M.foldI or 0) % #M.aircraft + 1
     foldWings(M.aircraft[M.foldI])
+    -- (and its lookalike's, where one stands in for it)
+    if M.aircraft[M.foldI].look then LOOK.args(M.aircraft[M.foldI].look) end
   end
   -- everything else stays where it is: two things a frame told their place again, in turn
   local n = #M.aircraft + #M.tugs
@@ -7755,6 +7871,7 @@ function M.tick(t)
     if M.keep <= #M.aircraft then
       local a = M.aircraft[M.keep]
       if a.id and not a.towed then placeAircraft(a) end
+      if a.look then placeAircraft(a.look) end
     else
       local tg = M.tugs[M.keep - #M.aircraft]
       if not tg.job then placeTug(tg) end
@@ -7982,6 +8099,7 @@ function M.start()
   -- (the rig: CATCC_DEMO_LEAD: another lead for the deck tractors' departure (DISPATCH.lead))
   if tonumber(CATCC_DEMO_LEAD) then DISPATCH.lead = tonumber(CATCC_DEMO_LEAD) end
   M.jobs, M.aircraft, M.tugs, M.elevators, M.el = {}, {}, {}, {}, {}
+  LOOK.scan = { max = LOOK.scan.max }
   M.done, M.moved, M.failed, M.notClear, M.stuckSaid, M.idleSince, M.keep, M.tried, M.sig, M.foldBad, M.foldI = nil, 0, 0, 0, nil, nil, 0, {}, 1, nil, 0
   M.rel, M.relWant, M.relAt, M.argBad, M.sigH, M.turn = 0, nil, 0, nil, 1, 0
   M.giveAt, M.gave, M.crossed, M.crossSaid, M.assignAt, M.raiseT = 0, 0, 0, {}, 0, nil
@@ -8497,12 +8615,88 @@ function M.man(n)
     return logLine(string.format('demo: %s is not standing on its spot: it is not taken away for the player who has its slot', tostring(a.name)))
   end
   a.manned = true
-  if a.id then
-    pcall(api.dostring, string.format('return (CATCC_CR and CATCC_CR.demo) and CATCC_CR.demo(%q, %q) or ""', a.key, M.ship))
-    if M.hideIds then M.hideIds[a.id] = nil end
+  if a.id or a.look then
+    -- (its lookalike in its place in the same call: LOOK; one the lookalike test put there already is kept)
+    local look = LOOK.on and not a.look
+    local spec = a.key .. (look and (';' .. LOOK.part(a)) or '')
+    local okd, r = pcall(api.dostring, string.format('return (CATCC_CR and CATCC_CR.demo) and CATCC_CR.demo(%q, %q) or ""', spec, M.ship))
+    if a.id and M.hideIds then M.hideIds[a.id] = nil end
     a.id = nil
+    if look then LOOK.made(a, okd and r, 2, LOOK.type) end
   end
-  logLine(string.format('demo: %s on %s is manned: its static is taken away', tostring(a.name), tostring(a.spot.name)))
+  -- (the lookalike test ends here for this one: its lookalike now stands for the player's jet)
+  a.lookStage = nil
+  if M.lookA == a then M.lookA = nil end
+  logLine(string.format('demo: %s on %s is manned: its static is taken away%s', tostring(a.name), tostring(a.spot.name),
+    a.look and string.format('; its lookalike (%s, object %s) stands in its place', a.look.type, tostring(a.look.id)) or ''))
+end
+
+-- (the rig: the parked static's pose read again, from the start)
+-- (max: the last argument to read: the rig's stand-in has no end to its list)
+function M.lookRescan(max) LOOK.scan = { max = tonumber(max) or LOOK.scan.max } end
+
+-- HIS JET IS ON THE SPOT (the slot picker, which watches the spot): the lookalike taken away
+function M.unlook(n)
+  local a = M.onSpot(n)
+  if not (M.on and a and a.look) then return end
+  local l = a.look
+  a.look = nil
+  pcall(api.dostring, string.format('return (CATCC_CR and CATCC_CR.demo) and CATCC_CR.demo(%q, %q) or ""', l.key, M.ship))
+  logLine(string.format('demo: the lookalike of %s on %s is taken away: the jet is on the spot', tostring(a.name), tostring(a.spot.name)))
+end
+
+-- THE LOOKALIKE TEST (F10 > "CATCC demo: lookalike: swap the nearest aircraft"; the user, 2026-11-24: "Can our
+-- lookalike placeholder have the correct livery and board number?"): the aircraft standing on its spot nearest the
+-- player's jet, each press the next of: its lookalike of the first kind, of the second kind, its static again. Said
+-- on the screen which is standing, so that it can be held against the aircraft around it.
+function M.lookswap()
+  if not M.on then return say('demo: it is not running (Ctrl+Shift+F9, or F10 > CATCC demo: spot the deck).') end
+  local a = M.lookA
+  if not (a and (a.look or a.lookStage)) then
+    a = nil
+    local ctx = api.getCtx(nil, nil, M.ship)
+    local best
+    for _, b in ipairs(M.aircraft or {}) do
+      if b.level == 'deck' and (b.parked or b.stayed) and not b.towed and not b.manned and b.id and b.x then
+        local d = ctx and math.sqrt((b.x - ctx.jx) ^ 2 + (b.z - ctx.jz) ^ 2) or 0
+        if not best or d < best then a, best = b, d end
+      end
+    end
+    if not a then return say('lookalike test: no aircraft stands on its spot.') end
+    M.lookA, a.lookStage = a, 0
+  end
+  local stage = (a.lookStage or 0) + 1
+  local where = string.format('%s, livery %s, on %s', tostring(a.name), tostring(a.livery), tostring(a.spot.name))
+  if stage <= #LOOK.types then
+    local typ = LOOK.types[stage]
+    -- (the static, or the lookalike of the other kind, taken away: whatever stood under a key goes first)
+    local spec = (a.id and (a.key .. ';') or '') .. LOOK.part(a, typ)
+    local okd, r = pcall(api.dostring, string.format('return (CATCC_CR and CATCC_CR.demo) and CATCC_CR.demo(%q, %q) or ""', spec, M.ship))
+    if a.id and M.hideIds then M.hideIds[a.id] = nil end
+    local had = a.id ~= nil
+    a.id = nil
+    LOOK.bad = nil
+    LOOK.made(a, okd and r, had and 2 or 1, typ)
+    a.lookStage = stage
+    logLine(string.format('demo: lookalike test: %s: %s (%s), object %s', where, typ, LOOK.how[stage], tostring(a.look and a.look.id)))
+    return say(a.look and string.format('lookalike test: %s: now its LOOKALIKE %d of %d, %s (%s). Press again for the next.', where, stage, #LOOK.types, typ, LOOK.how[stage])
+      or string.format('lookalike test: %s: the lookalike %s could not be made (the log says why). Press again for the next.', where, typ))
+  end
+  -- its static again
+  local part = string.format('%s,FA-18C_hornet,Planes,%.3f,%.3f,%.5f,%s,%s', a.key, a.x, a.z, atan2(a.fz, a.fx) % (2 * math.pi), a.livery, '0')
+  local spec = part .. (a.look and (';' .. a.look.key) or '')
+  local okd, r = pcall(api.dostring, string.format('return (CATCC_CR and CATCC_CR.demo) and CATCC_CR.demo(%q, %q) or ""', spec, M.ship))
+  a.look, a.lookStage, M.lookA = nil, nil, nil
+  local p = (okd and type(r) == 'string') and api.split(r) or {}
+  local id = tonumber(p[2])
+  if p[1] == 'OK' and id and id > 0 then
+    a.id = id
+    if M.hideIds then M.hideIds[id] = 'aircraft' end
+    placeAircraft(a)
+    foldWings(a)
+  end
+  logLine(string.format('demo: lookalike test: %s: its static again (object %s)', where, tostring(a.id)))
+  say(string.format('lookalike test: %s: its STATIC again. Press again to start over.', where))
 end
 
 function M.unman(n)
@@ -8510,6 +8704,12 @@ function M.unman(n)
   if not (M.on and a and a.manned) then return end
   a.manned = nil
   local part = string.format('%s,FA-18C_hornet,Planes,%.3f,%.3f,%.5f,%s,%s', a.key, a.x, a.z, atan2(a.fz, a.fx) % (2 * math.pi), a.livery, a.level == 'deck' and '1' or '0')
+  -- (its lookalike taken away in the same call)
+  if a.look then
+    part = part .. ';' .. a.look.key
+    a.look, a.lookStage = nil, nil
+    if M.lookA == a then M.lookA = nil end
+  end
   local okd, r = pcall(api.dostring, string.format('return (CATCC_CR and CATCC_CR.demo) and CATCC_CR.demo(%q, %q) or "ERR|the menu script is an older one"', part, M.ship))
   local p = (okd and type(r) == 'string') and api.split(r) or { 'ERR', tostring(r) }
   local id = tonumber(p[2])
@@ -8572,6 +8772,7 @@ function M.stop(quiet)
   for _, a in ipairs(M.aircraft or {}) do
     parts[#parts + 1] = a.key
     if a.hasBar then parts[#parts + 1] = a.key .. '-bar' end
+    if a.look then parts[#parts + 1] = a.look.key end
   end
   for _, tg in ipairs(M.tugs or {}) do parts[#parts + 1] = tg.key end
   if #parts > 0 and M.ship then

@@ -411,6 +411,8 @@ function WORKER.info(s) if not WORKER.boot then tell('h.info', s) end end
 function WORKER.say(text, secs, clear) tell('h.say', text, secs, clear) end
 -- (the deck as the slot picker shows it: the demo's M.deckMap, to the main thread's crewtest_slots.lua)
 function WORKER.deckmap(text) tell('h.deckmap', text) end
+-- (an object's model arguments all at once, read on the main thread: crewtest_hook.lua Tow.objargs; one call)
+function WORKER.objargs(h, id, max) return sync('h.objargs', h, id, max) end
 WORKER.clock = W.clock
 WORKER.read = read
 WORKER.lockstep = A.lockstep

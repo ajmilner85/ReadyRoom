@@ -303,7 +303,7 @@ function S.took(sl, id)
   log(string.format('%s took %s (%s, spot %d): held for him', name, sl.name, sl.id, sl.spot))
   -- (the host's own slot with DCS's FLY held: its static goes at his FLY, S.flyTick)
   if S.fly and S.fly.id == tostring(sl.id) and id == myId() then return log(sl.name .. ': its static stays until his FLY') end
-  api.run('demo2|man|' .. sl.spot)
+  S.man(sl)
 end
 
 function S.left(slotId, id)
@@ -311,7 +311,7 @@ function S.left(slotId, id)
   if not sl then return end
   local h = S.hold[slotId]
   log(string.format('%s left %s (%s): its static is made again; held for %s until he takes it again or it is released', tostring(pinfo(id, 'name') or (h and h.name)), sl.name, sl.id, tostring(h and h.name)))
-  api.run('demo2|unman|' .. sl.spot)
+  S.unman(sl.spot)
 end
 
 -- everyone's slot, once a second: who took and who left which (the host's own slot too: DCS calls no hook for that)
@@ -1118,7 +1118,7 @@ function S.spawnSel()
     return S.hidePicker()
   end
   log(string.format('taking %s (%s, side %d): its static first, the slot in %d s', it.slot.name, it.slot.id, it.slot.side, SPAWN_PRE))
-  api.run('demo2|man|' .. it.slot.spot)
+  S.man(it.slot)
   S.spawnPre = { slot = it.slot, at = (S.lastT or 0) + SPAWN_PRE, held = held }
   S.hidePicker()
 end
@@ -1552,8 +1552,8 @@ local function dcsReading(sl)
 end
 
 -- WHAT STANDS ON A PLACE OF THE FLIGHT DECK (asked of the mission's state): the name of a static object within r m of
--- it (the demo's own too), at the flight deck's height (an aircraft in the hangar below is not on it); "" nothing;
--- nil: the mission could not be asked
+-- it (the demo's own too, not its lookalikes: "<key>-look <n>"), at the flight deck's height (an aircraft in the hangar below
+-- is not on it); "" nothing; nil: the mission could not be asked
 function S.staticOn(carrier, sp, r)
   if not (sp and carrier) then return nil end
   local code = string.format([[
@@ -1562,8 +1562,9 @@ function S.staticOn(carrier, sp, r)
     local p, X, Z, R = s:getPosition(), %.3f, %.3f, %.2f
     for _, side in pairs(coalition.side) do
       for _, o in ipairs(coalition.getStaticObjects(side) or {}) do
+        -- (not the lookalike: "<key>-look <n>", it stands in for the static on the spot)
         -- (nor a flag on a glareshield, crewtest_flag.lua: it stands 4.4 m forward of its aircraft, on the spot)
-        if o:isExist()
+        if o:isExist() and not tostring(o:getName()):find('%%-look %%d+$')
           and not tostring(o:getName()):find('^catcc%%-flag%%-') then
           local q = o:getPoint()
           local dx, dy, dz = q.x - p.p.x, q.y - p.p.y, q.z - p.p.z
@@ -1580,6 +1581,64 @@ function S.staticOn(carrier, sp, r)
   if not ok or type(res) ~= 'string' then return nil end
   if res == 'NONE' then return '' end
   return res:match('^ON|(.*)$')
+end
+
+-- ---------------------------------------------------------------- the lookalike
+-- A SLOT TAKEN: its static goes and its lookalike stands in its place (crewtest_demo.lua M.man, LOOK) until an
+-- aircraft stands on the spot; then it is taken away (S.lookTick: demo2|unlook). Left: the static again, the lookalike
+-- taken away with it (M.unman). S.looks[spot] = { carrier, since }: the spots watched.
+function S.man(sl)
+  S.looks = S.looks or {}
+  S.looks[tonumber(sl.spot)] = { carrier = sl.carrier, name = sl.name, since = S.lastT or 0 }
+  api.run('demo2|man|' .. sl.spot)
+end
+function S.unman(spot)
+  if S.looks then S.looks[tonumber(spot)] = nil end
+  api.run('demo2|unman|' .. spot)
+end
+-- WHAT AIRCRAFT STANDS ON A PLACE OF THE FLIGHT DECK: the name of a live aircraft (a player's too, the host's too)
+-- within r m of it at the flight deck's height; "" none; nil: the mission could not be asked
+function S.jetOn(carrier, sp, r)
+  if not (sp and carrier) then return nil end
+  local code = string.format([[
+    local s = Unit.getByName(%q)
+    if not s then return 'ERR' end
+    local p, X, Z, R = s:getPosition(), %.3f, %.3f, %.2f
+    for _, side in pairs(coalition.side) do
+      for _, cat in ipairs({ Group.Category.AIRPLANE, Group.Category.HELICOPTER }) do
+        for _, g in ipairs(coalition.getGroups(side, cat) or {}) do
+          for _, u in ipairs(g:getUnits() or {}) do
+            if u:isExist() then
+              local q = u:getPoint()
+              local dx, dy, dz = q.x - p.p.x, q.y - p.p.y, q.z - p.p.z
+              local up = dx * p.y.x + dy * p.y.y + dz * p.y.z
+              local fx = dx * p.x.x + dy * p.x.y + dz * p.x.z
+              local fz = dx * p.z.x + dy * p.z.y + dz * p.z.z
+              if up > 15 and up < 30 and math.sqrt((fx - X) ^ 2 + (fz - Z) ^ 2) < R then return 'ON|' .. tostring(u:getPlayerName() or u:getName()) end
+            end
+          end
+        end
+      end
+    end
+    return 'NONE'
+  ]], tostring(carrier), sp.x, sp.z, r)
+  local ok, res = pcall(function() return net.dostring_in('server', code) end)
+  if not ok or type(res) ~= 'string' then return nil end
+  if res == 'NONE' then return '' end
+  return res:match('^ON|(.*)$')
+end
+-- (every frame, on the server: ten times a second while a lookalike stands) an aircraft on its spot: taken away
+function S.lookTick(t)
+  if not (S.looks and next(S.looks)) or t < (S.lookAt or 0) then return end
+  S.lookAt = t + 0.1
+  for spot, w in pairs(S.looks) do
+    local on = S.jetOn(w.carrier, S.spotPos[spot], FLY.near)
+    if on and on ~= '' then
+      S.looks[spot] = nil
+      api.run('demo2|unlook|' .. spot)
+      log(string.format('lookalike: %s (spot %d): %s is on the spot: its lookalike taken away (it stood %.1f s)', tostring(w.name), spot, on, t - (w.since or t)))
+    end
+  end
 end
 
 -- the ATC's own pass over what stands on its spots: 'yes', or 'no (why)'
@@ -1613,7 +1672,7 @@ function S.flyDrop(why)
     firstWrite(string.format('case %d at=%ds stopped (%s before the aircraft was seen)', f.firstCase, FIRST.cases[f.firstCase] or -1, why))
     f.firstCase = nil
   end
-  if f.manned and (f.state == 'removing' or f.state == 'settling' or f.state == 'checking') then api.run('demo2|unman|' .. f.sl.spot) end
+  if f.manned and (f.state == 'removing' or f.state == 'settling' or f.state == 'checking') then S.unman(f.sl.spot) end
   gui(GUI_FLYDROP)
   log(string.format('FLY: %s: no longer held (%s; it was %s)', f.sl.name, why, f.state))
   return nil
@@ -1621,7 +1680,7 @@ end
 
 -- a FLY that cannot be made now: the static back; held again, so that the next FLY tries again
 function S.flyRefuse(f, why)
-  if f.manned then api.run('demo2|unman|' .. f.sl.spot) end
+  if f.manned then S.unman(f.sl.spot) end
   f.manned, f.state, f.pre, f.nextT, f.saidWait = false, 'held', nil, nil, nil
   gui(GUI_FLYUNASK)
   log(f.sl.name .. ': FLY refused: ' .. why)
@@ -1764,7 +1823,7 @@ function S.flyTick(t)
     f.state, f.manT = 'removing', t
     if a and a.state == 'parked' then
       f.manned = true
-      api.run('demo2|man|' .. sl.spot)
+      S.man(sl)
     end
     log(string.format('FLY: %s: its static %s', sl.name, f.manned and 'taken away' or 'not there (nothing to take away)'))
   end
@@ -1841,7 +1900,7 @@ local function spawnUndo(w)
   if S.fly and S.fly.id == tostring(w.id) then S.flyDrop('the slot was not taken') end
   S.unaim('the slot was not taken')
   if S.mySlot() == tostring(w.id) then return end
-  api.run('demo2|unman|' .. w.spot)
+  S.unman(w.spot)
   if not w.held then S.hold[tostring(w.id)] = nil end
 end
 
@@ -2246,6 +2305,10 @@ function S.tick(t)
     S.trackAt = t + 1
     try(S.track)
   end
+  if mp() and server() then
+    local okl, errl = pcall(S.lookTick, t)
+    if not okl then log('lookalike: ' .. tostring(errl)) end
+  end
   if mp() then
     local oks, errs = pcall(spawnTick, t)
     if not oks then log('spawn: ' .. tostring(errs)) end
@@ -2305,6 +2368,7 @@ function S.start()
   S.spawnWait, S.quietUntil = nil, nil
   S.fly, S.flyLast, S.flyWrap, S.flyWrapAll, S.flyWrapAt, S.flySaid, S.flyN = nil, nil, false, nil, nil, nil, nil
   S.firstDone, S.firstAsked, S.first, S.startRT = nil, nil, nil, try(function() return DCS.getRealTime() end)
+  S.looks, S.lookAt = {}, nil
   S.view.held, S.view.dead, S.view.frames, S.viewErr = false, nil, 0, nil
   S.map, S.list, S.ship, S.mapAt = {}, {}, nil, -1e9
   S.loadCfg()

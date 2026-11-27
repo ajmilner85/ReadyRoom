@@ -662,7 +662,9 @@ local function addMenu(unit)
   -- the in-game panel shown / put away from here too (its hot key, Ctrl+Shift+F10, did not always answer)
   addItems(gid, unit:getName(), nil, { { 'CATCC panel: show / hide', 'panel' } })
   -- the deck spotting demo (the hook's crewtest_demo.lua; its hot key: Ctrl+Shift+F9)
-  addItems(gid, unit:getName(), nil, { { 'CATCC demo: spot the deck: start / stop', 'demo2|toggle' }, { 'CATCC demo: report', 'demo2|report' } })
+  addItems(gid, unit:getName(), nil, { { 'CATCC demo: spot the deck: start / stop', 'demo2|toggle' }, { 'CATCC demo: report', 'demo2|report' },
+    -- (the lookalike test: crewtest_demo.lua M.lookswap)
+    { 'CATCC demo: lookalike: swap the nearest aircraft', 'demo2|lookswap' } })
 end
 
 local function scan()

@@ -6025,6 +6025,27 @@ end
 -- ship's origin (the floor + 1.856, the demo's DY).
 Tow.Deck = { type = 'FA-18C_hornet', clear = 14, foldArg = 8, fold = true, foldT = 0, file = writedir .. 'Logs/catcc-deck-spots.lua', jy = 21.975, hangarN = 1000, hy = 8.711 + 1.856 }
 
+-- AN OBJECT'S MODEL ARGUMENTS, ALL AT ONCE (the demo's lookalike: a parked static Hornet's pose, crewtest_demo.lua
+-- LOOK.scan): every argument from 0 until the model has no more (or max) read on the main thread; "<last read>|n=v;n=v..."
+-- with the ones not 0, or nil and why. On the demo's own thread one call to the main thread for all of them (the
+-- worker's WORKER.objargs), not one a value.
+function Tow.objargs(h, id, max)
+  if CATCC_WORKER then
+    if not CATCC_WORKER.objargs then return nil, 'the worker has no objargs' end
+    return CATCC_WORKER.objargs(h, id, max)
+  end
+  if not (native and native.objarg) then return nil, 'no native module' end
+  max = tonumber(max) or 1100
+  local out, n = {}, 0
+  while n <= max do
+    local ok, v = pcall(native.objarg, h, id, n)
+    if not ok or type(v) ~= 'number' then break end
+    if v ~= 0 then out[#out + 1] = string.format('%d=%.4f', n, v) end
+    n = n + 1
+  end
+  return (n - 1) .. '|' .. table.concat(out, ';')
+end
+
 -- the hangar plan's slots as entries (none without the plan or without the native module to put them down)
 function Tow.Deck.hangarBuiltIn()
   local D, out = Tow.Deck, {}
@@ -6956,7 +6977,9 @@ Tow.Thr = { subs = {}, applied = 0, n = 0, on = false, live = false, held = {}, 
   -- (deckctx: which carrier, where it and the jet are: this thread's own answer for this frame, for the worker's
   -- Tow.Deck.ctx: the question has the camera's place in it, which is another every frame)
   local own = { log = logLine, info = info, say = say, deckctx = function() return Tow.Deck.ctx(now()) end,
-    deckmap = function(text) if CATCC_SLOTS then CATCC_SLOTS.setMap(text) end end }
+    deckmap = function(text) if CATCC_SLOTS then CATCC_SLOTS.setMap(text) end end,
+    -- (the worker's WORKER.objargs: an object's model arguments all at once, Tow.objargs)
+    objargs = function(h, id, max) return Tow.objargs(h, id, max) end }
   local function target(f)
     local kind, name = f:sub(1, 1), f:sub(3)
     if kind == 'n' then return native and native[name] end
@@ -7815,7 +7838,9 @@ function commands.demo2(what, arg)
   -- spots (crewtest_slots.lua S.paint): sent ahead of every start, below; to the demo wherever it runs)
   -- (demo2|block|<spot> / demo2|unblock: every EMPTY deck spot numbered below that one blocked with a static for a
   -- moment / those taken away again (crewtest_demo.lua M.block): the picker's Spawn)
-  if what == 'man' or what == 'unman' or what == 'paint' or what == 'block' or what == 'unblock' then
+  -- (demo2|unlook|<spot>: the player's jet is on that spot: its lookalike taken away; demo2|lookswap: the lookalike
+  -- test, F10: crewtest_demo.lua M.unlook, M.lookswap)
+  if what == 'man' or what == 'unman' or what == 'paint' or what == 'block' or what == 'unblock' or what == 'unlook' or what == 'lookswap' then
     if not CATCC_WORKER and Tow.Thr.live and Tow.Thr.on then return Tow.Thr.run(what .. '|' .. tostring(arg)) end
     local D = CATCC_DEMO
     if D and D[what] then
@@ -7880,7 +7905,7 @@ end
   if not f then return info('deck spotting demo: Scripts/CATCC/crewtest_demo.lua not loaded (' .. tostring(lerr) .. ')') end
   local hangar
   local ok, demo, why = pcall(f, { Tow = Tow, TOW = TOW, native = function() return native end, log = logLine, say = say, dostring = dostring, split = split, getCtx = getCtx, doScan = doScan,
-    shipHandle = shipHandle, routes = loadRoutes, run = run, walkQueue = walkQueue, holding = holding, unpack = unpack, atan2 = atan2,
+    shipHandle = shipHandle, objargs = Tow.objargs, routes = loadRoutes, run = run, walkQueue = walkQueue, holding = holding, unpack = unpack, atan2 = atan2,
     -- (the deck for the slot picker, once a second: to crewtest_slots.lua, from whichever thread the demo runs on)
     deckmap = function(text)
       if CATCC_WORKER then return CATCC_WORKER.deckmap and CATCC_WORKER.deckmap(text) end

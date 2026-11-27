@@ -16,7 +16,10 @@
 #   4b. makes the ground crew's answer silent when the mod itself asks for chocks
 #      (Scripts\Speech\speech.lua, one line at the top of make());
 #   5. lets the pilot hook reach the F8 menu: Saved Games\...\Config\autoexec.cfg gets "userhooks" in
-#      net.allow_unsafe_api and "server" in net.allow_dostring_in (what DCS asks for, API\Sim_ControlAPI.md).
+#      net.allow_unsafe_api and "server" in net.allow_dostring_in (what DCS asks for, API\Sim_ControlAPI.md);
+#   6. copies Mods\tech\CATCC-Lookalike (the lookalike Hornet that stands on a deck spot from the moment its slot is
+#      taken until the player's jet is there; every PC in a session needs it) and makes its liveries from the Hornet
+#      liveries in Saved Games (lookalike-liveries.ps1).
 # -Experiments also installs what was tried and parked (the chock static objects with their cargo
 # parameter files in the DCS folder's Data, the native chock-flag module); without it they are removed.
 # DCS updates replace common.xml and comm.lua: run this again after an update. Restart DCS afterwards.
@@ -66,6 +69,7 @@ $here = Split-Path -Parent $PSCommandPath
 $modDst = Join-Path $SavedGames 'Mods\aircraft\CATCC-Pilot'
 $chocksDst = Join-Path $SavedGames 'Mods\tech\CATCC-Chocks' # parked experiment (chock static objects): only with -Experiments
 $hookDst = Join-Path $SavedGames 'Scripts\Hooks\CATCC-pilot-hook.lua'
+$lookDst = Join-Path $SavedGames 'Mods\tech\CATCC-Lookalike'
 $dataDst = Join-Path $DcsPath 'Data' # DCS wants <shape>.csv here for every Cargo static (parked experiment)
 $autoexec = Join-Path $SavedGames 'Config\autoexec.cfg'
 $xml =Join-Path $DcsPath 'CoreMods\tech\USS_Nimitz\scripts\common.xml'
@@ -96,6 +100,8 @@ if ($Uninstall) {
   if ($null -ne $speechText) { [System.IO.File]::WriteAllText($speech, $speechText, $enc) }
   if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
   if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
+  if (Test-Path $lookDst) { Remove-Item -Recurse -Force $lookDst }
+  & (Join-Path $here 'lookalike-liveries.ps1') -SavedGames $SavedGames -Uninstall
   if (Test-Path $hookDst) { Remove-Item -Force $hookDst }
   if (Test-Path $dataDst) { Get-ChildItem $dataDst -Filter 'CATCC_*.csv' | Remove-Item -Force }
   if (Test-Path $autoexec) {
@@ -114,6 +120,11 @@ if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
 Copy-Item -Recurse (Join-Path $here 'Mods\aircraft\CATCC-Pilot') $modDst
 New-Item -ItemType Directory -Force (Split-Path $hookDst) | Out-Null
 Copy-Item -Force (Join-Path $here 'Scripts\Hooks\CATCC-pilot-hook.lua') $hookDst
+# 6. the lookalike Hornet and its own liveries
+New-Item -ItemType Directory -Force (Split-Path $lookDst) | Out-Null
+if (Test-Path $lookDst) { Remove-Item -Recurse -Force $lookDst }
+Copy-Item -Recurse (Join-Path $here 'Mods\tech\CATCC-Lookalike') $lookDst
+& (Join-Path $here 'lookalike-liveries.ps1') -SavedGames $SavedGames
 # the parked experiments: the native chock-flag module (bin), the chock statics and their cargo csv files
 if (Test-Path $chocksDst) { Remove-Item -Recurse -Force $chocksDst }
 if (Test-Path $dataDst) { Get-ChildItem $dataDst -Filter 'CATCC_*.csv' | Remove-Item -Force }

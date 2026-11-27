@@ -137,13 +137,41 @@ local function statics()
   return n
 end
 rec('before: statics on spot 1: ' .. statics())
+-- (a parked static's pose, as DCS sets it: the gear down (0, 3, 5), the struts part compressed (1, 4, 6); read for the
+-- lookalikes a few arguments a frame: crewtest_demo.lua LOOK.scan)
+for name, st in pairs(STATICS) do
+  if name:find('^catcc%-demo%-a%d+ %d+$') then
+    for n, v in pairs({ [0] = 1, [3] = 1, [5] = 1, [1] = 0.4, [4] = 0.35, [6] = 0.35 }) do JETARG[st.id_ .. '/' .. n] = v end
+  end
+end
+D.lookRescan(40)
+frames(6)
+do
+  local line
+  for i = #LOG, 1, -1 do if not line and LOG[i]:find('demo: lookalike: a parked static', 1, true) then line = LOG[i] end end
+  rec('pose read: ' .. tostring(line):gsub('^.-demo: lookalike: ', ''):gsub('[\r\n]+$', ''))
+end
 players[2].slot = '901'
 frames(3)
 rec(string.format('Bob in Hornet 1: statics on spot 1: %d, state %s, held for %s', statics(), tostring(stateOf(1)), tostring(SL.hold['901'] and SL.hold['901'].name)))
+-- THE LOOKALIKE in the static's place (crewtest_demo.lua LOOK): its model arguments as the static's (the wings 8, the
+-- chocks 23, the board number 442 / 31 / 32)
+local function looks()
+  local out = {}
+  for name, s in pairs(STATICS) do if name:find('^' .. key:gsub('%-', '%%-') .. '%-look ') then out[#out + 1] = { name = name, id = s.id_ } end end
+  return out
+end
+do
+  local l = looks()[1]
+  local function arg(n) return tostring(l and JETARG[l.id .. '/' .. n]) end
+  rec(string.format('Bob in: lookalikes on spot 1: %d; wings %s, chocks %s, covers %s, board %s %s %s', #looks(), arg(8), arg(23), arg(24), arg(442), arg(31), arg(32)))
+  rec(string.format('Bob in: its lookalike: gear %s %s %s, struts %s %s %s', arg(0), arg(3), arg(5), arg(1), arg(4), arg(6)))
+end
 -- 3) Bob leaves (spectators): the static is back, the slot still held for him; the host is refused; released: free
 players[2].slot = ''
 frames(3)
 rec(string.format('Bob out: statics on spot 1: %d, state %s, held for %s', statics(), tostring(stateOf(1)), tostring(SL.hold['901'] and SL.hold['901'].name)))
+rec('Bob out: lookalikes on spot 1: ' .. #looks())
 rec('the host asks for Hornet 1: ' .. tostring(handlerTry(1, 2, '901')) .. ' (' .. tostring(CHAT[#CHAT]) .. ')')
 rec('Bob asks for it again: ' .. tostring(handlerTry(2, 2, '901')))
 SL.release('901')
@@ -304,6 +332,15 @@ rec(string.format('FLY + 2 s: spawned %d (%s s after FLY), statics on spot 1: %d
 rec('FLY asked: ' .. tostring(logged("slots: FLY: Hornet 1: DCS's FLY asked for")):gsub('^.-(slots: )', '%1'))
 rec('FLY: ' .. tostring(logged('slots: FLY: Hornet 1: the spot')):gsub('^.-slots: ', ''))
 rec('FLY: ' .. tostring(logged('slots: FLY: Hornet 1: DCS\'s FLY made')):gsub('^.-slots: ', ''))
+-- (the lookalike stands until an aircraft is on the spot: the rig has no live jet, so one is said to be there)
+rec(string.format('FLY + 2 s: lookalikes on spot 1: %d', #looks()))
+do
+  local jetOn = SL.jetOn
+  SL.jetOn = function(carrier, sp, r) return (sp == SL.spotPos[1] and r == 3) and 'Host' or '' end
+  frames(0.25)
+  SL.jetOn = jetOn
+end
+rec(string.format('his jet on spot 1: lookalikes on spot 1: %d; %s', #looks(), tostring(logged('slots: lookalike: Hornet 1')):gsub('^.-slots: ', '')))
 -- (nothing held: DCS's own FLY at once)
 BRIEF.buttonFly.onChange()
 rec('FLY again, nothing held: spawned ' .. #SPAWNS)
@@ -363,6 +400,20 @@ rec('Yes: reserved for ' .. tostring(SL.hold['901'] and SL.hold['901'].name))
 local px, pz, ph, pm = SL.pose({ fx = 0, fz = 0, fh = 350, tx = 10, tz = 4, th = 10, t0 = 100, dt = 1 }, 100.5)
 local qx, qz, qh, qm = SL.pose({ fx = 0, fz = 0, fh = 350, tx = 10, tz = 4, th = 10, t0 = 100, dt = 1 }, 101.2)
 rec(string.format('smoothly: halfway %.1f, %.1f, %.1f, moving %s; after %.1f, %.1f, %.1f, moving %s', px, pz, ph, tostring(pm), qx, qz, qh, tostring(qm)))
+-- 17b) THE LOOKALIKE TEST (F10 > "CATCC demo: lookalike: swap the nearest aircraft"; crewtest_demo.lua M.lookswap): one
+-- aircraft standing on its spot, each press the next: its lookalike of the first kind, of the second, its static again
+do
+  local made = {}
+  for i = 1, 3 do
+    local n0 = #REC
+    D.lookswap()
+    frames(0.25)
+    for j = n0 + 1, #REC do
+      if REC[j]:find('lookalike test: ', 1, true) then made[i] = (REC[j]:gsub('^.-lookalike test: ', '')) end
+    end
+  end
+  for i = 1, 3 do rec('lookalike test ' .. i .. ': ' .. tostring(made[i])) end
+end
 -- 18) SPOT DECK (the user, 2026-11-21: started from the slot screen, the demo found "no aircraft carrier within 5 km"
 -- of the camera): the demo stopped, the camera 20 km away; the picker's Spot Deck (the host's) starts it on the
 -- carrier the picker shows, by name; hidden while it runs
