@@ -862,13 +862,13 @@
 <text x="154.6" y="376.0" text-anchor="middle" fill="#fff" font-weight="600">23: EL3 3</text>
 <polygon points="119.3,335.6 121.8,318.3 131.1,287.4 139.1,265.6 117.9,256.1 129.6,229.8 151.5,239.6 158.0,225.0 142.7,218.1 149.2,203.5 169.1,208.0 180.8,213.2 197.4,225.0 190.9,239.6 175.6,232.8 169.1,247.4 191.0,257.1 179.3,283.4 158.1,274.0 147.2,294.6 130.5,322.2" fill="#7c3aed" fill-opacity="0.75" stroke="#223" stroke-width="1"/>
 <text x="147.3" y="276.7" text-anchor="middle" fill="#fff" font-weight="600">24: EL4 2</text>
-<circle cx="1240.4" cy="578.7" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
+<circle cx="1240.4" cy="580.7" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
 <circle cx="1320.4" cy="581.9" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
 <circle cx="861.7" cy="577.1" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
-<circle cx="937.0" cy="579.5" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
-<circle cx="226.1" cy="571.4" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
-<circle cx="304.7" cy="582.2" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
-<circle cx="178.0" cy="65.4" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
+<circle cx="937.0" cy="578.1" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
+<circle cx="226.1" cy="563.4" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
+<circle cx="304.7" cy="576.2" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
+<circle cx="178.0" cy="77.4" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
 <circle cx="256.0" cy="60.1" r="4" fill="none" stroke="#8a3fd1" stroke-width="2"/>
 <rect x="1420.0" y="295.2" width="38.4" height="14.4" fill="#f5c400" stroke="#223" transform="rotate(0.0 1444.0 302.4)"/>
 <rect x="1368.0" y="428.8" width="38.4" height="14.4" fill="#f5c400" stroke="#223" transform="rotate(0.0 1392.0 436.0)"/>

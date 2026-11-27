@@ -1,0 +1,605 @@
+-- The padeyes' dots of the crew test panel's "Padeyes" page (crewtest_ui.lua): a window over the whole screen while
+-- they are on (else one pixel in the corner), nothing of its own to be seen, no cursor, clicks let through; its two
+-- templates lend their skins to the dots, buttons of one solid colour (as the slot picker's coloured buttons are):
+-- tplDot magenta (a padeye), tplDotConfirm orange (one to confirm: under paint, not seen in the deck's texture),
+-- tplDotDone green (one the user confirmed), tplDotModel cyan (one of DCS's own model, "Model"),
+-- tplDotHole yellow (a hole in the grid, "Holes").
+dialog = {
+    ["type"] = "Window",
+    ["params"] = {
+        ["bounds"] = {
+            [1] = {
+                ["h"] = 1,
+                ["w"] = 1,
+                ["x"] = 0,
+                ["y"] = 0
+            }
+        },
+        ["draggable"] = false,
+        ["enabled"] = true,
+        ["hasCursor"] = false,
+        ["lockFlow"] = false,
+        ["modal"] = false,
+        ["offscreen"] = false,
+        ["resizable"] = false,
+        ["zOrder"] = 110,
+        ["text"] = ""
+    },
+    ["skin"] = {
+        ["params"] = {
+            ["headerHeight"] = 0,
+            ["name"] = "windowSkin"
+        },
+        ["states"] = {
+            ["released"] = {
+                [1] = {
+                    ["bkg"] = {
+                        ["center_center"] = "0x00000000"
+                    }
+                }
+            }
+        }
+    },
+    ["children"] = {
+        ["tplDot"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 6,
+                    ["w"] = 6,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff00ffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff00ffff",
+                            ["center_top"] = "0xff00ffff",
+                            ["right_top"] = "0xff00ffff",
+                            ["left_center"] = "0xff00ffff",
+                            ["right_center"] = "0xff00ffff",
+                            ["left_bottom"] = "0xff00ffff",
+                            ["center_bottom"] = "0xff00ffff",
+                            ["right_bottom"] = "0xff00ffff"
+                          }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff00ffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff00ffff",
+                            ["center_top"] = "0xff00ffff",
+                            ["right_top"] = "0xff00ffff",
+                            ["left_center"] = "0xff00ffff",
+                            ["right_center"] = "0xff00ffff",
+                            ["left_bottom"] = "0xff00ffff",
+                            ["center_bottom"] = "0xff00ffff",
+                            ["right_bottom"] = "0xff00ffff"
+                          }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff00ffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff00ffff",
+                            ["center_top"] = "0xff00ffff",
+                            ["right_top"] = "0xff00ffff",
+                            ["left_center"] = "0xff00ffff",
+                            ["right_center"] = "0xff00ffff",
+                            ["left_bottom"] = "0xff00ffff",
+                            ["center_bottom"] = "0xff00ffff",
+                            ["right_bottom"] = "0xff00ffff"
+                          }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff00ffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff00ffff",
+                            ["center_top"] = "0xff00ffff",
+                            ["right_top"] = "0xff00ffff",
+                            ["left_center"] = "0xff00ffff",
+                            ["right_center"] = "0xff00ffff",
+                            ["left_bottom"] = "0xff00ffff",
+                            ["center_bottom"] = "0xff00ffff",
+                            ["right_bottom"] = "0xff00ffff"
+                          }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplDotConfirm"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 6,
+                    ["w"] = 6,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff9900ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff9900ff",
+                            ["center_top"] = "0xff9900ff",
+                            ["right_top"] = "0xff9900ff",
+                            ["left_center"] = "0xff9900ff",
+                            ["right_center"] = "0xff9900ff",
+                            ["left_bottom"] = "0xff9900ff",
+                            ["center_bottom"] = "0xff9900ff",
+                            ["right_bottom"] = "0xff9900ff"
+                          }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff9900ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff9900ff",
+                            ["center_top"] = "0xff9900ff",
+                            ["right_top"] = "0xff9900ff",
+                            ["left_center"] = "0xff9900ff",
+                            ["right_center"] = "0xff9900ff",
+                            ["left_bottom"] = "0xff9900ff",
+                            ["center_bottom"] = "0xff9900ff",
+                            ["right_bottom"] = "0xff9900ff"
+                          }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff9900ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff9900ff",
+                            ["center_top"] = "0xff9900ff",
+                            ["right_top"] = "0xff9900ff",
+                            ["left_center"] = "0xff9900ff",
+                            ["right_center"] = "0xff9900ff",
+                            ["left_bottom"] = "0xff9900ff",
+                            ["center_bottom"] = "0xff9900ff",
+                            ["right_bottom"] = "0xff9900ff"
+                          }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xff9900ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xff9900ff",
+                            ["center_top"] = "0xff9900ff",
+                            ["right_top"] = "0xff9900ff",
+                            ["left_center"] = "0xff9900ff",
+                            ["right_center"] = "0xff9900ff",
+                            ["left_bottom"] = "0xff9900ff",
+                            ["center_bottom"] = "0xff9900ff",
+                            ["right_bottom"] = "0xff9900ff"
+                          }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplDotDone"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 6,
+                    ["w"] = 6,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x33dd33ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x33dd33ff",
+                            ["center_top"] = "0x33dd33ff",
+                            ["right_top"] = "0x33dd33ff",
+                            ["left_center"] = "0x33dd33ff",
+                            ["right_center"] = "0x33dd33ff",
+                            ["left_bottom"] = "0x33dd33ff",
+                            ["center_bottom"] = "0x33dd33ff",
+                            ["right_bottom"] = "0x33dd33ff"
+                          }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x33dd33ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x33dd33ff",
+                            ["center_top"] = "0x33dd33ff",
+                            ["right_top"] = "0x33dd33ff",
+                            ["left_center"] = "0x33dd33ff",
+                            ["right_center"] = "0x33dd33ff",
+                            ["left_bottom"] = "0x33dd33ff",
+                            ["center_bottom"] = "0x33dd33ff",
+                            ["right_bottom"] = "0x33dd33ff"
+                          }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x33dd33ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x33dd33ff",
+                            ["center_top"] = "0x33dd33ff",
+                            ["right_top"] = "0x33dd33ff",
+                            ["left_center"] = "0x33dd33ff",
+                            ["right_center"] = "0x33dd33ff",
+                            ["left_bottom"] = "0x33dd33ff",
+                            ["center_bottom"] = "0x33dd33ff",
+                            ["right_bottom"] = "0x33dd33ff"
+                          }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x33dd33ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x33dd33ff",
+                            ["center_top"] = "0x33dd33ff",
+                            ["right_top"] = "0x33dd33ff",
+                            ["left_center"] = "0x33dd33ff",
+                            ["right_center"] = "0x33dd33ff",
+                            ["left_bottom"] = "0x33dd33ff",
+                            ["center_bottom"] = "0x33dd33ff",
+                            ["right_bottom"] = "0x33dd33ff"
+                          }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplDotModel"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 6,
+                    ["w"] = 6,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x00ffffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x00ffffff",
+                            ["center_top"] = "0x00ffffff",
+                            ["right_top"] = "0x00ffffff",
+                            ["left_center"] = "0x00ffffff",
+                            ["right_center"] = "0x00ffffff",
+                            ["left_bottom"] = "0x00ffffff",
+                            ["center_bottom"] = "0x00ffffff",
+                            ["right_bottom"] = "0x00ffffff"
+                          }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x00ffffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x00ffffff",
+                            ["center_top"] = "0x00ffffff",
+                            ["right_top"] = "0x00ffffff",
+                            ["left_center"] = "0x00ffffff",
+                            ["right_center"] = "0x00ffffff",
+                            ["left_bottom"] = "0x00ffffff",
+                            ["center_bottom"] = "0x00ffffff",
+                            ["right_bottom"] = "0x00ffffff"
+                          }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x00ffffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x00ffffff",
+                            ["center_top"] = "0x00ffffff",
+                            ["right_top"] = "0x00ffffff",
+                            ["left_center"] = "0x00ffffff",
+                            ["right_center"] = "0x00ffffff",
+                            ["left_bottom"] = "0x00ffffff",
+                            ["center_bottom"] = "0x00ffffff",
+                            ["right_bottom"] = "0x00ffffff"
+                          }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0x00ffffff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0x00ffffff",
+                            ["center_top"] = "0x00ffffff",
+                            ["right_top"] = "0x00ffffff",
+                            ["left_center"] = "0x00ffffff",
+                            ["right_center"] = "0x00ffffff",
+                            ["left_bottom"] = "0x00ffffff",
+                            ["center_bottom"] = "0x00ffffff",
+                            ["right_bottom"] = "0x00ffffff"
+                          }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        },
+        ["tplDotHole"] = {
+            ["params"] = {
+                ["bounds"] = {
+                    ["h"] = 6,
+                    ["w"] = 6,
+                    ["x"] = 0,
+                    ["y"] = 0
+                },
+                ["enabled"] = true,
+                ["tabOrder"] = 0,
+                ["text"] = "",
+                ["tooltip"] = "",
+                ["visible"] = false,
+                ["zindex"] = 1
+            },
+            ["skin"] = {
+                ["params"] = {
+                    ["name"] = "buttonSkinAwacs"
+                },
+                ["states"] = {
+                    ["released"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xffff00ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xffff00ff",
+                            ["center_top"] = "0xffff00ff",
+                            ["right_top"] = "0xffff00ff",
+                            ["left_center"] = "0xffff00ff",
+                            ["right_center"] = "0xffff00ff",
+                            ["left_bottom"] = "0xffff00ff",
+                            ["center_bottom"] = "0xffff00ff",
+                            ["right_bottom"] = "0xffff00ff"
+                          }
+                        }
+                    },
+                    ["hover"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xffff00ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xffff00ff",
+                            ["center_top"] = "0xffff00ff",
+                            ["right_top"] = "0xffff00ff",
+                            ["left_center"] = "0xffff00ff",
+                            ["right_center"] = "0xffff00ff",
+                            ["left_bottom"] = "0xffff00ff",
+                            ["center_bottom"] = "0xffff00ff",
+                            ["right_bottom"] = "0xffff00ff"
+                          }
+                        }
+                    },
+                    ["pressed"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xffff00ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xffff00ff",
+                            ["center_top"] = "0xffff00ff",
+                            ["right_top"] = "0xffff00ff",
+                            ["left_center"] = "0xffff00ff",
+                            ["right_center"] = "0xffff00ff",
+                            ["left_bottom"] = "0xffff00ff",
+                            ["center_bottom"] = "0xffff00ff",
+                            ["right_bottom"] = "0xffff00ff"
+                          }
+                        }
+                    },
+                    ["disabled"] = {
+                        [1] = {
+                          ["bkg"] = {
+                            ["center_center"] = "0xffff00ff",
+                            ["file"] = "$nil$",
+                            ["insets"] = {
+                                ["bottom"] = 0,
+                                ["left"] = 0,
+                                ["right"] = 0,
+                                ["top"] = 0
+                            },
+                            ["left_top"] = "0xffff00ff",
+                            ["center_top"] = "0xffff00ff",
+                            ["right_top"] = "0xffff00ff",
+                            ["left_center"] = "0xffff00ff",
+                            ["right_center"] = "0xffff00ff",
+                            ["left_bottom"] = "0xffff00ff",
+                            ["center_bottom"] = "0xffff00ff",
+                            ["right_bottom"] = "0xffff00ff"
+                          }
+                        }
+                    }
+                }
+            },
+            ["type"] = "Button"
+        }
+    }
+}

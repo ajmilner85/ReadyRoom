@@ -1,0 +1,118 @@
+{
+ "about": "The deck texture's fix for the padeyes (padeyes.py: see SHIP COORDINATES there). theta radians (positive turns the bow to starboard), tx metres forward, tz metres to starboard; fitted by padeyes.py --fit to the evidence: 'point' a padeye the user set by hand in DCS (x, z where the drawing's fit put it, to where the user set it); 'z' the correction across the ship at x, measured 2026-11-24 in the texture against the outer edge of each elevator platform of hangar-map.json (elevators 1, 2, 3, 4); 'dx' the difference of the corrections along the ship between places dz apart (the painted line aft of elevators 1 / 2 against elevator 4).",
+ "theta": 0.00841039331917314,
+ "tx": -0.49354568274929433,
+ "tz": -0.05314354016821761,
+ "evidence": [
+  {
+   "kind": "z",
+   "x": 29.65,
+   "corr": 0.21,
+   "from": "elevator 1 outer edge"
+  },
+  {
+   "kind": "z",
+   "x": -17.68,
+   "corr": -0.14,
+   "from": "elevator 2 outer edge"
+  },
+  {
+   "kind": "z",
+   "x": -96.71,
+   "corr": -0.84,
+   "from": "elevator 3 outer edge"
+  },
+  {
+   "kind": "z",
+   "x": -102.8,
+   "corr": -0.98,
+   "from": "elevator 4 outer edge"
+  },
+  {
+   "kind": "dx",
+   "dz": 58.6,
+   "corr": -0.56,
+   "from": "painted line aft of elevators 1 and 2 against elevator 4"
+  },
+  {
+   "kind": "point",
+   "x": 162.214,
+   "z": -12.658,
+   "to": [
+    161.784,
+    -11.388
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 163.429,
+   "z": -11.186,
+   "to": [
+    163.019,
+    -9.856
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 164.572,
+   "z": -9.67,
+   "to": [
+    164.122,
+    -8.31
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 164.594,
+   "z": -12.72,
+   "to": [
+    164.154,
+    -11.4
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 165.703,
+   "z": -8.14,
+   "to": [
+    165.373,
+    -6.79
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 165.785,
+   "z": -11.203,
+   "to": [
+    165.425,
+    -9.863
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 167.034,
+   "z": -9.674,
+   "to": [
+    166.584,
+    -8.324
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  },
+  {
+   "kind": "point",
+   "x": 167.06,
+   "z": -6.596,
+   "to": [
+    166.67,
+    -5.276
+   ],
+   "from": "catcc-padeyes.lua (2026-11-24)"
+  }
+ ]
+}
