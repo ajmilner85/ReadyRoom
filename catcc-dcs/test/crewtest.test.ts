@@ -30,12 +30,17 @@ const menuSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest.lua'), 'utf8');
 const hookSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hook.lua'), 'utf8');
 const routesSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_routes.lua'), 'utf8').replace(/\r\n/g, '\n');
 const uiSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_ui.lua'), 'utf8');
-const flagSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_flag.lua'), 'utf8');
 const demoSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_demo.lua'), 'utf8');
 const hangarSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hangar.lua'), 'utf8');
 const slotsSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_slots.lua'), 'utf8');
 const headSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_head.lua'), 'utf8');
 const cockpitSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_cockpit.lua'), 'utf8');
+const padToolSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_padeye_tool.lua'), 'utf8');
+const chockSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_chocks.lua'), 'utf8');
+const flagSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_flag.lua'), 'utf8');
+const tiedownSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_tiedowns.lua'), 'utf8');
+const hornetPointsSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_hornet_tiedowns.lua'), 'utf8');
+const padMapSrc = fs.readFileSync(here('../Scripts/CATCC/crewtest_padeyes_model.lua'), 'utf8');
 
 /** the names a PE file exports */
 function peExports(file: string): Set<string> {
@@ -305,9 +310,10 @@ OUT = table.concat({
     expect(entry).toContain("mount_vfs_texture_path(current_mod_path .. '/Shapes/textures')");
     const markers = Array.from({ length: 26 }, (_, i) => `Shapes/CATCC_AxleMarker_H${15 + i}.edm`);
     for (const f of ['Database/db_catcc_crew.lua', 'Shapes/CATCC_Towbar.edm', 'Shapes/CATCC_AxleProbe.edm', ...markers, 'Shapes/textures/catcc_towbar_diff.dds', 'Shapes/textures/catcc_towbar_nm.dds',
-      'Shapes/textures/catcc_towbar_diff_roughmet.dds', 'Shapes/CATCC_Tiedown.edm', 'Shapes/textures/catcc_tiedown_diff.dds', 'Shapes/textures/catcc_tiedown_nm.dds',
+      'Shapes/textures/catcc_towbar_diff_roughmet.dds', 'Shapes/CATCC_WheelChock.edm', 'Shapes/textures/catcc_wheelchock_diff.dds', 'Shapes/textures/catcc_wheelchock_nm.dds',
+      'Shapes/textures/catcc_wheelchock_diff_roughmet.dds', 'Shapes/CATCC_Tiedown.edm', 'Shapes/textures/catcc_tiedown_diff.dds', 'Shapes/textures/catcc_tiedown_nm.dds',
       'Shapes/textures/catcc_tiedown_diff_roughmet.dds', 'Shapes/CATCC_Tiedown.lods', 'Shapes/CATCC_Tiedown_lod1.edm', 'Shapes/CATCC_Tiedown_lod2.edm',
-      'Shapes/CATCC_Tiedown_lod3.edm'])
+      'Shapes/CATCC_Tiedown_lod3.edm', 'Shapes/CATCC_Flag.edm', 'Shapes/CATCC_Flag.lods', 'Shapes/CATCC_Flag_lod1.edm', 'Shapes/CATCC_Flag_lod2.edm', 'Shapes/CATCC_Flag_lod3.edm', 'Shapes/textures/catcc_flag_diff.dds', 'Shapes/textures/catcc_flag_nm.dds', 'Shapes/textures/catcc_flag_diff_roughmet.dds'])
       expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/${f}`)), f).toBe(true);
     expect(fs.existsSync(here('../deck-test/crew-test/Mods/tech/CATCC-Crew/models/catcc_test_pilot.chanimgpu'))).toBe(true);
     expect(fs.readFileSync(here('../deck-test/crew-test/Mods/tech/CATCC-Crew/entry.lua'), 'utf8')).toContain("mount_vfs_animations_path(current_mod_path .. '/animations')");
@@ -710,6 +716,7 @@ CAMMODE, CAMG, CAMK, CAMAZ, COCKPIT, CAMSETS = 'turn', -300, -90, 40, true, {}
 CAMAT = nil
 Export = {
   LoGetCameraPosition = function()
+    if CAMFOLLOW and CAMPUT then return CAMPUT end
     if CAMAT then -- an outside camera: at f, s of the ship, "up" above its origin, looking at the deck point (lf, ls) (or level: no lf)
       -- (CAMAT.ship2: all of it at the second carrier)
       local ox, oz = CAMAT.ship2 and (SX + 3000) or nil, CAMAT.ship2 and SZ or nil
@@ -738,6 +745,8 @@ Export = {
     if CAMMODE == 'turn' then CAMAZ = math.max(-172, math.min(172, CAMAZ + val * CAMG)) elseif CAMMODE == 'angle' then CAMAZ = val * CAMK end
   end,
   LoGetPlayerPlaneId = function() return 16777472 end,
+  -- (the player's aircraft's type: SELF_TYPE, a test's own)
+  LoGetSelfData = function() return { Name = SELF_TYPE or 'FA-18C_hornet' } end,
   -- (DCS's active pause: the mission's clock runs on, the player's own aircraft is held: ACTIVE_PAUSE, a test's own)
   LoSimulationOnActivePause = function() return ACTIVE_PAUSE == true end,
 }
@@ -760,8 +769,18 @@ loadfile = function(p)
   if p == 'W/Logs/catcc-deck-spots.lua' then return SPOTS_FILE and load(SPOTS_FILE) or nil end
   if p == 'W/Logs/catcc-hangar-marks.lua' then return MARKS_FILE and load(MARKS_FILE) or nil end
   if p == 'W/Scripts/CATCC/crewtest_ui.lua' then return UI_ON and load(UI_SRC, 'crewtest_ui') or nil end
+  -- (the panel's padeyes: only where a test asks for them (PAD_ON); their user's file as the tool last wrote it)
+  if p == 'W/Scripts/CATCC/crewtest_padeye_tool.lua' then return PAD_ON and load(PAD_TOOL_SRC, 'crewtest_padeye_tool') or nil end
+  -- (the panel's chock tool: with the panel)
+  if p == 'W/Scripts/CATCC/crewtest_chocks.lua' then return UI_ON and load(CHOCK_SRC, 'crewtest_chocks') or nil end
   -- (the panel's flag tool: with the panel)
   if p == 'W/Scripts/CATCC/crewtest_flag.lua' then return UI_ON and load(FLAG_SRC, 'crewtest_flag') or nil end
+  -- (the tie-down chains: with the panel; the Hornet's points and the padeyes' map as installed)
+  if p == 'W/Scripts/CATCC/crewtest_tiedowns.lua' then return UI_ON and load(TIEDOWN_SRC, 'crewtest_tiedowns') or nil end
+  if p == 'W/Scripts/CATCC/crewtest_hornet_tiedowns.lua' then return load(HORNET_POINTS_SRC, 'crewtest_hornet_tiedowns') end
+  if p == 'W/Scripts/CATCC/crewtest_padeyes.lua' then return PAD_ON and load(PAD_DATA_SRC, 'crewtest_padeyes') or nil end
+  if p == 'W/Scripts/CATCC/crewtest_padeyes_model.lua' then return (PAD_ON and PAD_MODEL_SRC ~= '') and load(PAD_MODEL_SRC, 'crewtest_padeyes_model') or nil end
+  if p == 'W/Logs/catcc-padeyes.lua' then return PADS_FILE and load(PADS_FILE) or nil end
   if p == 'W/Scripts/CATCC/crewtest_demo.lua' then return DEMO_ON and load(DEMO_SRC, 'crewtest_demo') or nil end
   if p == 'W/Scripts/CATCC/crewtest_hangar.lua' then return DEMO_ON and load(HANGAR_SRC, 'crewtest_hangar') or nil end
   if p == 'W/Scripts/CATCC/crewtest_slots.lua' then return SLOTS_ON and load(SLOTS_SRC, 'crewtest_slots') or nil end
@@ -785,6 +804,13 @@ io = { open = function(p, mode)
   if p == 'W/Logs/catcc-hangar-marks.lua' and mode == 'w' then
     local parts = {}
     return { write = function(self, ...) parts[#parts + 1] = table.concat({ ... }) end, close = function() MARKS_FILE = table.concat(parts) end }
+  end
+  if p == 'W/Logs/catcc-padeyes.lua' and mode == 'w' then
+    local parts = {}
+    return { write = function(self, ...) parts[#parts + 1] = table.concat({ ... }) end, close = function() PADS_FILE = table.concat(parts) end }
+  end
+  if p == 'W/Logs/catcc-ringviews.lua' and mode == 'a' then
+    return { write = function(self, ...) RINGVIEWS = (RINGVIEWS or '') .. table.concat({ ... }) end, close = function() end }
   end
   return nil
 end }
@@ -832,7 +858,8 @@ local function widget(kind, text)
 end
 require = function(name)
   if not UI_ON then error("module '" .. name .. "' not found") end
-  if name == 'dxgui' then return { GetScreenSize = function() return 2560, 1600 end, AddMouseCallback = function(kind, fn) if kind == 'down' then MOUSE_DOWN = fn end end } end
+  if name == 'dxgui' then return { GetScreenSize = function() return 2560, 1600 end, AddMouseCallback = function(kind, fn) if kind == 'down' then MOUSE_DOWN = fn elseif kind == 'move' then MOUSE_MOVE = fn elseif kind == 'up' then MOUSE_UP = fn elseif kind == 'wheel' then MOUSE_WHEEL = fn end end,
+    RemoveMouseCallback = function(kind, fn) if kind == 'move' and MOUSE_MOVE == fn then MOUSE_MOVE = nil elseif kind == 'up' and MOUSE_UP == fn then MOUSE_UP = nil elseif kind == 'wheel' and MOUSE_WHEEL == fn then MOUSE_WHEEL = nil end end } end
   if name == 'DialogLoader' then
     return { spawnDialogFromFile = function(path)
       local w = widget('Window', path)
@@ -919,16 +946,16 @@ function startList(r: { logLines: string[] }): string[] {
 
 function hook(
   script: string,
-  opts: { flag?: boolean; noNative?: boolean; quick?: boolean; world?: boolean; parentPos?: boolean; replaced?: number; noAnim?: boolean; ui?: boolean; demo?: boolean; head?: boolean } = {},
+  opts: { flag?: boolean; noNative?: boolean; quick?: boolean; world?: boolean; parentPos?: boolean; replaced?: number; noAnim?: boolean; ui?: boolean; demo?: boolean; head?: boolean; pad?: string; padModel?: string } = {},
 ): { rec: string[]; says: string[]; menu: string[]; log: number; logLines: string[] } {
-  const pre = `FLAG = ${opts.flag === false ? 'false' : 'true'}\nNO_NATIVE = ${opts.noNative ? 'true' : 'false'}\nUI_ON = ${opts.ui ? 'true' : 'false'}\nDEMO_ON = ${opts.demo ? 'true' : 'false'}\nHEAD_ON = ${opts.head ? 'true' : 'false'}\n`;
+  const pre = `FLAG = ${opts.flag === false ? 'false' : 'true'}\nNO_NATIVE = ${opts.noNative ? 'true' : 'false'}\nUI_ON = ${opts.ui ? 'true' : 'false'}\nDEMO_ON = ${opts.demo ? 'true' : 'false'}\nHEAD_ON = ${opts.head ? 'true' : 'false'}\nPAD_ON = ${opts.pad ? 'true' : 'false'}\n`;
   const set =
     (opts.quick === false ? 'QUICK = false\n' : '') +
     (opts.world === false ? 'WORLD = false\n' : '') +
     (opts.parentPos === false ? 'PARENTPOS = false\n' : '') +
     (opts.replaced ? `REPLACED = ${opts.replaced}\n` : '') +
     (opts.noAnim ? 'NO_ANIM = true\n' : '');
-  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, FLAG_SRC: flagSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc, COCKPIT_SRC: cockpitSrc };
+  const globals = { HOOK_SRC: hookSrc, MENU_SRC: menuSrc, ROUTES_REAL: routesSrc, UI_SRC: uiSrc, DEMO_SRC: demoSrc, HANGAR_SRC: hangarSrc, SLOTS_SRC: slotsSrc, HEAD_SRC: headSrc, COCKPIT_SRC: cockpitSrc, PAD_TOOL_SRC: padToolSrc, PAD_DATA_SRC: opts.pad || '', PAD_MODEL_SRC: opts.padModel || '', CHOCK_SRC: chockSrc, FLAG_SRC: flagSrc, TIEDOWN_SRC: tiedownSrc, HORNET_POINTS_SRC: hornetPointsSrc };
   // (CATCC_LUA_DUMP=<folder>: the harness and its sources written there, for a run under DCS's own Lua 5.1, which is
   // some fifty times as fast as fengari: deck-test/crew-test/luarun.py)
   if (process.env.CATCC_LUA_DUMP) {
@@ -990,7 +1017,7 @@ OUT = table.concat(types, ';') .. '|' .. table.concat(mounts, ';') .. '|' .. tos
     const [types, mounts, done] = out.split('|');
     // a type's name is its model's file name and its shape's name, as the chock's and the route lines' are
     const one = (n: string) => `${n}/${n}/${n}/lLandVehicle/ADEquipment/1/2`;
-    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe'), one('CATCC_Tiedown'), one('CATCC_Flag')]);
+    expect(types.split(';')).toEqual([...Array.from({ length: 26 }, (_, i) => one(`CATCC_AxleMarker_H${15 + i}`)), one('CATCC_AxleEnd'), one('CATCC_Towbar'), one('CATCC_AxleProbe'), one('CATCC_WheelChock'), one('CATCC_Tiedown'), one('CATCC_Flag')]);
     for (const t of types.split(';')) expect(fs.existsSync(here(`../deck-test/crew-test/Mods/tech/CATCC-Crew/Shapes/${t.split('/')[1]}.edm`)), t).toBe(true);
     expect(db).not.toMatch(/pcall\s*\(/);
     expect(mounts.split(';')).toEqual(['anim M/animations', 'model M/models', 'model M/Shapes', 'tex M/Shapes/textures']);
@@ -2317,7 +2344,7 @@ for name in pairs(STATICS) do if name:find('^catcc%-hmark%-') then n = n + 1 end
 rec('next mission: markers ' .. n)`, { ui: true });
     // the crosshair: 6 x 6 at the middle of the 2560 x 1600 screen while the page is open; the page's buttons
     expect(r.rec).toContain('crosshair: 1277 797 6 x 6');
-    expect(r.rec.find((l) => l.startsWith('marks page: '))).toBe('marks page: Deck spots | Tow | Crew test menu | [Hangar marks] | Flag | Hide | Floor point (Ctrl+Shift+Z) | Two-angle shot (Ctrl+Shift+X) | Drop the first shot | Remove the last point');
+    expect(r.rec.find((l) => l.startsWith('marks page: '))).toBe('marks page: Deck spots | Tow | Crew test menu | [Hangar marks] | Padeyes | Chocks | Flag | Hide | Floor point (Ctrl+Shift+Z) | Two-angle shot (Ctrl+Shift+X) | Drop the first shot | Remove the last point');
     // A FLOOR POINT: where the line through the screen's centre meets the hangar floor (8.711 m above the ship's origin)
     expect(r.says).toContain('hangar marks: point 1 (floor): 2.00 m forward, 8.71 up, 3.00 to starboard.');
     expect(r.says).toContain('hangar marks: the crosshair looks level or up: it never meets the floor. Aim at the foot of the wall, where it meets the floor.');
@@ -2342,6 +2369,828 @@ rec('next mission: markers ' .. n)`, { ui: true });
     expect(r.rec.filter((l) => l.startsWith('file now ')).map((l) => l.slice(11))).toEqual(['{ n = 1, kind = "floor", x = 2.000, y = 8.711, z = 3.000, ship = "CVN-72" },']);
     // the next mission: read again from the file, its marker made when the page is opened
     expect(r.rec).toContain('next mission: markers 1');
+  });
+
+  it("padeyes: on their page, each a dot on the screen (orange: to confirm); a click selects one (the mark on it), the buttons move it along the ship's axes, its group or all; add, confirm, undo; saved; the dots stay when the panel is put away and go with another page", () => {
+    // three on the flight deck (one to confirm), one on elevator 1
+    const PADS_MODEL = `return { groups = { 'Flight Deck', 'El 1', 'El 2', 'El 3', 'El 4' }, styles = { 'dark' }, list = {
+  { 1, 1, 10.500, 0.500, 1 },
+  { 2, 1, 12.500, -2.000, 1 },
+} }`;
+    const PADS = `return { groups = { 'Flight Deck', 'El 1', 'El 2', 'El 3', 'El 4' }, list = {
+  { 1, 1, 10.000, 0.000, 0 },
+  { 2, 1, 12.000, 2.000, 0 },
+  { 3, 1, 8.000, -1.000, 1 },
+  { 4, 2, 14.000, 6.000, 0 },
+} }`;
+    const r = hook(`${START}local W = WINDOWS.crewtest_ui
+local mark = WINDOWS.crewtest_ui_mark
+-- the camera over the deck, looking down at padeye 1 (10 m forward on the centreline, on the deck: 20.149 m up)
+CAMAT = { f = -5, s = 0, up = 32, lf = 10, ls = 0, ly = 20.149 }
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+local D = WINDOWS.crewtest_ui_dots
+rec('dots window before: ' .. D.b[3] .. ' x ' .. D.b[4] .. ', through ' .. tostring(D.through))
+press('Padeyes')\nframes(0.5)
+rec('pad page: ' .. shown('Button'))
+local function dots()
+  local out = {}
+  for _, c in ipairs(D.children or {}) do
+    if c.visible then out[#out + 1] = string.format('%s %d %d', c.skin.tpl == 'tplDotConfirm' and 'orange' or (c.skin.tpl == 'tplDotDone' and 'green' or (c.skin.tpl == 'tplDotModel' and 'cyan' or 'magenta')), c.b[1] + 3, c.b[2] + 3) end
+  end
+  table.sort(out)
+  return table.concat(out, ' | ')
+end
+local function status()
+  for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('padeyes', 1, true) and w.text:find('Selected', 1, true) or (w.kind == 'Static' and w.visible and w.text:find('Nothing selected', 1, true)) then return (w.text:gsub('\\n', ' / ')) end end
+end
+local function msg() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('^padeyes: ') then return w.text end end return '' end
+rec('dots window: ' .. D.b[3] .. ' x ' .. D.b[4] .. '; dots: ' .. dots())
+rec('status: ' .. status())
+-- a click on the middle dot (the mouse given to the panel first: LAlt+C)
+HOTKEYS['Alt+c']()\nframes(0.25)
+MOUSE_DOWN(1282, 798)\nframes(0.25)
+rec('click: ' .. msg())
+rec('mark: ' .. mark.b[1] .. ' ' .. mark.b[2] .. ' ' .. mark.b[3] .. ' x ' .. mark.b[4])
+press('Forward')\nframes(0.25)
+rec('forward: ' .. msg())
+press('1 cm')\npress('Starboard')\nframes(0.25)
+rec('starboard: ' .. msg())
+press('Its group')\npress('1 m')\npress('Aft')\nframes(0.25)
+rec('group aft: ' .. msg())
+press('Undo')\nframes(1)
+rec('undo: ' .. msg())
+for line in PADS_FILE:gmatch('[^\\n]+') do if line:sub(1, 3) == '  {' then rec('file ' .. line) end end
+-- a click beside every dot: nothing
+MOUSE_DOWN(2400, 200)\nframes(0.25)
+rec('miss: ' .. msg())
+-- the orange one confirmed
+local ox, oy
+for _, c in ipairs(D.children) do if c.visible and c.skin.tpl == 'tplDotConfirm' then ox, oy = c.b[1] + 3, c.b[2] + 3 end end
+MOUSE_DOWN(ox, oy)\nframes(0.25)
+press('Confirm')\nframes(0.25)
+rec('confirm: ' .. msg())
+rec('dots now: ' .. dots())
+-- adding: a click makes one where it meets the deck
+press('Click adds')\nframes(0.25)
+MOUSE_DOWN(1280, 800)\nframes(0.25)
+rec('add on one: ' .. msg())
+MOUSE_DOWN(1280, 700)\nframes(0.25)
+rec('add: ' .. msg())
+press('Click selects')\nframes(0.25)
+rec('status now: ' .. status())
+-- put away: the dots stay; shown again and another page: they go
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('hidden: dots window ' .. D.b[3] .. ' x ' .. D.b[4] .. ', ' .. #dots() .. ' chars of dots')
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Deck spots')\nframes(0.5)
+rec('deck page: dots window ' .. D.b[3] .. ' x ' .. D.b[4] .. '; dots: "' .. dots() .. '"')
+-- start over: a second press within 4 s
+press('Padeyes')\nframes(0.5)
+press('Start over')\nframes(0.25)
+rec('start over once: ' .. msg())
+press('Start over: press again')\nframes(1)
+rec('start over: ' .. msg())
+local n = 0
+for line in PADS_FILE:gmatch('[^\\n]+') do if line:sub(1, 3) == '  {' then n = n + 1 end end
+rec('after start over, in the file: ' .. n)
+-- THE MODEL'S PADEYES ("Model": cyan, under the user's; "Mine": the user's on or off; only the user's are picked)
+rec('mouse move before the top view: ' .. tostring(MOUSE_MOVE ~= nil))
+press('Model')\nframes(0.25)
+rec('model dots: ' .. dots())
+press('Mine')\nframes(0.25)
+rec('model only: ' .. dots())
+press('Click selects')\nframes(0.25)
+MOUSE_DOWN(1280, 800, 1)\nframes(0.25)
+rec('click on the model only: ' .. msg())
+press('Mine')\npress('Model')\nframes(0.25)
+rec('buttons now: ' .. (shown('Button'):match('%[?Mine%]? | %[?Model%]?') or '?'))
+-- THE TOP VIEW: the camera over padeye 1, 32 m up (11.85 m over the deck); DCS keeps the camera where it is put
+CAMAT = { f = 10, s = 0, up = 32, lf = 10.5, ls = 0, ly = 20.149 }
+CAMFOLLOW, CAMPUTS = true, 0
+press('Top view')\nframes(0.5)
+local function rel(q) local dx, dz = q.x - SX, q.z - SZ return dx * shipX.x + dz * shipX.z, q.y, dx * shipZ.x + dz * shipZ.z end
+local function dot3(a, b) return a.x * b.x + a.y * b.y + a.z * b.z end
+local function top()
+  local f, u, sd = rel(CAMPUT.p)
+  return string.format('%.2f %.2f %.2f; down %.3f, screen up %.3f forward, screen right %.3f to starboard', f, u, sd, -dot3(CAMPUT.x, shipY), dot3(CAMPUT.y, shipX), dot3(CAMPUT.z, shipZ))
+end
+rec('top view: put ' .. CAMPUTS .. ' times; at ' .. top() .. '; button ' .. (shown('Button'):match('%[Top view%]') or 'not marked'))
+rec('top view dots: ' .. dots())
+-- the middle button dragged 200 px right and 200 up: the deck (and padeye 1 with it) follows the mouse
+MOUSE_DOWN(1000, 800, 3)\nframes(0.1)
+MOUSE_MOVE(1200, 600)\nframes(0.1)
+MOUSE_UP(1200, 600, 3)\nframes(0.1)
+MOUSE_MOVE(1500, 300)\nframes(0.25)
+rec('dragged: at ' .. top())
+rec('dragged dots: ' .. dots())
+rec('dragged, selected: ' .. tostring(CATCC_UI.pad.sel and CATCC_UI.pad.sel.n))
+-- the wheel, a click toward the deck: 0.85 of the height
+MOUSE_WHEEL(1200, 600, 1)\nframes(0.25)
+rec('wheel: at ' .. top())
+-- put away: the camera still put; another page: the camera DCS's again
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+local n1 = CAMPUTS
+frames(0.5)
+rec('top view, the panel put away: still put ' .. tostring(CAMPUTS > n1))
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Deck spots')\nframes(0.5)
+local n2 = CAMPUTS
+frames(0.5)
+rec('another page: put ' .. (CAMPUTS - n2) .. ' times more; top ' .. tostring(CATCC_UI.top))
+rec('mouse move after the top view: ' .. tostring(MOUSE_MOVE ~= nil) .. ', up ' .. tostring(MOUSE_UP ~= nil) .. ', wheel ' .. tostring(MOUSE_WHEEL ~= nil))
+-- THE JET VIEWS: the player's jet 60 m forward, 10 m to starboard, nose forward, level; the camera held on it, in its
+-- own frame; each view (and each zoom) written down with the camera in the jet's frame
+setJet(60, 10, 1, 0)
+JET.getTypeName = function() return 'FA-18C_hornet' end
+JET.getPosition = function() return { p = toWorld(jet.f, JETUP, jet.s), x = shipX, y = shipY, z = shipZ } end
+CAMFOLLOW, CAMPUTS = false, 0
+press('Padeyes')\nframes(0.5)
+press('Left')\nframes(0.5)
+local function shipCam()
+  local q = CAMPUT
+  local dx, dz = q.p.x - SX, q.p.z - SZ
+  local function d(a) return a.x * shipX.x + a.z * shipX.z, a.y, a.x * shipZ.x + a.z * shipZ.z end
+  local ax, ay, az = d(q.x)
+  local ux, uy, uz = d(q.y)
+  return string.format('at %.2f %.2f %.2f, looking %.3f %.3f %.3f, up %.3f %.3f %.3f', dx * shipX.x + dz * shipX.z, q.p.y, dx * shipZ.x + dz * shipZ.z, ax, ay, az, ux, uy, uz)
+end
+rec('jet view left: put ' .. CAMPUTS .. ' times; ' .. shipCam() .. '; ' .. (shown('Button'):match('%[Left%]') or 'not marked'))
+press('Below')\nframes(0.5)
+rec('jet view below: ' .. shipCam())
+FOV = 40\nframes(1)
+for line in (RINGVIEWS or ''):gmatch('[^\\n]+') do if not line:find('what = "still"', 1, true) then rec('ring views: ' .. line) end end
+press('Below')\nframes(0.25)
+local n3 = CAMPUTS
+frames(0.5)
+rec('jet view off: put ' .. (CAMPUTS - n3) .. ' times more')
+FOV = 78
+-- THE CAMERA AT REST: DCS's own camera (10 m forward, 32 m up, on the centreline), still for a moment with the page
+-- open: one line, the camera in the jet's frame (the jet 60 m forward, 10 m to starboard, 22 m up, nose forward)
+RINGVIEWS = ''
+frames(0.2)\nframes(1)
+for line in (RINGVIEWS or ''):gmatch('[^\\n]+') do rec('at rest: ' .. line) end
+-- THE CROSSHAIR: on at the screen's centre by its button, off again; the hangar marks' keys stay off
+local function crossNow() for _, w in ipairs(WIDGETS) do if w.kind == 'Window' and w ~= W and w ~= mark and w ~= D and w.b[3] == 6 then return string.format('%d %d %d x %d', w.b[1], w.b[2], w.b[3], w.b[4]) end end return 'none' end
+press('Crosshair')\nframes(0.25)
+rec('crosshair: ' .. crossNow() .. '; ' .. (shown('Button'):match('%[Crosshair%]') or 'not marked') .. '; marks keys ' .. tostring(CATCC_UI.crossOn))
+press('Crosshair')\nframes(0.25)
+rec('crosshair off: ' .. crossNow())
+CAMFOLLOW = false`, { ui: true, pad: PADS, padModel: PADS_MODEL });
+    expect(r.rec).toContain('dots window before: 1 x 1, through true');
+    // THE TOP VIEW (the user, 2026-11-24: "Set my view to be perfectly orthogonal to the deck ... Middle mouse click and
+    // drag to pan the camera while maintaining that orthogonality"): straight down over where the camera was, the bow at
+    // the screen's top, put every frame; padeye 1 under it at the screen's middle; the middle button dragged 200 px right
+    // and up moves the camera so that the deck follows the mouse (padeye 1 to 1480 / 600), and selects nothing; after the
+    // button is let go the mouse moves nothing; the wheel lowers it; it stays with the panel put away; another page: off
+    expect(r.rec.find((l) => l.startsWith('top view: put '))).toMatch(/^top view: put \d+ times; at 10\.00 32\.00 0\.00; down 1\.000, screen up 1\.000 forward, screen right 1\.000 to starboard; button \[Top view\]$/);
+    expect(r.rec.find((l) => l.startsWith('top view dots: '))).toContain('magenta 1280 800');
+    expect(r.rec).toContain('dragged: at 8.50 32.00 -1.50; down 1.000, screen up 1.000 forward, screen right 1.000 to starboard');
+    expect(r.rec.find((l) => l.startsWith('dragged dots: '))).toContain('magenta 1480 600');
+    expect(r.rec).toContain('dragged, selected: nil');
+    expect(r.rec).toContain('wheel: at 8.50 30.22 -1.50; down 1.000, screen up 1.000 forward, screen right 1.000 to starboard');
+    expect(r.rec).toContain('top view, the panel put away: still put true');
+    expect(r.rec).toContain('another page: put 0 times more; top nil');
+    // (DCS's mouse move / up / wheel are taken only while the top view is on: held for the whole mission, the user
+    // could not orbit the camera in DCS's outside views)
+    expect(r.rec).toContain('mouse move before the top view: false');
+    expect(r.rec).toContain('mouse move after the top view: false, up false, wheel false');
+    // THE JET VIEWS (the user, 2026-11-25: a tool "to point the camera at the hornet model from one or more camera angles"
+    // to find its tie-down rings): "Left" puts the camera 8 m off the jet's left side, 0.35 m over the deck under it
+    // (the jet's origin 1.826 m over the deck), looking at 0.9 m over the deck at its middle; "Below" 0.6 m under the
+    // deck looking straight up, the nose at the screen's top; each written to Logs\catcc-ringviews.lua in the jet's
+    // frame, with the zoom when it changes; pressed again: off
+    expect(r.rec.find((l) => l.startsWith('jet view left: '))).toMatch(/^jet view left: put \d+ times; at 60\.50 20\.52 2\.00, looking -?0\.000 0\.069 0\.998, up -?0\.000 0\.998 -0\.069; \[Left\]$/);
+    expect(r.rec).toContain('jet view below: at 60.00 19.57 10.00, looking 0.000 1.000 0.000, up 1.000 0.000 0.000');
+    const views = r.rec.filter((l) => l.startsWith('ring views: '));
+    expect(views.length).toBe(3);
+    expect(views[0]).toMatch(/what = "on", view = "Left", jet = "FA-18C_hornet", cam = \{ p = \{ 0\.5000, -1\.4760, -8\.0000 \}/);
+    expect(views[1]).toMatch(/what = "on", view = "Below"/);
+    expect(views[2]).toMatch(/what = "zoom", view = "Below", .*fov = 40\.000, fov_axis = "horizontal", screen = \{ 2560, 1600 \}/);
+    expect(r.rec).toContain('jet view off: put 0 times more');
+    // (the camera at rest, DCS's own: written once it has stood still, in the jet's frame: for shots framed by hand)
+    const rest = r.rec.filter((l) => l.startsWith('at rest: '));
+    expect(rest.length).toBe(1);
+    // (the crosshair, the user: "a cross hair I can switch on to line up the rings in the center of the view")
+    expect(r.rec).toContain('crosshair: 1277 797 6 x 6; [Crosshair]; marks keys false');
+    expect(r.rec).toContain('crosshair off: none');
+    expect(rest[0]).toMatch(/what = "still", view = "free", jet = "FA-18C_hornet", cam = \{ p = \{ -50\.000\d, 10\.000\d, -10\.000\d \}/);
+    // THE MODEL'S PADEYES: cyan beside the user's; the user's off: only cyan, and a click picks nothing
+    const modelDots = r.rec.find((l) => l.startsWith('model dots: '))!;
+    expect(modelDots).toContain('cyan 1');
+    expect(modelDots).toContain('magenta 1280 800');
+    const modelOnly = r.rec.find((l) => l.startsWith('model only: '))!;
+    expect(modelOnly).toMatch(/^model only: cyan \d+ \d+( \| cyan \d+ \d+)*$/);
+    expect(r.rec).toContain('click on the model only: padeyes: no padeye there (click on a dot)');
+    expect(r.rec).toContain('buttons now: [Mine] | Model');
+    expect(r.rec.find((l) => l.startsWith('pad page: '))).toBe(
+      'pad page: Deck spots | Tow | Crew test menu | Hangar marks | [Padeyes] | Chocks | Flag | Hide | [Click selects] | Click adds | Remove | [This one] | Its group | All | 1 m | [10 cm] | 1 cm | Forward | Port | Aft | Starboard | Confirm | Undo | Start over | Top view | [Mine] | Model | Clear all | Combined | Holes | Left | Right | Front | Rear | Top | Below | L front | R front | L rear | R rear | Crosshair | Tie down my jet | Tie down all | Take away | Report',
+    );
+    // the dots over the whole screen, padeye 1 at its middle; the one to confirm orange
+    const dotsLine = r.rec.find((l) => l.startsWith('dots window: '))!;
+    expect(dotsLine).toMatch(/^dots window: 2560 x 1600; dots: /);
+    expect(dotsLine).toContain('magenta 1280 800');
+    expect(dotsLine.match(/magenta/g)!.length).toBe(3);
+    expect(dotsLine.match(/orange/g)!.length).toBe(1);
+    expect(r.rec).toContain('status: 4 padeyes, 1 to confirm (orange). / Nothing selected: click a dot (LAlt+C gives the panel the mouse).');
+    expect(r.rec).toContain('click: padeyes: selected padeye 1 (Flight Deck): 10.00 m forward, 0.00 to starboard.');
+    expect(r.rec).toContain('mark: 1272 792 16 x 16');
+    expect(r.rec).toContain('forward: padeyes: padeye 1 (Flight Deck): 10.10 m forward, 0.00 to starboard; moved 0.10 m forward, 0.00 to starboard.');
+    expect(r.rec).toContain('starboard: padeyes: padeye 1 (Flight Deck): 10.10 m forward, 0.01 to starboard; moved 0.10 m forward, 0.01 to starboard.');
+    expect(r.rec).toContain('group aft: padeyes: the 3 padeyes of Flight Deck moved -1.00 m forward, 0.00 to starboard.');
+    expect(r.rec).toContain('undo: padeyes: undone (move).');
+    // saved: padeye 1 where the undo left it, the others as they were
+    expect(r.rec.filter((l) => l.startsWith('file ')).map((l) => l.slice(7))).toEqual([
+      '{ n = 1, g = 1, x = 10.100, z = 0.010, x0 = 10.000, z0 = 0.000, state = "seen" },',
+      '{ n = 2, g = 1, x = 12.000, z = 2.000, x0 = 12.000, z0 = 2.000, state = "seen" },',
+      '{ n = 3, g = 1, x = 8.000, z = -1.000, x0 = 8.000, z0 = -1.000, state = "confirm" },',
+      '{ n = 4, g = 2, x = 14.000, z = 6.000, x0 = 14.000, z0 = 6.000, state = "seen" },',
+    ]);
+    expect(r.rec).toContain('miss: padeyes: no padeye there (click on a dot)');
+    expect(r.rec).toContain('confirm: padeyes: confirmed padeye 3 (Flight Deck, confirmed): 8.00 m forward, -1.00 to starboard.');
+    expect(r.rec.find((l) => l.startsWith('dots now: '))).not.toContain('orange');
+    expect(r.rec.find((l) => l.startsWith('dots now: '))).toContain('green');
+    // (a click on a padeye there already selects it: no second one on top of it; a click on bare deck adds one)
+    expect(r.rec.find((l) => l.startsWith('add on one: '))).toMatch(/^add on one: padeyes: one there already: selected padeye 1 \(Flight Deck\)/);
+    expect(r.rec.find((l) => l.startsWith('add: '))).toMatch(/^add: padeyes: added padeye 5 \(Flight Deck, added\): 1[1-9]\.\d\d m forward, 0\.00 to starboard\.$/);
+    expect(r.rec.find((l) => l.startsWith('status now: '))).toMatch(/^status now: 5 padeyes, 1 confirmed \(green\)\. \/ Selected: padeye 5 \(Flight Deck, added\): 1[1-9]\.\d\d m forward, 0\.00 to starboard/);
+    expect(r.rec.find((l) => l.startsWith('hidden: '))).toMatch(/^hidden: dots window 2560 x 1600, [1-9]\d* chars of dots$/);
+    expect(r.rec).toContain('deck page: dots window 1 x 1; dots: ""');
+    expect(r.rec).toContain('start over once: padeyes: press "Start over" again to go back to the drawing\'s padeyes (all your changes go).');
+    expect(r.rec).toContain("start over: padeyes: back to the drawing's 4 padeyes.");
+    expect(r.rec).toContain('after start over, in the file: 4');
+  });
+
+  it("tie-downs: \"Tie down my jet\" (the Padeyes page): the initial six of NATOPS Figure 2-1 on the player's F/A-18C, each in its sector (the user's: outboard, 1 m or more out; forward or aft), clear of the jet's gear, a CATCC_Tiedown linked to the ship on its own padeye of the flight deck, headed at its fitting, its length and rise written and kept; the ones with no padeye said; reported; taken away", () => {
+    // the jet on deck spot 1 (Stbd bow 6: 162.391 forward, 9.327 to starboard, nose 193.87 degrees from the bow), level,
+    // its origin 1.826 m over the deck; the padeyes' map as installed
+    const r = hook(`${START}local W = WINDOWS.crewtest_ui
+local h = math.rad(193.87)
+setJet(162.391, 9.327, math.cos(h), math.sin(h))
+JETUP = 21.975
+JET.getTypeName = function() return 'FA-18C_hornet' end
+JET.getPosition = function()
+  local nx, nz = jet.nf * shipX.x + jet.ns * shipZ.x, jet.nf * shipX.z + jet.ns * shipZ.z
+  return { p = toWorld(jet.f, JETUP, jet.s), x = v(nx, 0, nz), y = shipY, z = v(-nz, 0, nx) }
+end
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+press('Padeyes')\nframes(0.5)
+local function msg() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('^tiedowns: ') then return w.text end end return '' end
+press('Tie down my jet')\nframes(1)
+rec('placed: ' .. msg())
+frames(9)
+local made = {}
+for _, l in ipairs(REC) do
+  local name, x, z, ang = l:match('^static (catcc%-tiedown%-%d+ %d+) type CATCC_Tiedown category %S+ linked true to %d+ at (%S+) (%S+) angle (%S+)')
+  if name then made[#made + 1] = { name = name, x = tonumber(x), z = tonumber(z), ang = tonumber(ang) } end
+end
+for _, m in ipairs(made) do
+  local o = STATICS[m.name]
+  rec(string.format('tiedown %s at %.3f %.3f, %.4f rad; args %.4f %.4f %.4f', m.name, m.x, m.z, m.ang, JETARG[o.id_ .. '/10'] or -1, JETARG[o.id_ .. '/11'] or -1, JETARG[o.id_ .. '/12'] or -1))
+end
+local w0 = 0 for _, m in ipairs(made) do w0 = w0 + (OBJARG_N[STATICS[m.name].id_ .. '/10'] or 0) end
+frames(2)
+local w1 = 0 for _, m in ipairs(made) do w1 = w1 + (OBJARG_N[STATICS[m.name].id_ .. '/10'] or 0) end
+rec('kept: ' .. tostring(w1 > w0))
+press('Report')\nframes(0.25)
+rec('report: ' .. msg())
+press('Take away')\nframes(0.25)
+local n = 0 for name in pairs(STATICS) do if name:find('^catcc%-tiedown%-') then n = n + 1 end end
+rec('taken away: ' .. msg() .. '; standing ' .. n)`, { ui: true, pad: 'return { list = {} }', padModel: padMapSrc });
+    // (the arguments written once the native module has the ship: tried again every half second until then)
+    // (on this spot, by the user's sectors (2026-11-25): the nose gear's right ring has no padeye 1 m or more out in its
+    // forward sector)
+    expect(r.rec.find((l) => l.startsWith('placed: '))).toMatch(/^placed: tiedowns: 5 of 6 on your jet\. Not chosen: NLG right ring \(FWD: no padeye 1\.0 m or more out and in its chain's reach\)\.( Arguments not set yet .*)?$/);
+    const map = new Map([...padMapSrc.matchAll(/\{ (\d+), (\d+), (-?[\d.]+), (-?[\d.]+), (\d), (\d+) \}/g)].map((m) => [`${(+m[3]).toFixed(3)} ${(+m[4]).toFixed(3)}`, +m[2]]));
+    const ties = r.rec.filter((l) => l.startsWith('tiedown '));
+    expect(ties.length).toBe(5);
+    const at = new Set<string>();
+    for (const t of ties) {
+      const m = t.match(/at (\S+) (\S+), (\S+) rad; args (\S+) (\S+) (\S+)$/)!;
+      const key = `${(+m[1]).toFixed(3)} ${(+m[2]).toFixed(3)}`;
+      // (on a padeye of the map, the flight deck's, each on its own)
+      expect(map.get(key), t).toBe(1);
+      at.add(key);
+      // (length / 4 within the model's 0.512 .. 3.240 m; the rise / 90 within 10 .. 70 degrees; yellow)
+      expect(+m[4]).toBeGreaterThan(0.512 / 4);
+      expect(+m[4]).toBeLessThan(3.24 / 4);
+      expect(+m[5]).toBeGreaterThan(10 / 90);
+      expect(+m[5]).toBeLessThan(70 / 90);
+      expect(+m[6]).toBe(0);
+    }
+    expect(at.size).toBe(5);
+    expect(r.rec).toContain('kept: true');
+    // (each in its sector, 1 m or more out across the deck)
+    const rep = r.rec.find((l) => l.startsWith('report: '))!;
+    const chains = [...rep.matchAll(/(NLG|MLG) (left|right) (?:(fwd|aft) )?ring to padeye \d+ \([^)]*\): (FWD|AFT), bearing (\d+) deg, ([\d.]+) m out/g)];
+    expect(chains.length).toBe(5);
+    for (const c of chains) {
+      const b = +c[5];
+      // (FWD outboard; the aft rings' AFT on to 45 degrees inboard of the tail)
+      if (c[4] === 'FWD') expect(b >= 0 && b <= 75, c[0]).toBe(true);
+      else expect(b >= 105 && b <= 225, c[0]).toBe(true);
+      expect(+c[6]).toBeGreaterThanOrEqual(1.0);
+    }
+    expect(r.rec).toContain('taken away: tiedowns: 5 taken away.; standing 0');
+  });
+
+  it("tie-downs: \"Tie down all\": every static Hornet of the flight deck and its elevators and the player's jet, on initial (on intermediate on a platform), no padeye twice over the deck, a platform's Hornet on its platform's padeyes; not the hangar's, not other statics; reported; taken away", () => {
+    // the player's jet on Stbd bow 6, static Hornets on Stbd bow 5 (the next spot: padeyes to share) and Sixpack 1; a
+    // Hornet in the hangar (not the flight deck) and a chock (not a Hornet)
+    const r = hook(`${START}local W = WINDOWS.crewtest_ui
+local function pose(f, s, deg, up)
+  local h = math.rad(deg)
+  local nf, ns = math.cos(h), math.sin(h)
+  local nx, nz = nf * shipX.x + ns * shipZ.x, nf * shipX.z + ns * shipZ.z
+  return { p = toWorld(f, up, s), x = v(nx, 0, nz), y = shipY, z = v(-nz, 0, nx) }
+end
+local h = math.rad(193.87)
+setJet(162.391, 9.327, math.cos(h), math.sin(h))
+JETUP = 21.975
+JET.getTypeName = function() return 'FA-18C_hornet' end
+JET.getPosition = function() return pose(162.391, 9.327, 193.87, 21.975) end
+local function put(name, typ, f, s, deg, up)
+  STATICS[name] = { id_ = 50000 + #name, isExist = function() return true end, getName = function() return name end, getTypeName = function() return typ end,
+    getPosition = function() return pose(f, s, deg, up) end, destroy = function() STATICS[name] = nil end }
+end
+put('Stbd bow 5', 'FA-18C_hornet', 146.642, 10.545, 200.72, 21.975)
+put('Sixpack 1', 'FA-18C_hornet', 28.6, -20.0, 60, 21.975)
+-- (one on elevator 1's platform, its spot El 1 1: chained to the platform's own padeyes)
+put('El 1 1', 'FA-18C_hornet', 34.204, 32.737, 270.29, 21.975)
+put('Hangar 3', 'FA-18C_hornet', -40, 0, 90, 10.6)
+put('a chock', 'CATCC_WheelChock', 150, 5, 0, 20.149)
+MISSION.coalition.getStaticObjects = function(side) local out = {} if side == 2 then for _, o in pairs(STATICS) do out[#out + 1] = o end end return out end
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+press('Padeyes')\nframes(0.5)
+local function msg() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('^tiedowns: ') then return w.text end end return '' end
+press('Tie down all')\nframes(9)
+rec('all: ' .. msg())
+local n, pads, dup = 0, {}, false
+for _, l in ipairs(REC) do
+  local x, z = l:match('^static catcc%-tiedown%-a%d+%-%d+ %d+ type CATCC_Tiedown category %S+ linked true to %d+ at (%S+) (%S+) ')
+  if x then
+    n = n + 1
+    if pads[x .. ' ' .. z] then dup = true end
+    pads[x .. ' ' .. z] = true
+    rec('chain at ' .. x .. ' ' .. z)
+  end
+end
+rec('chains ' .. n .. ', a padeye twice ' .. tostring(dup))
+local written = 0
+for name, o in pairs(STATICS) do if name:find('^catcc%-tiedown%-a') and (OBJARG_N[o.id_ .. '/10'] or 0) > 0 then written = written + 1 end end
+rec('lengths written on ' .. written)
+-- (the intermediate pattern's AFT C / FWD IN lines have a points list, no point: named by the ring each was fitted
+-- from, never nil (DCS's Lua 5.1 stops string.format at a nil %s: the panel was switched off, 2026-11-26))
+local faults = {}
+for _, l in ipairs(LOG) do if l:find('tiedowns: nil') or l:find('switched off after an error') or l:find('the tiedowns tool') then faults[#faults + 1] = l end end
+rec('log faults: ' .. table.concat(faults, ' | '))
+press('Report')\nframes(0.25)
+rec('report: ' .. msg())
+press('Take away')\nframes(0.25)
+local left = 0 for name in pairs(STATICS) do if name:find('^catcc%-tiedown%-') then left = left + 1 end end
+rec('taken away: ' .. msg() .. '; standing ' .. left)`, { ui: true, pad: 'return { list = {} }', padModel: padMapSrc });
+    // (four Hornets on the flight deck and its platforms: the player's and three statics; the hangar's and the chock
+    // left out)
+    const all = r.rec.find((l) => l.startsWith('all: '))!;
+    const m = all.match(/^all: tiedowns: all: (\d+) chains on 4 Hornets; (\d) with all of their pattern \(6 initial, 9 intermediate on the elevators\), (\d) short \(Report says which\)\.$/)!;
+    expect(m, all).not.toBeNull();
+    expect(+m[1]).toBeGreaterThanOrEqual(20);
+    // (each chain on a padeye of the map: the platform's Hornet's on elevator 1's (group 2), every other on the
+    // flight deck's (group 1): the user, 2026-11-25, "elevators never get chains? Add these"; the platform's Hornet on
+    // INTERMEDIATE, nine: "make aircraft chained down on elevators use the intermediate tie down setting (9 chains)")
+    const grp = new Map([...padMapSrc.matchAll(/\{ (\d+), (\d+), (-?[\d.]+), (-?[\d.]+), (\d), (\d+) \}/g)].map((q) => [`${(+q[3]).toFixed(3)} ${(+q[4]).toFixed(3)}`, +q[2]]));
+    const groups = r.rec.filter((l) => l.startsWith('chain at ')).map((l) => grp.get(l.slice(9)));
+    expect(groups.every((g) => g === 1 || g === 2)).toBe(true);
+    // (eight of the nine there: its right main gear's forward-inboard chain has no padeye left: the three inboard chains
+    // (the nose's aft and the mains' forward-inboard) reach the same few padeyes under the fuselage)
+    expect(groups.filter((g) => g === 2).length).toBe(8);
+    expect(r.rec).toContain(`chains ${m[1]}, a padeye twice false`);
+    expect(r.rec).toContain(`lengths written on ${m[1]}`);
+    expect(r.rec).toContain('log faults: ');
+    expect(r.rec.find((l) => l.startsWith('report: '))).toMatch(/^report: tiedowns: 4 Hornets, \d+ chains\. (Short: .*|Every one has all of its pattern\.)$/);
+    expect(r.rec.find((l) => l.startsWith('report: '))).not.toContain('Hangar 3');
+    expect(r.rec).toContain(`taken away: tiedowns: ${m[1]} taken away.; standing 0`);
+  });
+
+  // THE PARKED AIRCRAFT CHAINED DOWN BY THEMSELVES (the user, 2026-11-26: "I would like tie downs to be applied once the
+  // aircraft is stationary, both on the elevator (intermediate - 9 chains) and once spotted on the deck (initial - 6
+  // chains)"; crewtest_tiedowns.lua TD.autoTick): no button, the panel not even shown
+  it('tie-downs by themselves: a static Hornet is chained as its chocks go in, from a place asked after that, initial on the deck, intermediate on a platform, no padeye twice; not one whose chocks are out, nor the hangar\'s; its chains go the moment its chocks come out, or when it moves, and come back once it stands again', () => {
+    const r = hook(`${START}local function pose(f, s, deg, up)
+  local h = math.rad(deg)
+  local nf, ns = math.cos(h), math.sin(h)
+  local nx, nz = nf * shipX.x + ns * shipZ.x, nf * shipX.z + ns * shipZ.z
+  return { p = toWorld(f, up, s), x = v(nx, 0, nz), y = shipY, z = v(-nz, 0, nx) }
+end
+local where = {}
+local function put(name, id, f, s, deg, up, chocks)
+  where[name] = { f, s, deg, up }
+  STATICS[name] = { id_ = id, isExist = function() return true end, getName = function() return name end, getTypeName = function() return 'FA-18C_hornet' end,
+    getPosition = function() local w = where[name] return pose(w[1], w[2], w[3], w[4]) end, destroy = function() STATICS[name] = nil end }
+  JETARG[id .. '/23'] = chocks
+end
+put('Stbd bow 5', 61001, 146.642, 10.545, 200.72, 21.975, 0.25)
+put('El 1 1', 61002, 34.204, 32.737, 270.29, 21.975, 0.25)
+put('Sixpack 1', 61003, 28.6, -20.0, 60, 21.975, 0)
+put('Hangar 3', 61004, -40, 0, 90, 10.6, 0.25)
+MISSION.coalition.getStaticObjects = function(side) local out = {} if side == 2 then for _, o in pairs(STATICS) do out[#out + 1] = o end end return out end
+local function chains(id)
+  local n = 0
+  for name in pairs(STATICS) do if name:find('^catcc%-tiedown%-o' .. id .. '%-') then n = n + 1 end end
+  return n
+end
+local function counts() return string.format('bow 5 %d, El 1 1 %d, Sixpack 1 %d, hangar %d', chains(61001), chains(61002), chains(61003), chains(61004)) end
+-- (the panel is built, and its tools tick, once the hook has read the ship: 8 s into the mission)
+frames(8)
+frames(1.5)
+rec('at first: ' .. counts())
+frames(5)
+rec('stood: ' .. counts())
+local pads, dup = {}, false
+for _, l in ipairs(REC) do
+  local x, z = l:match('^static catcc%-tiedown%-o%d+%-%d+ %d+ type CATCC_Tiedown category %S+ linked true to %d+ at (%S+) (%S+) ')
+  if x then
+    if pads[x .. ' ' .. z] then dup = true end
+    pads[x .. ' ' .. z] = true
+  end
+end
+rec('a padeye twice ' .. tostring(dup))
+JETARG['61001/23'] = 0
+frames(0.5)
+rec('bow 5 chocks out: ' .. counts())
+where['El 1 1'][1] = 36.204
+frames(2.5)
+rec('El 1 1 moved: ' .. counts())
+frames(5)
+rec('El 1 1 stands again: ' .. counts())`, { ui: true, pad: 'return { list = {} }', padModel: padMapSrc });
+    const stood = r.rec.find((l) => l.startsWith('stood: '))!.match(/^stood: bow 5 (\d+), El 1 1 (\d+), Sixpack 1 0, hangar 0$/)!;
+    expect(stood, r.rec.find((l) => l.startsWith('stood: '))).not.toBeNull();
+    // (as many of the pattern as the padeyes round its spot allow: TD.choose's own limits; the log says which are not chosen)
+    expect(+stood[1]).toBeGreaterThanOrEqual(3);
+    expect(+stood[1]).toBeLessThanOrEqual(6);
+    expect(+stood[2]).toBeGreaterThanOrEqual(7);
+    expect(+stood[2]).toBeLessThanOrEqual(9);
+    expect(r.rec).toContain('a padeye twice false');
+    expect(r.rec).toContain(`bow 5 chocks out: bow 5 0, El 1 1 ${stood[2]}, Sixpack 1 0, hangar 0`);
+    expect(r.logLines.some((l) => /^tiedowns: auto: El 1 1: \d chain\(s\) taken away \(it moved\)$/.test(l))).toBe(true);
+    expect(r.rec.find((l) => l.startsWith('El 1 1 stands again: '))).toMatch(/^El 1 1 stands again: bow 5 0, El 1 1 [7-9], Sixpack 1 0, hangar 0$/);
+    expect(r.logLines.some((l) => l.startsWith('tiedowns: auto: El 1 1 ') && l.includes(': intermediate, '))).toBe(true);
+    expect(r.logLines.some((l) => l.startsWith('tiedowns: auto: Stbd bow 5 ') && l.includes(': initial, '))).toBe(true);
+    expect(r.logLines).toContain('tiedowns: auto: Stbd bow 5: ' + stood[1] + ' chain(s) taken away (its chocks are out)');
+  });
+
+  // ON A PLATFORM AT THE HANGAR'S LEVEL (the user, 2026-11-26: "The elevator tie downs appear to always spawn at flight
+  // deck level, not at hangar deck level and then translate up with the aircraft"): its chains and chocks are put down
+  // to the platform (native staticpos, the ship's own frame) and go up with it; they stay on through the ride
+  it('tie-downs and chocks on an elevator\'s platform: made at the platform\'s height in the hangar, intermediate, and moved with it as it comes up; not taken off for the ride', () => {
+    const r = hook(`${START}local function pose(f, s, deg, up)
+  local h = math.rad(deg)
+  local nf, ns = math.cos(h), math.sin(h)
+  local nx, nz = nf * shipX.x + ns * shipZ.x, nf * shipX.z + ns * shipZ.z
+  return { p = toWorld(f, up, s), x = v(nx, 0, nz), y = shipY, z = v(-nz, 0, nx) }
+end
+local up = 20.248 - 11.43 + 1.856
+STATICS['El 1 1'] = { id_ = 62001, isExist = function() return true end, getName = function() return 'El 1 1' end, getTypeName = function() return 'FA-18C_hornet' end,
+  getPosition = function() return pose(34.204, 32.737, 270.29, up) end, destroy = function() STATICS['El 1 1'] = nil end }
+JETARG['62001/23'] = 0.25
+NATIVE.shiparg(1, 57, 1)
+MISSION.coalition.getStaticObjects = function(side) local out = {} if side == 2 then for _, o in pairs(STATICS) do out[#out + 1] = o end end return out end
+local function heights(pat)
+  local n, lo, hi = 0, 1e9, -1e9
+  for name, o in pairs(STATICS) do
+    if name:find(pat) then
+      n = n + 1
+      local p = PLACED[o.id_]
+      local y = p and p.up or 20.149
+      lo, hi = math.min(lo, y), math.max(hi, y)
+    end
+  end
+  return string.format('%d at %.3f .. %.3f', n, n > 0 and lo or 0, n > 0 and hi or 0)
+end
+frames(8)
+frames(6)
+rec('down: chains ' .. heights('^catcc%-tiedown%-o62001%-') .. '; chocks ' .. heights('^catcc%-chock%-o62001%-'))
+NATIVE.shiparg(1, 57, 0.5)
+frames(0.25)
+rec('half way: chains ' .. heights('^catcc%-tiedown%-o62001%-') .. '; chocks ' .. heights('^catcc%-chock%-o62001%-'))
+NATIVE.shiparg(1, 57, 0)
+up = 20.248 + 1.856
+frames(3)
+rec('up: chains ' .. heights('^catcc%-tiedown%-o62001%-') .. '; chocks ' .. heights('^catcc%-chock%-o62001%-'))`, { ui: true, demo: true, pad: 'return { list = {} }', padModel: padMapSrc });
+    const down = r.rec.find((l) => l.startsWith('down: '))!;
+    expect(down).toMatch(/^down: chains [7-9] at 8\.818 \.\. 8\.818; chocks 2 at 8\.818 \.\. 8\.818$/);
+    const n = down.match(/chains (\d)/)![1];
+    expect(r.rec).toContain(`half way: chains ${n} at 14.528 .. 14.528; chocks 2 at 14.528 .. 14.528`);
+    expect(r.rec).toContain(`up: chains ${n} at 20.248 .. 20.248; chocks 2 at 20.248 .. 20.248`);
+    expect(r.logLines.some((l) => l.startsWith('tiedowns: auto: El 1 1 ') && l.includes(': intermediate, '))).toBe(true);
+    expect(r.logLines.some((l) => l.includes('chain(s) taken away'))).toBe(false);
+  });
+
+  it("chocks: on their page, the wheel chock model on each main wheel of the player's jet or of the selected aircraft, linked to the ship, bars outboard; its spacing (argument 10) fitted, kept, set for one wheel or both, opened, closed, swept; moved fore / aft and in / out; taken away; gone with the mission", () => {
+    // the jet at spawn spot 5 (10.5 m aft, 34 m to starboard), nose to port: its right is the ship's bow
+    // (placed before the hook has read the ship, 8 s into the mission: the spacing is written once it has)
+    const r = hook(`${START}HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+press('Chocks')\nframes(0.5)
+rec('chock page: ' .. shown('Button'))
+local function status() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and (w.text:find('Wheel: ', 1, true) or w.text:find('^No chocks%.')) then return (w.text:gsub('\\n', ' / ')) end end end
+local function msg() for _, w in ipairs(WIDGETS) do if w.kind == 'Static' and w.visible and w.text:find('^chocks: ') then return w.text end end return '' end
+local function args()
+  local out = {}
+  for _, k in ipairs({ 'nose', 'left', 'right' }) do
+    for name, o in pairs(STATICS) do
+      if name:find('^catcc%-chock%-' .. k .. ' ') then out[#out + 1] = string.format('%s %.4f', k, JETARG[o.id_ .. '/10'] or -1) end
+    end
+  end
+  return table.concat(out, ', ')
+end
+local function standing() local n = 0 for name in pairs(STATICS) do if name:find('^catcc%-chock%-') then n = n + 1 end end return n end
+local function last(k) local l for _, x in ipairs(REC) do if x:find('^static catcc%-chock%-' .. k) then l = x end end return l and l:match(' at (%S+ %S+) ') end
+local function writes() local n = 0 for name, o in pairs(STATICS) do if name:find('^catcc%-chock%-') then n = n + (OBJARG_N[o.id_ .. '/10'] or 0) end end return n end
+rec('status before: ' .. tostring(status()))
+press('Fit')\nframes(0.5)
+rec('fit before: ' .. msg())
+press('Chock my jet')\nframes(0.25)
+rec('too early: ' .. msg() .. '; ' .. args())
+frames(9)
+rec('read: ' .. args())
+-- the Hornet's own chocks out: argument 23 left as it is
+rec(string.format('own out: 23 written %d times', OBJARG_N['16777472/23'] or 0))
+press('Chock my jet')\nframes(0.25)
+rec('placed: ' .. msg())
+rec('status: ' .. status())
+rec('args: ' .. args())
+-- (made fully open, then closed on the tyre: the user, 2026-11-26)
+frames(0.5)
+rec('closing: ' .. args())
+frames(1)
+rec('closed on: ' .. args())
+local w0 = writes()
+frames(2)
+rec('kept: ' .. args() .. '; ' .. (writes() - w0) .. ' writes in 2 s')
+press('Right main')\nframes(0.25)\npress('+1 cm')\npress('+1 mm')\nframes(0.25)
+rec('right +11 mm: ' .. args() .. '; ' .. status())
+press('Both')\nframes(0.25)\npress('Open')\nframes(0.25)
+rec('open: ' .. args())
+press('+5 cm')\nframes(0.25)
+rec('past open: ' .. args())
+press('Closed')\nframes(0.25)
+rec('closed: ' .. args())
+press('Left main')\nframes(0.25)\npress('Fit')\nframes(0.25)
+rec('left fitted: ' .. args())
+press('Both')\nframes(0.25)\npress('Sweep')\nframes(1.5)
+rec('sweep: ' .. args() .. '; ' .. msg() .. '; button ' .. tostring(shown('Button'):match('%[Sweep%]')))
+press('Sweep')\nframes(0.25)
+rec('sweep stopped: ' .. args())
+-- (a chock made anew: its spacing read from the status line: the harness gives a new static the id of one taken away)
+-- fore / aft: the left main's chock alone 11 mm forward; in / out: the right main's 1 cm outboard, then 2 in, 1 out
+press('Left main')\nframes(0.25)\npress('Fwd 1 cm')\npress('Fwd 1 mm')\nframes(0.25)
+rec('moved: ' .. msg() .. '; ' .. last('left') .. '; ' .. status())
+press('Right main')\nframes(0.25)\npress('Outboard 1 cm')\nframes(0.25)
+rec('outboard: ' .. msg() .. '; ' .. last('right'))
+press('Inboard 1 cm')\npress('Inboard 1 cm')\npress('Outboard 1 cm')\nframes(0.25)
+rec('in and out: ' .. last('right') .. '; ' .. status())
+press('Both')\nframes(0.25)
+press('Report')\nframes(0.25)
+press('Take away')\nframes(0.25)
+rec('after take away: ' .. standing() .. ' standing; ' .. msg() .. '; ' .. status())
+-- THE GAME PUTS THE JET'S OWN CHOCKS IN (argument 23: the deck crew, the ground crew): ours go in with them, and come
+-- out with them; in again at 0.5 (the mains' own)
+JETARG['16777472/23'] = 1\nframes(1)
+rec('own in: ' .. standing() .. ' standing; ' .. msg() .. '; 23 now ' .. JETARG['16777472/23'])
+JETARG['16777472/23'] = 0\nframes(1)
+rec('own out: ' .. standing() .. ' standing; ' .. msg())
+JETARG['16777472/23'] = 0.5\nframes(1)
+rec('own in at 0.5: ' .. standing() .. ' standing')
+-- put in by hand while the jet's own are out: they stay when nothing changes, and when the own come out
+JETARG['16777472/23'] = 0\nframes(1)
+press('Chock my jet')\nframes(0.25)\nJETARG['16777472/23'] = 1\nframes(1)\nJETARG['16777472/23'] = 0\nframes(1)
+rec('by hand, own in and out: ' .. standing() .. ' standing')
+press('Take away')\nframes(0.25)
+-- the aircraft selected on the deck page
+press('Deck spots')\nframes(0.5)\npress('Park Hornets')\nframes(1)\npress('Next')\nframes(0.5)
+press('Chocks')\nframes(0.5)\npress('Chock selected')\nframes(0.25)
+rec('selected: ' .. msg())
+HANDLER.onSimulationStop()\nHANDLER.onSimulationStart()\nframes(1)
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Chocks')\nframes(0.5)
+rec('next mission: ' .. status())
+frames(9)\npress('Chock my jet')\nframes(0.25)
+rec('next mission, chocked: ' .. status())`, { ui: true });
+    expect(r.rec.find((l) => l.startsWith('chock page: '))).toBe('chock page: Deck spots | Tow | Crew test menu | Hangar marks | Padeyes | [Chocks] | Flag | Hide | Chock my jet | Chock selected | Take away | '
+      + '[Both] | Left main | Right main | Fit | Open | Closed | -5 cm | -1 cm | -1 mm | +1 mm | +1 cm | +5 cm | Aft 5 cm | Aft 1 cm | Aft 1 mm | Fwd 1 mm | Fwd 1 cm | Fwd 5 cm | '
+      + 'Inboard 1 cm | Outboard 1 cm | Sweep | Report');
+    expect(r.rec).toContain('status before: No chocks.');
+    expect(r.rec).toContain('fit before: chocks: none placed: "Chock my jet" or "Chock selected" first.');
+    // placed before the ship is read: made, the spacing written as soon as it is
+    expect(r.rec).toContain('too early: chocks: 2 on your jet, each fitted to its tyre: Left main 0.291, Right main 0.291. The spacing is not set yet (the ship is not read yet): tried again every half second.; '
+      + 'left -1.0000, right -1.0000');
+    expect(r.rec).toContain('read: left 0.2907, right 0.2907');
+    // the Hornet's own chocks out: argument 23 not written
+    expect(r.rec).toContain('own out: 23 written 0 times');
+    // two CATCC_WheelChock statics linked to the ship, none on the nose: the mains' 2.358 m behind and 1.590 m out (the
+    // user's final adjustments in DCS), each 0.039 m further out (an
+    // 0.292 m tyre on a 0.2135 m span); the bar outboard: the starboard one along the nose (to port: 4.7124), the port
+    // one turned round
+    const made = r.rec.filter((l) => l.startsWith('static catcc-chock-'));
+    expect(made.some((l) => l.startsWith('static catcc-chock-nose'))).toBe(false);
+    expect(made.slice(0, 2).map((l) => l.replace(/^static (\S+) \d+ /, 'static $1 '))).toEqual([
+      'static catcc-chock-left type CATCC_WheelChock category ADEquipment linked true to 77 at -12.129 36.358 angle 1.5708 offset true cargo false',
+      'static catcc-chock-right type CATCC_WheelChock category ADEquipment linked true to 77 at -8.871 36.358 angle 4.7124 offset true cargo false',
+    ]);
+    // each fitted to its tyre (r 0.39 on an axle 0.37 up) and kept: written again every half second, the two of them
+    expect(r.rec).toContain('placed: chocks: 2 on your jet, each fitted to its tyre: Left main 0.291, Right main 0.291.');
+    expect(r.rec).toContain('status: Left main 0.291, Right main 0.291 / Wheel: Both');
+    // (fully open when made (0.36), easing in, then on the tyre: the user, 2026-11-26, "I would prefer if the model
+    // started fully open, and then collapsed down")
+    expect(r.rec.find((l) => l.startsWith('args: '))).toBe('args: left 0.3600, right 0.3600');
+    const closing = Number(r.rec.find((l) => l.startsWith('closing: '))!.match(/left (\d\.\d+)/)![1]);
+    expect(closing).toBeGreaterThan(0.2907);
+    expect(closing).toBeLessThan(0.36);
+    expect(r.rec).toContain('closed on: left 0.2907, right 0.2907');
+    expect(r.rec).toContain('kept: left 0.2907, right 0.2907; 8 writes in 2 s');
+    // one wheel stepped, the other left; open, closed (and no further), the left alone fitted again
+    expect(r.rec).toContain('right +11 mm: left 0.2907, right 0.3017; Left main 0.291, Right main 0.302 (fit 0.291) / Wheel: Right main');
+    expect(r.rec).toContain('open: left 0.3600, right 0.3600');
+    expect(r.rec).toContain('past open: left 0.3600, right 0.3600');
+    expect(r.rec).toContain('closed: left 0.0120, right 0.0120');
+    expect(r.rec).toContain('left fitted: left 0.2907, right 0.0120');
+    // the sweep: a quarter of its 6 s in, every chock half open; stopped, each back to its own spacing
+    expect(r.rec).toContain('sweep: left 0.1860, right 0.1860; chocks: sweeping, closed to open and back every 6 s.; button [Sweep]');
+    expect(r.rec).toContain('sweep stopped: left 0.2907, right 0.0120');
+    // fore / aft: the left main's chock made anew 11 mm nearer the nose (the nose is to port: z less), its spacing kept;
+    // in / out: the right main's 1 cm further to starboard (outboard: the ship's bow here), back and out again
+    expect(r.rec.find((l) => l.startsWith('moved: '))).toBe('moved: chocks: Left main -2.347 m, 1.590 m out (+0.011 fwd), Right main -2.358 m, 1.590 m out.; -12.129 36.347; '
+      + 'Left main 0.291, Right main 0.012 (fit 0.291) / Moved: Left main +0.011 fwd / Wheel: Left main');
+    expect(r.rec).toContain('outboard: chocks: Left main -2.347 m, 1.590 m out (+0.011 fwd), Right main -2.358 m, 1.600 m out (+0.010 out).; -8.861 36.358');
+    expect(r.rec).toContain('in and out: -8.871 36.358; Left main 0.291, Right main 0.012 (fit 0.291) / Moved: Left main +0.011 fwd / Wheel: Right main');
+    expect(r.logLines.find((l) => l.startsWith('chocks: report: '))).toBe("chocks: report: Left main: spacing 0.2907 (fit 0.2907 for r 0.390, axle 0.370 up; +0.0000 from the fit); centre -2.3470 m forward of the jet's position (+0.0110 from -2.3580), 1.5900 m out (+0.0000 from 1.5900); "
+      + "Right main: spacing 0.0120 (fit 0.2907 for r 0.390, axle 0.370 up; -0.2787 from the fit); centre -2.3580 m forward of the jet's position (+0.0000 from -2.3580), 1.5900 m out (+0.0000 from 1.5900)");
+    expect(r.rec).toContain('after take away: 0 standing; chocks: taken away.; No chocks.');
+    // the game's own chocks in: ours in; out: ours out; in again at the mains' 0.5; ones put by hand stay
+    // (the jet's own hidden: argument 23 written 0.25, below the mains' 0.5 and the nose's 1; how often the jet wrote it
+    // again is logged: here the test's own 0.5 is the one write)
+    expect(r.rec).toContain('own in: 2 standing; chocks: 2 on your jet, each fitted to its tyre: Left main 0.291, Right main 0.291.; 23 now 0.25');
+    expect(r.logLines.find((l) => l.startsWith("chocks: the Hornet's own chocks on your jet"))).toMatch(/^chocks: the Hornet's own chocks on your jet \(object 16777472\): argument 23 written 0\.25 every frame while they are in; the jet wrote it again in 1 of \d+ frames \(now and then\)$/);
+    expect(r.rec).toContain("own out: 0 standing; chocks: taken away with your jet's own.");
+    expect(r.rec).toContain('own in at 0.5: 2 standing');
+    expect(r.rec).toContain('by hand, own in and out: 2 standing');
+    expect(r.logLines).toContain("chocks: your jet's own chocks came out (argument 23 0.00): ours taken away");
+    // the selected aircraft (this harness's one deck spot: 10.5 m aft, 34 m to starboard, nose to the bow): its right main
+    // chock 2.358 m behind it and 1.629 m to its right, turned with it
+    expect(r.rec).toContain('selected: chocks: 2 on the Hornet of spot 5 "spot 5", each fitted to its tyre: Left main 0.291, Right main 0.291.');
+    expect(made.find((l) => l.startsWith('static catcc-chock-right') && l.includes(' at -12.858 35.629 angle 0.0000 '))).toBeDefined();
+    // the first write of each chock's argument is logged
+    expect(r.logLines.filter((l) => /^chocks: \S+ main \(object \d+\): argument 10 = [\d.]+ written/.test(l)).length).toBeGreaterThanOrEqual(2);
+    // the moves kept into the next mission
+    expect(r.rec).toContain('next mission: No chocks.');
+    expect(r.rec).toContain('next mission, chocked: Left main 0.291, Right main 0.291 / Moved: Left main +0.011 fwd / Wheel: Both');
+  });
+
+  it("chocks: a jet that writes its own chocks' argument every frame: ours written after it every frame (hidden), its state still read; on another type nothing is written", () => {
+    // (the stand-in jet writes argument 23 at the start of every frame, as DCS's may: 1 while JET_CHOCKS)
+    const r = hook(`ONFRAME = function() JETARG['16777472/23'] = JET_CHOCKS and 1 or 0 end\n${START}HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Chocks')\nframes(9)
+JET_CHOCKS = true\nframes(3)
+local function standing() local n = 0 for name in pairs(STATICS) do if name:find('^catcc%-chock%-') then n = n + 1 end end return n end
+rec(string.format('in: 23 after the frame %s; ours standing %d', tostring(JETARG['16777472/23']), standing()))
+JET_CHOCKS = false\nframes(1)
+rec(string.format('out: 23 after the frame %s; ours standing %d', tostring(JETARG['16777472/23']), standing()))`, { ui: true });
+    expect(r.rec).toContain('in: 23 after the frame 0.25; ours standing 2');
+    expect(r.rec).toContain('out: 23 after the frame 0; ours standing 0');
+    expect(r.logLines.find((l) => l.startsWith("chocks: the Hornet's own chocks on your jet"))).toMatch(/^chocks: the Hornet's own chocks on your jet \(object 16777472\): argument 23 written 0\.25 every frame while they are in; the jet wrote it again in (\d+) of \1 frames \(every frame\)$/);
+    const other = hook(`SELF_TYPE = 'F-14B'\n${START}HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Chocks')\nframes(9)
+JETARG['16777472/23'] = 1\nframes(1)
+local n = 0 for name in pairs(STATICS) do if name:find('^catcc%-chock%-') then n = n + 1 end end
+rec(string.format('other type: 23 %s; chocks standing %d', tostring(JETARG['16777472/23']), n))`, { ui: true });
+    expect(other.rec).toContain('other type: 23 1; chocks standing 0');
+  });
+
+  it("chocks: every other Hornet on the deck (a static here): its own chocks hidden (argument 23 written 0.25 when shown), ours put on its main wheels while they are in, from a place asked after they went in; taken away when they come out or it is gone; the demo's 0.25 counts as in", () => {
+    // (the harness's statics given their type and name, and the mission's list of statics, as DCS has them)
+    // (the slot picker's own test of a lookalike's name, from crewtest_slots.lua S.staticOn)
+    const spotSkip = /find\('(%%-look %%d\+\$)'\)/.exec(slotsSrc)![1].replace(/%%/g, '%');
+    const r = hook(`SPOT_SKIP = '${spotSkip}'
+ROUTES_SRC = [[return { { spot = 1, name = "Bow 1", x = 150, z = 8, fx = -1, fz = 0, routes = {} } }]]
+local add0 = MISSION.coalition.addStaticObject
+MISSION.coalition.addStaticObject = function(country, t)
+  local o = add0(country, t)
+  if o then o.getTypeName = function() return t.type end o.getName = function() return t.name end end
+  return o
+end
+MISSION.coalition.getStaticObjects = function(side) local out = {} if side == 2 then for _, o in pairs(STATICS) do out[#out + 1] = o end end return out end
+-- (the native module's answer for an object no longer in the world, as DCS's: the harness's own answers 0 for any id)
+local objarg0 = NATIVE.objarg
+NATIVE.objarg = function(h, id, n, v)
+  if id >= 33554688 and id < 33554688 + 1000 then
+    local there = false
+    for _, o in pairs(STATICS) do if o.id_ == id then there = true end end
+    if not there then return nil, "no object with that id in the world's register" end
+  end
+  return objarg0(h, id, n, v)
+end
+${START}HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Deck spots')\nframes(0.5)\npress('Park Hornets')\nframes(1)\npress('Chocks')\nframes(9)
+local hornet
+for name, o in pairs(STATICS) do if name:find('^catcc%-spot%-') then hornet = o end end
+local hid = hornet.id_
+-- (its main struts as DCS's static Hornets have them: 0.778, read from the demo's; the harness answers 0 unasked)
+JETARG[hid .. '/4'], JETARG[hid .. '/6'] = 0.778, 0.778
+local function ours()
+  local out = {}
+  for name in pairs(STATICS) do if name:find('^catcc%-chock%-o') then out[#out + 1] = name:match('^(%S+)') end end
+  table.sort(out)
+  return table.concat(out, ' ')
+end
+local function lastAt(k) local l for _, x in ipairs(REC) do if x:find('^static catcc%-chock%-o%d+%-' .. k) then l = x end end return l and l:match(' at (%S+ %S+ angle %S+) ') end
+rec('chocks out: ' .. ours() .. '; 23 ' .. tostring(JETARG[hid .. '/23']))
+JETARG[hid .. '/23'] = 1\nframes(1)
+local opened = ''
+for name, o in pairs(STATICS) do if name:find('^catcc%-chock%-o%d+%-left') then opened = string.format('%.4f', JETARG[o.id_ .. '/10'] or -1) end end
+frames(1.5)
+rec('first open: ' .. opened)
+rec('shown: ' .. ours() .. '; 23 now ' .. tostring(JETARG[hid .. '/23']) .. '; right at ' .. tostring(lastAt('right')))
+local c
+for name, o in pairs(STATICS) do if name:find('^catcc%-chock%-o%d+%-left') then c = o end end
+rec('their spacing ' .. string.format('%.4f', JETARG[c.id_ .. '/10'] or -1))
+JETARG[hid .. '/23'] = 0\nframes(1)
+rec('out again: ' .. ours())
+JETARG[hid .. '/23'] = 0.25\nframes(1)
+rec('the demo writes 0.25: ' .. ours() .. '; 23 written ' .. tostring(OBJARG_N[hid .. '/23']) .. ' times')
+-- (its chocks in again, then the aircraft taken away, as the slot picker's spawn takes a parked one away: ours go in
+-- the same frame, not at the next asking, 2 s on)
+JETARG[hid .. '/23'] = 1\nframes(1)
+rec('in again: ' .. ours())
+-- (ANOTHER AIRCRAFT UNDER THE SAME OBJECT ID, 20 m further forward: the deck spotting demo stopped and started again,
+-- its statics made anew with the ids the last ones had (the user's run of 2026-11-26: the chocks of the run before were
+-- left on empty deck spots): ours taken away and put where it now stands, at the next asking)
+local gp0 = hornet.getPosition
+hornet.getPosition = function() local p = gp0() p.p = v(p.p.x + 20 * shipX.x, p.p.y, p.p.z + 20 * shipX.z) return p end
+frames(2.5)
+rec('same id, elsewhere: ' .. ours() .. '; right at ' .. tostring(lastAt('right')))
+-- (IN THE HANGAR (the demo's hangar aircraft: 10.567 m above the ship's origin): none of ours, which DCS would stand on
+-- the flight deck over it; back up on the deck: ours again)
+local up0 = STATIC_UP
+STATIC_UP = 10.567
+frames(2.5)
+rec('in the hangar: ' .. ours())
+STATIC_UP = up0
+frames(2.5)
+rec('up again: ' .. ours())
+for name, o in pairs(STATICS) do if o.id_ == hid then o.destroy() end end
+frames(0.25)
+rec('the aircraft gone: ' .. ours())
+-- A LOOKALIKE (the demo's, while a player goes into the spot's slot): ours on it, NAMED AS LOOKALIKES ARE, which the
+-- slot picker's spot check (crewtest_slots.lua S.staticOn) passes over; every other static on the spot it does not
+rec('look: ' .. net.dostring_in('mission', 'return CATCC_CR.marker("catcc-demo-a1-look", "CATCC_HornetLookF", 100, 8, 0, nil, "CVN-72")'))
+local lid
+for name, o in pairs(STATICS) do if name:find('^catcc%-demo%-a1%-look') then lid = o.id_ end end
+JETARG[lid .. '/23'] = 0.25\nframes(3)
+rec('lookalike: ' .. ours())
+local passed, counted = 0, 0
+for name in pairs(STATICS) do
+  if name:find('^catcc%-chock%-o') then
+    if name:find(SPOT_SKIP) then passed = passed + 1 else counted = counted + 1 end
+  end
+end
+rec(string.format('the slot picker passes over %d, counts %d', passed, counted))`, { ui: true });
+    const id = r.rec.find((l) => l.startsWith('shown: '))!.match(/catcc-chock-o(\d+)-left/)![1];
+    expect(r.rec).toContain('chocks out: ; 23 nil');
+    // its own chocks shown (1): written 0.25; ours on its main wheels, each from its strut and the aircraft's height (Bow 1:
+    // 150 m forward, 8 m to starboard, nose aft, its origin 1.826 m above the deck as the player's; struts 0.778, where
+    // the player's were 0.90: the hub 1.3 cm further forward and 9.5 cm lower: the axle 0.275 m up, the tyre deeper in the
+    // deck: spacing 0.353 (the player's 0.291); the right main's 2.345 m behind it, 1.629 m to its right, to port)
+    expect(r.rec).toContain(`shown: catcc-chock-o${id}-left catcc-chock-o${id}-right; 23 now 0.25; right at 152.345 6.371 angle 3.1416`);
+    expect(r.rec).toContain('their spacing 0.3534');
+    expect(Number(r.rec.find((l) => l.startsWith('first open: '))!.slice(12))).toBeGreaterThan(0.3534);
+    expect(r.logLines.find((l) => l.startsWith(`chocks: catcc-spot-`))).toMatch(/^chocks: catcc-spot-\S+ \d+ \(object \d+\), 21\.975 m above the ship's origin: Left main strut 0\.778, axle 0\.275 m up, \+0\.013 m fwd, spacing 0\.3534; Right main strut 0\.778, axle 0\.275 m up, \+0\.013 m fwd, spacing 0\.3534$/);
+    expect(r.rec).toContain('out again: ');
+    // the demo's own "in" (0.25): ours in, nothing more written on it (the one write: when it was shown)
+    expect(r.rec.find((l) => l.startsWith("the demo writes"))).toBe(`the demo writes 0.25: catcc-chock-o${id}-left catcc-chock-o${id}-right; 23 written 1 times`);
+    expect(r.rec).toContain(`in again: catcc-chock-o${id}-left catcc-chock-o${id}-right`);
+    expect(r.rec).toContain(`same id, elsewhere: catcc-chock-o${id}-left catcc-chock-o${id}-right; right at 172.345 6.371 angle 3.1416`);
+    expect(r.rec).toContain('in the hangar: ');
+    expect(r.rec).toContain(`up again: catcc-chock-o${id}-left catcc-chock-o${id}-right`);
+    expect(r.rec).toContain('the aircraft gone: ');
+    expect(r.rec.find((l) => l.startsWith('lookalike: '))).toMatch(/^lookalike: catcc-chock-o\d+-left-look catcc-chock-o\d+-right-look$/);
+    expect(r.rec).toContain('the slot picker passes over 2, counts 0');
+    expect(r.logLines).toContain('chocks: ours on 1 other Hornet(s) (their own hidden)');
+    // A SPECTATOR (no aircraft of the player's: the hook's mission-start list of the people never comes, and with it the
+    // ship's handle every argument is read through): the people are looked for by the chock tool's first read
+    const spec = hook(`PLAYER = false
+ROUTES_SRC = [[return { { spot = 1, name = "Bow 1", x = 150, z = 8, fx = -1, fz = 0, routes = {} } }]]
+local add0 = MISSION.coalition.addStaticObject
+MISSION.coalition.addStaticObject = function(country, t)
+  local o = add0(country, t)
+  if o then o.getTypeName = function() return t.type end o.getName = function() return t.name end end
+  return o
+end
+MISSION.coalition.getStaticObjects = function(side) local out = {} if side == 2 then for _, o in pairs(STATICS) do out[#out + 1] = o end end return out end
+${START}HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+-- (a static Hornet made by the mission script on the carrier by name, as the demo's are: nothing of the hook's looks for
+-- the people on the way)
+rec('made: ' .. net.dostring_in('mission', 'return CATCC_CR.marker("catcc-demo-a1", "FA-18C_hornet", 150, 8, 3.14159, "Planes", "CVN-72")'))
+local hid
+for name, o in pairs(STATICS) do if name:find('^catcc%-demo%-a1') then hid = o.id_ end end
+JETARG[hid .. '/23'] = 1\nframes(2)
+local n = 0
+for name in pairs(STATICS) do if name:find('^catcc%-chock%-o') then n = n + 1 end end
+rec(string.format('spectator: ours %d; 23 now %s', n, tostring(JETARG[hid .. '/23'])))`, { ui: true });
+    expect(spec.rec).toContain('spectator: ours 2; 23 now 0.25');
+    expect(spec.logLines.some((l) => l.startsWith('scan (for the chocks: no aircraft of yours)'))).toBe(true);
   });
 
   it('the in-game panel: built at the first frame, shown by its hot key; a click in the world locks on the aircraft under the cursor, the buttons move it; the tow page; the F10 menu as buttons', () => {
@@ -2448,11 +3297,14 @@ press('< Back')\nframes(0.5)\npress('< Back')\nframes(0.5)
 rec('back: ' .. shown('Button'):sub(1, 110))
 HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
 rec('hidden again: ' .. state() .. '; buttons "' .. shown('Button') .. '"')
--- (LAlt+C with the panel put away is DCS's alone: the panel takes no cursor)
+-- (LAlt+C with the panel put away: no cursor for the put-away window, but counted, as DCS's own cursor toggles: shown
+-- again, the panel has the mouse, in step with DCS's cursor)
 HOTKEYS['Alt+c']()\nframes(1)
 rec('alt c while hidden: cursor ' .. tostring(W.cursor))
 -- "Hide" on the panel does the same (at the next frame, not inside the button's own click), and the key brings it back, alive
-HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Hide')
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
+rec('shown after alt c while hidden: cursor ' .. tostring(W.cursor))
+press('Hide')
 rec('inside the click on Hide: shown ' .. tostring(panelShown()))
 frames(0.5)
 rec('after Hide: shown ' .. tostring(panelShown()) .. '; ' .. state())
@@ -2460,7 +3312,7 @@ HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Deck spots')\nframes(0.5)\npress(
 rec('back after Hide: shown ' .. tostring(panelShown()) .. ' ' .. (shown('Button'):match('%[1 m%]') and 'its buttons work' or 'DEAD'))
 HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
 -- the mission ends with the panel up, its mouse taken and an aircraft marked: all of it is put away, and its keys are dead
-HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\nHOTKEYS['Alt+c']()\npress('Deck spots')\nframes(0.5)
+HOTKEYS['Ctrl+Shift+F10']()\nframes(1)\npress('Deck spots')\nframes(0.5)
 rec('before the end: shown ' .. tostring(panelShown()) .. ' cursor ' .. tostring(W.cursor))
 HANDLER.onSimulationStop()
 rec('mission over: shown ' .. tostring(panelShown()) .. '; ' .. state() .. '; mark ' .. mark.b[3] .. ' x ' .. mark.b[4])
@@ -2471,7 +3323,7 @@ HANDLER.onSimulationStart()\nframes(1)
 rec('next mission: shown ' .. tostring(panelShown()))
 HOTKEYS['Ctrl+Shift+F10']()\nframes(1)
 rec('shown in the next mission: ' .. tostring(panelShown()) .. '; ' .. shown('Button'):sub(1, 40))
--- from the radio menu: put away, and shown again WITH the mouse
+-- from the radio menu: put away, and shown again; the mouse as DCS's cursor is (off: the mission's start)
 click("CATCC panel: show / hide")\nframes(1)
 rec('menu item: shown ' .. tostring(panelShown()))
 click("CATCC panel: show / hide")\nframes(1)
@@ -2497,12 +3349,12 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     // with a see-through skin, 10 x 10, nothing in it shown; shown, its own skin and size where it stood. The mark the
     // same: always there, one pixel in the corner with nothing to mark
     expect(r.rec).toContain('put away: visible true, hidden skin true, 10 x 10, cursor false; buttons ""; mark true 1 x 1');
-    expect(r.rec).toContain('shown: visible true, hidden skin false, 700 x 620, cursor false at 60 120');
+    expect(r.rec).toContain('shown: visible true, hidden skin false, 760 x 620, cursor false at 60 120');
     expect(r.rec).toContain('made invisible: 0 times');
-    expect(r.logLines.some((l) => /^panel: shown \(the window says: visible true, at 60 \/ 120, 700 x 620\)$/.test(l))).toBe(true);
+    expect(r.logLines.some((l) => /^panel: shown \(the window says: visible true, at 60 \/ 120, 760 x 620\)$/.test(l))).toBe(true);
     expect(r.logLines.some((l) => /^panel: hidden \(the window says: visible true, at 60 \/ 120, 10 x 10\)$/.test(l))).toBe(true);
     // shown: the deck page's buttons, the chosen steps in [ ]
-    expect(r.rec.find((l) => l.startsWith('deck page: '))).toBe('deck page: [Deck spots] | Tow | Crew test menu | Hangar marks | Flag | Hide | Park Hornets | Take away | Wings | Click picks: ON | Previous | Next | 1 m | [10 cm] | 1 cm | '
+    expect(r.rec.find((l) => l.startsWith('deck page: '))).toBe('deck page: [Deck spots] | Tow | Crew test menu | Hangar marks | Padeyes | Chocks | Flag | Hide | Park Hornets | Take away | Wings | Click picks: ON | Previous | Next | 1 m | [10 cm] | 1 cm | '
       + 'Forward | Left | Aft | Right | 5 deg | [1 deg] | 0.1 deg | Turn left | Turn right | Add where I look | Remove | Back to built-in | Save (Ctrl+Shift+S) | Start over | FOV: H');
     // "Next" three times: spot 1, spot 2, spot 3; the mark is on the screen where each of the first two stands
     const nexts = r.rec.filter((l) => l.startsWith('next: '));
@@ -2531,7 +3383,7 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     // THE TOW PAGE: the four catapults, the deck's areas (one group here: four spots), its spots (the one the selected
     // aircraft stands on, and the others that are taken, say so), hold / unhook / report. A click in the world selects
     // there as on the deck page; the buttons give "tow|cat|N|lock" and "tow|spot|n|lock"
-    expect(r.rec.find((l) => l.startsWith('tow page: '))).toBe('tow page: Deck spots | [Tow] | Crew test menu | Hangar marks | Flag | Hide | Cat 1 | Cat 2 | Cat 3 | Cat 4 | [Bow, Six, El 2 a] | Bow 1 | Bow 2  - taken | Six 1  - taken | El 2 a  - taken | Hold / go on | Unhook now | Report | Deck spotting demo: start / stop | Demo: report | Save view | Saved view | Slot picker | Hide drivers | Hide tow bars | Hide tractors | Hide hangar aircraft | Hide deck aircraft | Hide each in turn');
+    expect(r.rec.find((l) => l.startsWith('tow page: '))).toBe('tow page: Deck spots | [Tow] | Crew test menu | Hangar marks | Padeyes | Chocks | Flag | Hide | Cat 1 | Cat 2 | Cat 3 | Cat 4 | [Bow, Six, El 2 a] | Bow 1 | Bow 2  - taken | Six 1  - taken | El 2 a  - taken | Hold / go on | Unhook now | Report | Deck spotting demo: start / stop | Demo: report | Save view | Saved view | Slot picker | Hide drivers | Hide tow bars | Hide tractors | Hide hangar aircraft | Hide deck aircraft | Hide each in turn');
     expect(r.rec.find((l) => l.startsWith('tow status: '))).toBe('tow status: Selected: the Hornet of spot 1 "Bow 1". Choose where the tractor takes it. (Your own jet: Crew test menu > Tow.)');
     expect(r.rec.find((l) => l.startsWith('tow status after a click: '))).toBe('tow status after a click: Selected: the Hornet of spot 2 "Bow 2". Choose where the tractor takes it. (Your own jet: Crew test menu > Tow.)');
     expect(r.rec).toContain('tow mark: true');
@@ -2539,10 +3391,10 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     // (these four spots come without the taxi network: the tow itself is refused, by the hook)
     expect(r.says.some((l) => l.startsWith('the taxi network is missing'))).toBe(true);
     // the other page: the F10 menu's top level as buttons; a submenu opens in place, "< Back" goes up; a leaf runs its command
-    expect(r.rec.find((l) => l.startsWith('menu page: '))).toMatch(/^menu page: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Flag \| Hide \| List people on my ship \| .*\| Our crew {2}> \| Plane captain {2}> \| Catapult crews {2}> \| Tow {2}> \| Stop the demo/);
+    expect(r.rec.find((l) => l.startsWith('menu page: '))).toMatch(/^menu page: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Padeyes \| Chocks \| Flag \| Hide \| List people on my ship \| .*\| Our crew {2}> \| Plane captain {2}> \| Catapult crews {2}> \| Tow {2}> \| Stop the demo/);
     expect(r.rec.find((l) => l.startsWith('tow menu: '))).toMatch(/\| < Back \| Tow me to a catapult {2}> \| Tow me to a parking spot {2}> \| Tow me into the hangar \(tractor, bar, driver\) \| Tow the locked deck aircraft {2}> \| Hold \/ go on \| Unhook \(the bar goes back on the tractor\) \| Messages on screen: hide \/ show \(for filming\) \| Report \| Driver seat {2}> \| Axle finder {2}>$/);
     expect(r.logLines).toContain('menu: axle|report');
-    expect(r.rec.find((l) => l.startsWith('back: '))).toMatch(/^back: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Flag \| Hide \| List people on my ship/);
+    expect(r.rec.find((l) => l.startsWith('back: '))).toMatch(/^back: Deck spots \| Tow \| \[Crew test menu\] \| Hangar marks \| Padeyes \| Chocks \| Flag \| Hide \| List people on my ship/);
     // ONE PRESS, ONE ACTION (2026-11-16: in DCS each press showed the panel and hid it again in the same instant): the
     // key's function called twice at once shows it (once, at the next frame: nothing inside the call); called on and on
     // while the key is held, nothing more; a second press, a second later, hides it
@@ -2556,21 +3408,25 @@ rec('made invisible: ' .. tostring(SET_INVISIBLE or 0) .. ' times')`, { ui: true
     expect(r.rec).toContain('inside the click on Hide: shown true');
     expect(r.rec).toContain('after Hide: shown false; visible true, hidden skin true, 10 x 10, cursor false');
     expect(r.rec).toContain('back after Hide: shown true its buttons work');
-    // the radio menu's "CATCC panel: show / hide" does the same without a key, and hands the panel the mouse at once
+    // the radio menu's "CATCC panel: show / hide" does the same without a key; it no longer hands the panel the mouse
+    // (the user, 2026-11-24: shown so, the panel's mouse and DCS's own cursor were out of step: "when I open the UI and
+    // press Alt C to enter cursor mode, I can no longer press any buttons")
     expect(r.rec).toContain('menu item: shown false');
-    expect(r.rec).toContain('menu item again: shown true cursor true');
+    expect(r.rec).toContain('menu item again: shown true cursor false');
     expect(r.logLines).toContain('panel: shown from the F10 menu');
     // THE MOUSE IS LAlt+C (the user, 2026-11-18: "get rid of the Ctrl Shift M shortcut and just let me use the built in
     // Alt C function"; then: "I can't interact with the UI after bringing it up ... and pressing Alt C": a window
     // that has no cursor of its own is not given the mouse): with the panel shown, LAlt+C gives the panel the mouse (a
-    // cursor), LAlt+C again gives it back to the camera; the window's title says which. Put away, the panel leaves
-    // LAlt+C alone. No Ctrl+Shift+M, no "Look" button
+    // cursor), LAlt+C again gives it back to the camera; the window's title says which. Put away, the panel takes no
+    // cursor, but counts the key (DCS's own cursor toggles with it): shown again, it has the mouse. No Ctrl+Shift+M, no
+    // "Look" button
     expect(r.rec).toContain('title: CATCC crew test - mouse: camera (LAlt+C: cursor)');
     expect(r.rec).toContain('old mouse key: false');
     expect(r.rec).toContain('alt c, inside the call: cursor false');
     expect(r.rec).toContain('alt c: cursor true; CATCC crew test - mouse: PANEL (LAlt+C: look around)');
     expect(r.rec).toContain('alt c again: cursor false; CATCC crew test - mouse: camera (LAlt+C: cursor)');
     expect(r.rec).toContain('alt c while hidden: cursor false');
+    expect(r.rec).toContain('shown after alt c while hidden: cursor true');
     // the mission ends: the panel and its mark are gone, and its keys do nothing in DCS's menus; in the
     // next mission it is there again, put away
     expect(r.rec).toContain('before the end: shown true cursor true');
@@ -3085,9 +3941,10 @@ click("${AX} > Show / hide the marker axle")\nframes(1)`);
 TELE_WORKS = false\nsetJet(120, 0, 1, 0)\nclick("Our crew > Put me square on the nearest spot (teleport)")\nframes(24)
 setJet(-160, 70, 1, 0)\nclick("Our crew > Put me square on the nearest spot (teleport)")\nframes(2)`);
     const tp = r.rec.filter((l) => l.startsWith('teleport '));
-    // (the deck as respotted in DCS: from 150 / 9.5 the nearest spot is Stbd bow 5, 146.64 / 10.55, its nose 200.7 degrees)
-    expect(tp[0]).toMatch(/^teleport 10\d id 16777472 to 146\.64 10\.5[45] up 22\.00 nose -0\.94 -0\.35 right 0\.35 -0\.94$/);
-    expect(r.says).toContain('teleport: you are being put on Stbd bow 5 (spot 2, 3.5 m away), facing the way a jet spawned there faces.');
+    // (the deck as respotted in DCS, and moved for the tie-down chains on 2026-11-25 (deck-spots-tiedown-moves.csv):
+    // from 150 / 9.5 the nearest spot is Stbd bow 5, 146.89 / 10.54, its nose 194.7 degrees)
+    expect(tp[0]).toMatch(/^teleport 10\d id 16777472 to 146\.89 10\.5[45] up 22\.00 nose -0\.97 -0\.25 right 0\.25 -0\.97$/);
+    expect(r.says).toContain('teleport: you are being put on Stbd bow 5 (spot 2, 3.3 m away), facing the way a jet spawned there faces.');
     expect(r.says).toContain("teleport to Stbd bow 5 (the ATC's teleport): you are now 0.0 m from the spot and 0 degrees off its heading: on it.");
     expect(tp.length).toBe(2);
     // The ATC's teleport left the jet where it was (as on 2026-11-15): the aircraft's own ForcePosition is tried, to the
@@ -4000,7 +4857,7 @@ for name, o in pairs(STATICS) do
     local below = PLACED[o.id_] and PLACED[o.id_].up < 12
     if below then low = low + 1 end
     if JETARG[o.id_ .. '/8'] == 1 then wings = wings + 1 end
-    if JETARG[o.id_ .. '/23'] == 1 then chocks = chocks + 1 end
+    if (JETARG[o.id_ .. '/23'] or 0) > 0 then chocks = chocks + 1 end
     if JETARG[o.id_ .. '/24'] == 1 then
       covers = covers + 1
       if below then coversLow = coversLow + 1 end
@@ -4521,10 +5378,11 @@ rec('left ' .. n)`, { demo: true, ui: true });
       // the picker over DCS's own slot screen (that screen cannot be put away from a hook of Saved Games): up while the
       // host has no slot, with the deck's picture; each aircraft on the flight deck drawn as PriFly draws it (a folded-wing
       // Hornet, green when it can be taken, its board number over it in the same colour; spot 1's, facing aft (reported
-      // 193.9 deg from the bow to starboard: PriFly's 166 deg CCW, picture 33 of 72)), a slot with no aircraft there its
+      // 191.9 deg from the bow to starboard, as moved for the tie-down chains on 2026-11-25: PriFly's 168 deg CCW)), a
+      // slot with no aircraft there its
       // nothing (only an aircraft CATCC has spotted is ever drawn: the user, 2026-11-21: DCS's spawn point "should never
       // appear"); Close keeps it shut until his slot changes
-      expect(rec.find((l) => l.startsWith('picker over DCS: '))).toMatch(/^picker over DCS: shown true, cursor true, deck picture catcc_deck\.png; 16 board numbers, 16 aircraft pictures; spot 1 \(\d+\): mine, catcc_jet_mine\.png at 166 about 42,42; Hornet 2 \(102\): none$/);
+      expect(rec.find((l) => l.startsWith('picker over DCS: '))).toMatch(/^picker over DCS: shown true, cursor true, deck picture catcc_deck\.png; 16 board numbers, 16 aircraft pictures; spot 1 \(\d+\): mine, catcc_jet_mine\.png at 168 about 42,42; Hornet 2 \(102\): none$/);
       // (the user, 2026-11-21: Spawn faded and not pressable unless the aircraft chosen is the player's to take; his
       // outlined in magenta (green only once its pilot has a green jet); the status one line, the demo's counts on the tab
       // row)
@@ -4532,7 +5390,7 @@ rec('left ' .. n)`, { demo: true, ui: true });
       expect(rec).toContain('a grey one chosen: Spawn tplPrimaryOff disabled');
       expect(rec).toContain('Spawn pressed anyway: did nothing true');
       expect(rec).toContain('Hornet 1 chosen: Spawn tplPrimary');
-      expect(rec).toContain("spot 1's heading in the report: 193.9");
+      expect(rec).toContain("spot 1's heading in the report: 191.9");
       expect(rec).toContain('closed: shown false (the host still has no slot)');
       expect(rec).toContain('Bob asks for Hornet 2: false (2: CATCC: Hornet 2: not spotted yet: its aircraft is in the hangar)');
       expect(rec).toContain('Bob asks for Hornet 1: nil');
@@ -4544,10 +5402,10 @@ rec('left ' .. n)`, { demo: true, ui: true });
       // lookalike Hornet (deck equipment) stands linked in its place with the slot's livery; its wings folded, chocks
       // in, covers off and board number written as the static's (744: 0.7 0.4 0.4); taken away with the static's
       // return when the player leaves, and once an aircraft is on the spot (S.lookTick)
-      const bobLook = rec.findIndex((l) => /^static catcc-demo-a1-look \d+ type CATCC_HornetLookF category ADEquipment linked true to 77 at 162\.390 9\.330 angle 3\.3839 offset true cargo false livery KING - LineJet - 744$/.test(l));
+      const bobLook = rec.findIndex((l) => /^static catcc-demo-a1-look \d+ type CATCC_HornetLookF category ADEquipment linked true to 77 at 162\.640 9\.330 angle 3\.3490 offset true cargo false livery KING - LineJet - 744$/.test(l));
       expect(bobLook).toBeGreaterThan(0);
       expect(bobLook).toBeLessThan(rec.indexOf('Bob in Hornet 1: statics on spot 1: 0, state manned, held for Bob'));
-      expect(rec).toContain('Bob in: lookalikes on spot 1: 1; wings 1, chocks 1, covers 0, board 0.7 0.4 0.4');
+      expect(rec).toContain('Bob in: lookalikes on spot 1: 1; wings 1, chocks 0.25, covers 0, board 0.7 0.4 0.4');
       // (the kind with liveries of its own: the looks run of 2026-11-24, "Only the 2nd one had the correct livery"; and
       // a parked static's pose copied, read a few arguments a frame: "Both also had no landing gear extended")
       expect(rec).toContain("pose read: a parked static's pose read from 744 (VFA-44, flight 1, for Stbd bow 6): arguments 0 to 40, 6 not 0 to be copied: 0=1.000 1=0.400 3=1.000 4=0.350 5=1.000 6=0.350");

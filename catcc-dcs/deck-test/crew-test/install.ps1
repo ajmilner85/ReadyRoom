@@ -11,6 +11,14 @@
 #   Scripts\CATCC\crewtest_routes.lua        taxi routes from PriFly's taxi network (made by crew-test\routes.gen.ts)
 #   Scripts\CATCC\crewtest_ui.lua, .dlg     the in-game panel (Ctrl+Shift+F10 in a mission): the deck spotting tool
 #                                            with click-to-lock, and the F10 menu's items as buttons
+#   Scripts\CATCC\crewtest_ui_dots.dlg,      the panel's "Padeyes" page: the padeyes as dots to click and move, the
+#     crewtest_padeye_tool.lua,              tool that keeps them (the user's changes: Logs\catcc-padeyes.lua) and the
+#     crewtest_padeyes.lua                   padeyes of the deck drawing (made by deck-test\padeyes\padeyes.py),
+#     crewtest_padeyes_model.lua             and those of DCS's own carrier model (deck-test\padeyes\vodostoki.py)
+#     crewtest_tiedowns.lua,                 the tie-down chains on the player's jet (the Padeyes page), and the
+#     crewtest_hornet_tiedowns.lua           F/A-18C's tie-down points they fasten to (measured in DCS)
+#   Scripts\CATCC\crewtest_chocks.lua        the panel's "Chocks" page: the wheel chock model (the mod's CATCC_WheelChock)
+#                                            on a jet's wheels, its spacing fitted, stepped and swept
 #   Scripts\CATCC\crewtest_flag.lua          the panel's "Flag" page: a folded flag (the mod's CATCC_Flag) on the
 #                                            glareshield of the player's jet or of selected aircraft
 #   Scripts\CATCC\crewtest_demo.lua          the deck spotting demo (Ctrl+Shift+F9 in a mission, or F10 > CATCC demo)
@@ -122,6 +130,13 @@ $files = @(
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui.lua'; to = Join-Path $scriptsDst 'crewtest_ui.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui.dlg'; to = Join-Path $scriptsDst 'crewtest_ui.dlg' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui_mark.dlg'; to = Join-Path $scriptsDst 'crewtest_ui_mark.dlg' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_ui_dots.dlg'; to = Join-Path $scriptsDst 'crewtest_ui_dots.dlg' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_padeye_tool.lua'; to = Join-Path $scriptsDst 'crewtest_padeye_tool.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_padeyes.lua'; to = Join-Path $scriptsDst 'crewtest_padeyes.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_padeyes_model.lua'; to = Join-Path $scriptsDst 'crewtest_padeyes_model.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_tiedowns.lua'; to = Join-Path $scriptsDst 'crewtest_tiedowns.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_hornet_tiedowns.lua'; to = Join-Path $scriptsDst 'crewtest_hornet_tiedowns.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_chocks.lua'; to = Join-Path $scriptsDst 'crewtest_chocks.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_flag.lua'; to = Join-Path $scriptsDst 'crewtest_flag.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_demo.lua'; to = Join-Path $scriptsDst 'crewtest_demo.lua' },
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\crewtest_worker.lua'; to = Join-Path $scriptsDst 'crewtest_worker.lua' },

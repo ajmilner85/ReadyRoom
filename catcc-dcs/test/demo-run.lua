@@ -442,7 +442,7 @@ rec('board numbers on ' .. #boards .. ' aircraft: ' .. table.concat(boards, ' ')
 local nOut, chocked, covered, bars = 0, 0, 0, 0
 for _ in pairs(chocksOut) do nOut = nOut + 1 end
 for _, a in ipairs(planes) do
-  if JETARG[a.id .. '/23'] == 1 then chocked = chocked + 1 end
+  if (JETARG[a.id .. '/23'] or 0) > 0 then chocked = chocked + 1 end
   if JETARG[a.id .. '/24'] == 1 then covered = covered + 1 end
 end
 for name in pairs(STATICS) do if name:find('^catcc%-demo%-a%d+%-bar') then bars = bars + 1 end end

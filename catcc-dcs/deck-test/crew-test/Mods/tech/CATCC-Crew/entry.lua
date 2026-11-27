@@ -27,11 +27,11 @@ declare_plugin('CATCC-Crew', {
 
 mount_vfs_animations_path(current_mod_path .. '/animations')
 mount_vfs_model_path(current_mod_path .. '/models')
--- the tow bar's model and textures (crew-test/model/towbar.py writes them)
+-- the tow bar's and the wheel chock's models and textures (crew-test/model/towbar.py, wheel_chock.py write them)
 mount_vfs_model_path(current_mod_path .. '/Shapes')
 mount_vfs_texture_path(current_mod_path .. '/Shapes/textures')
 
--- Static object types of our own (the axle finder's markers, the tow bar), each drawn with a model of our own
+-- Static object types of our own (the axle finder's markers, the tow bar, the wheel chock), each drawn with a model of our own
 -- in Shapes/: declared in Database/db_catcc_crew.lua, the way the CATCC chock and route line mods do it.
 -- (DCS runs a mod's entry.lua without pcall and the other protected calls, and with _ as its translation
 -- function: a test runs this file with only what a mod's entry gets.)

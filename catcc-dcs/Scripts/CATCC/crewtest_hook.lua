@@ -4328,6 +4328,41 @@ function Tow.Aux.platform(ctx, k)
   return (okc and type(v) == 'number') and v or nil
 end
 
+-- THE PLATFORM UNDER A PLACE (the panel's tie-downs and chocks of an aircraft on an elevator: the user, 2026-11-26: "The
+-- elevator tie downs appear to always spawn at flight deck level, not at hangar deck level and then translate up with the
+-- aircraft"): x, z in the ship's frame within 0.5 m of an elevator's platform (the hangar plan's boxes,
+-- crewtest_hangar.lua): the height of the platform's surface above the ship's origin now (its `top` less how far its
+-- model argument has it down, by the plan's `keys`), and the elevator's number; else nil
+function Tow.Aux.platformAt(x, z)
+  if Tow.Aux.plan == nil then
+    local f = loadfile(writedir .. 'Scripts/CATCC/crewtest_hangar.lua')
+    local ok, H = pcall(function() return f and f() end)
+    Tow.Aux.plan = (ok and type(H) == 'table' and type(H.elevators) == 'table' and type(H.keys) == 'table') and H or false
+  end
+  local H = Tow.Aux.plan
+  if not H then return nil end
+  for k, e in pairs(H.elevators) do
+    local z0, z1 = math.min(e.z[1], e.z[2]), math.max(e.z[1], e.z[2])
+    if x >= e.x[1] - 0.5 and x <= e.x[2] + 0.5 and z >= z0 - 0.5 and z <= z1 + 0.5 then
+      local h = shipHandle()
+      if not (h and native and native.shiparg and ELEV_DOOR.plat[k]) then return nil end
+      local okc, f = pcall(native.shiparg, h, ELEV_DOOR.plat[k])
+      if not (okc and type(f) == 'number') then return nil end
+      f = math.max(0, math.min(1, f))
+      local keys, down = H.keys, H.keys[#H.keys][2]
+      for i = 2, #keys do
+        if f <= keys[i][1] then
+          local a, b = keys[i - 1], keys[i]
+          down = a[2] + (b[2] - a[2]) * (f - a[1]) / math.max(1e-9, b[1] - a[1])
+          break
+        end
+      end
+      return e.top - down, k
+    end
+  end
+  return nil
+end
+
 -- what the 'arrived' phase says: how near the place the jet was left
 function Tow.arrivedText(w)
   local g = w.dest
@@ -7789,7 +7824,37 @@ end
   local f, lerr = loadfile(writedir .. 'Scripts/CATCC/crewtest_ui.lua')
   if not f then return info('in-game panel: Scripts/CATCC/crewtest_ui.lua not loaded (' .. tostring(lerr) .. '): the F10 menu only') end
   local ok, ui, why = pcall(f, { run = run, log = logLine, deck = Tow.Deck, ctx = function(t) return Tow.Deck.ctx(t) end, dostring = dostring, split = split, writedir = writedir, now = now,
-    towSpots = function() return Tow.Fd.menu() end, marks = Tow.Marks, view = Tow.View, hide = Tow.Hide })
+    towSpots = function() return Tow.Fd.menu() end, marks = Tow.Marks, view = Tow.View, hide = Tow.Hide,
+    -- (the chocks page, crewtest_chocks.lua: a static's model argument set, and where the player's jet is)
+    objarg = function(id, n, v)
+      if not (native and native.objarg) then return nil, 'the native module has no objarg (run crew-test\\install.ps1 with DCS closed)' end
+      local h = shipHandle()
+      -- (nobody listed yet, and no aircraft of the player's to wait for: a spectator, whose mission-start list never
+      -- comes (the user, 2026-11-25: "every aircraft spawned had NO chocks at all ... I was only a spectator"): look
+      -- now, every 5 s at most)
+      if not h and native.scan and now() - (Tow.chockScanAt or -1e9) >= 5 and not getCtx() then
+        Tow.chockScanAt = now()
+        doScan(nil, 'for the chocks: no aircraft of yours', false)
+        h = shipHandle()
+      end
+      if not h then return nil, 'the ship is not read yet' end
+      return native.objarg(h, id, n, v)
+    end,
+    jet = function() return getCtx() end,
+    -- (a static linked to the ship put at any height in the ship's own frame: DCS makes it on the flight deck; and the
+    -- height of an elevator's platform under a place: Tow.Aux.platformAt. The tie-downs and chocks of an aircraft on a
+    -- platform, at the hangar's level and riding up with it)
+    staticpos = function(id, x, y, z, fx, fz)
+      if not (native and native.staticpos) then return nil, 'the native module has no staticpos' end
+      return native.staticpos(id, unpack(Tow.pose(Tow.OWN, x, y, z, fx, fz)))
+    end,
+    platformAt = function(x, z) return Tow.Aux.platformAt(x, z) end,
+    -- (the player's aircraft's object id and its type: the Hornet's own chocks are hidden on an F/A-18C only)
+    jetId = function()
+      local id = (Export and Export.LoGetPlayerPlaneId) and select(2, pcall(Export.LoGetPlayerPlaneId)) or nil
+      local sd = (Export and Export.LoGetSelfData) and select(2, pcall(Export.LoGetSelfData)) or nil
+      return id, type(sd) == 'table' and sd.Name or nil
+    end })
   if ok and type(ui) == 'table' then
     CATCC_UI = ui
     info('in-game panel loaded: Ctrl+Shift+F10 in a mission')

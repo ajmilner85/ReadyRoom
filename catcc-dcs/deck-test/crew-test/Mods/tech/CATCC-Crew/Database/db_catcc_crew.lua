@@ -11,6 +11,9 @@
 --   CATCC_Towbar                    the tow bar (crew-test/model/towbar.py, our own .edm writer)
 --   CATCC_AxleProbe                 a rod written by our own .edm writer: the axle finder makes it once, out of
 --                                   sight, to say in the log whether DCS takes such a model as a static
+--   CATCC_WheelChock                the Navy's universal wheel chock (crew-test/model/wheel_chock.py, our own .edm
+--                                   writer): placed with its origin on the deck under a wheel's axle, its model
+--                                   argument 10 = each block's distance from there in metres (0.012 to 0.36)
 --   CATCC_Tiedown                   the Navy's TD-1A aircraft tiedown (crew-test/model/tiedown.py, our own .edm writer):
 --                                   placed with its origin on a padeye (the chain's hook), headed level towards the
 --                                   aircraft's tiedown fitting (the tensioner's hook); argument 10 = the length to the
@@ -50,6 +53,7 @@ end
 deck_static('CATCC_AxleEnd', _('CATCC axle end plate (test)'), 'CATCC_AxleEnd')
 deck_static('CATCC_Towbar', _('CATCC tow bar (test)'), 'CATCC_Towbar')
 deck_static('CATCC_AxleProbe', _('CATCC axle probe (test)'), 'CATCC_AxleProbe')
+deck_static('CATCC_WheelChock', _('CATCC wheel chock'), 'CATCC_WheelChock')
 deck_static('CATCC_Tiedown', _('CATCC tiedown'), 'CATCC_Tiedown')
 -- CATCC_Flag: a folded US flag for a jet's glareshield (crew-test/model/flag.py, our own .edm writer): its origin under
 -- the middle of its long edge, x along that edge; at arguments 0 the user's pose on a Hornet (2.68 m over the deck, pitch

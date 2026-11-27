@@ -960,8 +960,11 @@ function S.refresh()
   local occ = it and it.slot and S.occupant(it.slot.id)
   local h = it and it.slot and S.hold[it.slot.id]
   if it then
-    local who = it.slot and string.format('%s (%s, spot %s)', it.slot.name, it.slot.type, tostring(it.slot.spot)) or ('aircraft ' .. it.text)
-    text = who .. ': ' .. (it.ok and 'ready: Spawn takes it.' or tostring(it.why) .. '.')
+    -- (the spot by its name on the spotting plan, as PriFly labels it: "Point 3", not the mission's "Spot 13-1"; a
+    -- spot the plan does not know: the slot's own name)
+    local sp = it.slot and S.spotPos[tonumber(it.slot.spot)]
+    local who = it.slot and tostring(sp and sp.name or it.slot.name) or ('aircraft ' .. it.text)
+    text = it.ok and who or (who .. ': ' .. tostring(it.why) .. '.')
     if occ then text = text .. ' In it: ' .. tostring(pinfo(occ, 'name')) .. '.' end
     if h then text = text .. ' Reserved for ' .. tostring(h.name) .. '.' end
   else
@@ -1562,9 +1565,10 @@ function S.staticOn(carrier, sp, r)
     local p, X, Z, R = s:getPosition(), %.3f, %.3f, %.2f
     for _, side in pairs(coalition.side) do
       for _, o in ipairs(coalition.getStaticObjects(side) or {}) do
-        -- (not the lookalike: "<key>-look <n>", it stands in for the static on the spot)
+        -- (not the lookalike; nor the tie-down chains, crewtest_tiedowns.lua: the user, 2026-11-25, "I don't want chains to
+        -- block spawning. I want players to spawn into aircraft that are chocked and chained")
         -- (nor a flag on a glareshield, crewtest_flag.lua: it stands 4.4 m forward of its aircraft, on the spot)
-        if o:isExist() and not tostring(o:getName()):find('%%-look %%d+$')
+        if o:isExist() and not tostring(o:getName()):find('%%-look %%d+$') and not tostring(o:getName()):find('^catcc%%-tiedown%%-')
           and not tostring(o:getName()):find('^catcc%%-flag%%-') then
           local q = o:getPoint()
           local dx, dy, dz = q.x - p.p.x, q.y - p.p.y, q.z - p.p.z

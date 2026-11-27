@@ -195,10 +195,13 @@ local SOLO = 1.4
 -- one argument: 442, 31 or 32. Taken as hundreds, tens, units, a digit d as d / 10 (the usual way of DCS models: NOT
 -- SEEN IN DCS YET). DCS gives a static a number of its own when it is made; ours is written over it, and again in turn
 -- with the wings.
+-- (chocksIn: chocks in is 0.25, not 1: the Hornet's own chocks hidden (the model shows the mains' from 0.5, the nose's at
+-- 1), our wheel chock model put on its main wheels instead by the panel's chock tool, which reads this value:
+-- crewtest_chocks.lua; the user, 2026-11-25: "statics ... still show the built in chocks")
 -- (canopy: argument 38, opened as the jet's own mechanism opens it (FA-18C_hornet.lua: Door0, "to 0.9"): opened when a
 -- brake rider climbs in (Tow.Cockpit, crewtest_cockpit.lua; the user, 2026-11-25: "The canopy should remain open") and
 -- left open)
-local ARG = { chocks = 23, covers = 24, canopy = 38, canopyOpen = 0.9, modex = { 442, 31, 32 } }
+local ARG = { chocks = 23, chocksIn = 0.25, covers = 24, canopy = 38, canopyOpen = 0.9, modex = { 442, 31, 32 } }
 -- where the catapult crews are sent: the port deck edge forward of the landing area ([catapult] = the first of six places)
 local CREW_AWAY = { { 20, -34.5 }, { 27, -35.5 }, { 34, -37.5 }, { 41, -37.5 } }
 
@@ -491,7 +494,7 @@ local function foldWings(a)
       M.foldBad = true
       logLine('demo: the wings could not be folded (' .. tostring(ok and er or res) .. '): they stay as DCS draws them')
     end
-    for _, q in ipairs({ { ARG.chocks, a.chocks }, { ARG.covers, a.covers }, { ARG.canopy, a.canopy, ARG.canopyOpen } }) do
+    for _, q in ipairs({ { ARG.chocks, a.chocks, ARG.chocksIn }, { ARG.covers, a.covers }, { ARG.canopy, a.canopy, ARG.canopyOpen } }) do
       local ok2, res2, er2 = pcall(api.native().objarg, h, a.id, q[1], q[2] and (q[3] or 1) or 0)
       if not (ok2 and res2) and not M.argBad then
         M.argBad = true
