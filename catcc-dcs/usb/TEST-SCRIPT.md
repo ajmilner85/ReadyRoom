@@ -47,5 +47,5 @@ Host = development PC. Client = gaming PC.
 
 ## Afterwards
 
-**18.** Client, DCS closed: double-click **Uninstall CATCC.cmd** (it copies the client's logs onto the stick first).
+**18.** Client, DCS closed: double-click **Uninstall CATCC.cmd** (it copies the client's logs into the stick's **CATCC Logs** folder first).
 **19.** Bring the stick back to the host and say what you saw.

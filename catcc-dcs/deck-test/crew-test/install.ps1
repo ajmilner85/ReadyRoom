@@ -36,6 +36,10 @@
 #                                            handles, the head free to turn) are made at every install by
 #                                            model\rider_pose.py from the same clip (needs python); without them a rider
 #                                            sits in the pilot's own pose
+#   Scripts\Hooks\CATCC-logs-hook.lua,       CATCC's live logs: this PC's dcs.log and catcc-*.log sent to SDOBot while
+#     Scripts\CATCC\catcc_logs.lua,          DCS runs (kept in Supabase: scripts\catcc\catcc-logs.mjs reads them), with
+#     Config\CATCC-logs.lua                  its settings from catcc-dcs\Config\CATCC-logs.lua (private: SDOBot's
+#                                            token; scripts\catcc\catcc-logs-setup.ps1 writes it). Without it: nothing sent
 #   Scripts\CATCC\bin\catcc_crew.dll         the native module (source and self-test: native\)
 #   Scripts\CATCC\bin\catcc_atcprobe.dll     the slot picker's spawn aiming (aim, restore, check): the ATC probe's module,
 #                                            ..\spawn-probe\native (build it with its build.cmd)
@@ -129,8 +133,16 @@ $files = @(
   @{ from = Join-Path $repoDcs 'Scripts\CATCC\catcc_deck.png'; to = Join-Path $scriptsDst 'catcc_deck.png' },
   @{ from = Join-Path $here 'bin\catcc_crew.dll'; to = Join-Path $binDst 'catcc_crew.dll' },
   # (the slot picker's spawn aiming: aim / restore / check, from the ATC probe's module: deck-test\spawn-probe\native)
-  @{ from = Join-Path $here '..\spawn-probe\bin\catcc_atcprobe.dll'; to = Join-Path $binDst 'catcc_atcprobe.dll' }
+  @{ from = Join-Path $here '..\spawn-probe\bin\catcc_atcprobe.dll'; to = Join-Path $binDst 'catcc_atcprobe.dll' },
+  # (CATCC's live logs: this PC's DCS and CATCC logs sent to SDOBot while DCS runs, when Config\CATCC-logs.lua is there)
+  @{ from = Join-Path $repoDcs 'Scripts\Hooks\CATCC-logs-hook.lua'; to = Join-Path $hooksDst 'CATCC-logs-hook.lua' },
+  @{ from = Join-Path $repoDcs 'Scripts\CATCC\catcc_logs.lua'; to = Join-Path $scriptsDst 'catcc_logs.lua' }
 )
+# the live logs' settings (the addresses and SDOBot's token): catcc-dcs\Config\CATCC-logs.lua, private, written by
+# scripts\catcc\catcc-logs-setup.ps1; without it nothing is sent. What they sent is kept in Logs\catcc-logs-sent.lua.
+$logsCfgSrc = Join-Path $repoDcs 'Config\CATCC-logs.lua'
+$logsCfgDst = Join-Path $SavedGames 'Config\CATCC-logs.lua'
+$logsSent = Join-Path $SavedGames 'Logs\catcc-logs-sent.lua'
 
 # The test mod (Mods\tech\CATCC-Crew): an animations path and a models path of our own. Its one clip,
 # animations\typeV\catcc_test_clip.fbx, is a copy under our own name of the F/A-18C pilot figure's salute
@@ -142,6 +154,7 @@ $clipSrc = Join-Path $DcsDir 'CoreMods\aircraft\FA-18C\animations\animations\typ
 if ($Uninstall) {
   if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst; Write-Host "Removed $modDst" }
   foreach ($f in $files) { if (Test-Path $f.to) { Remove-Item $f.to; Write-Host "Removed $($f.to)" } }
+  foreach ($f in $logsCfgDst, $logsSent) { if (Test-Path $f) { Remove-Item $f; Write-Host "Removed $f" } }
   if ((Test-Path $binDst) -and -not (Get-ChildItem $binDst)) { Remove-Item $binDst }
   if ($flags.Contains('demoThread')) { $flags.Remove('demoThread') }
   if ($flags.Contains('driverHead')) { $flags.Remove('driverHead') }
@@ -169,6 +182,15 @@ foreach ($f in $files) {
   New-Item -ItemType Directory -Force (Split-Path $f.to) | Out-Null
   Copy-Item $f.from $f.to -Force
   Write-Host "Installed: $($f.to)"
+}
+if (Test-Path $logsCfgSrc) {
+  New-Item -ItemType Directory -Force (Split-Path $logsCfgDst) | Out-Null
+  Copy-Item $logsCfgSrc $logsCfgDst -Force
+  Write-Host "Installed: $logsCfgDst (live logs: this PC's logs go to SDOBot while DCS runs)"
+} elseif (Test-Path $logsCfgDst) {
+  Write-Host "Live logs: $logsCfgDst kept as it is (no catcc-dcs\Config\CATCC-logs.lua here)"
+} else {
+  Write-Host 'Live logs: off (no catcc-dcs\Config\CATCC-logs.lua: scripts\catcc\catcc-logs-setup.ps1 writes it)'
 }
 if (Test-Path $modDst) { Remove-Item -Recurse -Force $modDst }
 Copy-Item -Recurse $modSrc $modDst

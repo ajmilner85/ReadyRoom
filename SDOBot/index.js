@@ -56,6 +56,7 @@ const settingsRoutes = require('./routes/settings');
 const discordHelpersRoutes = require('./routes/discordHelpers');
 const flightPostsRoutes = require('./routes/flightPosts');
 const eventsRoutes = require('./routes/events');
+const catccLogsRoutes = require('./routes/catccLogs');
 
 const app = express();
 const PORT = process.env.SERVER_PORT || 3001;
@@ -93,6 +94,8 @@ app.use('/api', settingsRoutes);
 app.use('/api', discordHelpersRoutes);
 app.use('/api', flightPostsRoutes);
 app.use('/api', eventsRoutes);
+// CATCC live logs from DCS (POST /api/catcc/logs): off unless CATCC_LOG_TOKEN is set
+app.use('/api', catccLogsRoutes);
 
 // Initialize Discord bot and client connection
 (async function() {

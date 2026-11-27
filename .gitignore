@@ -99,3 +99,5 @@ supabase/.temp/cli-latest
 
 # CATCC hook settings (holds the hook token)
 catcc-dcs/Scripts/CATCC/config.lua
+# CATCC live logs settings (holds SDOBot's CATCC_LOG_TOKEN: scripts/catcc/catcc-logs-setup.ps1)
+catcc-dcs/Config/CATCC-logs.lua
